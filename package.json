@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node server.js",
-    "start:default": "next start",
+    "start": "next start",
+    "start:custom": "node server.js",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
