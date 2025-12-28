@@ -498,15 +498,33 @@ CREATE TABLE IF NOT EXISTS guestbook_settings (
 -- Table guestbook_entries
 CREATE TABLE IF NOT EXISTS guestbook_entries (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
-  username text NOT NULL,
-  message text NOT NULL,
-  rating integer CHECK (rating >= 1 AND rating <= 5),
-  is_approved boolean DEFAULT false,
-  is_featured boolean DEFAULT false,
+  user_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL,
+  order_id uuid REFERENCES orders(id) ON DELETE CASCADE,
+  order_number text,
+  customer_name text NOT NULL,
+  rating int NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  message text NOT NULL CHECK (char_length(message) <= 500),
+  photo_url text,
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
   admin_response text,
+  likes_count int DEFAULT 0,
+  reward_amount numeric(10,2) DEFAULT 0.20,
+  reward_applied boolean DEFAULT false,
+  source text DEFAULT 'manual' CHECK (source IN ('manual', 'facebook')),
+  rgpd_consent boolean NOT NULL DEFAULT false,
   created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
+  approved_at timestamptz
+);
+
+-- Table guestbook_likes
+CREATE TABLE IF NOT EXISTS guestbook_likes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  entry_id uuid REFERENCES guestbook_entries(id) ON DELETE CASCADE NOT NULL,
+  user_id uuid REFERENCES user_profiles(id) ON DELETE CASCADE,
+  session_id text,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(entry_id, user_id),
+  UNIQUE(entry_id, session_id)
 );
 
 -- Table news_categories
@@ -778,6 +796,7 @@ ALTER TABLE customer_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE facebook_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE guestbook_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE guestbook_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE guestbook_likes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE news_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE news_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE seo_metadata ENABLE ROW LEVEL SECURITY;
@@ -817,7 +836,7 @@ CREATE POLICY "Public read live_chat_messages" ON live_chat_messages FOR SELECT 
 CREATE POLICY "Public read live_stream_products" ON live_stream_products FOR SELECT USING (true);
 CREATE POLICY "Public read customer_reviews" ON customer_reviews FOR SELECT USING (is_approved = true);
 CREATE POLICY "Public read facebook_reviews" ON facebook_reviews FOR SELECT USING (true);
-CREATE POLICY "Public read guestbook_entries" ON guestbook_entries FOR SELECT USING (is_approved = true);
+CREATE POLICY "Public read guestbook_entries" ON guestbook_entries FOR SELECT USING (status = 'approved');
 CREATE POLICY "Public read guestbook_settings" ON guestbook_settings FOR SELECT USING (true);
 CREATE POLICY "Public read news_categories" ON news_categories FOR SELECT USING (true);
 CREATE POLICY "Public read news_posts" ON news_posts FOR SELECT USING (is_published = true);
@@ -895,7 +914,12 @@ CREATE POLICY "Users read own reviews" ON customer_reviews FOR SELECT USING (aut
 
 -- guestbook_entries
 CREATE POLICY "Users create guestbook" ON guestbook_entries FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users read own guestbook" ON guestbook_entries FOR SELECT USING (auth.uid() = user_id OR is_approved = true);
+CREATE POLICY "Users read own guestbook" ON guestbook_entries FOR SELECT USING (auth.uid() = user_id OR status = 'approved');
+
+-- guestbook_likes
+CREATE POLICY "Anyone can like" ON guestbook_likes FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anyone read likes" ON guestbook_likes FOR SELECT USING (true);
+CREATE POLICY "Users delete own likes" ON guestbook_likes FOR DELETE USING (auth.uid() = user_id OR session_id IS NOT NULL);
 
 -- diamond_finds
 CREATE POLICY "Users read own diamonds" ON diamond_finds FOR SELECT USING (auth.uid() = user_id);
@@ -983,6 +1007,7 @@ CREATE POLICY "Admins full access customer_reviews" ON customer_reviews FOR ALL 
 CREATE POLICY "Admins full access facebook_reviews" ON facebook_reviews FOR ALL USING (is_admin());
 CREATE POLICY "Admins full access guestbook_settings" ON guestbook_settings FOR ALL USING (is_admin());
 CREATE POLICY "Admins full access guestbook_entries" ON guestbook_entries FOR ALL USING (is_admin());
+CREATE POLICY "Admins full access guestbook_likes" ON guestbook_likes FOR ALL USING (is_admin());
 CREATE POLICY "Admins full access news_categories" ON news_categories FOR ALL USING (is_admin());
 CREATE POLICY "Admins full access news_posts" ON news_posts FOR ALL USING (is_admin());
 CREATE POLICY "Admins full access seo_metadata" ON seo_metadata FOR ALL USING (is_admin());
@@ -1008,6 +1033,11 @@ CREATE POLICY "Admins full access newsletter_subscriptions" ON newsletter_subscr
 -- ============================================
 -- 8. STORAGE POLICIES
 -- ============================================
+
+-- Drop existing storage policies first
+DROP POLICY IF EXISTS "Authenticated users upload order docs" ON storage.objects;
+DROP POLICY IF EXISTS "Users read own order docs" ON storage.objects;
+DROP POLICY IF EXISTS "Service role manages order docs" ON storage.objects;
 
 CREATE POLICY "Authenticated users upload order docs" ON storage.objects FOR INSERT
   TO authenticated WITH CHECK (bucket_id = 'order-documents');
@@ -1047,6 +1077,31 @@ BEGIN
   WHERE id = p_user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to upsert user session
+CREATE OR REPLACE FUNCTION upsert_user_session(
+  p_session_id uuid,
+  p_user_id uuid DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_session_id uuid;
+BEGIN
+  INSERT INTO user_sessions (session_id, user_id, started_at, last_activity_at)
+  VALUES (p_session_id, p_user_id, now(), now())
+  ON CONFLICT (session_id)
+  DO UPDATE SET
+    last_activity_at = now(),
+    user_id = COALESCE(EXCLUDED.user_id, user_sessions.user_id)
+  RETURNING id INTO v_session_id;
+
+  RETURN v_session_id;
+END;
+$$;
 
 -- Function to upsert analytics session
 CREATE OR REPLACE FUNCTION upsert_analytics_session(
@@ -1096,6 +1151,52 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Function to update guestbook likes count
+CREATE OR REPLACE FUNCTION update_guestbook_likes_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE guestbook_entries
+    SET likes_count = likes_count + 1
+    WHERE id = NEW.entry_id;
+    RETURN NEW;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE guestbook_entries
+    SET likes_count = GREATEST(0, likes_count - 1)
+    WHERE id = OLD.entry_id;
+    RETURN OLD;
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger for guestbook likes count
+DROP TRIGGER IF EXISTS trigger_update_likes_count ON guestbook_likes;
+CREATE TRIGGER trigger_update_likes_count
+AFTER INSERT OR DELETE ON guestbook_likes
+FOR EACH ROW
+EXECUTE FUNCTION update_guestbook_likes_count();
+
+-- Function to update total reviews count
+CREATE OR REPLACE FUNCTION update_total_reviews_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'approved' AND (OLD.status IS NULL OR OLD.status != 'approved') THEN
+    UPDATE guestbook_settings
+    SET total_reviews = (SELECT COUNT(*) FROM guestbook_entries WHERE status = 'approved'),
+        updated_at = now();
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger for total reviews count
+DROP TRIGGER IF EXISTS trigger_update_total_reviews ON guestbook_entries;
+CREATE TRIGGER trigger_update_total_reviews
+AFTER UPDATE ON guestbook_entries
+FOR EACH ROW
+EXECUTE FUNCTION update_total_reviews_count();
+
 -- ============================================
 -- 10. INDEXES DE PERFORMANCE
 -- ============================================
@@ -1117,6 +1218,11 @@ CREATE INDEX IF NOT EXISTS idx_news_posts_slug ON news_posts(slug);
 CREATE INDEX IF NOT EXISTS idx_news_posts_category ON news_posts(category_id);
 CREATE INDEX IF NOT EXISTS idx_seo_metadata_entity ON seo_metadata(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_diamond_finds_user_product ON diamond_finds(user_id, product_id);
+CREATE INDEX IF NOT EXISTS idx_guestbook_entries_user_id ON guestbook_entries(user_id);
+CREATE INDEX IF NOT EXISTS idx_guestbook_entries_order_id ON guestbook_entries(order_id);
+CREATE INDEX IF NOT EXISTS idx_guestbook_entries_status ON guestbook_entries(status);
+CREATE INDEX IF NOT EXISTS idx_guestbook_entries_approved_at ON guestbook_entries(approved_at DESC) WHERE status = 'approved';
+CREATE INDEX IF NOT EXISTS idx_guestbook_likes_entry_id ON guestbook_likes(entry_id);
 
 -- ============================================
 -- 11. DONNÉES INITIALES
