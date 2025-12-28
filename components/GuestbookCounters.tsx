@@ -49,21 +49,21 @@ export default function GuestbookCounters() {
   const counters = [
     {
       icon: Gem,
-      value: settings.diamonds_found,
+      value: settings.diamonds_found ?? 0,
       label: "Diamants dénichés",
       gradient: "from-amber-500 to-amber-600",
       bg: "from-amber-50 to-amber-100 dark:from-amber-950/20 dark:to-amber-900/20",
     },
     {
       icon: Heart,
-      value: settings.total_reviews,
+      value: settings.total_reviews ?? 0,
       label: "Mots doux reçus",
       gradient: "from-pink-500 to-pink-600",
       bg: "from-pink-50 to-pink-100 dark:from-pink-950/20 dark:to-pink-900/20",
     },
     {
       icon: Package,
-      value: settings.total_packages,
+      value: settings.total_packages ?? 0,
       label: "Colis chouchoutés",
       gradient: "from-purple-500 to-purple-600",
       bg: "from-purple-50 to-purple-100 dark:from-purple-950/20 dark:to-purple-900/20",
