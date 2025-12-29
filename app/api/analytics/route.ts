@@ -31,15 +31,18 @@ export async function POST(request: NextRequest) {
       case 'track_page_visit': {
         const { path, session_id } = data;
 
+        if (!session_id || !path) {
+          return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        }
+
         const visitData: any = {
+          session_id,
           page_path: path,
           visited_at: new Date().toISOString(),
         };
 
         if (userId) {
           visitData.user_id = userId;
-        } else {
-          visitData.session_id = session_id;
         }
 
         const { error } = await supabaseService
@@ -55,12 +58,15 @@ export async function POST(request: NextRequest) {
       }
 
       case 'upsert_session': {
-        const { session_id, last_activity, device_info, visitor_id } = data;
+        const { session_id, last_activity, device_info } = data;
+
+        if (!session_id) {
+          return NextResponse.json({ error: 'Missing session_id' }, { status: 400 });
+        }
 
         const sessionData: any = {
           session_id,
-          last_activity,
-          visitor_id: visitor_id || null,
+          last_activity_at: last_activity || new Date().toISOString(),
         };
 
         if (userId) {
@@ -81,12 +87,13 @@ export async function POST(request: NextRequest) {
           const { error } = await supabaseService
             .from('user_sessions')
             .update({
-              last_activity,
+              last_activity_at: sessionData.last_activity_at,
               user_id: userId || existingSession.user_id,
             })
             .eq('session_id', session_id);
 
           if (error) {
+            console.error('Error updating session:', error);
             return NextResponse.json({ error: error.message }, { status: 500 });
           }
         } else {
@@ -95,6 +102,7 @@ export async function POST(request: NextRequest) {
             .insert(sessionData);
 
           if (error) {
+            console.error('Error inserting session:', error);
             return NextResponse.json({ error: error.message }, { status: 500 });
           }
         }

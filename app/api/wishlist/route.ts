@@ -25,24 +25,16 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('sessionId');
-    const userId = await getAuthenticatedUserId(request);
 
-    if (!userId && !sessionId) {
+    if (!sessionId) {
       return NextResponse.json({ items: [] });
     }
 
-    const query = supabaseService
+    const { data, error } = await supabaseService
       .from('wishlist_items')
       .select('*')
+      .eq('session_id', sessionId)
       .order('created_at', { ascending: false });
-
-    if (userId) {
-      query.eq('user_id', userId);
-    } else if (sessionId) {
-      query.eq('session_id', sessionId);
-    }
-
-    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching wishlist items:', error);
@@ -58,25 +50,20 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = await getAuthenticatedUserId(request);
     const body = await request.json();
     const { action, ...data } = body;
 
     switch (action) {
       case 'add': {
-        const { product_id, session_id } = data;
+        const { product_slug, product_name, product_image, product_price, session_id } = data;
 
-        const wishlistItem: any = {
-          product_id,
+        const wishlistItem = {
+          session_id,
+          product_slug,
+          product_name,
+          product_image: product_image || null,
+          product_price: product_price || null,
         };
-
-        if (userId) {
-          wishlistItem.user_id = userId;
-          wishlistItem.session_id = null;
-        } else {
-          wishlistItem.session_id = session_id;
-          wishlistItem.user_id = null;
-        }
 
         const { data: item, error } = await supabaseService
           .from('wishlist_items')
@@ -85,6 +72,9 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (error) {
+          if (error.code === '23505') {
+            return NextResponse.json({ error: 'Item already in wishlist' }, { status: 409 });
+          }
           return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
@@ -92,35 +82,13 @@ export async function POST(request: NextRequest) {
       }
 
       case 'remove': {
-        const { product_id } = data;
-
-        const query = supabaseService
-          .from('wishlist_items')
-          .delete()
-          .eq('product_id', product_id);
-
-        if (userId) {
-          query.eq('user_id', userId);
-        } else if (data.session_id) {
-          query.eq('session_id', data.session_id);
-        }
-
-        const { error } = await query;
-
-        if (error) {
-          return NextResponse.json({ error: error.message }, { status: 500 });
-        }
-
-        return NextResponse.json({ success: true });
-      }
-
-      case 'migrate': {
-        const { from_session_id, to_user_id } = data;
+        const { product_slug, session_id } = data;
 
         const { error } = await supabaseService
           .from('wishlist_items')
-          .update({ user_id: to_user_id, session_id: null })
-          .eq('session_id', from_session_id);
+          .delete()
+          .eq('session_id', session_id)
+          .eq('product_slug', product_slug);
 
         if (error) {
           return NextResponse.json({ error: error.message }, { status: 500 });

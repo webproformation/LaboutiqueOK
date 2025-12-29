@@ -83,14 +83,17 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
         },
         body: JSON.stringify({
           action: 'add',
-          product_id: product.id,
+          product_slug: product.slug,
+          product_name: product.name,
+          product_image: product.image?.sourceUrl || null,
+          product_price: product.price || '',
           session_id: sessionId,
         }),
       });
 
       if (!response.ok) {
         const { error } = await response.json();
-        if (error?.includes('duplicate') || error?.includes('23505')) {
+        if (error?.includes('already in wishlist') || response.status === 409) {
           return;
         }
         throw new Error(error);
@@ -117,7 +120,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
         },
         body: JSON.stringify({
           action: 'remove',
-          product_id: productSlug,
+          product_slug: productSlug,
           session_id: sessionId,
         }),
       });
