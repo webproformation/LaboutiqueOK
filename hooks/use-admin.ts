@@ -19,27 +19,36 @@ export function useAdmin() {
       console.log('[useAdmin] User email:', user.email);
 
       try {
+        // Récupérer la session pour avoir accès au JWT complet
         const { data: { session } } = await supabase.auth.getSession();
 
         if (!session) {
+          console.log('[useAdmin] Pas de session');
           setIsAdmin(false);
           setLoading(false);
           return;
         }
 
-        const response = await fetch('/api/admin/get-user-role', {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        });
+        // Vérifier le rôle directement dans le JWT (ne passe pas par PostgREST)
+        const appMetadata = session.user.app_metadata || {};
+        const userMetadata = session.user.user_metadata || {};
 
-        const result = await response.json();
+        console.log('[useAdmin] App metadata:', appMetadata);
+        console.log('[useAdmin] User metadata:', userMetadata);
 
-        console.log('[useAdmin] Query result:', result);
-        console.log('[useAdmin] Is admin?', result.role === 'admin');
+        // Vérifier le rôle dans app_metadata et user_metadata
+        const roleFromAppMeta = appMetadata.role;
+        const roleFromUserMeta = userMetadata.role;
+        const isAdminFromMeta = appMetadata.is_admin === true;
 
-        setIsAdmin(result.role === 'admin');
+        const isAdminUser = roleFromAppMeta === 'admin' || roleFromUserMeta === 'admin' || isAdminFromMeta;
+
+        console.log('[useAdmin] Role from app_metadata:', roleFromAppMeta);
+        console.log('[useAdmin] Role from user_metadata:', roleFromUserMeta);
+        console.log('[useAdmin] is_admin flag:', isAdminFromMeta);
+        console.log('[useAdmin] Final is admin?', isAdminUser);
+
+        setIsAdmin(isAdminUser);
       } catch (error) {
         console.error('[useAdmin] ERROR:', error);
         setIsAdmin(false);

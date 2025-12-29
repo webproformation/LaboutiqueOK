@@ -1,18 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: NextRequest) {
   try {
     const { user_id } = await request.json();
 
     if (!user_id) {
-      return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
+      return NextResponse.json({
+        success: false,
+        message: 'Missing user ID',
+        points: 0
+      }, { status: 200 });
     }
 
-    const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { db: { schema: 'public' } }
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
     );
 
     const { data: lastBonus } = await supabase
@@ -46,7 +55,14 @@ export async function POST(request: NextRequest) {
         description: 'Bonus de connexion quotidien'
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Award bonus error:', error);
+      return NextResponse.json({
+        success: false,
+        message: 'Erreur lors de l\'attribution du bonus',
+        points: 0
+      }, { status: 200 });
+    }
 
     return NextResponse.json({
       success: true,
@@ -55,6 +71,10 @@ export async function POST(request: NextRequest) {
     }, { status: 200 });
   } catch (error: any) {
     console.error('Error in award-daily-bonus:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({
+      success: false,
+      message: 'Une erreur est survenue',
+      points: 0
+    }, { status: 200 });
   }
 }

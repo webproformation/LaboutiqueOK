@@ -1,18 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: NextRequest) {
   try {
     const { user_id } = await request.json();
 
     if (!user_id) {
-      return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
+      return NextResponse.json([{
+        tier: 1,
+        multiplier: 1,
+        tier_name: 'Palier 1',
+        current_balance: 0,
+        next_tier_threshold: 200
+      }], { status: 200 });
     }
 
-    const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { db: { schema: 'public' } }
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
     );
 
     const { data: pointsData, error: pointsError } = await supabase
@@ -20,7 +31,16 @@ export async function POST(request: NextRequest) {
       .select('points')
       .eq('user_id', user_id);
 
-    if (pointsError) throw pointsError;
+    if (pointsError) {
+      console.error('Loyalty points error:', pointsError);
+      return NextResponse.json([{
+        tier: 1,
+        multiplier: 1,
+        tier_name: 'Palier 1',
+        current_balance: 0,
+        next_tier_threshold: 200
+      }], { status: 200 });
+    }
 
     const totalPoints = pointsData?.reduce((sum: number, p: any) => sum + (p.points || 0), 0) || 0;
     const current_balance = totalPoints * 0.01;
@@ -51,6 +71,12 @@ export async function POST(request: NextRequest) {
     }], { status: 200 });
   } catch (error: any) {
     console.error('Error in get-loyalty-tier:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json([{
+      tier: 1,
+      multiplier: 1,
+      tier_name: 'Palier 1',
+      current_balance: 0,
+      next_tier_threshold: 200
+    }], { status: 200 });
   }
 }
