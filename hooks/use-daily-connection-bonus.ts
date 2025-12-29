@@ -15,12 +15,11 @@ export function useDailyConnectionBonus() {
     const checkAndAwardBonus = async () => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/award-daily-bonus`,
+          `/api/loyalty/award-bonus`,
           {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({ user_id: user.id })
           }

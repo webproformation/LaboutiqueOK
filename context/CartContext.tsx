@@ -30,15 +30,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-cart-items?user_id=${user.id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
-          }
-        }
+        `/api/cart/get-items?user_id=${user.id}`
       );
       if (!response.ok) {
-        console.error('Error loading cart from edge function');
+        console.error('Error loading cart from API');
         return [];
       }
 
@@ -81,12 +76,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setIsSyncing(true);
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-cart-items?user_id=${user.id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
-          }
-        }
+        `/api/cart/get-items?user_id=${user.id}`
       );
       if (!response.ok) throw new Error('Failed to fetch existing items');
 
@@ -114,12 +104,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
           if (existingItem) {
             await fetch(
-              `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-cart-items`,
+              `/api/cart/get-items`,
               {
                 method: 'POST',
                 headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+                  'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ action: 'delete', id: existingItem.id })
               }
@@ -156,12 +145,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         if (itemsToUpsert.length > 0) {
           for (const item of itemsToUpsert) {
             await fetch(
-              `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-cart-items`,
+              `/api/cart/get-items`,
               {
                 method: 'POST',
                 headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+                  'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ action: 'add', ...item })
               }

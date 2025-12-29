@@ -53,12 +53,11 @@ export default function EuroLoyaltyProgressBar() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-loyalty-tier`,
+        `/api/loyalty/get-tier`,
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({ user_id: user.id })
         }

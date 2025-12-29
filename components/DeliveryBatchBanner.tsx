@@ -32,12 +32,7 @@ export function DeliveryBatchBanner() {
 
     const fetchActiveBatch = async () => {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-delivery-batches?user_id=${user.id}&status=pending`,
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
-          }
-        }
+        `/api/delivery-batches/get?user_id=${user.id}&status=pending`
       );
       if (response.ok) {
         const data = await response.json();
