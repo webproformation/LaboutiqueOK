@@ -151,7 +151,7 @@ export default function NotificationsPushAdminPage() {
       }
 
       const { data: profile } = await supabase
-        .from("profiles")
+        .from("user_profiles")
         .select("id")
         .eq("id", user?.id)
         .single();

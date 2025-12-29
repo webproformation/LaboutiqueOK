@@ -37,7 +37,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const { data: profiles, error: profilesError } = await supabaseAdmin
-      .from('profiles')
+      .from('user_profiles')
       .select('*');
 
     if (profilesError) {

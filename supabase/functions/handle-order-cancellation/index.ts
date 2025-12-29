@@ -27,7 +27,7 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: profile, error: profileError } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .select('cancelled_orders_count, blocked')
       .eq('id', userId)
       .maybeSingle();
@@ -49,7 +49,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const { error: updateError } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .update(updateData)
       .eq('id', userId);
 

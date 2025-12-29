@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .select('first_name, last_name, avatar_url')
       .eq('id', user.id)
       .maybeSingle();

@@ -125,7 +125,7 @@ export default function TestAPIBypassPage() {
 
                 // Test direct query
                 const { data, error } = await supabase
-                  .from('profiles')
+                  .from('user_profiles')
                   .select('*')
                   .limit(1);
 

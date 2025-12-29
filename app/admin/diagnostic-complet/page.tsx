@@ -98,7 +98,7 @@ export default function DiagnosticComplet() {
     const startTime = Date.now();
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+      const { data, error } = await supabase.from('user_profiles').select('count', { count: 'exact', head: true });
 
       if (error) throw error;
 
@@ -179,7 +179,7 @@ export default function DiagnosticComplet() {
       const supabase = createClient();
 
       const tables = [
-        'profiles',
+        'user_profiles',
         'cart_items',
         'loyalty_points',
         'home_slides',
@@ -275,7 +275,7 @@ export default function DiagnosticComplet() {
       const supabase = createClient();
 
       const testCases = [
-        { table: 'profiles', operation: 'select', shouldWork: true },
+        { table: 'user_profiles', operation: 'select', shouldWork: true },
         { table: 'cart_items', operation: 'select', shouldWork: true },
         { table: 'home_slides', operation: 'select', shouldWork: true },
         { table: 'home_categories', operation: 'select', shouldWork: true },

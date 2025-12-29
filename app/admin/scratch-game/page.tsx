@@ -50,7 +50,7 @@ export default function AdminScratchGame() {
       const userIds = Array.from(new Set(playsData?.map(p => p.user_id) || []));
 
       const { data: profilesData } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('id, first_name, last_name')
         .in('id', userIds);
 

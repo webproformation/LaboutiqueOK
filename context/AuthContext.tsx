@@ -105,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadProfile = async (userId: string) => {
     const { data } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
@@ -237,7 +237,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           wordpressUserId = wpUserResult.userId;
 
           // Update profile with WordPress user ID
-          await supabase.from('profiles').update({
+          await supabase.from('user_profiles').update({
             wordpress_user_id: wordpressUserId,
           }).eq('id', data.user.id);
 
@@ -297,7 +297,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await claimPendingPrize(data.user.id);
 
       const { data: userProfile } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('first_name, last_name, phone')
         .eq('id', data.user.id)
         .maybeSingle();
@@ -340,7 +340,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return { error: new Error('No user logged in') };
 
     const { error } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .update({ ...data, updated_at: new Date().toISOString() })
       .eq('id', user.id);
 

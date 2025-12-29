@@ -49,7 +49,7 @@ export default function GeneralReviewForm() {
 
       if (user) {
         const { data: profile } = await supabase
-          .from('profiles')
+          .from('user_profiles')
           .select('first_name, last_name')
           .eq('id', user.id)
           .maybeSingle();

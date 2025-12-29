@@ -27,7 +27,7 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: profile, error } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .select('blocked, blocked_reason, cancelled_orders_count')
       .eq('id', userId)
       .maybeSingle();

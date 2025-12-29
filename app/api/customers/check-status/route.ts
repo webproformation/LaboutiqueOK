@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     // Query directly from Supabase
     const { data: profile, error } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .select('blocked, blocked_reason, cancelled_orders_count')
       .eq('id', userId)
       .maybeSingle();

@@ -206,7 +206,7 @@ export default function CheckoutPage() {
       // Check customer status directly from Supabase
       try {
         const { data: profile, error: profileError } = await supabase
-          .from('profiles')
+          .from('user_profiles')
           .select('blocked, blocked_reason')
           .eq('id', user.id)
           .maybeSingle();

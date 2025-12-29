@@ -32,7 +32,7 @@ export default function TestPostgrestReloadPage() {
     // Test 1: Profiles table
     await testEndpoint('profiles_table', async () => {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('id')
         .limit(1);
       if (error) throw error;
@@ -108,7 +108,7 @@ export default function TestPostgrestReloadPage() {
     // Test 9: Direct HTTP with anti-cache headers
     await testEndpoint('direct_http_profiles', async () => {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?select=id&limit=1`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/user_profiles?select=id&limit=1`,
         {
           headers: {
             'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

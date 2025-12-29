@@ -23,7 +23,7 @@ export default function AdminDashboard() {
       const [orders, coupons, customers, liveStreams] = await Promise.all([
         supabase.from('orders').select('id', { count: 'exact', head: true }),
         supabase.from('user_coupons').select('id, is_used', { count: 'exact' }),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('user_profiles').select('id', { count: 'exact', head: true }),
         supabase.from('live_streams').select('id, status', { count: 'exact' }),
       ]);
 

@@ -63,7 +63,7 @@ export default function CustomerDetailsPage() {
     setLoading(true);
     try {
       const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('*')
         .eq('id', customerId)
         .maybeSingle();
@@ -98,7 +98,7 @@ export default function CustomerDetailsPage() {
     setActionLoading(true);
     try {
       const { error } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .update({
           blocked: true,
           blocked_reason: 'Bloqué manuellement par un administrateur',
@@ -125,7 +125,7 @@ export default function CustomerDetailsPage() {
     setActionLoading(true);
     try {
       const { error } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .update({
           blocked: false,
           blocked_reason: null,
