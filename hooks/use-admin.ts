@@ -27,17 +27,12 @@ export function useAdmin() {
           return;
         }
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-        const response = await fetch(
-          `${supabaseUrl}/functions/v1/get-user-role`,
-          {
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+        const response = await fetch('/api/admin/get-user-role', {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
         const result = await response.json();
 

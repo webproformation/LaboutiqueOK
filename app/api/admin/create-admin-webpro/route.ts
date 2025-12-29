@@ -6,9 +6,18 @@ export async function POST(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
+    console.log('Supabase URL:', supabaseUrl);
+    console.log('Service Key exists:', !!supabaseServiceKey);
+
     if (!supabaseUrl || !supabaseServiceKey) {
       return NextResponse.json(
-        { error: 'Configuration Supabase manquante' },
+        {
+          error: 'Configuration Supabase manquante',
+          debug: {
+            hasUrl: !!supabaseUrl,
+            hasKey: !!supabaseServiceKey
+          }
+        },
         { status: 500 }
       );
     }
@@ -49,6 +58,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (createError) {
+        console.error('User creation error:', createError);
         return NextResponse.json(
           { error: createError.message },
           { status: 500 }
@@ -58,17 +68,21 @@ export async function POST(request: NextRequest) {
       userId = createData.user.id;
       console.log(`User ${email} created with ID: ${userId}`);
 
-      const { error: profileError } = await supabaseAdmin.rpc('create_user_profile_manually', {
-        p_user_id: userId,
-        p_email: email,
-        p_first_name: firstName || '',
-        p_last_name: lastName || '',
-        p_birth_date: null,
-        p_wordpress_user_id: null
-      });
+      try {
+        const { error: profileError } = await supabaseAdmin.rpc('create_user_profile_manually', {
+          p_user_id: userId,
+          p_email: email,
+          p_first_name: firstName || '',
+          p_last_name: lastName || '',
+          p_birth_date: null,
+          p_wordpress_user_id: null
+        });
 
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+        }
+      } catch (rpcError) {
+        console.error('RPC call failed:', rpcError);
       }
     }
 
