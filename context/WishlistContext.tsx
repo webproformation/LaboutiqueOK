@@ -1,7 +1,6 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase-client';
 import { Product } from '@/types';
 
 interface WishlistItem {
@@ -47,24 +46,21 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     if (!sessionId) return;
 
     try {
-      const { data, error } = await supabase
-        .from('wishlist_items')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('created_at', { ascending: false });
+      const response = await fetch(`/api/wishlist?sessionId=${sessionId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-      if (error) {
-        console.error('Supabase error:', error);
-        console.error('Error message:', error.message);
-        console.error('Error code:', error.code);
-        console.error('Error details:', error.details);
-        throw error;
+      if (!response.ok) {
+        throw new Error('Failed to load wishlist');
       }
 
-      setWishlistItems(data || []);
+      const { items } = await response.json();
+      setWishlistItems(items || []);
     } catch (error) {
       console.error('Error loading wishlist:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
     } finally {
       setLoading(false);
     }
@@ -80,27 +76,29 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     if (!sessionId) return;
 
     try {
-      const { data, error } = await supabase
-        .from('wishlist_items')
-        .insert({
+      const response = await fetch('/api/wishlist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'add',
+          product_id: product.id,
           session_id: sessionId,
-          product_slug: product.slug,
-          product_name: product.name,
-          product_image: product.image?.sourceUrl || null,
-          product_price: product.price || '',
-        })
-        .select()
-        .single();
+        }),
+      });
 
-      if (error) {
-        if (error.code === '23505') {
+      if (!response.ok) {
+        const { error } = await response.json();
+        if (error?.includes('duplicate') || error?.includes('23505')) {
           return;
         }
-        throw error;
+        throw new Error(error);
       }
 
-      if (data) {
-        setWishlistItems(prev => [data, ...prev]);
+      const { item } = await response.json();
+      if (item) {
+        setWishlistItems(prev => [item, ...prev]);
       }
     } catch (error) {
       console.error('Error adding to wishlist:', error);
@@ -112,13 +110,21 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     if (!sessionId) return;
 
     try {
-      const { error } = await supabase
-        .from('wishlist_items')
-        .delete()
-        .eq('session_id', sessionId)
-        .eq('product_slug', productSlug);
+      const response = await fetch('/api/wishlist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'remove',
+          product_id: productSlug,
+          session_id: sessionId,
+        }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Failed to remove from wishlist');
+      }
 
       setWishlistItems(prev => prev.filter(item => item.product_slug !== productSlug));
     } catch (error) {
