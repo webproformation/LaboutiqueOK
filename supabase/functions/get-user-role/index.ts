@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req: Request) => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 200,
@@ -22,7 +23,7 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ role: null }),
+        JSON.stringify({ role: "user" }),
         {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -30,14 +31,19 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
     
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
 
     if (userError || !user) {
       return new Response(
-        JSON.stringify({ role: null }),
+        JSON.stringify({ role: "user" }),
         {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -45,16 +51,14 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data, error } = await supabaseClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    // Utiliser la fonction RPC
+    const { data: roleData, error: roleError } = await supabaseClient
+      .rpc('get_user_role', { p_user_id: user.id });
 
-    if (error) {
-      console.error('Error fetching role:', error);
+    if (roleError) {
+      console.error('Error calling get_user_role:', roleError);
       return new Response(
-        JSON.stringify({ role: null }),
+        JSON.stringify({ role: "user" }),
         {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -63,7 +67,7 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ role: data?.role || null }),
+      JSON.stringify({ role: roleData || "user" }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -71,9 +75,9 @@ Deno.serve(async (req: Request) => {
     );
 
   } catch (error) {
-    console.error('Exception:', error);
+    console.error('Exception in get-user-role:', error);
     return new Response(
-      JSON.stringify({ role: null }),
+      JSON.stringify({ role: "user", error: String(error) }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
