@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader as Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase-client';
 
 export default function CreateAdminWebProPage() {
@@ -62,21 +62,23 @@ export default function CreateAdminWebProPage() {
 
       if (profileError) {
         console.error('Erreur création profil:', profileError);
-        setResult(`Utilisateur créé mais erreur profil: ${profileError.message}`);
       }
 
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .upsert({
-          user_id: data.user.id,
-          role: 'admin'
-        });
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (roleError) {
-        console.error('Erreur rôle admin:', roleError);
-        setResult(`Utilisateur créé mais erreur rôle: ${roleError.message}`);
+      const roleResponse = await fetch('/api/admin/set-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: data.user.id, role: 'admin' })
+      });
+
+      const roleResult = await roleResponse.json();
+
+      if (!roleResponse.ok) {
+        console.error('Erreur rôle admin:', roleResult);
+        setResult(`Utilisateur créé mais erreur rôle: ${roleResult.error}`);
       } else {
-        setResult(`✅ Compte admin créé avec succès!\nEmail: ${email}\nID: ${data.user.id}`);
+        setResult(`✅ Compte admin créé avec succès!\nEmail: ${email}\nID: ${data.user.id}\n\nVous pouvez maintenant vous connecter avec ces identifiants.`);
         toast.success('Compte admin créé avec succès!');
       }
     } catch (err: any) {
