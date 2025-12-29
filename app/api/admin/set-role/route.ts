@@ -29,10 +29,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const { data, error } = await supabase.rpc('set_user_role_direct', {
-      p_user_id: userId,
-      p_role: role
-    });
+    const { error } = await supabase
+      .from('user_roles')
+      .upsert(
+        {
+          user_id: userId,
+          role: role,
+          updated_at: new Date().toISOString()
+        },
+        {
+          onConflict: 'user_id'
+        }
+      );
 
     if (error) {
       console.error('Error setting user role:', error);
