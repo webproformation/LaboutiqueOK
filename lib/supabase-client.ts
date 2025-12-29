@@ -25,6 +25,14 @@ function getSupabaseClient() {
       detectSessionInUrl: true,
       storageKey: 'supabase.auth.token',
     },
+    db: {
+      schema: 'public',
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'supabase-js-web',
+      },
+    },
   });
   return supabaseInstance;
 }

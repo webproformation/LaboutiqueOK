@@ -47,13 +47,6 @@ export default function Home() {
   const [activeGame, setActiveGame] = useState<ActiveGame>(null);
   const [canPlay, setCanPlay] = useState(false);
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random()}`);
-  const [mountKey, setMountKey] = useState(0);
-
-  useEffect(() => {
-    if (pathname === '/') {
-      setMountKey(prev => prev + 1);
-    }
-  }, [pathname]);
 
   useEffect(() => {
     const fetchGameSettings = async () => {
@@ -214,16 +207,16 @@ export default function Home() {
       {showWheelGame && activeGame === 'wheel' && (
         <WheelGame onClose={() => setShowWheelGame(false)} />
       )}
-      <HeroSlider key={`hero-${mountKey}`} />
+      <HeroSlider />
       <HomeCategories />
-      <FeaturedProductsSlider key={`featured-${mountKey}`} />
-      <VideoShowcase key={`video-${mountKey}`} />
-      <WeeklyAmbassador key={`ambassador-${mountKey}`} />
-      <GuestbookSlider key={`guestbook-${mountKey}`} />
-      <GuestbookCounters key={`counters-${mountKey}`} />
-      <LiveStreamsSlider key={`live-${mountKey}`} />
+      <FeaturedProductsSlider />
+      <VideoShowcase />
+      {/* <WeeklyAmbassador /> */}
+      {/* <GuestbookSlider /> */}
+      {/* <GuestbookCounters /> */}
+      {/* <LiveStreamsSlider /> */}
       <CustomerReviewsSlider />
-      <GeneralReviewForm key={`review-form-${mountKey}`} />
+      <GeneralReviewForm />
     </>
   );
 }
