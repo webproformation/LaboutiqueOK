@@ -7,10 +7,12 @@ export async function GET() {
 
   // Extraire les identifiants des clés pour vérifier quelle instance est utilisée
   let urlInstance = 'INCONNU';
-  if (supabaseUrl.includes('ftgclacfleknkqbfbsbs')) {
-    urlInstance = 'ftgclacfleknkqbfbsbs (CORRECT ✅)';
+  if (supabaseUrl.includes('qcqbtmvbvipsxwjlgjvk')) {
+    urlInstance = 'qcqbtmvbvipsxwjlgjvk (PRODUCTION ✅)';
   } else if (supabaseUrl.includes('hondlefoprhtrpxnumyj')) {
     urlInstance = 'hondlefoprhtrpxnumyj (ANCIEN ❌)';
+  } else if (supabaseUrl.includes('ftgclacfleknkqbfbsbs')) {
+    urlInstance = 'ftgclacfleknkqbfbsbs (ANCIEN ❌)';
   }
 
   let anonKeyInstance = 'INCONNU';
@@ -18,9 +20,11 @@ export async function GET() {
     try {
       const anonKeyPayload = JSON.parse(atob(anonKey.split('.')[1]));
       anonKeyInstance = anonKeyPayload.ref;
-      if (anonKeyInstance === 'ftgclacfleknkqbfbsbs') {
-        anonKeyInstance += ' (CORRECT ✅)';
+      if (anonKeyInstance === 'qcqbtmvbvipsxwjlgjvk') {
+        anonKeyInstance += ' (PRODUCTION ✅)';
       } else if (anonKeyInstance === 'hondlefoprhtrpxnumyj') {
+        anonKeyInstance += ' (ANCIEN ❌)';
+      } else if (anonKeyInstance === 'ftgclacfleknkqbfbsbs') {
         anonKeyInstance += ' (ANCIEN ❌)';
       }
     } catch (e) {
@@ -33,9 +37,11 @@ export async function GET() {
     try {
       const serviceKeyPayload = JSON.parse(atob(serviceKey.split('.')[1]));
       serviceKeyInstance = serviceKeyPayload.ref;
-      if (serviceKeyInstance === 'ftgclacfleknkqbfbsbs') {
-        serviceKeyInstance += ' (CORRECT ✅)';
+      if (serviceKeyInstance === 'qcqbtmvbvipsxwjlgjvk') {
+        serviceKeyInstance += ' (PRODUCTION ✅)';
       } else if (serviceKeyInstance === 'hondlefoprhtrpxnumyj') {
+        serviceKeyInstance += ' (ANCIEN ❌)';
+      } else if (serviceKeyInstance === 'ftgclacfleknkqbfbsbs') {
         serviceKeyInstance += ' (ANCIEN ❌)';
       }
     } catch (e) {
@@ -50,23 +56,23 @@ export async function GET() {
       url: {
         value: supabaseUrl,
         instance: urlInstance,
-        isCorrect: supabaseUrl.includes('ftgclacfleknkqbfbsbs')
+        isCorrect: supabaseUrl.includes('qcqbtmvbvipsxwjlgjvk')
       },
       anonKey: {
         defined: anonKey !== 'NON DÉFINI',
         instance: anonKeyInstance,
-        isCorrect: anonKeyInstance.includes('ftgclacfleknkqbfbsbs')
+        isCorrect: anonKeyInstance.includes('qcqbtmvbvipsxwjlgjvk')
       },
       serviceRoleKey: {
         defined: serviceKey !== 'NON DÉFINI',
         instance: serviceKeyInstance,
-        isCorrect: serviceKeyInstance.includes('ftgclacfleknkqbfbsbs')
+        isCorrect: serviceKeyInstance.includes('qcqbtmvbvipsxwjlgjvk')
       }
     },
     verdict: (
-      supabaseUrl.includes('ftgclacfleknkqbfbsbs') &&
-      anonKeyInstance.includes('ftgclacfleknkqbfbsbs') &&
-      serviceKeyInstance.includes('ftgclacfleknkqbfbsbs')
+      supabaseUrl.includes('qcqbtmvbvipsxwjlgjvk') &&
+      anonKeyInstance.includes('qcqbtmvbvipsxwjlgjvk') &&
+      serviceKeyInstance.includes('qcqbtmvbvipsxwjlgjvk')
     ) ? '✅ TOUTES LES VARIABLES SONT CORRECTES' : '❌ CERTAINES VARIABLES SONT INCORRECTES'
   });
 }

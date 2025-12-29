@@ -2,49 +2,49 @@
 
 ## SUPABASE - VALEURS CORRECTES À UTILISER
 
-**IMPORTANT : TOUJOURS utiliser l'instance `ftgclacfleknkqbfbsbs`**
-**JAMAIS utiliser l'ancienne instance `hondlefoprhtrpxnumyj`**
+**IMPORTANT : TOUJOURS utiliser l'instance PRODUCTION `qcqbtmvbvipsxwjlgjvk`**
+**JAMAIS utiliser les anciennes instances `hondlefoprhtrpxnumyj` ou `ftgclacfleknkqbfbsbs`**
 
 ### Valeurs correctes :
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://ftgclacfleknkqbfbsbs.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://qcqbtmvbvipsxwjlgjvk.supabase.co
 
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0Z2NsYWNmbGVrbmtxYmZic2JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMzA3NjUsImV4cCI6MjA4MDYwNjc2NX0.fZ_yi8opM3kQ4T-hCagMebTvM7spx7tIMZvaTBPBSe8
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjcWJ0bXZidmlwc3h3amxnanZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MzIzNjAsImV4cCI6MjA4MjUwODM2MH0.1AkV5xYQC_bqyGf9gd2pTZKNEQ5AKMKAzCaDdLLl5VQ
 
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0Z2NsYWNmbGVrbmtxYmZic2JzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTAzMDc2NSwiZXhwIjoyMDgwNjA2NzY1fQ.rpp3Na0D87yoXCTy5P0rNG4B3-n7LkPVyAh-yheoe6E
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjcWJ0bXZidmlwc3h3amxnanZrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjkzMjM2MCwiZXhwIjoyMDgyNTA4MzYwfQ.mFJHZV-VdueE_okBTqkVh18tRvee94a5Z-k5TM4FQxM
 ```
 
 ### Vérification :
-- La clé ANON se termine par : `...fZ_yi8opM3kQ4T-hCagMebTvM7spx7tIMZvaTBPBSe8`
-- La clé SERVICE_ROLE se termine par : `...rpp3Na0D87yoXCTy5P0rNG4B3-n7LkPVyAh-yheoe6E`
-- L'URL contient : `ftgclacfleknkqbfbsbs` (PAS hondlefoprhtrpxnumyj)
+- L'URL contient : `qcqbtmvbvipsxwjlgjvk` (PAS hondlefoprhtrpxnumyj NI ftgclacfleknkqbfbsbs)
+- La clé ANON se termine par : `...1AkV5xYQC_bqyGf9gd2pTZKNEQ5AKMKAzCaDdLLl5VQ`
+- La clé SERVICE_ROLE se termine par : `...mFJHZV-VdueE_okBTqkVh18tRvee94a5Z-k5TM4FQxM`
 
 ## WORDPRESS APP PASSWORD
 
-**Valeur correcte (SANS ESPACES) :**
+**Valeur correcte (AVEC ESPACES) :**
 ```bash
-WORDPRESS_APP_PASSWORD=rOsq8sOQgLhdoAmESIcbkyyp
+WORDPRESS_APP_PASSWORD=yCDx hT87 dHRd 3icV hoa1 Xjkz
 ```
 
 ## FICHIER .env COMPLET DE RÉFÉRENCE
 
 ```bash
 NEXT_PUBLIC_WORDPRESS_API_URL=https://wp.laboutiquedemorgane.com/graphql
-NEXT_PUBLIC_SUPABASE_URL=https://ftgclacfleknkqbfbsbs.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0Z2NsYWNmbGVrbmtxYmZic2JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUwMzA3NjUsImV4cCI6MjA4MDYwNjc2NX0.fZ_yi8opM3kQ4T-hCagMebTvM7spx7tIMZvaTBPBSe8
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0Z2NsYWNmbGVrbmtxYmZic2JzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTAzMDc2NSwiZXhwIjoyMDgwNjA2NzY1fQ.rpp3Na0D87yoXCTy5P0rNG4B3-n7LkPVyAh-yheoe6E
+NEXT_PUBLIC_SUPABASE_URL=https://qcqbtmvbvipsxwjlgjvk.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjcWJ0bXZidmlwc3h3amxnanZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MzIzNjAsImV4cCI6MjA4MjUwODM2MH0.1AkV5xYQC_bqyGf9gd2pTZKNEQ5AKMKAzCaDdLLl5VQ
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjcWJ0bXZidmlwc3h3amxnanZrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjkzMjM2MCwiZXhwIjoyMDgyNTA4MzYwfQ.mFJHZV-VdueE_okBTqkVh18tRvee94a5Z-k5TM4FQxM
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyCaMpoky_a5DGD5Hs1cA9OBLw2pUkqjTRU
 
 WORDPRESS_URL=https://wp.laboutiquedemorgane.com
-WORDPRESS_USERNAME=webproformation
-WORDPRESS_APP_PASSWORD=rOsq8sOQgLhdoAmESIcbkyyp
+WORDPRESS_USERNAME=webproformationok
+WORDPRESS_APP_PASSWORD=yCDx hT87 dHRd 3icV hoa1 Xjkz
 
-WOOCOMMERCE_CONSUMER_KEY=ck_19989e4e69add196624f44048124440d4c42b772
-WOOCOMMERCE_CONSUMER_SECRET=cs_952fbb489b80ec8f442c9091983af321db700ee3
+WOOCOMMERCE_CONSUMER_KEY=ck_3c19985d8096c60b9da2dfd6d8260ea8b07bf1f6
+WOOCOMMERCE_CONSUMER_SECRET=cs_5e7f68be111b4833b1041dd39c94b55abe9bb9e6
 
-WC_CONSUMER_KEY=ck_19989e4e69add196624f44048124440d4c42b772
-WC_CONSUMER_SECRET=cs_952fbb489b80ec8f442c9091983af321db700ee3
+WC_CONSUMER_KEY=ck_5ff0371d936f1813784920fae82633afad09631f
+WC_CONSUMER_SECRET=cs_d3900e56095e1e4635f0e62132b81ae45c0450bb
 
 PAYPAL_CLIENT_ID=BAACikVdtpOx8gP2eh1n7xQdrCE3SAVWfIQsB17pSzkU5U5LREXOGvtLvKSc2lBnxdZYIN-sR5ZsLAnPxc
 PAYPAL_CLIENT_SECRET=ELjeY6wp47qSK8e74Hwch-ro8fgVcCxVWtIyk2D8croc61LHRwqrdLsuO8-n0xjUO0QVwmrxLXZYtYUw
@@ -63,3 +63,4 @@ NEXT_PUBLIC_ONESIGNAL_APP_ID=rqsjl3cqyegwv2lpyae34ra2v
 ---
 
 **AVANT CHAQUE BUILD OU MODIFICATION, VÉRIFIER QUE CES VALEURS SONT CORRECTES !**
+**PROJET PRODUCTION : qcqbtmvbvipsxwjlgjvk**
