@@ -73,7 +73,6 @@ Deno.serve(async (req: Request) => {
       console.error('Profile creation error:', profileError);
     }
 
-    // Insert admin role directly - Edge Functions bypass PostgREST cache
     const { error: adminRoleError } = await supabaseAdmin
       .from('user_roles')
       .upsert({

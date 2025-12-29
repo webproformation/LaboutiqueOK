@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
@@ -22,64 +22,20 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: "No authorization header" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      },
-      global: {
-        headers: {
-          Authorization: authHeader
-        }
-      }
-    });
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Use raw SQL to bypass PostgREST cache
-    const dbUrl = Deno.env.get("SUPABASE_DB_URL")!;
-    
-    try {
-      const client = new Deno.PostgresClient(dbUrl);
-      await client.connect();
-      
-      const result = await client.queryObject`
-        SELECT role FROM user_roles WHERE user_id = ${user.id}
-      `;
-      
-      await client.end();
-      
-      const role = result.rows.length > 0 ? result.rows[0].role : null;
-      
-      return new Response(
-        JSON.stringify({ role }),
+        JSON.stringify({ role: null }),
         {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
-    } catch (sqlError) {
-      console.error('SQL error getting role:', sqlError);
-      
-      // Fallback: return null role
+    }
+
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
+
+    if (userError || !user) {
       return new Response(
         JSON.stringify({ role: null }),
         {
@@ -89,11 +45,37 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-  } catch (error) {
+    const { data, error } = await supabaseClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching role:', error);
+      return new Response(
+        JSON.stringify({ role: null }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ role: data?.role || null }),
       {
-        status: 500,
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+
+  } catch (error) {
+    console.error('Exception:', error);
+    return new Response(
+      JSON.stringify({ role: null }),
+      {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
