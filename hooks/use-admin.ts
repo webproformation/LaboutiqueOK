@@ -18,19 +18,37 @@ export function useAdmin() {
       console.log('[useAdmin] Checking admin status for user:', user.id);
       console.log('[useAdmin] User email:', user.email);
 
-      const { data, error } = await supabase.rpc('get_user_role_direct', {
-        p_user_id: user.id
-      });
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
 
-      if (error) {
+        if (!session) {
+          setIsAdmin(false);
+          setLoading(false);
+          return;
+        }
+
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+        const response = await fetch(
+          `${supabaseUrl}/functions/v1/get-user-role`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        const result = await response.json();
+
+        console.log('[useAdmin] Query result:', result);
+        console.log('[useAdmin] Is admin?', result.role === 'admin');
+
+        setIsAdmin(result.role === 'admin');
+      } catch (error) {
         console.error('[useAdmin] ERROR:', error);
-        console.error('[useAdmin] Error details:', JSON.stringify(error, null, 2));
+        setIsAdmin(false);
       }
-
-      console.log('[useAdmin] Query result:', { data, error });
-      console.log('[useAdmin] Is admin?', data === 'admin');
-
-      setIsAdmin(data === 'admin');
       setLoading(false);
     };
 

@@ -21,66 +21,37 @@ export default function CreateAdminWebProPage() {
       const firstName = 'Admin';
       const lastName = 'WebPro';
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-          },
-        },
-      });
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-      if (error) {
-        setResult(`Erreur: ${error.message}`);
-        toast.error(error.message);
-        setLoading(false);
-        return;
-      }
-
-      if (!data.user) {
-        setResult('Erreur: Utilisateur non créé');
-        toast.error('Utilisateur non créé');
-        setLoading(false);
-        return;
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      const { error: profileError } = await supabase.rpc(
-        'create_user_profile_manually',
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/create-admin-user`,
         {
-          p_user_id: data.user.id,
-          p_email: email,
-          p_first_name: firstName,
-          p_last_name: lastName,
-          p_birth_date: null,
-          p_wordpress_user_id: null,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            firstName,
+            lastName,
+          }),
         }
       );
 
-      if (profileError) {
-        console.error('Erreur création profil:', profileError);
+      const result = await response.json();
+
+      if (!response.ok) {
+        setResult(`Erreur: ${result.error}`);
+        toast.error(result.error);
+        setLoading(false);
+        return;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const roleResponse = await fetch('/api/admin/set-role', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: data.user.id, role: 'admin' })
-      });
-
-      const roleResult = await roleResponse.json();
-
-      if (!roleResponse.ok) {
-        console.error('Erreur rôle admin:', roleResult);
-        setResult(`Utilisateur créé mais erreur rôle: ${roleResult.error}`);
-      } else {
-        setResult(`✅ Compte admin créé avec succès!\nEmail: ${email}\nID: ${data.user.id}\n\nVous pouvez maintenant vous connecter avec ces identifiants.`);
-        toast.success('Compte admin créé avec succès!');
-      }
+      setResult(`✅ Compte admin créé avec succès!\nEmail: ${email}\nID: ${result.user.id}\n\nVous pouvez maintenant vous connecter avec ces identifiants.`);
+      toast.success('Compte admin créé avec succès!');
     } catch (err: any) {
       setResult(`Exception: ${err.message}`);
       toast.error(err.message);
