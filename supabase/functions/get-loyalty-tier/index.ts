@@ -27,7 +27,6 @@ Deno.serve(async (req: Request) => {
       { db: { schema: 'public' } }
     );
 
-    // Execute raw SQL query directly
     const { data: pointsData, error: pointsError } = await supabase
       .from('loyalty_points')
       .select('points')
@@ -36,11 +35,8 @@ Deno.serve(async (req: Request) => {
     if (pointsError) throw pointsError;
 
     const totalPoints = pointsData?.reduce((sum: number, p: any) => sum + (p.points || 0), 0) || 0;
-
-    // Convert points to euros (1 point = 0.01€)
     const current_balance = totalPoints * 0.01;
 
-    // Determine tier and multiplier
     let tier = 1;
     let multiplier = 1;
     let tier_name = 'Palier 1';

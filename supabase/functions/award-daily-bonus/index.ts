@@ -27,7 +27,6 @@ Deno.serve(async (req: Request) => {
       { db: { schema: 'public' } }
     );
 
-    // Check last bonus date
     const { data: lastBonus } = await supabase
       .from('loyalty_points')
       .select('created_at')
@@ -37,7 +36,6 @@ Deno.serve(async (req: Request) => {
       .limit(1)
       .maybeSingle();
 
-    // Check if already awarded today
     if (lastBonus) {
       const lastBonusDate = new Date(lastBonus.created_at).toDateString();
       const today = new Date().toDateString();
@@ -54,7 +52,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Award bonus
     const { error } = await supabase
       .from('loyalty_points')
       .insert({
