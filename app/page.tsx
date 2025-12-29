@@ -215,8 +215,8 @@ export default function Home() {
       {/* <GuestbookSlider /> */}
       {/* <GuestbookCounters /> */}
       {/* <LiveStreamsSlider /> */}
-      <CustomerReviewsSlider />
-      <GeneralReviewForm />
+      {/* <CustomerReviewsSlider /> */}
+      {/* <GeneralReviewForm /> */}
     </>
   );
 }
