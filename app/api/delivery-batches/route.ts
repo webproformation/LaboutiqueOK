@@ -23,10 +23,10 @@ async function getAuthenticatedUserId(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = await getAuthenticatedUserId(request);
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const action = searchParams.get('action');
+    const userIdParam = searchParams.get('user_id');
 
     if (action === 'active') {
       const { data, error } = await supabaseService
@@ -40,21 +40,27 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      return NextResponse.json({ batches: data || [] });
+      return NextResponse.json(data || []);
+    }
+
+    // Use user_id from query params or auth
+    let userId: string | null | undefined = userIdParam;
+    if (!userId) {
+      userId = await getAuthenticatedUserId(request);
     }
 
     if (!userId) {
-      return NextResponse.json({ batches: [] });
+      return NextResponse.json([]);
     }
 
-    const query = supabaseService
+    let query = supabaseService
       .from('delivery_batches')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (status) {
-      query.eq('status', status);
+      query = query.eq('status', status);
     }
 
     const { data, error } = await query;
@@ -64,7 +70,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ batches: data || [] });
+    return NextResponse.json(data || []);
   } catch (error: any) {
     console.error('Error in delivery-batches GET:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

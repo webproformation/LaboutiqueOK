@@ -14,11 +14,21 @@ export function useDailyConnectionBonus() {
 
     const checkAndAwardBonus = async () => {
       try {
-        const { data, error } = await supabase.rpc('award_daily_connection_bonus', {
-          p_user_id: user.id
-        });
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/award-daily-bonus`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({ user_id: user.id })
+          }
+        );
 
-        if (error) throw error;
+        if (!response.ok) throw new Error('Failed to check daily bonus');
+
+        const data = await response.json();
 
         if (data.success) {
           toast.success(data.message, {

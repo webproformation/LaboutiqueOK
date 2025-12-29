@@ -52,11 +52,21 @@ export default function EuroLoyaltyProgressBar() {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase.rpc('get_loyalty_tier', {
-        p_user_id: user.id
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-loyalty-tier`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({ user_id: user.id })
+        }
+      );
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to fetch tier info');
+
+      const data = await response.json();
 
       if (data && data.length > 0) {
         setTierInfo(data[0]);

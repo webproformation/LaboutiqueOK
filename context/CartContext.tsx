@@ -29,18 +29,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!user?.id) return [];
 
     try {
-      const { data, error } = await supabase
-        .from('cart_items')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        if (error.code !== 'PGRST116') {
-          console.error('Error loading cart from Supabase:', error);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-cart-items?user_id=${user.id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+          }
         }
+      );
+      if (!response.ok) {
+        console.error('Error loading cart from edge function');
         return [];
       }
+
+      const data = await response.json();
 
       if (!data || data.length === 0) {
         return [];
@@ -66,7 +68,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           selectedAttributes: variationData.selectedAttributes || {},
         };
         return cartItem;
-      }).filter((item): item is CartItem => item !== null);
+      }).filter((item: CartItem | null): item is CartItem => item !== null);
     } catch (error) {
       console.error('Error loading cart:', error);
       return [];
@@ -78,41 +80,51 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     setIsSyncing(true);
     try {
-      const { data: existingItems } = await supabase
-        .from('cart_items')
-        .select('product_id, variation_id')
-        .eq('user_id', user.id);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-cart-items?user_id=${user.id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+          }
+        }
+      );
+      if (!response.ok) throw new Error('Failed to fetch existing items');
 
-      const existingKeys = new Set(
-        (existingItems || []).map(item =>
+      const existingItems = await response.json();
+
+      const existingKeys = new Set<string>(
+        (existingItems || []).map((item: any) =>
           `${item.product_id}_${item.variation_id || ''}`
         )
       );
 
-      const currentKeys = new Set(
+      const currentKeys = new Set<string>(
         cartItems.map(item =>
           `${item.id}_${item.variationId || ''}`
         )
       );
 
-      const keysToDelete = Array.from(existingKeys).filter(key => !currentKeys.has(key));
+      const keysToDelete = Array.from(existingKeys).filter((key: string) => !currentKeys.has(key));
 
       if (keysToDelete.length > 0) {
         for (const key of keysToDelete) {
-          const [productId, variationId] = key.split('_');
-          let query = supabase
-            .from('cart_items')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('product_id', productId);
+          const existingItem = existingItems.find((item: any) =>
+            `${item.product_id}_${item.variation_id || ''}` === key
+          );
 
-          if (variationId) {
-            query = query.eq('variation_id', variationId);
-          } else {
-            query = query.is('variation_id', null);
+          if (existingItem) {
+            await fetch(
+              `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-cart-items`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+                },
+                body: JSON.stringify({ action: 'delete', id: existingItem.id })
+              }
+            );
           }
-
-          await query;
         }
       }
 
@@ -142,15 +154,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }).filter(item => item !== null);
 
         if (itemsToUpsert.length > 0) {
-          const { error } = await supabase
-            .from('cart_items')
-            .upsert(itemsToUpsert, {
-              onConflict: 'user_id,product_id,variation_id',
-              ignoreDuplicates: false,
-            });
-
-          if (error) {
-            console.error('Error upserting cart items:', error);
+          for (const item of itemsToUpsert) {
+            await fetch(
+              `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-cart-items`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+                },
+                body: JSON.stringify({ action: 'add', ...item })
+              }
+            );
           }
         }
       }

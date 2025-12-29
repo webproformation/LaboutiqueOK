@@ -31,38 +31,31 @@ export function DeliveryBatchBanner() {
     if (!user) return;
 
     const fetchActiveBatch = async () => {
-      const { data, error } = await supabase
-        .from('delivery_batches')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'pending')
-        .maybeSingle();
-
-      if (!error && data) {
-        setActiveBatch(data);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-delivery-batches?user_id=${user.id}&status=pending`,
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+          }
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.length > 0) {
+          setActiveBatch(data[0]);
+        } else {
+          setActiveBatch(null);
+        }
       }
     };
 
     fetchActiveBatch();
 
-    const subscription = supabase
-      .channel('delivery_batches_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'delivery_batches',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          fetchActiveBatch();
-        }
-      )
-      .subscribe();
+    // Poll for updates every 30 seconds
+    const interval = setInterval(fetchActiveBatch, 30000);
 
     return () => {
-      subscription.unsubscribe();
+      clearInterval(interval);
     };
   }, [user]);
 
