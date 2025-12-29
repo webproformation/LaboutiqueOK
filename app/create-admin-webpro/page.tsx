@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Loader as Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase-client';
 
 export default function CreateAdminWebProPage() {
   const [loading, setLoading] = useState(false);
@@ -21,25 +20,18 @@ export default function CreateAdminWebProPage() {
       const firstName = 'Admin';
       const lastName = 'WebPro';
 
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/create-admin-user`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({
-            email,
-            password,
-            firstName,
-            lastName,
-          }),
-        }
-      );
+      const response = await fetch('/api/admin/create-admin-webpro', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          firstName,
+          lastName,
+        }),
+      });
 
       const result = await response.json();
 
@@ -50,8 +42,8 @@ export default function CreateAdminWebProPage() {
         return;
       }
 
-      setResult(`✅ Compte admin créé avec succès!\nEmail: ${email}\nID: ${result.user.id}\n\nVous pouvez maintenant vous connecter avec ces identifiants.`);
-      toast.success('Compte admin créé avec succès!');
+      setResult(`✅ ${result.message}\nEmail: ${email}\nID: ${result.user.id}\n\nVous pouvez maintenant vous connecter avec ces identifiants.`);
+      toast.success(result.message);
     } catch (err: any) {
       setResult(`Exception: ${err.message}`);
       toast.error(err.message);

@@ -35,7 +35,12 @@ export default function TestAPIBypassPage() {
     }
   };
 
-  const tests = [
+  const tests: Array<{
+    name: string;
+    url: string;
+    description: string;
+    options?: RequestInit;
+  }> = [
     {
       name: 'Profiles Direct Query',
       url: '/api/supabase/users',
@@ -43,16 +48,8 @@ export default function TestAPIBypassPage() {
     },
     {
       name: 'Get User Role Function',
-      url: '/api/admin/set-role',
-      description: 'Test RPC function to get user role',
-      options: {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: '00000000-0000-0000-0000-000000000000',
-          action: 'check'
-        })
-      }
+      url: '/api/admin/get-role?userId=00000000-0000-0000-0000-000000000000',
+      description: 'Test API route to get user role bypassing PostgREST cache'
     },
     {
       name: 'Cart Items',
