@@ -45,11 +45,20 @@ export default function ProfilePictureUpload({
     setUploading(true);
 
     try {
+      const { supabase } = await import('@/lib/supabase-client');
+      const { data: { session } } = await supabase.auth.getSession();
+
       const formData = new FormData();
       formData.append('file', file);
 
+      const headers: HeadersInit = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch('/api/wordpress/upload-media', {
         method: 'POST',
+        headers,
         body: formData,
       });
 
