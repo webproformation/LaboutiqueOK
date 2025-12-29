@@ -18,11 +18,9 @@ export function useAdmin() {
       console.log('[useAdmin] Checking admin status for user:', user.id);
       console.log('[useAdmin] User email:', user.email);
 
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('get_user_role_direct', {
+        p_user_id: user.id
+      });
 
       if (error) {
         console.error('[useAdmin] ERROR:', error);
@@ -30,9 +28,9 @@ export function useAdmin() {
       }
 
       console.log('[useAdmin] Query result:', { data, error });
-      console.log('[useAdmin] Is admin?', data?.role === 'admin');
+      console.log('[useAdmin] Is admin?', data === 'admin');
 
-      setIsAdmin(data?.role === 'admin');
+      setIsAdmin(data === 'admin');
       setLoading(false);
     };
 
