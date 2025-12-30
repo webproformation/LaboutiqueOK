@@ -166,10 +166,12 @@ export async function GET(request: Request) {
     console.log('[Categories API] GET request received');
 
     const url = new URL(request.url);
-    const action = url.searchParams.get('action');
-    const refresh = url.searchParams.get('refresh') === 'true';
+    const searchParams = url.searchParams;
+    const action = searchParams.get('action');
+    const refresh = searchParams.get('refresh') === 'true';
+    const debug = searchParams.get('debug') === 'true';
 
-    console.log('[Categories API] Action:', action, 'Refresh:', refresh);
+    console.log('[Categories API] Action:', action, 'Refresh:', refresh, 'Debug:', debug);
 
     // Vérifier les variables d'environnement
     const wordpressUrl = process.env.WORDPRESS_URL;
@@ -177,8 +179,27 @@ export async function GET(request: Request) {
     const consumerSecret = process.env.WC_CONSUMER_SECRET;
 
     if (!wordpressUrl || !consumerKey || !consumerSecret) {
-      console.error('[Categories API] Missing WooCommerce configuration');
-      // Return empty array instead of error to not break frontend
+      const missing = [];
+      if (!wordpressUrl) missing.push('WORDPRESS_URL');
+      if (!consumerKey) missing.push('WC_CONSUMER_KEY');
+      if (!consumerSecret) missing.push('WC_CONSUMER_SECRET');
+
+      console.error('[Categories API] Missing WooCommerce configuration:', missing.join(', '));
+
+      // Return error details in debug mode
+      if (debug) {
+        return NextResponse.json({
+          error: 'Missing WooCommerce configuration',
+          missing: missing,
+          debug: {
+            wordpressUrl: wordpressUrl || 'NOT SET',
+            hasConsumerKey: !!consumerKey,
+            hasConsumerSecret: !!consumerSecret
+          }
+        }, { status: 500 });
+      }
+
+      // Return empty array to not break frontend
       return NextResponse.json([]);
     }
 
@@ -198,109 +219,72 @@ export async function GET(request: Request) {
       }
     }
 
-    // Contourner PostgREST : toujours synchroniser depuis WooCommerce
-    // Le cache PostgREST est bloqué, donc on force la synchronisation
-    console.log('[Categories API] Forcing sync from WooCommerce (PostgREST cache issue)...');
-
-    let cachedCategories = null;
-    let cacheError = null;
+    // Synchroniser directement depuis WooCommerce à chaque fois
+    // (Le cache PostgREST est bloqué, donc on utilise WooCommerce comme source)
+    console.log('[Categories API] Syncing from WooCommerce...');
 
     try {
       const synced = await syncCategoriesFromWooCommerce();
-      console.log(`[Categories API] Synced ${synced.length} categories from WooCommerce`);
 
-      // Convertir directement les catégories synchronisées
-      cachedCategories = synced;
-    } catch (syncError: any) {
-      console.error('[Categories API] Sync from WooCommerce failed:', syncError);
-      cacheError = syncError;
-    }
+      if (!synced || synced.length === 0) {
+        console.log('[Categories API] No categories found in WooCommerce');
+        const debugInfo = {
+          message: 'No categories found in WooCommerce',
+          wordpressUrl: process.env.WORDPRESS_URL,
+          hasConsumerKey: !!process.env.WC_CONSUMER_KEY,
+          hasConsumerSecret: !!process.env.WC_CONSUMER_SECRET
+        };
+        console.log('[Categories API] Debug info:', debugInfo);
 
-    if (cacheError) {
-      console.error('[Categories API] Cache error:', cacheError);
-      // Try to sync from WooCommerce if cache fails
-      try {
-        const synced = await syncCategoriesFromWooCommerce();
-        if (synced.length > 0) {
-          const categories: Category[] = synced.map((cat: any) => ({
-            id: cat.category_id,
-            name: cat.name,
-            slug: cat.slug,
-            parent: cat.parent,
-            description: cat.description || '',
-            image: cat.image,
-            count: cat.count || 0,
-          }));
-
-          if (action === 'list') {
-            return NextResponse.json(categories);
-          }
-
-          const tree = buildCategoryTree(categories);
-          return NextResponse.json(tree);
+        // Return debug info if debug=true in query
+        if (searchParams.get('debug') === 'true') {
+          return NextResponse.json({ error: 'No categories found', debug: debugInfo });
         }
-      } catch (syncErr) {
-        console.error('[Categories API] Failed to sync after cache error:', syncErr);
-      }
-      // Return empty array as last resort
-      return NextResponse.json([]);
-    }
-
-    console.log(`[Categories API] Found ${cachedCategories?.length || 0} categories in cache`);
-
-    // Si le cache est vide, synchroniser depuis WooCommerce
-    if (!cachedCategories || cachedCategories.length === 0) {
-      console.log('[Categories API] Cache empty, syncing from WooCommerce...');
-      try {
-        const synced = await syncCategoriesFromWooCommerce();
-
-        if (synced.length === 0) {
-          console.log('[Categories API] No categories found in WooCommerce');
-          return NextResponse.json([]);
-        }
-
-        const categories: Category[] = synced.map((cat: any) => ({
-          id: cat.category_id,
-          name: cat.name,
-          slug: cat.slug,
-          parent: cat.parent,
-          description: cat.description || '',
-          image: cat.image,
-          count: cat.count || 0,
-        }));
-
-        if (action === 'list') {
-          return NextResponse.json(categories);
-        }
-
-        const tree = buildCategoryTree(categories);
-        return NextResponse.json(tree);
-      } catch (syncError: any) {
-        console.error('[Categories API] Sync failed:', syncError.message);
-        // Return empty array instead of error to not break frontend
         return NextResponse.json([]);
       }
+
+      console.log(`[Categories API] Successfully synced ${synced.length} categories from WooCommerce`);
+
+      // Convertir les catégories au format attendu
+      const categories: Category[] = synced.map((cat: any) => ({
+        id: cat.category_id,
+        name: cat.name,
+        slug: cat.slug,
+        parent: cat.parent,
+        description: cat.description || '',
+        image: cat.image,
+        count: cat.count || 0,
+      }));
+
+      // Retourner selon l'action demandée
+      if (action === 'list') {
+        return NextResponse.json(categories);
+      }
+
+      const tree = buildCategoryTree(categories);
+      return NextResponse.json(tree);
+
+    } catch (syncError: any) {
+      console.error('[Categories API] Sync from WooCommerce failed:', syncError.message);
+      console.error('[Categories API] Error details:', syncError);
+
+      const errorInfo = {
+        error: syncError.message,
+        stack: syncError.stack,
+        wordpressUrl: process.env.WORDPRESS_URL,
+        hasConsumerKey: !!process.env.WC_CONSUMER_KEY,
+        hasConsumerSecret: !!process.env.WC_CONSUMER_SECRET,
+        timestamp: new Date().toISOString()
+      };
+
+      // Return error details if debug=true in query
+      if (searchParams.get('debug') === 'true') {
+        return NextResponse.json(errorInfo, { status: 500 });
+      }
+
+      // Return empty array to not break frontend
+      return NextResponse.json([]);
     }
-
-    // Utiliser le cache
-    console.log('[Categories API] Using cached categories:', cachedCategories.length);
-
-    const categories: Category[] = cachedCategories.map((cat: any) => ({
-      id: cat.category_id,
-      name: cat.name,
-      slug: cat.slug,
-      parent: cat.parent,
-      description: cat.description || '',
-      image: cat.image,
-      count: cat.count || 0,
-    }));
-
-    if (action === 'list') {
-      return NextResponse.json(categories);
-    }
-
-    const tree = buildCategoryTree(categories);
-    return NextResponse.json(tree);
   } catch (error: any) {
     console.error('[Categories API] Unexpected error:', error);
     // Return empty array instead of error to not break frontend
