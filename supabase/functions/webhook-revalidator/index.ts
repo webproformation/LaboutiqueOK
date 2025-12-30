@@ -17,14 +17,15 @@ interface WebhookPayload {
 }
 
 Deno.serve(async (req: Request) => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
     const payload: WebhookPayload = await req.json();
-    
-    console.log(`Received webhook for table: ${payload.table}, type: ${payload.type}`);
+
+    console.log(`[Webhook Revalidator] Received webhook for table: ${payload.table}, type: ${payload.type}`);
 
     // Déterminer les paths à revalider selon la table
     const pathsToRevalidate: string[] = [];

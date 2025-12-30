@@ -47,7 +47,7 @@ BEGIN
   
   -- Si pas configuré, utilise une URL par défaut (à configurer)
   IF project_url IS NULL OR project_url = '' THEN
-    project_url := 'https://oaeczvfpqyxqaqdhuxsl.supabase.co';
+    project_url := 'https://qcqbtmvbvipsxwjlgjvk.supabase.co';
   END IF;
   
   webhook_url := project_url || '/functions/v1/webhook-revalidator';

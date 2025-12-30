@@ -1,324 +1,391 @@
-# ✅ Checklist Migration O2Switch
+# ✅ CHECKLIST COMPLÈTE: Restauration au 28/12/2024 00h20
 
-## 📋 Avant de Commencer
+## 📋 PRÉPARATION (Avant de commencer)
 
-- [ ] J'ai lu `MIGRATION_O2SWITCH.md` ou `MIGRATION_RAPIDE.md`
-- [ ] J'ai compris que Supabase reste chez Supabase (pas de migration)
-- [ ] J'ai prévu 6-10 heures pour la migration complète
-- [ ] J'ai fait un backup complet de Vertex
-- [ ] J'ai un compte O2Switch actif
-- [ ] J'ai un compte Vercel (gratuit)
-
----
-
-## 🗄️ PHASE 1 : Migration WordPress (2-3h)
-
-### Export depuis Vertex
-- [ ] Exporté la base MySQL via PhpMyAdmin (fichier .sql)
-- [ ] Téléchargé tous les fichiers WordPress (via cPanel ou FTP)
-- [ ] Vérifié que l'archive est complète
-
-### Import vers O2Switch
-- [ ] Créé une nouvelle base MySQL sur O2Switch
-- [ ] Noté : nom_base, utilisateur, mot_de_passe
-- [ ] Importé le fichier .sql dans la nouvelle base
-- [ ] Uploadé les fichiers WordPress
-- [ ] Modifié `wp-config.php` avec les nouvelles infos
-- [ ] Activé SSL (Let's Encrypt)
-- [ ] Testé l'accès : https://wp.laboutiquedemorgane.com/wp-admin
-
-### Mise à jour des URLs
-- [ ] Exécuté les requêtes SQL pour remplacer les anciennes URLs
-- [ ] WordPress → Réglages → Permaliens → Sauvegardé
-- [ ] Vérifié que tous les produits sont visibles
-- [ ] Vérifié que toutes les catégories sont visibles
-- [ ] Vérifié que les images chargent correctement
+- [ ] **BACKUP CRITIQUE**: Exportez votre base de données actuelle
+  - Allez dans Supabase Dashboard > Database > Backups
+  - Cliquez sur "Create backup now"
+  - Attendez la confirmation
+  
+- [ ] Notez vos variables d'environnement actuelles
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  
+- [ ] Vérifiez que vous avez accès à Supabase SQL Editor
 
 ---
 
-## 🔑 PHASE 2 : Clés API WooCommerce (15 min)
+## 🔄 ÉTAPE 1: Nettoyage de la base de données
 
-- [ ] WordPress → WooCommerce → Réglages → Avancé → REST API
-- [ ] Créé une nouvelle clé API (Lecture/Écriture)
-- [ ] Copié Consumer Key : `ck_...`
-- [ ] Copié Consumer Secret : `cs_...`
-- [ ] Testé l'API manuellement dans le navigateur :
-  ```
-  https://wp.laboutiquedemorgane.com/wp-json/wc/v3/products?consumer_key=XXX&consumer_secret=XXX
-  ```
+### 1.1 Exécuter le script de nettoyage
 
----
+- [ ] Ouvrez Supabase Dashboard > SQL Editor
+- [ ] Copiez le contenu du fichier `MIGRATION_COMPLETE_FRESH_START.sql`
+- [ ] Collez dans SQL Editor
+- [ ] Cliquez sur "Run"
+- [ ] Attendez le message "NETTOYAGE TERMINÉ"
 
-## 🔧 PHASE 3 : Mise à Jour du Code (30 min)
+**⏱️ Temps estimé: 30 secondes**
 
-### Automatique
-- [ ] Exécuté le script : `./scripts-migration-o2switch.sh`
-- [ ] Vérifié les fichiers modifiés
+### 1.2 Vérification du nettoyage
 
-### Manuel (si le script n'a pas fonctionné)
-- [ ] Mis à jour `.env` avec les nouvelles URLs
-- [ ] Mis à jour les nouvelles clés WooCommerce dans `.env`
-- [ ] Vérifié tous les fichiers listés dans `grep -r "webprocreation"`
+- [ ] Exécutez cette requête pour vérifier:
 
----
+```sql
+SELECT COUNT(*) as remaining_tables 
+FROM information_schema.tables 
+WHERE table_schema = 'public';
+```
 
-## 🧪 PHASE 4 : Tests Locaux (1h)
-
-- [ ] Exécuté `npm install`
-- [ ] Exécuté `npm run build` (vérifié : 0 erreur)
-- [ ] Exécuté `npm run dev`
-- [ ] Testé page d'accueil : http://localhost:3000
-- [ ] Testé affichage des produits
-- [ ] Testé recherche produits
-- [ ] Testé ajout au panier
-- [ ] Testé connexion Supabase
-- [ ] Testé wishlist
-- [ ] Testé checkout complet
-- [ ] Testé création de commande
+**Résultat attendu: 0 tables**
 
 ---
 
-## ☁️ PHASE 5 : Configuration Supabase (15 min)
+## 📦 ÉTAPE 2: Application des migrations
 
-### URLs autorisées
-- [ ] Dashboard Supabase → Authentication → URL Configuration
-- [ ] Site URL : `https://laboutiquedemorgane.com`
-- [ ] Redirect URLs : `https://laboutiquedemorgane.com/**`
-- [ ] Sauvegardé
+### Option A: Via Supabase CLI (Recommandé)
 
-### Secrets Edge Functions
-- [ ] `npx supabase login`
-- [ ] `npx supabase link --project-ref mifghuypxbtmkabjvwrm`
-- [ ] Défini `WORDPRESS_URL`
-- [ ] Défini `WOOCOMMERCE_URL`
-- [ ] Défini `WOOCOMMERCE_CONSUMER_KEY`
-- [ ] Défini `WOOCOMMERCE_CONSUMER_SECRET`
+- [ ] Installez Supabase CLI:
+```bash
+npm install -g supabase
+```
 
----
+- [ ] Connectez-vous à votre projet:
+```bash
+supabase link --project-ref VOTRE_PROJECT_REF
+```
 
-## 🚀 PHASE 6 : Déploiement Vercel (1h)
+- [ ] Listez les migrations disponibles:
+```bash
+ls -1 supabase/migrations/*.sql | head -110
+```
 
-### Setup Vercel
-- [ ] Créé compte sur https://vercel.com
-- [ ] Connecté à GitHub
-- [ ] Importé le projet `webproformation/laboutiquedemorgane`
-- [ ] Configuré Build Settings :
-  - Framework: Next.js
-  - Build Command: `npm run build`
-  - Install Command: `npm install`
+- [ ] Appliquez les 110 migrations:
+```bash
+# Créez un script temporaire
+cat > apply-migrations.sh << 'EOFSCRIPT'
+#!/bin/bash
+for migration in supabase/migrations/*.sql; do
+  timestamp=$(basename "$migration" | cut -d'_' -f1)
+  if [[ "$timestamp" < "20251228" ]]; then
+    echo "Applying: $migration"
+    supabase db push "$migration"
+  fi
+done
+EOFSCRIPT
 
-### Variables d'Environnement
-- [ ] `NEXT_PUBLIC_WORDPRESS_API_URL`
-- [ ] `WORDPRESS_URL`
-- [ ] `WOOCOMMERCE_CONSUMER_KEY`
-- [ ] `WOOCOMMERCE_CONSUMER_SECRET`
-- [ ] `WC_CONSUMER_KEY`
-- [ ] `WC_CONSUMER_SECRET`
-- [ ] `NEXT_PUBLIC_SUPABASE_URL`
-- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- [ ] `SUPABASE_SERVICE_ROLE_KEY`
-- [ ] `PAYPAL_CLIENT_ID`
-- [ ] `PAYPAL_CLIENT_SECRET`
-- [ ] `NEXT_PUBLIC_PAYPAL_CLIENT_ID`
-- [ ] `BREVO_API_KEY` (NOUVELLE CLÉ après révocation)
-- [ ] `STRIPE_SECRET_KEY`
-- [ ] `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- [ ] `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
-- [ ] `ONESIGNAL_API_KEY`
-- [ ] `ONESIGNAL_APP_ID`
+chmod +x apply-migrations.sh
+./apply-migrations.sh
+```
 
-### Premier Déploiement
-- [ ] Cliqué "Deploy"
-- [ ] Attendu la fin du build
-- [ ] Vérifié : déploiement réussi
-- [ ] Testé l'URL Vercel : `https://votre-projet.vercel.app`
+**⏱️ Temps estimé: 5-10 minutes**
 
-### Domaine Personnalisé
-- [ ] Settings → Domains
-- [ ] Ajouté `laboutiquedemorgane.com`
-- [ ] Ajouté `www.laboutiquedemorgane.com`
-- [ ] Copié les instructions DNS
+### Option B: Via SQL Editor (Manuel)
+
+- [ ] Pour chaque migration de `20251205133636` à `20251227231524`:
+  - [ ] Ouvrez le fichier de migration
+  - [ ] Copiez le contenu
+  - [ ] Collez dans Supabase SQL Editor
+  - [ ] Exécutez
+  - [ ] Vérifiez qu'il n'y a pas d'erreur
+  - [ ] Passez à la migration suivante
+
+**⏱️ Temps estimé: 30-60 minutes**
+
+### Option C: Script SQL Unique (À venir)
+
+Si vous voulez un script SQL unique qui recrée tout:
+
+- [ ] Contactez-moi pour que je génère le script complet
+- [ ] Ce sera un fichier de ~10,000 lignes
+- [ ] Exécution en une fois
 
 ---
 
-## 🌐 PHASE 7 : Configuration DNS (5-60 min)
+## ✨ ÉTAPE 3: Import des données de configuration
 
-### Chez le Registrar
-- [ ] Réduit TTL à 300 secondes (5 min)
-- [ ] Attendu 24h (optionnel mais recommandé)
-- [ ] Configuré les enregistrements :
-  ```
-  Type    Nom     Valeur
-  A       wp      [IP O2Switch]
-  CNAME   @       cname.vercel-dns.com
-  CNAME   www     cname.vercel-dns.com
-  ```
-- [ ] Sauvegardé
-- [ ] Attendu propagation (5-60 min)
+### 3.1 Données essentielles
 
-### Vérification
-- [ ] `https://laboutiquedemorgane.com` charge
-- [ ] `https://www.laboutiquedemorgane.com` charge
-- [ ] `https://wp.laboutiquedemorgane.com` charge
-- [ ] Tous affichent le cadenas SSL vert 🔒
+- [ ] Ouvrez Supabase SQL Editor
+- [ ] Copiez le contenu de `IMPORT_EXAMPLE_DATA.sql`
+- [ ] Exécutez le script
+- [ ] Vérifiez le résumé affiché
 
----
+**⏱️ Temps estimé: 30 secondes**
 
-## ✅ PHASE 8 : Tests Production (2h)
+### 3.2 Vérification des données importées
 
-### Frontend
-- [ ] Page d'accueil charge
-- [ ] Produits affichés
-- [ ] Filtres fonctionnent
-- [ ] Recherche fonctionne
-- [ ] Images chargent
-- [ ] Vitesse acceptable (< 3s)
+- [ ] Exécutez:
 
-### Panier & Checkout
-- [ ] Ajout produit au panier
-- [ ] Modification quantité
-- [ ] Suppression produit
-- [ ] Checkout affiche les options
-- [ ] Sélection Mondial Relay
-- [ ] Application d'un coupon
+```sql
+SELECT 
+  (SELECT COUNT(*) FROM loyalty_tiers) as tiers,
+  (SELECT COUNT(*) FROM loyalty_rewards) as rewards,
+  (SELECT COUNT(*) FROM coupon_types) as coupons,
+  (SELECT COUNT(*) FROM shipping_methods) as shipping;
+```
 
-### Paiements
-- [ ] Test paiement Stripe (mode test)
-- [ ] Test paiement PayPal (mode sandbox)
-- [ ] Réception email confirmation
-- [ ] Commande créée dans WooCommerce
-- [ ] Commande visible dans Supabase
-
-### Compte Utilisateur
-- [ ] Inscription nouveau compte
-- [ ] Connexion existant
-- [ ] Réinitialisation mot de passe
-- [ ] Modification profil
-- [ ] Upload photo de profil
-
-### Fonctionnalités Avancées
-- [ ] Wishlist (ajout/suppression)
-- [ ] Programme fidélité (points)
-- [ ] Jeu Scratch Card
-- [ ] Jeu Roue de la Fortune
-- [ ] Live Streams (si actif)
-- [ ] Newsletter (inscription)
-- [ ] Livre d'or (ajout message)
-- [ ] Recherche de produits
-- [ ] Filtres de catégories
-- [ ] Tri par prix/popularité
-
-### Administration
-- [ ] Accès admin WordPress
-- [ ] Accès admin Supabase
-- [ ] Dashboard Next.js admin
-- [ ] Gestion produits
-- [ ] Gestion commandes
-- [ ] Gestion clients
-- [ ] Statistiques/Analytics
+**Résultats attendus:**
+- `tiers`: 4 (Bronze, Argent, Or, Platine)
+- `rewards`: 6+
+- `coupons`: 3+
+- `shipping`: 3 (Colissimo, Mondial Relay, Chronopost)
 
 ---
 
-## 📧 PHASE 9 : Configuration Email (30 min)
+## 👤 ÉTAPE 4: Création de l'utilisateur admin
 
-### Brevo (Sendinblue)
-- [ ] Vérifié que la nouvelle clé API est active
-- [ ] Configuré le domaine sender
-- [ ] Testé envoi email depuis WooCommerce
-- [ ] Testé email de commande
-- [ ] Testé email de facture
+### 4.1 Créer l'admin via l'interface
 
-### DNS Email
-- [ ] Configuré SPF : `v=spf1 include:spf.brevo.com ~all`
-- [ ] Configuré DKIM (fourni par Brevo)
-- [ ] Vérifié dans Brevo que le domaine est validé
+- [ ] Allez sur votre site: `/create-admin-webpro`
+- [ ] Remplissez le formulaire:
+  - Email: votre@email.com
+  - Mot de passe: (choisissez un mot de passe fort)
+- [ ] Cliquez sur "Créer l'admin"
+- [ ] Notez le message de confirmation
 
----
+### 4.2 Vérifier le rôle admin
 
-## 🔒 PHASE 10 : Sécurité (30 min)
+- [ ] Exécutez dans Supabase SQL Editor:
 
-### WordPress
-- [ ] Changé tous les mots de passe admin
-- [ ] Activé authentification 2FA (plugin recommandé)
-- [ ] Installé plugin de sécurité (Wordfence ou similaire)
-- [ ] Configuré sauvegardes automatiques
-- [ ] Vérifié permissions fichiers (755/644)
+```sql
+SELECT 
+  up.id,
+  up.email,
+  ur.role,
+  ur.created_at
+FROM user_profiles up
+LEFT JOIN user_roles ur ON up.id = ur.user_id;
+```
 
-### O2Switch
-- [ ] Activé le firewall WAF
-- [ ] Configuré backups automatiques (cPanel)
-- [ ] Noté les informations d'accès dans un coffre-fort
+**Résultat attendu:** Une ligne avec role = 'admin'
 
-### Vercel
-- [ ] Activé Vercel Authentication (optionnel)
-- [ ] Configuré les logs et alertes
-- [ ] Vérifié les quotas/limites
+### 4.3 Test de connexion
 
----
-
-## 📊 PHASE 11 : Monitoring (30 min)
-
-- [ ] Activé Vercel Analytics
-- [ ] Configuré Google Analytics (si utilisé)
-- [ ] Configuré suivi erreurs (Sentry ou similaire)
-- [ ] Testé les logs Supabase
-- [ ] Testé les logs WordPress (wp-content/debug.log)
-- [ ] Configuré alertes (emails, Slack, etc.)
+- [ ] Allez sur `/auth/login`
+- [ ] Connectez-vous avec vos identifiants
+- [ ] Allez sur `/admin`
+- [ ] Vérifiez que vous avez accès au dashboard admin
 
 ---
 
-## 🧹 PHASE 12 : Nettoyage (Après 7 jours)
+## 🛍️ ÉTAPE 5: Synchronisation WooCommerce
 
-- [ ] Tous les tests passent depuis 7 jours
-- [ ] Aucune erreur signalée
-- [ ] Trafic normal/stable
-- [ ] Export backup final depuis Vertex
-- [ ] Résiliation hébergement Vertex
-- [ ] Suppression données Vertex (RGPD)
-- [ ] Mise à jour documentation interne
-- [ ] Informé l'équipe de la nouvelle infrastructure
+### 5.1 Synchroniser les catégories
 
----
+- [ ] Connectez-vous en tant qu'admin
+- [ ] Allez sur `/admin/sync-categories`
+- [ ] Cliquez sur "Synchroniser les catégories"
+- [ ] Attendez la fin de la synchronisation
+- [ ] Vérifiez le nombre de catégories importées
 
-## 🆘 En Cas de Problème
+### 5.2 Synchroniser les produits
 
-### Rollback d'Urgence
-1. [ ] Restauré DNS vers Vertex
-2. [ ] Désactivé domaine custom Vercel
-3. [ ] Vérifié que l'ancien site fonctionne
-4. [ ] Analysé les logs/erreurs
-5. [ ] Contacté support si nécessaire
+- [ ] Allez sur `/admin/products`
+- [ ] Les produits devraient s'afficher via l'API WooCommerce
+- [ ] Si rien ne s'affiche, vérifiez vos variables d'environnement WordPress
 
-### Contacts Support
-- **O2Switch** : https://www.o2switch.fr/support/
-- **Vercel** : https://vercel.com/support
-- **Supabase** : https://supabase.com/support
+### 5.3 Test du cache WooCommerce
 
----
+- [ ] Exécutez:
 
-## 🎉 Migration Terminée !
+```sql
+SELECT 
+  cache_key,
+  expires_at,
+  created_at
+FROM woocommerce_cache
+ORDER BY created_at DESC
+LIMIT 5;
+```
 
-- [ ] Toutes les phases sont complétées
-- [ ] Tous les tests sont validés
-- [ ] La documentation est à jour
-- [ ] L'équipe est informée
-- [ ] Les clients sont satisfaits
-
-**Bravo ! Votre application est maintenant hébergée chez O2Switch ! 🚀**
+**Si vide:** Normal, le cache se remplit automatiquement lors des requêtes
 
 ---
 
-## 📈 Métriques de Succès
+## 🏠 ÉTAPE 6: Configuration de la page d'accueil
 
-- ✅ Temps de chargement < 3 secondes
-- ✅ Disponibilité > 99.9%
-- ✅ 0 erreur en production
-- ✅ Tous les paiements fonctionnent
-- ✅ Tous les emails sont envoyés
-- ✅ Taux de conversion maintenu ou amélioré
+### 6.1 Ajouter les slides du carrousel
+
+- [ ] Allez sur `/admin/slides`
+- [ ] Ajoutez au moins 3 slides:
+  - Image (via WordPress Media)
+  - Titre
+  - Description
+  - Ordre d'affichage
+- [ ] Activez les slides
+- [ ] Vérifiez sur la page d'accueil
+
+### 6.2 Configurer les catégories en avant
+
+- [ ] Allez sur `/admin/home-categories`
+- [ ] Ajoutez 4-6 catégories à mettre en avant
+- [ ] Choisissez les images
+- [ ] Définissez l'ordre d'affichage
+- [ ] Vérifiez sur la page d'accueil
+
+### 6.3 Produits en vedette
+
+- [ ] Allez sur `/admin/featured-products`
+- [ ] Sélectionnez 6-8 produits
+- [ ] Définissez l'ordre
+- [ ] Vérifiez sur la page d'accueil
 
 ---
 
-**Date de migration** : _______________
-**Durée totale** : _______________
-**Problèmes rencontrés** : _______________
+## 🎮 ÉTAPE 7: Configuration des jeux
+
+### 7.1 Jeu de grattage
+
+- [ ] Allez sur `/admin/scratch-game-settings`
+- [ ] Configurez:
+  - [ ] Activer le jeu
+  - [ ] Montant du prize pool
+  - [ ] Nombre de parties par jour (3 recommandé)
+- [ ] Sauvegardez
+
+### 7.2 Roue de la chance
+
+- [ ] Allez sur `/admin/wheel-game-settings`
+- [ ] Configurez:
+  - [ ] Activer le jeu
+  - [ ] Afficher le popup automatiquement
+- [ ] Sauvegardez
+
+### 7.3 Test des jeux
+
+- [ ] Déconnectez-vous
+- [ ] Allez sur la page d'accueil
+- [ ] Vérifiez que les popups s'affichent
+- [ ] Testez une partie de chaque jeu
+
+---
+
+## 📊 ÉTAPE 8: Vérification finale
+
+### 8.1 Vérification du schéma
+
+- [ ] Exécutez:
+
+```sql
+SELECT 
+  'Tables' as type,
+  COUNT(*)::text as count
+FROM information_schema.tables 
+WHERE table_schema = 'public'
+
+UNION ALL
+
+SELECT 
+  'Policies RLS',
+  COUNT(*)::text
+FROM pg_policies 
+WHERE schemaname = 'public'
+
+UNION ALL
+
+SELECT 
+  'Fonctions',
+  COUNT(*)::text
+FROM pg_proc 
+INNER JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid
+WHERE pg_namespace.nspname = 'public';
+```
+
+**Résultats attendus:**
+- Tables: ~60
+- Policies RLS: ~200+
+- Fonctions: ~20+
+
+### 8.2 Vérification des Edge Functions
+
+- [ ] Listez les Edge Functions déployées:
+
+```bash
+curl https://VOTRE_PROJECT.supabase.co/functions/v1/
+```
+
+**Résultat attendu:** Liste de ~40 fonctions
+
+### 8.3 Test de navigation
+
+- [ ] Page d'accueil: `/__tests__`
+- [ ] Catégories: `/category/vetements`
+- [ ] Produit: `/product/test-product`
+- [ ] Panier: `/cart`
+- [ ] Compte: `/account`
+- [ ] Admin: `/admin`
+
+---
+
+## 🎉 ÉTAPE 9: Post-restauration
+
+### 9.1 Recréer les contenus
+
+- [ ] Actualités: `/admin/actualites`
+  - [ ] Créez quelques articles de blog
+  
+- [ ] Looks de Morgane: `/admin/looks`
+  - [ ] Créez des looks avec produits associés
+  
+- [ ] Ambassadrice de la semaine: `/admin/ambassadrice`
+  - [ ] Sélectionnez une ambassadrice
+
+### 9.2 Configuration SEO
+
+- [ ] Allez sur `/admin/seo`
+- [ ] Configurez les métadonnées pour:
+  - [ ] Page d'accueil
+  - [ ] Pages principales (CGV, Contact, etc.)
+  - [ ] Catégories principales
+
+### 9.3 Notifications Push
+
+- [ ] Allez sur `/admin/notifications-push`
+- [ ] Testez l'envoi d'une notification test
+- [ ] Vérifiez la réception
+
+---
+
+## 📝 RÉSUMÉ FINAL
+
+Une fois toutes les étapes complétées:
+
+- ✅ Base de données restaurée (schéma + config)
+- ✅ Utilisateur admin créé
+- ✅ Synchronisation WooCommerce active
+- ✅ Page d'accueil configurée
+- ✅ Jeux activés
+- ✅ Edge Functions fonctionnelles
+
+---
+
+## 🆘 EN CAS DE PROBLÈME
+
+### Erreur "relation does not exist"
+➡️ Une migration n'a pas été appliquée correctement
+➡️ Vérifiez le numéro de la migration manquante
+➡️ Réappliquez-la manuellement
+
+### Erreur "new row violates RLS policy"
+➡️ Les policies RLS bloquent l'insertion
+➡️ Vérifiez que vous êtes connecté en tant qu'admin
+➡️ Ou utilisez le service role key
+
+### Les produits ne s'affichent pas
+➡️ Vérifiez les variables d'environnement WordPress
+➡️ Testez l'API WooCommerce avec `/admin/diagnostic`
+➡️ Vérifiez le cache avec `SELECT * FROM woocommerce_cache`
+
+### Les Edge Functions ne fonctionnent pas
+➡️ Vérifiez qu'elles sont déployées
+➡️ Testez avec `/admin/diagnostic-complet`
+➡️ Vérifiez les secrets avec `/test-secrets`
+
+---
+
+**Durée totale estimée: 15-30 minutes (avec CLI) ou 1-2 heures (manuel)**
+
+**Dernière mise à jour:** 30/12/2024
+**Migration de référence:** 20251227231524

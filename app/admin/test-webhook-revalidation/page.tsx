@@ -17,15 +17,21 @@ export default function TestWebhookRevalidation() {
     setError(null);
 
     try {
-      // Test 1: Appeler directement l'API de revalidation
-      const response = await fetch('/api/revalidate?path=/&secret=' + (process.env.NEXT_PUBLIC_WEBHOOK_SECRET || 'test'), {
+      const response = await fetch('/api/revalidate', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          table: 'home_slides',
+          type: 'UPDATE'
+        })
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Erreur lors du test');
+        throw new Error(data.error || 'Erreur lors du test');
       }
 
       setResult(data);
@@ -42,14 +48,15 @@ export default function TestWebhookRevalidation() {
     setError(null);
 
     try {
-      // Simuler un webhook depuis Supabase
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       const webhookUrl = `${supabaseUrl}/functions/v1/webhook-revalidator`;
 
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`
         },
         body: JSON.stringify({
           table: 'home_slides',

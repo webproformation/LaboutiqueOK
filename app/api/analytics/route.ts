@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       }
 
       case 'upsert_session': {
-        const { session_id, last_activity, device_info } = data;
+        const { session_id, last_activity } = data;
 
         if (!session_id) {
           return NextResponse.json({ error: 'Missing session_id' }, { status: 400 });
@@ -71,10 +71,6 @@ export async function POST(request: NextRequest) {
 
         if (userId) {
           sessionData.user_id = userId;
-        }
-
-        if (device_info) {
-          sessionData.device_info = device_info;
         }
 
         const { data: existingSession } = await supabaseService
@@ -143,7 +139,7 @@ export async function GET(request: NextRequest) {
         const { data, error } = await supabaseService
           .from('user_sessions')
           .select('*')
-          .order('last_activity', { ascending: false })
+          .order('last_activity_at', { ascending: false })
           .limit(100);
 
         if (error) {
