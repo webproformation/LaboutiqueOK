@@ -22,7 +22,8 @@ Deno.serve(async (req: Request) => {
       throw new Error('WordPress credentials not configured');
     }
 
-    const authString = btoa(`${wpUsername}:${wpAppPassword}`);
+    const cleanAppPassword = wpAppPassword.replace(/\s/g, '');
+    const authString = btoa(`${wpUsername}:${cleanAppPassword}`);
     const userData = {
       username: email.split('@')[0] + '_' + Date.now(),
       email: email,

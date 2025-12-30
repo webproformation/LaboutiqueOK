@@ -14,6 +14,8 @@ Deno.serve(async (req: Request) => {
   try {
     const envVars = {
       WORDPRESS_URL: Deno.env.get('WORDPRESS_URL') ? 'DÉFINI (' + Deno.env.get('WORDPRESS_URL')?.substring(0, 30) + '...)' : 'NON DÉFINI',
+      WORDPRESS_USERNAME: Deno.env.get('WORDPRESS_USERNAME') ? 'DÉFINI (longueur: ' + Deno.env.get('WORDPRESS_USERNAME')?.length + ' chars)' : 'NON DÉFINI',
+      WORDPRESS_APP_PASSWORD: Deno.env.get('WORDPRESS_APP_PASSWORD') ? 'DÉFINI (longueur: ' + Deno.env.get('WORDPRESS_APP_PASSWORD')?.length + ' chars)' : 'NON DÉFINI',
       WOOCOMMERCE_CONSUMER_KEY: Deno.env.get('WOOCOMMERCE_CONSUMER_KEY') ? 'DÉFINI (longueur: ' + Deno.env.get('WOOCOMMERCE_CONSUMER_KEY')?.length + ' chars)' : 'NON DÉFINI',
       WOOCOMMERCE_CONSUMER_SECRET: Deno.env.get('WOOCOMMERCE_CONSUMER_SECRET') ? 'DÉFINI (longueur: ' + Deno.env.get('WOOCOMMERCE_CONSUMER_SECRET')?.length + ' chars)' : 'NON DÉFINI',
     };
