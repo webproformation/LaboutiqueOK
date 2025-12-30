@@ -198,18 +198,55 @@ export async function GET(request: Request) {
       }
     }
 
-    // Charger depuis le cache
-    console.log('[Categories API] Loading from cache...');
-    const { data: cachedCategories, error: cacheError } = await supabase
-      .from('woocommerce_categories_cache')
-      .select('*')
-      .order('category_id', { ascending: true });
+    // Contourner PostgREST : toujours synchroniser depuis WooCommerce
+    // Le cache PostgREST est bloqué, donc on force la synchronisation
+    console.log('[Categories API] Forcing sync from WooCommerce (PostgREST cache issue)...');
+
+    let cachedCategories = null;
+    let cacheError = null;
+
+    try {
+      const synced = await syncCategoriesFromWooCommerce();
+      console.log(`[Categories API] Synced ${synced.length} categories from WooCommerce`);
+
+      // Convertir directement les catégories synchronisées
+      cachedCategories = synced;
+    } catch (syncError: any) {
+      console.error('[Categories API] Sync from WooCommerce failed:', syncError);
+      cacheError = syncError;
+    }
 
     if (cacheError) {
       console.error('[Categories API] Cache error:', cacheError);
-      // Return empty array instead of error to not break frontend
+      // Try to sync from WooCommerce if cache fails
+      try {
+        const synced = await syncCategoriesFromWooCommerce();
+        if (synced.length > 0) {
+          const categories: Category[] = synced.map((cat: any) => ({
+            id: cat.category_id,
+            name: cat.name,
+            slug: cat.slug,
+            parent: cat.parent,
+            description: cat.description || '',
+            image: cat.image,
+            count: cat.count || 0,
+          }));
+
+          if (action === 'list') {
+            return NextResponse.json(categories);
+          }
+
+          const tree = buildCategoryTree(categories);
+          return NextResponse.json(tree);
+        }
+      } catch (syncErr) {
+        console.error('[Categories API] Failed to sync after cache error:', syncErr);
+      }
+      // Return empty array as last resort
       return NextResponse.json([]);
     }
+
+    console.log(`[Categories API] Found ${cachedCategories?.length || 0} categories in cache`);
 
     // Si le cache est vide, synchroniser depuis WooCommerce
     if (!cachedCategories || cachedCategories.length === 0) {
