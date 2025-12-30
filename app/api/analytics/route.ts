@@ -41,19 +41,12 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        const visitData: any = {
-          session_id,
-          page_path: path,
-          visited_at: new Date().toISOString(),
-        };
-
-        if (userId) {
-          visitData.user_id = userId;
-        }
-
-        const { error } = await supabaseService
-          .from('page_visits')
-          .insert(visitData);
+        // Use RPC function to bypass PostgREST cache issues
+        const { data: result, error } = await supabaseService.rpc('analytics_track_page_visit', {
+          p_session_id: session_id,
+          p_user_id: userId || null,
+          p_page_path: path
+        });
 
         if (error) {
           console.error('Error tracking page visit:', error);
@@ -70,43 +63,16 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Missing session_id' }, { status: 400 });
         }
 
-        const sessionData: any = {
-          session_id,
-          last_activity_at: last_activity || new Date().toISOString(),
-        };
+        // Use RPC function to bypass PostgREST cache issues
+        const { data: result, error } = await supabaseService.rpc('analytics_upsert_session', {
+          p_session_id: session_id,
+          p_user_id: userId || null,
+          p_last_activity: last_activity || new Date().toISOString()
+        });
 
-        if (userId) {
-          sessionData.user_id = userId;
-        }
-
-        const { data: existingSession } = await supabaseService
-          .from('user_sessions')
-          .select('*')
-          .eq('session_id', session_id)
-          .maybeSingle();
-
-        if (existingSession) {
-          const { error } = await supabaseService
-            .from('user_sessions')
-            .update({
-              last_activity_at: sessionData.last_activity_at,
-              user_id: userId || existingSession.user_id,
-            })
-            .eq('session_id', session_id);
-
-          if (error) {
-            console.error('Error updating session:', error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
-          }
-        } else {
-          const { error } = await supabaseService
-            .from('user_sessions')
-            .insert(sessionData);
-
-          if (error) {
-            console.error('Error inserting session:', error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
-          }
+        if (error) {
+          console.error('Error upserting session:', error);
+          return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
         return NextResponse.json({ success: true });
