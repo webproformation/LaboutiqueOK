@@ -33,10 +33,6 @@ export default function AnalyticsTracker() {
             action: 'upsert_session',
             session_id: sessionId!,
             last_activity: new Date().toISOString(),
-            device_info: {
-              user_agent: navigator.userAgent,
-              device_type: /mobile/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
-            },
           }),
         });
       } catch (error) {
