@@ -62,17 +62,17 @@ function buildCategoryTree(categories: Category[]): HierarchicalCategory[] {
   return rootCategories;
 }
 
-async function syncCategoriesFromWooCommerce() {
+// Charger directement depuis WooCommerce sans toucher au cache Supabase
+// (Le cache PostgREST est complètement bloqué)
+async function loadCategoriesFromWooCommerce() {
   const wordpressUrl = process.env.WORDPRESS_URL;
   const consumerKey = process.env.WC_CONSUMER_KEY;
   const consumerSecret = process.env.WC_CONSUMER_SECRET;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  console.log('[Sync] Starting sync from WooCommerce...');
-  console.log('[Sync] WordPress URL:', wordpressUrl);
-  console.log('[Sync] Consumer Key exists:', !!consumerKey);
-  console.log('[Sync] Consumer Secret exists:', !!consumerSecret);
+  console.log('[Load] Loading categories from WooCommerce...');
+  console.log('[Load] WordPress URL:', wordpressUrl);
+  console.log('[Load] Consumer Key exists:', !!consumerKey);
+  console.log('[Load] Consumer Secret exists:', !!consumerSecret);
 
   if (!wordpressUrl || !consumerKey || !consumerSecret) {
     const missing = [];
@@ -82,51 +82,58 @@ async function syncCategoriesFromWooCommerce() {
     throw new Error(`Missing WooCommerce configuration: ${missing.join(', ')}`);
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const auth = `Basic ${Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64')}`;
 
-  // Test de connexion simple - récupérer juste la première page
-  console.log('[Sync] Testing WooCommerce connection...');
-
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 secondes max pour le test
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const testUrl = `${wordpressUrl}/wp-json/wc/v3/products/categories?per_page=100&page=1`;
-    console.log('[Sync] Fetching from:', testUrl);
+    // Charger toutes les catégories (paginer si nécessaire)
+    const allCategories = [];
+    let page = 1;
+    let hasMore = true;
 
-    const response = await fetch(testUrl, {
-      headers: {
-        Authorization: auth,
-        'User-Agent': 'NextJS-App'
-      },
-      signal: controller.signal,
-      cache: 'no-store'
-    });
+    while (hasMore && page <= 10) { // Max 10 pages
+      const url = `${wordpressUrl}/wp-json/wc/v3/products/categories?per_page=100&page=${page}`;
+      console.log(`[Load] Fetching page ${page}...`);
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: auth,
+          'User-Agent': 'NextJS-App'
+        },
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Load] WooCommerce API error:`, errorText);
+        throw new Error(`WooCommerce API returned ${response.status}: ${errorText.substring(0, 200)}`);
+      }
+
+      const categories = await response.json();
+      console.log(`[Load] Page ${page}: ${categories.length} categories`);
+
+      allCategories.push(...categories);
+
+      // Vérifier s'il y a plus de pages
+      const totalPages = parseInt(response.headers.get('X-WP-TotalPages') || '1');
+      hasMore = page < totalPages;
+      page++;
+    }
 
     clearTimeout(timeoutId);
 
-    console.log('[Sync] Response status:', response.status);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Sync] WooCommerce API error:`, errorText);
-      throw new Error(`WooCommerce API returned ${response.status}: ${errorText.substring(0, 200)}`);
-    }
-
-    const allCategories = await response.json();
-    console.log(`[Sync] Received ${allCategories.length} categories`);
+    console.log(`[Load] Total loaded: ${allCategories.length} categories`);
 
     if (allCategories.length === 0) {
-      console.log('[Sync] No categories found in WooCommerce');
+      console.log('[Load] No categories found');
       return [];
     }
 
-    // Effacer le cache
-    console.log('[Sync] Clearing cache...');
-    await supabase.from('woocommerce_categories_cache').delete().neq('id', 0);
-
-    const categoriesToInsert = allCategories.map((cat: any) => ({
+    // Retourner directement (pas de cache Supabase)
+    return allCategories.map((cat: any) => ({
       category_id: cat.id,
       name: cat.name,
       slug: cat.slug,
@@ -134,29 +141,14 @@ async function syncCategoriesFromWooCommerce() {
       description: cat.description || '',
       image: cat.image,
       count: cat.count || 0,
-      updated_at: new Date().toISOString()
     }));
-
-    console.log(`[Sync] Inserting ${categoriesToInsert.length} categories into cache...`);
-
-    const { error } = await supabase
-      .from('woocommerce_categories_cache')
-      .insert(categoriesToInsert);
-
-    if (error) {
-      console.error('[Sync] Error inserting categories into cache:', error);
-      throw new Error(`Database error: ${error.message}`);
-    }
-
-    console.log('[Sync] Sync completed successfully');
-    return categoriesToInsert;
   } catch (error: any) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
-      console.error('[Sync] Request timeout after 15 seconds');
-      throw new Error('WooCommerce connection timeout - vérifiez que votre site WordPress est accessible');
+      console.error('[Load] Timeout after 15s');
+      throw new Error('WooCommerce connection timeout');
     }
-    console.error('[Sync] Error during sync:', error);
+    console.error('[Load] Error:', error);
     throw error;
   }
 }
@@ -203,50 +195,31 @@ export async function GET(request: Request) {
       return NextResponse.json([]);
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Si refresh est demandé, synchroniser depuis WooCommerce
-    if (refresh) {
-      console.log('[Categories API] Refresh requested, syncing from WooCommerce...');
-      try {
-        await syncCategoriesFromWooCommerce();
-      } catch (syncError: any) {
-        console.error('[Categories API] Sync failed:', syncError.message);
-        // Return empty array instead of error to not break frontend
-        return NextResponse.json([]);
-      }
-    }
-
-    // Synchroniser directement depuis WooCommerce à chaque fois
-    // (Le cache PostgREST est bloqué, donc on utilise WooCommerce comme source)
-    console.log('[Categories API] Syncing from WooCommerce...');
+    // Charger directement depuis WooCommerce (bypass cache Supabase)
+    console.log('[Categories API] Loading from WooCommerce...');
 
     try {
-      const synced = await syncCategoriesFromWooCommerce();
+      const loaded = await loadCategoriesFromWooCommerce();
 
-      if (!synced || synced.length === 0) {
-        console.log('[Categories API] No categories found in WooCommerce');
+      if (!loaded || loaded.length === 0) {
+        console.log('[Categories API] No categories found');
         const debugInfo = {
           message: 'No categories found in WooCommerce',
           wordpressUrl: process.env.WORDPRESS_URL,
           hasConsumerKey: !!process.env.WC_CONSUMER_KEY,
           hasConsumerSecret: !!process.env.WC_CONSUMER_SECRET
         };
-        console.log('[Categories API] Debug info:', debugInfo);
 
-        // Return debug info if debug=true in query
-        if (searchParams.get('debug') === 'true') {
+        if (debug) {
           return NextResponse.json({ error: 'No categories found', debug: debugInfo });
         }
         return NextResponse.json([]);
       }
 
-      console.log(`[Categories API] Successfully synced ${synced.length} categories from WooCommerce`);
+      console.log(`[Categories API] Loaded ${loaded.length} categories`);
 
-      // Convertir les catégories au format attendu
-      const categories: Category[] = synced.map((cat: any) => ({
+      // Convertir au format attendu
+      const categories: Category[] = loaded.map((cat: any) => ({
         id: cat.category_id,
         name: cat.name,
         slug: cat.slug,
@@ -264,21 +237,20 @@ export async function GET(request: Request) {
       const tree = buildCategoryTree(categories);
       return NextResponse.json(tree);
 
-    } catch (syncError: any) {
-      console.error('[Categories API] Sync from WooCommerce failed:', syncError.message);
-      console.error('[Categories API] Error details:', syncError);
+    } catch (loadError: any) {
+      console.error('[Categories API] Load failed:', loadError.message);
 
       const errorInfo = {
-        error: syncError.message,
-        stack: syncError.stack,
+        error: loadError.message,
+        stack: loadError.stack,
         wordpressUrl: process.env.WORDPRESS_URL,
         hasConsumerKey: !!process.env.WC_CONSUMER_KEY,
         hasConsumerSecret: !!process.env.WC_CONSUMER_SECRET,
         timestamp: new Date().toISOString()
       };
 
-      // Return error details if debug=true in query
-      if (searchParams.get('debug') === 'true') {
+      // Return error details if debug=true
+      if (debug) {
         return NextResponse.json(errorInfo, { status: 500 });
       }
 
