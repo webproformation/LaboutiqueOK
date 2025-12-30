@@ -101,13 +101,17 @@ async function testWordPress(): Promise<TestResult[]> {
     });
   }
 
-  // Test WooCommerce via Edge Function
+  // Test WooCommerce API directement
   try {
+    const auth = Buffer.from(
+      `${process.env.WC_CONSUMER_KEY}:${process.env.WC_CONSUMER_SECRET}`
+    ).toString('base64');
+
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/manage-woocommerce-products?action=list&page=1&per_page=1`,
+      `${process.env.WORDPRESS_URL}/wp-json/wc/v3/products?per_page=1`,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+          'Authorization': `Basic ${auth}`
         }
       }
     );
@@ -117,8 +121,8 @@ async function testWordPress(): Promise<TestResult[]> {
     results.push({
       name: 'WooCommerce API',
       status: response.ok ? 'success' : 'error',
-      message: response.ok ? 'Connecté' : 'Erreur de connexion',
-      details: data
+      message: response.ok ? `Connecté - ${data.length || 0} produits trouvés` : 'Erreur de connexion',
+      details: response.ok ? { productCount: data.length } : data
     });
   } catch (error: any) {
     results.push({
@@ -154,28 +158,27 @@ async function testSupabase(): Promise<TestResult[]> {
     message: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Définie' : 'Manquante'
   });
 
-  // Test Edge Function
+  // Test connexion directe REST API
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/test-secrets`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/`,
       {
         headers: {
+          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
           'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
         }
       }
     );
 
-    const data = await response.json();
-
     results.push({
-      name: 'Edge Functions',
+      name: 'Supabase REST API',
       status: response.ok ? 'success' : 'error',
-      message: response.ok ? 'Fonctionnelles' : 'Erreur',
-      details: data
+      message: response.ok ? 'API REST accessible' : 'Erreur API REST',
+      details: { statusCode: response.status }
     });
   } catch (error: any) {
     results.push({
-      name: 'Edge Functions',
+      name: 'Supabase REST API',
       status: 'error',
       message: error.message
     });

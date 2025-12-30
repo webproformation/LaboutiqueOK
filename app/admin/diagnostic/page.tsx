@@ -181,8 +181,34 @@ export default function DiagnosticPage() {
           </AlertDescription>
         </Alert>
       )}
+
+      {results.some(r => r.message.includes('schema cache')) && (
+        <Alert className="border-red-500 bg-red-50">
+          <AlertDescription>
+            <div className="space-y-3">
+              <p className="font-semibold text-red-900">⚠️ Cache PostgREST Bloqué</p>
+              <p className="text-sm text-red-800">
+                Les erreurs "schema cache" indiquent que le cache PostgREST ne se rafraîchit pas.
+                Les tables et fonctions RPC existent mais ne sont pas détectées.
+              </p>
+              <div className="bg-white p-3 rounded border border-red-200">
+                <p className="font-semibold text-sm mb-2 text-red-900">Solution :</p>
+                <ol className="list-decimal list-inside space-y-1 text-sm text-red-800">
+                  <li>Aller sur le <a href="https://supabase.com/dashboard/project/qcqbtmvbvipsxwjlgjvk" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Dashboard Supabase</a></li>
+                  <li>Project Settings → General → "Pause project"</li>
+                  <li>Attendre 1 minute</li>
+                  <li>Cliquer sur "Resume project"</li>
+                  <li>Attendre 2-3 minutes que le serveur redémarre</li>
+                  <li>Relancer ce diagnostic</li>
+                </ol>
+              </div>
+              <p className="text-xs text-red-700">
+                Le bouton "Recharger Cache PostgREST" ne suffit pas dans ce cas. Un redémarrage complet est nécessaire.
+              </p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 }
-
-// Suppression de tout l'ancien code de test des Edge Functions qui suit
