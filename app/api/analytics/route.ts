@@ -23,9 +23,15 @@ async function getAuthenticatedUserId(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = await getAuthenticatedUserId(request);
     const body = await request.json();
     const { action, ...data } = body;
+
+    let userId: string | undefined;
+    try {
+      userId = await getAuthenticatedUserId(request);
+    } catch (error) {
+      console.log('User not authenticated, continuing as anonymous');
+    }
 
     switch (action) {
       case 'track_page_visit': {
@@ -111,7 +117,10 @@ export async function POST(request: NextRequest) {
     }
   } catch (error: any) {
     console.error('Error in analytics POST:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({
+      error: error.message || 'Internal server error',
+      success: false
+    }, { status: 500 });
   }
 }
 
@@ -154,6 +163,9 @@ export async function GET(request: NextRequest) {
     }
   } catch (error: any) {
     console.error('Error in analytics GET:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({
+      error: error.message || 'Internal server error',
+      success: false
+    }, { status: 500 });
   }
 }
