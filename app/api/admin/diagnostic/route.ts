@@ -70,9 +70,9 @@ async function testDatabase(): Promise<TestResult[]> {
 
 async function testWordPress(): Promise<TestResult[]> {
   const results: TestResult[] = [];
-  const auth = Buffer.from(
-    `${process.env.WC_CONSUMER_KEY}:${process.env.WC_CONSUMER_SECRET}`
-  ).toString('base64');
+  const wpAuth = process.env.WP_APPLICATION_PASSWORD
+    ? Buffer.from(`${process.env.WP_ADMIN_USERNAME || 'admin'}:${process.env.WP_APPLICATION_PASSWORD}`).toString('base64')
+    : null;
 
   // Test WordPress GraphQL
   try {
@@ -105,57 +105,182 @@ async function testWordPress(): Promise<TestResult[]> {
     });
   }
 
-  // Test WordPress Users via REST API
+  // Test WordPress Users - Lecture
   try {
     const response = await fetch(
-      `${process.env.WORDPRESS_URL}/wp-json/wp/v2/users?per_page=1`,
-      {
-        headers: {
-          'Authorization': `Basic ${auth}`
-        }
-      }
+      `${process.env.WORDPRESS_URL}/wp-json/wp/v2/users?per_page=1`
     );
 
     const data = await response.json();
 
     results.push({
-      name: 'WordPress - Utilisateurs',
+      name: 'WordPress - Utilisateurs (Lecture)',
       status: response.ok ? 'success' : 'error',
-      message: response.ok ? `${response.headers.get('X-WP-Total') || data.length || 0} utilisateurs` : 'Erreur',
+      message: response.ok ? `${response.headers.get('X-WP-Total') || data.length || 0} utilisateurs accessibles` : 'Endpoint non accessible publiquement',
       details: response.ok ? { total: response.headers.get('X-WP-Total'), sample: data[0]?.name } : data
     });
   } catch (error: any) {
     results.push({
-      name: 'WordPress - Utilisateurs',
+      name: 'WordPress - Utilisateurs (Lecture)',
       status: 'error',
       message: error.message
     });
   }
 
-  // Test WordPress Posts (actualités)
+  // Test WordPress Users - Écriture (création/suppression)
+  if (wpAuth) {
+    try {
+      const testUser = {
+        username: `test_diagnostic_${Date.now()}`,
+        email: `test_${Date.now()}@diagnostic.test`,
+        password: `TestPass${Date.now()}!`,
+        roles: ['subscriber']
+      };
+
+      // Créer l'utilisateur
+      const createResponse = await fetch(
+        `${process.env.WORDPRESS_URL}/wp-json/wp/v2/users`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${wpAuth}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(testUser)
+        }
+      );
+
+      const createdUser = await createResponse.json();
+
+      if (createResponse.ok && createdUser.id) {
+        // Supprimer l'utilisateur
+        const deleteResponse = await fetch(
+          `${process.env.WORDPRESS_URL}/wp-json/wp/v2/users/${createdUser.id}?force=true&reassign=1`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Basic ${wpAuth}`
+            }
+          }
+        );
+
+        const deleteResult = await deleteResponse.json();
+
+        results.push({
+          name: 'WordPress - Utilisateurs (Écriture)',
+          status: deleteResponse.ok ? 'success' : 'warning',
+          message: deleteResponse.ok ? `Création/suppression OK` : `Créé mais erreur suppression`,
+          details: { created: createdUser.username, deleted: deleteResponse.ok, deleteResult }
+        });
+      } else {
+        results.push({
+          name: 'WordPress - Utilisateurs (Écriture)',
+          status: 'error',
+          message: 'Erreur création',
+          details: createdUser
+        });
+      }
+    } catch (error: any) {
+      results.push({
+        name: 'WordPress - Utilisateurs (Écriture)',
+        status: 'error',
+        message: error.message
+      });
+    }
+  } else {
+    results.push({
+      name: 'WordPress - Utilisateurs (Écriture)',
+      status: 'warning',
+      message: 'WP_APPLICATION_PASSWORD non configuré'
+    });
+  }
+
+  // Test WordPress Posts - Lecture
   try {
     const response = await fetch(
-      `${process.env.WORDPRESS_URL}/wp-json/wp/v2/posts?per_page=1`,
-      {
-        headers: {
-          'Authorization': `Basic ${auth}`
-        }
-      }
+      `${process.env.WORDPRESS_URL}/wp-json/wp/v2/posts?per_page=1`
     );
 
     const data = await response.json();
 
     results.push({
-      name: 'WordPress - Actualités/Posts',
+      name: 'WordPress - Actualités/Posts (Lecture)',
       status: response.ok ? 'success' : 'error',
       message: response.ok ? `${response.headers.get('X-WP-Total') || data.length || 0} articles` : 'Erreur',
       details: response.ok ? { total: response.headers.get('X-WP-Total'), sample: data[0]?.title?.rendered } : data
     });
   } catch (error: any) {
     results.push({
-      name: 'WordPress - Actualités/Posts',
+      name: 'WordPress - Actualités/Posts (Lecture)',
       status: 'error',
       message: error.message
+    });
+  }
+
+  // Test WordPress Posts - Écriture (création/suppression)
+  if (wpAuth) {
+    try {
+      const testPost = {
+        title: `Test Diagnostic ${Date.now()}`,
+        content: 'Contenu de test pour diagnostic',
+        status: 'draft'
+      };
+
+      // Créer le post
+      const createResponse = await fetch(
+        `${process.env.WORDPRESS_URL}/wp-json/wp/v2/posts`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${wpAuth}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(testPost)
+        }
+      );
+
+      const createdPost = await createResponse.json();
+
+      if (createResponse.ok && createdPost.id) {
+        // Supprimer le post
+        const deleteResponse = await fetch(
+          `${process.env.WORDPRESS_URL}/wp-json/wp/v2/posts/${createdPost.id}?force=true`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Basic ${wpAuth}`
+            }
+          }
+        );
+
+        const deleteResult = await deleteResponse.json();
+
+        results.push({
+          name: 'WordPress - Actualités/Posts (Écriture)',
+          status: deleteResponse.ok ? 'success' : 'warning',
+          message: deleteResponse.ok ? `Création/suppression OK` : `Créé mais erreur suppression`,
+          details: { created: createdPost.title.rendered, deleted: deleteResponse.ok, deleteResult }
+        });
+      } else {
+        results.push({
+          name: 'WordPress - Actualités/Posts (Écriture)',
+          status: 'error',
+          message: 'Erreur création',
+          details: createdPost
+        });
+      }
+    } catch (error: any) {
+      results.push({
+        name: 'WordPress - Actualités/Posts (Écriture)',
+        status: 'error',
+        message: error.message
+      });
+    }
+  } else {
+    results.push({
+      name: 'WordPress - Actualités/Posts (Écriture)',
+      status: 'warning',
+      message: 'WP_APPLICATION_PASSWORD non configuré'
     });
   }
 
@@ -168,7 +293,7 @@ async function testWooCommerce(): Promise<TestResult[]> {
     `${process.env.WC_CONSUMER_KEY}:${process.env.WC_CONSUMER_SECRET}`
   ).toString('base64');
 
-  // Test produits
+  // Test produits - Lecture
   try {
     const response = await fetch(
       `${process.env.WORDPRESS_URL}/wp-json/wc/v3/products?per_page=1`,
@@ -182,20 +307,80 @@ async function testWooCommerce(): Promise<TestResult[]> {
     const data = await response.json();
 
     results.push({
-      name: 'WooCommerce - Produits',
+      name: 'WooCommerce - Produits (Lecture)',
       status: response.ok ? 'success' : 'error',
       message: response.ok ? `${response.headers.get('X-WP-Total') || data.length || 0} produits` : 'Erreur',
       details: response.ok ? { total: response.headers.get('X-WP-Total'), sample: data[0]?.name } : data
     });
   } catch (error: any) {
     results.push({
-      name: 'WooCommerce - Produits',
+      name: 'WooCommerce - Produits (Lecture)',
       status: 'error',
       message: error.message
     });
   }
 
-  // Test clients
+  // Test produits - Écriture (création/suppression)
+  try {
+    const testProduct = {
+      name: `Test Diagnostic ${Date.now()}`,
+      type: 'simple',
+      regular_price: '9.99',
+      status: 'draft'
+    };
+
+    // Créer le produit
+    const createResponse = await fetch(
+      `${process.env.WORDPRESS_URL}/wp-json/wc/v3/products`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(testProduct)
+      }
+    );
+
+    const createdProduct = await createResponse.json();
+
+    if (createResponse.ok && createdProduct.id) {
+      // Supprimer le produit
+      const deleteResponse = await fetch(
+        `${process.env.WORDPRESS_URL}/wp-json/wc/v3/products/${createdProduct.id}?force=true`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Basic ${auth}`
+          }
+        }
+      );
+
+      const deleteResult = await deleteResponse.json();
+
+      results.push({
+        name: 'WooCommerce - Produits (Écriture)',
+        status: deleteResponse.ok ? 'success' : 'warning',
+        message: deleteResponse.ok ? `Création/suppression OK` : `Créé mais erreur suppression`,
+        details: { created: createdProduct.name, id: createdProduct.id, deleted: deleteResponse.ok }
+      });
+    } else {
+      results.push({
+        name: 'WooCommerce - Produits (Écriture)',
+        status: 'error',
+        message: 'Erreur création',
+        details: createdProduct
+      });
+    }
+  } catch (error: any) {
+    results.push({
+      name: 'WooCommerce - Produits (Écriture)',
+      status: 'error',
+      message: error.message
+    });
+  }
+
+  // Test clients - Lecture
   try {
     const response = await fetch(
       `${process.env.WORDPRESS_URL}/wp-json/wc/v3/customers?per_page=1`,
@@ -209,20 +394,80 @@ async function testWooCommerce(): Promise<TestResult[]> {
     const data = await response.json();
 
     results.push({
-      name: 'WooCommerce - Clients',
+      name: 'WooCommerce - Clients (Lecture)',
       status: response.ok ? 'success' : 'error',
       message: response.ok ? `${response.headers.get('X-WP-Total') || data.length || 0} clients` : 'Erreur',
       details: response.ok ? { total: response.headers.get('X-WP-Total'), sample: data[0]?.email } : data
     });
   } catch (error: any) {
     results.push({
-      name: 'WooCommerce - Clients',
+      name: 'WooCommerce - Clients (Lecture)',
       status: 'error',
       message: error.message
     });
   }
 
-  // Test commandes
+  // Test clients - Écriture (création/suppression)
+  try {
+    const testCustomer = {
+      email: `test_${Date.now()}@diagnostic.test`,
+      first_name: 'Test',
+      last_name: 'Diagnostic',
+      username: `test_diagnostic_${Date.now()}`
+    };
+
+    // Créer le client
+    const createResponse = await fetch(
+      `${process.env.WORDPRESS_URL}/wp-json/wc/v3/customers`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(testCustomer)
+      }
+    );
+
+    const createdCustomer = await createResponse.json();
+
+    if (createResponse.ok && createdCustomer.id) {
+      // Supprimer le client
+      const deleteResponse = await fetch(
+        `${process.env.WORDPRESS_URL}/wp-json/wc/v3/customers/${createdCustomer.id}?force=true`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Basic ${auth}`
+          }
+        }
+      );
+
+      const deleteResult = await deleteResponse.json();
+
+      results.push({
+        name: 'WooCommerce - Clients (Écriture)',
+        status: deleteResponse.ok ? 'success' : 'warning',
+        message: deleteResponse.ok ? `Création/suppression OK` : `Créé mais erreur suppression`,
+        details: { created: createdCustomer.email, id: createdCustomer.id, deleted: deleteResponse.ok }
+      });
+    } else {
+      results.push({
+        name: 'WooCommerce - Clients (Écriture)',
+        status: 'error',
+        message: 'Erreur création',
+        details: createdCustomer
+      });
+    }
+  } catch (error: any) {
+    results.push({
+      name: 'WooCommerce - Clients (Écriture)',
+      status: 'error',
+      message: error.message
+    });
+  }
+
+  // Test commandes - Lecture
   try {
     const response = await fetch(
       `${process.env.WORDPRESS_URL}/wp-json/wc/v3/orders?per_page=1`,
@@ -236,20 +481,84 @@ async function testWooCommerce(): Promise<TestResult[]> {
     const data = await response.json();
 
     results.push({
-      name: 'WooCommerce - Commandes',
+      name: 'WooCommerce - Commandes (Lecture)',
       status: response.ok ? 'success' : 'error',
       message: response.ok ? `${response.headers.get('X-WP-Total') || data.length || 0} commandes` : 'Erreur',
       details: response.ok ? { total: response.headers.get('X-WP-Total'), sample: data[0]?.number } : data
     });
   } catch (error: any) {
     results.push({
-      name: 'WooCommerce - Commandes',
+      name: 'WooCommerce - Commandes (Lecture)',
       status: 'error',
       message: error.message
     });
   }
 
-  // Test méthodes de livraison
+  // Test commandes - Écriture (création/suppression)
+  try {
+    const testOrder = {
+      status: 'pending',
+      set_paid: false,
+      billing: {
+        first_name: 'Test',
+        last_name: 'Diagnostic',
+        email: `test_${Date.now()}@diagnostic.test`
+      },
+      line_items: []
+    };
+
+    // Créer la commande
+    const createResponse = await fetch(
+      `${process.env.WORDPRESS_URL}/wp-json/wc/v3/orders`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(testOrder)
+      }
+    );
+
+    const createdOrder = await createResponse.json();
+
+    if (createResponse.ok && createdOrder.id) {
+      // Supprimer la commande
+      const deleteResponse = await fetch(
+        `${process.env.WORDPRESS_URL}/wp-json/wc/v3/orders/${createdOrder.id}?force=true`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Basic ${auth}`
+          }
+        }
+      );
+
+      const deleteResult = await deleteResponse.json();
+
+      results.push({
+        name: 'WooCommerce - Commandes (Écriture)',
+        status: deleteResponse.ok ? 'success' : 'warning',
+        message: deleteResponse.ok ? `Création/suppression OK` : `Créé mais erreur suppression`,
+        details: { created: `#${createdOrder.number}`, id: createdOrder.id, deleted: deleteResponse.ok }
+      });
+    } else {
+      results.push({
+        name: 'WooCommerce - Commandes (Écriture)',
+        status: 'error',
+        message: 'Erreur création',
+        details: createdOrder
+      });
+    }
+  } catch (error: any) {
+    results.push({
+      name: 'WooCommerce - Commandes (Écriture)',
+      status: 'error',
+      message: error.message
+    });
+  }
+
+  // Test zones de livraison - Lecture
   try {
     const response = await fetch(
       `${process.env.WORDPRESS_URL}/wp-json/wc/v3/shipping/zones`,
@@ -263,20 +572,77 @@ async function testWooCommerce(): Promise<TestResult[]> {
     const data = await response.json();
 
     results.push({
-      name: 'WooCommerce - Zones de livraison',
+      name: 'WooCommerce - Zones de livraison (Lecture)',
       status: response.ok ? 'success' : 'error',
       message: response.ok ? `${data.length || 0} zones configurées` : 'Erreur',
       details: response.ok ? { zones: data.map((z: any) => z.name) } : data
     });
   } catch (error: any) {
     results.push({
-      name: 'WooCommerce - Zones de livraison',
+      name: 'WooCommerce - Zones de livraison (Lecture)',
       status: 'error',
       message: error.message
     });
   }
 
-  // Test catégories
+  // Test zones de livraison - Écriture (création/suppression)
+  try {
+    const testZone = {
+      name: `Test Diagnostic ${Date.now()}`
+    };
+
+    // Créer la zone
+    const createResponse = await fetch(
+      `${process.env.WORDPRESS_URL}/wp-json/wc/v3/shipping/zones`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(testZone)
+      }
+    );
+
+    const createdZone = await createResponse.json();
+
+    if (createResponse.ok && createdZone.id) {
+      // Supprimer la zone
+      const deleteResponse = await fetch(
+        `${process.env.WORDPRESS_URL}/wp-json/wc/v3/shipping/zones/${createdZone.id}?force=true`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Basic ${auth}`
+          }
+        }
+      );
+
+      const deleteResult = await deleteResponse.json();
+
+      results.push({
+        name: 'WooCommerce - Zones de livraison (Écriture)',
+        status: deleteResponse.ok ? 'success' : 'warning',
+        message: deleteResponse.ok ? `Création/suppression OK` : `Créé mais erreur suppression`,
+        details: { created: createdZone.name, id: createdZone.id, deleted: deleteResponse.ok }
+      });
+    } else {
+      results.push({
+        name: 'WooCommerce - Zones de livraison (Écriture)',
+        status: 'error',
+        message: 'Erreur création',
+        details: createdZone
+      });
+    }
+  } catch (error: any) {
+    results.push({
+      name: 'WooCommerce - Zones de livraison (Écriture)',
+      status: 'error',
+      message: error.message
+    });
+  }
+
+  // Test catégories - Lecture
   try {
     const response = await fetch(
       `${process.env.WORDPRESS_URL}/wp-json/wc/v3/products/categories?per_page=1`,
@@ -290,14 +656,71 @@ async function testWooCommerce(): Promise<TestResult[]> {
     const data = await response.json();
 
     results.push({
-      name: 'WooCommerce - Catégories',
+      name: 'WooCommerce - Catégories (Lecture)',
       status: response.ok ? 'success' : 'error',
       message: response.ok ? `${response.headers.get('X-WP-Total') || data.length || 0} catégories` : 'Erreur',
       details: response.ok ? { total: response.headers.get('X-WP-Total'), sample: data[0]?.name } : data
     });
   } catch (error: any) {
     results.push({
-      name: 'WooCommerce - Catégories',
+      name: 'WooCommerce - Catégories (Lecture)',
+      status: 'error',
+      message: error.message
+    });
+  }
+
+  // Test catégories - Écriture (création/suppression)
+  try {
+    const testCategory = {
+      name: `Test Diagnostic ${Date.now()}`
+    };
+
+    // Créer la catégorie
+    const createResponse = await fetch(
+      `${process.env.WORDPRESS_URL}/wp-json/wc/v3/products/categories`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(testCategory)
+      }
+    );
+
+    const createdCategory = await createResponse.json();
+
+    if (createResponse.ok && createdCategory.id) {
+      // Supprimer la catégorie
+      const deleteResponse = await fetch(
+        `${process.env.WORDPRESS_URL}/wp-json/wc/v3/products/categories/${createdCategory.id}?force=true`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Basic ${auth}`
+          }
+        }
+      );
+
+      const deleteResult = await deleteResponse.json();
+
+      results.push({
+        name: 'WooCommerce - Catégories (Écriture)',
+        status: deleteResponse.ok ? 'success' : 'warning',
+        message: deleteResponse.ok ? `Création/suppression OK` : `Créé mais erreur suppression`,
+        details: { created: createdCategory.name, id: createdCategory.id, deleted: deleteResponse.ok }
+      });
+    } else {
+      results.push({
+        name: 'WooCommerce - Catégories (Écriture)',
+        status: 'error',
+        message: 'Erreur création',
+        details: createdCategory
+      });
+    }
+  } catch (error: any) {
+    results.push({
+      name: 'WooCommerce - Catégories (Écriture)',
       status: 'error',
       message: error.message
     });
