@@ -136,42 +136,228 @@ export default function DiagnosticPage() {
       </Card>
 
       {results.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Résultats du Diagnostic</CardTitle>
-            <CardDescription>
-              {results.filter(r => r.status === 'success').length} réussis / {results.length} tests
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {results.map((result, index) => (
-                <div key={index} className="border rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    {getStatusIcon(result.status)}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium">{result.name}</span>
-                        {getStatusBadge(result.status)}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{result.message}</p>
-                      {result.details && (
-                        <details className="mt-2">
-                          <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
-                            Voir les détails
-                          </summary>
-                          <pre className="mt-2 text-xs bg-muted p-3 rounded overflow-auto max-h-96">
-                            {JSON.stringify(result.details, null, 2)}
-                          </pre>
-                        </details>
-                      )}
-                    </div>
-                  </div>
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Résumé du Diagnostic</CardTitle>
+              <CardDescription>
+                {results.filter(r => r.status === 'success').length} réussis / {results.length} tests
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="border rounded-lg p-4 bg-green-50">
+                  <p className="text-sm text-muted-foreground mb-1">Réussis</p>
+                  <p className="text-3xl font-bold text-green-600">
+                    {results.filter(r => r.status === 'success').length}
+                  </p>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <div className="border rounded-lg p-4 bg-red-50">
+                  <p className="text-sm text-muted-foreground mb-1">Erreurs</p>
+                  <p className="text-3xl font-bold text-red-600">
+                    {results.filter(r => r.status === 'error').length}
+                  </p>
+                </div>
+                <div className="border rounded-lg p-4 bg-yellow-50">
+                  <p className="text-sm text-muted-foreground mb-1">Avertissements</p>
+                  <p className="text-3xl font-bold text-yellow-600">
+                    {results.filter(r => r.status === 'warning').length}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Clés de Connexion */}
+          {results.some(r => r.name.includes('KEY') || r.name.includes('URL') || r.name.includes('CLIENT_ID') || r.name.includes('API_KEY')) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Clés de Connexion</CardTitle>
+                <CardDescription>Variables d'environnement configurées</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {results.filter(r => r.name.includes('KEY') || r.name.includes('URL') || r.name.includes('CLIENT_ID') || r.name.includes('API_KEY')).map((result, index) => (
+                    <div key={index} className="border rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        {getStatusIcon(result.status)}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium font-mono text-sm">{result.name}</span>
+                            {getStatusBadge(result.status)}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{result.message}</p>
+                          {result.details && (
+                            <details className="mt-2">
+                              <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                                Voir les détails
+                              </summary>
+                              <pre className="mt-2 text-xs bg-muted p-3 rounded overflow-auto max-h-96">
+                                {JSON.stringify(result.details, null, 2)}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Supabase */}
+          {results.some(r => r.name.includes('Supabase')) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Supabase</CardTitle>
+                <CardDescription>Tests de connexion et API</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {results.filter(r => r.name.includes('Supabase')).map((result, index) => (
+                    <div key={index} className="border rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        {getStatusIcon(result.status)}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium">{result.name}</span>
+                            {getStatusBadge(result.status)}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{result.message}</p>
+                          {result.details && (
+                            <details className="mt-2">
+                              <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                                Voir les détails
+                              </summary>
+                              <pre className="mt-2 text-xs bg-muted p-3 rounded overflow-auto max-h-96">
+                                {JSON.stringify(result.details, null, 2)}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Base de données */}
+          {results.some(r => r.name.includes('Table') || r.name.includes('RPC')) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Base de Données</CardTitle>
+                <CardDescription>Tables et fonctions RPC</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {results.filter(r => r.name.includes('Table') || r.name.includes('RPC')).map((result, index) => (
+                    <div key={index} className="border rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        {getStatusIcon(result.status)}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium">{result.name}</span>
+                            {getStatusBadge(result.status)}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{result.message}</p>
+                          {result.details && (
+                            <details className="mt-2">
+                              <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                                Voir les détails
+                              </summary>
+                              <pre className="mt-2 text-xs bg-muted p-3 rounded overflow-auto max-h-96">
+                                {JSON.stringify(result.details, null, 2)}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* WordPress */}
+          {results.some(r => r.name.includes('WordPress')) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>WordPress</CardTitle>
+                <CardDescription>GraphQL, utilisateurs et actualités</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {results.filter(r => r.name.includes('WordPress')).map((result, index) => (
+                    <div key={index} className="border rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        {getStatusIcon(result.status)}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium">{result.name}</span>
+                            {getStatusBadge(result.status)}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{result.message}</p>
+                          {result.details && (
+                            <details className="mt-2">
+                              <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                                Voir les détails
+                              </summary>
+                              <pre className="mt-2 text-xs bg-muted p-3 rounded overflow-auto max-h-96">
+                                {JSON.stringify(result.details, null, 2)}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* WooCommerce */}
+          {results.some(r => r.name.includes('WooCommerce')) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>WooCommerce</CardTitle>
+                <CardDescription>Produits, clients, commandes et livraison</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {results.filter(r => r.name.includes('WooCommerce')).map((result, index) => (
+                    <div key={index} className="border rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        {getStatusIcon(result.status)}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium">{result.name}</span>
+                            {getStatusBadge(result.status)}
+                          </div>
+                          <p className="text-sm text-muted-foreground">{result.message}</p>
+                          {result.details && (
+                            <details className="mt-2">
+                              <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
+                                Voir les détails
+                              </summary>
+                              <pre className="mt-2 text-xs bg-muted p-3 rounded overflow-auto max-h-96">
+                                {JSON.stringify(result.details, null, 2)}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
       {results.length === 0 && !testing && (

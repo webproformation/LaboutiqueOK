@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Database, BarChart } from 'lucide-react';
+import { Users, Database, BarChart, Activity } from 'lucide-react';
 
 export default function SiteAdminPage() {
   const sections = [
@@ -29,6 +29,14 @@ export default function SiteAdminPage() {
       href: '/admin/analytics',
       color: 'text-green-600',
       bgColor: 'bg-green-50',
+    },
+    {
+      title: 'Diagnostic Système',
+      description: 'Tester les connexions WordPress, WooCommerce et Supabase',
+      icon: Activity,
+      href: '/admin/diagnostic',
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
     },
   ];
 
