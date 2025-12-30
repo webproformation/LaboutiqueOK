@@ -176,6 +176,7 @@ export default function AdminLayout({
         { href: '/admin/notifications-push', icon: Bell, label: 'Notifications Push', badge: 0 },
         { href: '/admin/backups', icon: Database, label: 'Sauvegardes', badge: 0 },
         { href: '/admin/analytics', icon: BarChart, label: 'Analytics', badge: 0 },
+        { href: '/admin/diagnostic', icon: Settings, label: 'Diagnostic', badge: 0 },
       ]
     },
   ];
