@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, ChevronUp, ChevronDown, Trash2, RefreshCw, Plus, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { Loader as Loader2, ChevronUp, ChevronDown, Trash2, RefreshCw, Plus, Image as ImageIcon, CircleAlert as AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAdmin } from '@/hooks/use-admin';
 import { Alert, AlertDescription } from '@/components/ui/alert';

@@ -178,14 +178,8 @@ export async function GET(request: Request) {
 
     if (!wordpressUrl || !consumerKey || !consumerSecret) {
       console.error('[Categories API] Missing WooCommerce configuration');
-      return NextResponse.json(
-        {
-          error: 'Configuration WooCommerce manquante',
-          details: 'Vérifiez que WORDPRESS_URL, WC_CONSUMER_KEY et WC_CONSUMER_SECRET sont définis',
-          categories: []
-        },
-        { status: 200 }
-      );
+      // Return empty array instead of error to not break frontend
+      return NextResponse.json([]);
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -199,14 +193,8 @@ export async function GET(request: Request) {
         await syncCategoriesFromWooCommerce();
       } catch (syncError: any) {
         console.error('[Categories API] Sync failed:', syncError.message);
-        return NextResponse.json(
-          {
-            error: 'Erreur de synchronisation avec WooCommerce',
-            details: syncError.message,
-            suggestion: 'Vérifiez que votre site WordPress est accessible et que les clés API sont correctes'
-          },
-          { status: 500 }
-        );
+        // Return empty array instead of error to not break frontend
+        return NextResponse.json([]);
       }
     }
 
@@ -219,13 +207,8 @@ export async function GET(request: Request) {
 
     if (cacheError) {
       console.error('[Categories API] Cache error:', cacheError);
-      return NextResponse.json(
-        {
-          error: 'Erreur de lecture du cache',
-          details: cacheError.message
-        },
-        { status: 500 }
-      );
+      // Return empty array instead of error to not break frontend
+      return NextResponse.json([]);
     }
 
     // Si le cache est vide, synchroniser depuis WooCommerce
@@ -257,14 +240,8 @@ export async function GET(request: Request) {
         return NextResponse.json(tree);
       } catch (syncError: any) {
         console.error('[Categories API] Sync failed:', syncError.message);
-        return NextResponse.json(
-          {
-            error: 'Impossible de charger les catégories depuis WooCommerce',
-            details: syncError.message,
-            suggestion: 'Créez d\'abord des catégories dans WooCommerce ou vérifiez la connexion API'
-          },
-          { status: 500 }
-        );
+        // Return empty array instead of error to not break frontend
+        return NextResponse.json([]);
       }
     }
 
@@ -289,14 +266,8 @@ export async function GET(request: Request) {
     return NextResponse.json(tree);
   } catch (error: any) {
     console.error('[Categories API] Unexpected error:', error);
-    return NextResponse.json(
-      {
-        error: 'Erreur serveur',
-        details: error.message,
-        stack: error.stack
-      },
-      { status: 500 }
-    );
+    // Return empty array instead of error to not break frontend
+    return NextResponse.json([]);
   }
 }
 

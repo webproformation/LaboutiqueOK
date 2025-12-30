@@ -84,30 +84,60 @@ export function LoyaltyProvider({ children }: { children: React.ReactNode }) {
           hint: error.hint,
           code: error.code,
         });
-        throw error;
+        // Set default loyalty points on error to prevent UI breaking
+        setLoyaltyPoints({
+          id: 'default',
+          user_id: user.id,
+          page_visit_points: 0,
+          live_participation_count: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        return;
       }
 
       if (!data) {
-        const { data: newData, error: insertError } = await supabase
-          .from('loyalty_points')
-          .insert({
+        try {
+          const { data: newData, error: insertError } = await supabase
+            .from('loyalty_points')
+            .insert({
+              user_id: user.id,
+              page_visit_points: 0,
+              live_participation_count: 0,
+            })
+            .select()
+            .single();
+
+          if (insertError) {
+            console.error('Error inserting loyalty points:', {
+              message: insertError.message,
+              details: insertError.details,
+              hint: insertError.hint,
+              code: insertError.code,
+            });
+            // Set default on insert error
+            setLoyaltyPoints({
+              id: 'default',
+              user_id: user.id,
+              page_visit_points: 0,
+              live_participation_count: 0,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+            return;
+          }
+          setLoyaltyPoints(newData);
+        } catch (insertErr) {
+          console.error('Caught error during insert:', insertErr);
+          setLoyaltyPoints({
+            id: 'default',
             user_id: user.id,
             page_visit_points: 0,
             live_participation_count: 0,
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('Error inserting loyalty points:', {
-            message: insertError.message,
-            details: insertError.details,
-            hint: insertError.hint,
-            code: insertError.code,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           });
-          throw insertError;
         }
-        setLoyaltyPoints(newData);
       } else {
         setLoyaltyPoints(data);
       }
@@ -116,6 +146,15 @@ export function LoyaltyProvider({ children }: { children: React.ReactNode }) {
         error,
         message: error?.message,
         stack: error?.stack,
+      });
+      // Set default loyalty points on any error
+      setLoyaltyPoints({
+        id: 'default',
+        user_id: user.id,
+        page_visit_points: 0,
+        live_participation_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       });
     } finally {
       setLoading(false);

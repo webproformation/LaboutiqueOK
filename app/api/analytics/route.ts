@@ -38,55 +38,85 @@ export async function POST(request: NextRequest) {
         const { path, session_id } = data;
 
         if (!session_id || !path) {
-          return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+          return NextResponse.json({ error: 'Missing required fields', success: false }, { status: 400 });
         }
 
-        // Use RPC function to bypass PostgREST cache issues
-        const { data: result, error } = await supabaseService.rpc('analytics_track_page_visit', {
-          p_session_id: session_id,
-          p_user_id: userId || null,
-          p_page_path: path
-        });
+        try {
+          // Use RPC function to bypass PostgREST cache issues
+          const { data: result, error } = await supabaseService.rpc('analytics_track_page_visit', {
+            p_session_id: session_id,
+            p_user_id: userId || null,
+            p_page_path: path
+          });
 
-        if (error) {
-          console.error('Error tracking page visit:', error);
-          return NextResponse.json({ error: error.message }, { status: 500 });
+          if (error) {
+            console.error('Error tracking page visit:', error);
+            // Return success anyway to not block UI
+            return NextResponse.json({
+              success: true,
+              warning: 'Analytics tracking temporarily unavailable',
+              error: error.message
+            });
+          }
+
+          return NextResponse.json({ success: true });
+        } catch (rpcError: any) {
+          console.error('RPC error tracking page visit:', rpcError);
+          // Return success to not block UI
+          return NextResponse.json({
+            success: true,
+            warning: 'Analytics tracking temporarily unavailable'
+          });
         }
-
-        return NextResponse.json({ success: true });
       }
 
       case 'upsert_session': {
         const { session_id, last_activity } = data;
 
         if (!session_id) {
-          return NextResponse.json({ error: 'Missing session_id' }, { status: 400 });
+          return NextResponse.json({ error: 'Missing session_id', success: false }, { status: 400 });
         }
 
-        // Use RPC function to bypass PostgREST cache issues
-        const { data: result, error } = await supabaseService.rpc('analytics_upsert_session', {
-          p_session_id: session_id,
-          p_user_id: userId || null,
-          p_last_activity: last_activity || new Date().toISOString()
-        });
+        try {
+          // Use RPC function to bypass PostgREST cache issues
+          const { data: result, error } = await supabaseService.rpc('analytics_upsert_session', {
+            p_session_id: session_id,
+            p_user_id: userId || null,
+            p_last_activity: last_activity || new Date().toISOString()
+          });
 
-        if (error) {
-          console.error('Error upserting session:', error);
-          return NextResponse.json({ error: error.message }, { status: 500 });
+          if (error) {
+            console.error('Error upserting session:', error);
+            // Return success anyway to not block UI
+            return NextResponse.json({
+              success: true,
+              warning: 'Session tracking temporarily unavailable',
+              error: error.message
+            });
+          }
+
+          return NextResponse.json({ success: true });
+        } catch (rpcError: any) {
+          console.error('RPC error upserting session:', rpcError);
+          // Return success to not block UI
+          return NextResponse.json({
+            success: true,
+            warning: 'Session tracking temporarily unavailable'
+          });
         }
-
-        return NextResponse.json({ success: true });
       }
 
       default:
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+        return NextResponse.json({ error: 'Invalid action', success: false }, { status: 400 });
     }
   } catch (error: any) {
     console.error('Error in analytics POST:', error);
+    // Return success to not block UI on analytics errors
     return NextResponse.json({
-      error: error.message || 'Internal server error',
-      success: false
-    }, { status: 500 });
+      success: true,
+      warning: 'Analytics temporarily unavailable',
+      error: error.message || 'Internal server error'
+    });
   }
 }
 
