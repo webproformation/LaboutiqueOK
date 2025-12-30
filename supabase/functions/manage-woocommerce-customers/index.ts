@@ -27,7 +27,7 @@ Deno.serve(async (req: Request) => {
     if (!WORDPRESS_URL || !WC_CONSUMER_KEY || !WC_CONSUMER_SECRET) {
       return new Response(
         JSON.stringify({
-          error: 'Configuration manquante : Les variables WORDPRESS_URL, WOOCOMMERCE_CONSUMER_KEY et WOOCOMMERCE_CONSUMER_SECRET doivent être configurées dans Supabase Edge Functions Secrets.'
+          error: 'Configuration manquante : Les variables WORDPRESS_URL, WOOCOMMERCE_CONSUMER_KEY et WOOCOMMERCE_CONSUMER_SECRET doivent être configurées.'
         }),
         {
           status: 500,

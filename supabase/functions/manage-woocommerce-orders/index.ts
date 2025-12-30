@@ -17,10 +17,7 @@ const getAuthHeader = () => {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
@@ -34,126 +31,46 @@ Deno.serve(async (req: Request) => {
       const status = url.searchParams.get('status') || '';
 
       let wcUrl = `${WORDPRESS_URL}/wp-json/wc/v3/orders?page=${page}&per_page=${perPage}`;
-      if (status) {
-        wcUrl += `&status=${status}`;
-      }
+      if (status) wcUrl += `&status=${status}`;
 
-      const response = await fetch(wcUrl, {
-        headers: {
-          'Authorization': getAuthHeader(),
-        },
-      });
-
+      const response = await fetch(wcUrl, { headers: { 'Authorization': getAuthHeader() } });
       const orders = await response.json();
-      const totalPages = response.headers.get('X-WP-TotalPages');
-      const totalItems = response.headers.get('X-WP-Total');
 
       return new Response(
-        JSON.stringify({ orders, totalPages, totalItems }),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
+        JSON.stringify({ orders, totalPages: response.headers.get('X-WP-TotalPages'), totalItems: response.headers.get('X-WP-Total') }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (action === 'get' && orderId) {
-      const response = await fetch(
-        `${WORDPRESS_URL}/wp-json/wc/v3/orders/${orderId}`,
-        {
-          headers: {
-            'Authorization': getAuthHeader(),
-          },
-        }
-      );
-
-      const order = await response.json();
-
-      return new Response(
-        JSON.stringify(order),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const response = await fetch(`${WORDPRESS_URL}/wp-json/wc/v3/orders/${orderId}`, {
+        headers: { 'Authorization': getAuthHeader() }
+      });
+      return new Response(JSON.stringify(await response.json()), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     if (action === 'update' && orderId && req.method === 'PUT') {
       const orderData = await req.json();
-
-      const response = await fetch(
-        `${WORDPRESS_URL}/wp-json/wc/v3/orders/${orderId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(orderData),
-        }
-      );
-
-      const order = await response.json();
-
-      return new Response(
-        JSON.stringify(order),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const response = await fetch(`${WORDPRESS_URL}/wp-json/wc/v3/orders/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+      return new Response(JSON.stringify(await response.json()), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    if (action === 'delete' && orderId && req.method === 'DELETE') {
-      const response = await fetch(
-        `${WORDPRESS_URL}/wp-json/wc/v3/orders/${orderId}?force=true`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': getAuthHeader(),
-          },
-        }
-      );
-
-      const result = await response.json();
-
-      return new Response(
-        JSON.stringify(result),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    }
-
-    return new Response(
-      JSON.stringify({ error: 'Invalid action' }),
-      {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    return new Response(JSON.stringify({ error: 'Invalid action' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 });

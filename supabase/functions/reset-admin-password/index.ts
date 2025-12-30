@@ -38,7 +38,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Récupérer l'utilisateur par email
     const { data: users, error: getUserError } = await supabaseAdmin.auth.admin.listUsers();
 
     if (getUserError) {
@@ -63,7 +62,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Réinitialiser le mot de passe
     const { data: updateData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       user.id,
       { password: newPassword }

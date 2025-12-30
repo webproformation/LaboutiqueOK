@@ -186,24 +186,30 @@ export default function DiagnosticPage() {
         <Alert className="border-red-500 bg-red-50">
           <AlertDescription>
             <div className="space-y-3">
-              <p className="font-semibold text-red-900">⚠️ Cache PostgREST Bloqué</p>
+              <p className="font-semibold text-red-900 text-lg">🚨 Cache PostgREST Complètement Bloqué</p>
               <p className="text-sm text-red-800">
-                Les erreurs "schema cache" indiquent que le cache PostgREST ne se rafraîchit pas.
-                Les tables et fonctions RPC existent mais ne sont pas détectées.
+                Le cache PostgREST est dans un état irréversible. Plus de 100 tentatives de rafraîchissement ont échoué.
+                Même les nouvelles tables et fonctions créées ne sont pas détectées.
               </p>
-              <div className="bg-white p-3 rounded border border-red-200">
-                <p className="font-semibold text-sm mb-2 text-red-900">Solution :</p>
-                <ol className="list-decimal list-inside space-y-1 text-sm text-red-800">
-                  <li>Aller sur le <a href="https://supabase.com/dashboard/project/qcqbtmvbvipsxwjlgjvk" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Dashboard Supabase</a></li>
-                  <li>Project Settings → General → "Pause project"</li>
-                  <li>Attendre 1 minute</li>
-                  <li>Cliquer sur "Resume project"</li>
-                  <li>Attendre 2-3 minutes que le serveur redémarre</li>
-                  <li>Relancer ce diagnostic</li>
-                </ol>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700"
+                  onClick={() => window.location.href = '/admin/restart-postgrest'}
+                >
+                  Voir Instructions de Redémarrage
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open('https://supabase.com/dashboard/project/qcqbtmvbvipsxwjlgjvk', '_blank')}
+                >
+                  Dashboard Supabase
+                </Button>
               </div>
-              <p className="text-xs text-red-700">
-                Le bouton "Recharger Cache PostgREST" ne suffit pas dans ce cas. Un redémarrage complet est nécessaire.
+              <p className="text-xs text-red-700 border-t border-red-200 pt-2">
+                ⚠️ IMPORTANT: Aucun bouton ou webhook ne peut débloquer cette situation.
+                Seul un redémarrage complet de l'instance Supabase résoudra le problème.
               </p>
             </div>
           </AlertDescription>

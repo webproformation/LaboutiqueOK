@@ -8,19 +8,14 @@ const corsHeaders = {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   const allEnvVars: Record<string, string> = {};
   
-  // Liste toutes les variables d'environnement disponibles
   for (const key of Object.keys(Deno.env.toObject())) {
     const value = Deno.env.get(key);
     if (value) {
-      // Masque les valeurs sensibles mais montre qu'elles existent
       if (key.includes('KEY') || key.includes('SECRET') || key.includes('PASSWORD')) {
         allEnvVars[key] = `[EXISTE - ${value.length} chars]`;
       } else {
@@ -40,11 +35,6 @@ Deno.serve(async (req: Request) => {
         WOOCOMMERCE_CONSUMER_SECRET: Deno.env.get('WOOCOMMERCE_CONSUMER_SECRET') ? `EXISTS (${Deno.env.get('WOOCOMMERCE_CONSUMER_SECRET')?.length} chars)` : 'NOT_FOUND',
       }
     }, null, 2),
-    {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json',
-      },
-    }
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
 });

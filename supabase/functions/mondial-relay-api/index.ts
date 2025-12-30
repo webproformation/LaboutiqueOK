@@ -7,22 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-// Mondial Relay API credentials
 const MR_SOAP_API_URL = "https://api.mondialrelay.com/Web_Services.asmx";
 const MR_BRAND_ID = "CC20T067";
 const MR_API_KEY = "NktkiSfFBsESB69-O5CpIekU0a0=";
-
-interface PickupPointSearchParams {
-  country: string;
-  postcode?: string;
-  city?: string;
-  latitude?: number;
-  longitude?: number;
-  radius?: number;
-  deliveryMode?: string;
-  weight?: number;
-  actionType?: string;
-}
 
 function generateSecurityHash(params: string): string {
   const hashInput = params + MR_API_KEY;
@@ -41,30 +28,16 @@ function buildSOAPEnvelope(body: string): string {
 }
 
 Deno.serve(async (req: Request) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
     const url = new URL(req.url);
     const pathname = url.pathname;
-
-    // Extract the path after /mondial-relay-api
     const parts = pathname.split("/mondial-relay-api");
     const path = parts.length > 1 ? parts[1] : pathname;
 
-    console.log("=== Mondial Relay API Request ===");
-    console.log("Full URL:", req.url);
-    console.log("Pathname:", pathname);
-    console.log("Extracted path:", path);
-    console.log("Method:", req.method);
-    console.log("Query params:", Object.fromEntries(url.searchParams.entries()));
-
-    // Search pickup points - handle both with and without trailing parts
     if ((path === "/pickup-points" || path.startsWith("/pickup-points")) && req.method === "GET") {
       const country = url.searchParams.get("country") || "FR";
       const postcode = url.searchParams.get("postcode") || "";
@@ -72,27 +45,16 @@ Deno.serve(async (req: Request) => {
       const numResults = url.searchParams.get("numResults") || "10";
       const deliveryMode = url.searchParams.get("deliveryMode") || "24R";
 
-      console.log("Search params:", { country, postcode, city, numResults, deliveryMode });
-
       if (!postcode && !city) {
         return new Response(
-          JSON.stringify({
-            error: "Either postcode or city must be provided",
-          }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          JSON.stringify({ error: "Either postcode or city must be provided" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Build the security hash parameter string
       const securityParams = `${MR_BRAND_ID}${country}${postcode}${city}${deliveryMode}${numResults}`;
       const securityHash = generateSecurityHash(securityParams);
 
-      console.log("Security hash generated for params:", securityParams);
-
-      // Build SOAP request for WSI4_PointRelais_Recherche
       const soapBody = `<WSI4_PointRelais_Recherche xmlns="http://www.mondialrelay.fr/webservice/">
       <Enseigne>${MR_BRAND_ID}</Enseigne>
       <Pays>${country}</Pays>
@@ -105,9 +67,6 @@ Deno.serve(async (req: Request) => {
 
       const soapEnvelope = buildSOAPEnvelope(soapBody);
 
-      console.log("Calling Mondial Relay SOAP API");
-
-      // Call Mondial Relay SOAP API
       const response = await fetch(MR_SOAP_API_URL, {
         method: "POST",
         headers: {
@@ -117,32 +76,20 @@ Deno.serve(async (req: Request) => {
         body: soapEnvelope,
       });
 
-      console.log("Mondial Relay API response status:", response.status);
-
       const responseText = await response.text();
-      console.log("Response text:", responseText.substring(0, 500));
 
       if (!response.ok) {
-        console.error("Mondial Relay API error:", responseText);
         return new Response(
-          JSON.stringify({
-            error: "Failed to fetch pickup points",
-            details: responseText,
-          }),
-          {
-            status: response.status,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
+          JSON.stringify({ error: "Failed to fetch pickup points", details: responseText }),
+          { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Parse SOAP XML response
       const pickupPoints: any[] = [];
       const pointRelaisMatches = responseText.matchAll(/<PointRelais_Details>([\s\S]*?)<\/PointRelais_Details>/g);
 
       for (const match of pointRelaisMatches) {
         const pointXml = match[1];
-
         const extractValue = (tag: string): string => {
           const regex = new RegExp(`<${tag}>(.*?)<\/${tag}>`);
           const match = pointXml.match(regex);
@@ -172,69 +119,32 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      console.log("Mondial Relay API success, found", pickupPoints.length, "points");
-
       return new Response(JSON.stringify({ PickupPoints: pickupPoints }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Create shipment label - TODO: Implement SOAP API for shipment creation
-    if ((path === "/create-shipment" || path.startsWith("/create-shipment")) && req.method === "POST") {
-      return new Response(
-        JSON.stringify({
-          error: "Shipment creation not yet implemented",
-          message: "This endpoint is under development",
-        }),
-        {
-          status: 501,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Health check endpoint
     if (path === "/health" || path === "/" || path === "") {
       return new Response(
         JSON.stringify({
           status: "ok",
           message: "Mondial Relay SOAP API proxy is running",
           apiVersion: "v1 (SOAP)",
-          availableEndpoints: ["/pickup-points", "/create-shipment (not implemented)"]
+          availableEndpoints: ["/pickup-points"]
         }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("No matching endpoint found for path:", path);
-
     return new Response(
-      JSON.stringify({
-        error: "Endpoint not found",
-        path,
-        method: req.method,
-        availableEndpoints: ["/pickup-points", "/create-shipment", "/health"]
-      }),
-      {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: "Endpoint not found", path, method: req.method }),
+      { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error in mondial-relay-api:", error);
     return new Response(
-      JSON.stringify({
-        error: "Internal server error",
-        details: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: "Internal server error", details: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

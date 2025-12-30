@@ -8,10 +8,7 @@ const corsHeaders = {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
@@ -24,14 +21,9 @@ Deno.serve(async (req: Request) => {
     }
 
     const auth = btoa(`${consumerKey}:${consumerSecret}`);
-
     const response = await fetch(
       `${wordpressUrl}/wp-json/wc/v3/products/categories?per_page=100`,
-      {
-        headers: {
-          Authorization: `Basic ${auth}`,
-        },
-      }
+      { headers: { Authorization: `Basic ${auth}` } }
     );
 
     if (!response.ok) {
@@ -42,25 +34,12 @@ Deno.serve(async (req: Request) => {
 
     return new Response(
       JSON.stringify(categories),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error fetching categories:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

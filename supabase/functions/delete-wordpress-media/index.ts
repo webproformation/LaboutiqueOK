@@ -8,10 +8,7 @@ const corsHeaders = {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
@@ -20,90 +17,40 @@ Deno.serve(async (req: Request) => {
     if (!mediaId) {
       return new Response(
         JSON.stringify({ error: "ID du média requis" }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     if (!wpUrl || !wpUsername || !wpPassword) {
       return new Response(
         JSON.stringify({ error: "Configuration WordPress manquante" }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const authString = `${wpUsername}:${wpPassword}`;
-    const encodedAuth = btoa(authString);
-
-    const deleteUrl = `${wpUrl}/wp-json/wp/v2/media/${mediaId}?force=true`;
-
-    const response = await fetch(deleteUrl, {
+    const encodedAuth = btoa(`${wpUsername}:${wpPassword}`);
+    const response = await fetch(`${wpUrl}/wp-json/wp/v2/media/${mediaId}?force=true`, {
       method: "DELETE",
-      headers: {
-        "Authorization": `Basic ${encodedAuth}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Authorization": `Basic ${encodedAuth}`, "Content-Type": "application/json" }
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("WordPress API error:", errorText);
       return new Response(
-        JSON.stringify({
-          error: "Erreur lors de la suppression du média dans WordPress",
-          details: errorText
-        }),
-        {
-          status: response.status,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
+        JSON.stringify({ error: "Erreur lors de la suppression du média", details: errorText }),
+        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const result = await response.json();
-
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: "Média supprimé avec succès",
-        data: result
-      }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
+      JSON.stringify({ success: true, message: "Média supprimé avec succès", data: result }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error deleting media:", error);
     return new Response(
-      JSON.stringify({
-        error: "Erreur serveur lors de la suppression",
-        details: error instanceof Error ? error.message : "Unknown error"
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

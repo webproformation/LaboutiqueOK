@@ -24,12 +24,10 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Try to get from environment first
     let WORDPRESS_URL = Deno.env.get("WORDPRESS_URL");
     let WORDPRESS_USERNAME = Deno.env.get("WORDPRESS_USERNAME");
     let WORDPRESS_APP_PASSWORD = Deno.env.get("WORDPRESS_APP_PASSWORD");
 
-    // If not in environment, try to get from request headers
     if (!WORDPRESS_URL || !WORDPRESS_USERNAME || !WORDPRESS_APP_PASSWORD) {
       const wpUrl = req.headers.get("X-WordPress-URL");
       const wpUsername = req.headers.get("X-WordPress-Username");
@@ -54,23 +52,13 @@ Deno.serve(async (req: Request) => {
       "Content-Type": "application/json",
     };
 
-    // GET: Retrieve post(s)
     if (method === "GET") {
       if (postId) {
-        // Get single post with embedded media
         const wpUrl = `${WORDPRESS_URL}/wp-json/wp/v2/posts/${postId}?_embed`;
-        console.log(`Fetching WordPress post from: ${wpUrl}`);
-
-        const response = await fetch(wpUrl, {
-          headers,
-        });
-
-        console.log(`WordPress response status: ${response.status}`);
+        const response = await fetch(wpUrl, { headers });
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`WordPress error response:`, errorText);
-
           let errorJson;
           try {
             errorJson = JSON.parse(errorText);
@@ -96,18 +84,11 @@ Deno.serve(async (req: Request) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } else {
-        // Get all posts
         const wpUrl = `${WORDPRESS_URL}/wp-json/wp/v2/posts?per_page=100&_embed`;
-        console.log(`Fetching WordPress posts from: ${wpUrl}`);
-
-        const response = await fetch(wpUrl, {
-          headers,
-        });
+        const response = await fetch(wpUrl, { headers });
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`WordPress error response:`, errorText);
-
           let errorJson;
           try {
             errorJson = JSON.parse(errorText);
@@ -135,7 +116,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // POST: Create new post
     if (method === "POST") {
       const postData: PostData = await req.json();
 
@@ -157,7 +137,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // PUT: Update existing post
     if (method === "PUT") {
       if (!postId) {
         throw new Error("Post ID is required for updates");
@@ -182,7 +161,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // DELETE: Delete post
     if (method === "DELETE") {
       if (!postId) {
         throw new Error("Post ID is required for deletion");

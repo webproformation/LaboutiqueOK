@@ -171,6 +171,23 @@ export async function GET(request: Request) {
 
     console.log('[Categories API] Action:', action, 'Refresh:', refresh);
 
+    // Vérifier les variables d'environnement
+    const wordpressUrl = process.env.WORDPRESS_URL;
+    const consumerKey = process.env.WC_CONSUMER_KEY;
+    const consumerSecret = process.env.WC_CONSUMER_SECRET;
+
+    if (!wordpressUrl || !consumerKey || !consumerSecret) {
+      console.error('[Categories API] Missing WooCommerce configuration');
+      return NextResponse.json(
+        {
+          error: 'Configuration WooCommerce manquante',
+          details: 'Vérifiez que WORDPRESS_URL, WC_CONSUMER_KEY et WC_CONSUMER_SECRET sont définis',
+          categories: []
+        },
+        { status: 200 }
+      );
+    }
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);

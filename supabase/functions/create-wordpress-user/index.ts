@@ -8,10 +8,7 @@ const corsHeaders = {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
@@ -26,7 +23,6 @@ Deno.serve(async (req: Request) => {
     }
 
     const authString = btoa(`${wpUsername}:${wpAppPassword}`);
-
     const userData = {
       username: email.split('@')[0] + '_' + Date.now(),
       email: email,
@@ -38,81 +34,31 @@ Deno.serve(async (req: Request) => {
 
     const response = await fetch(`${wpUrl}/wp-json/wp/v2/users`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Basic ${authString}`,
-      },
-      body: JSON.stringify(userData),
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${authString}` },
+      body: JSON.stringify(userData)
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('WordPress API error:', errorText);
-      
       if (response.status === 400 && errorText.includes('existing_user_email')) {
-        const existingUsersResponse = await fetch(
-          `${wpUrl}/wp-json/wp/v2/users?search=${encodeURIComponent(email)}`,
-          {
-            headers: {
-              'Authorization': `Basic ${authString}`,
-            },
-          }
+        return new Response(
+          JSON.stringify({ success: true, message: 'User already exists in WordPress' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
-        
-        if (existingUsersResponse.ok) {
-          const existingUsers = await existingUsersResponse.json();
-          const existingUser = existingUsers.find((u: any) => u.email === email);
-          
-          if (existingUser) {
-            return new Response(
-              JSON.stringify({
-                success: true,
-                userId: existingUser.id,
-                message: 'User already exists in WordPress',
-              }),
-              {
-                headers: {
-                  ...corsHeaders,
-                  'Content-Type': 'application/json',
-                },
-              }
-            );
-          }
-        }
       }
-      
-      throw new Error(`Failed to create WordPress user: ${response.status} ${errorText}`);
+      throw new Error(`Failed to create WordPress user: ${response.status}`);
     }
 
     const wpUserCreated = await response.json();
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        userId: wpUserCreated.id,
-        message: 'WordPress user created successfully',
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
+      JSON.stringify({ success: true, userId: wpUserCreated.id, message: 'WordPress user created successfully' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error in create-wordpress-user:', error);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

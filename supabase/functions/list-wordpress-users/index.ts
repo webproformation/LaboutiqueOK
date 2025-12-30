@@ -6,60 +6,33 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const WORDPRESS_URL = Deno.env.get('WORDPRESS_URL');
-const WORDPRESS_USERNAME = Deno.env.get('WORDPRESS_USERNAME');
-const WORDPRESS_APP_PASSWORD = Deno.env.get('WORDPRESS_APP_PASSWORD');
-
-const getAuthHeader = () => {
-  if (WORDPRESS_USERNAME && WORDPRESS_APP_PASSWORD) {
-    const credentials = btoa(`${WORDPRESS_USERNAME}:${WORDPRESS_APP_PASSWORD}`);
-    return `Basic ${credentials}`;
-  }
-  return null;
-};
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
-    const authHeader = getAuthHeader();
+    const wpUrl = Deno.env.get('WORDPRESS_URL');
+    const wpUsername = Deno.env.get('WORDPRESS_USERNAME');
+    const wpAppPassword = Deno.env.get('WORDPRESS_APP_PASSWORD');
 
-    if (!authHeader || !WORDPRESS_URL) {
+    if (!wpUrl || !wpUsername || !wpAppPassword) {
       return new Response(
-        JSON.stringify({
-          error: 'Configuration manquante : WORDPRESS_URL, WORDPRESS_USERNAME et WORDPRESS_APP_PASSWORD doivent être configurés',
-          users: []
-        }),
-        {
-          status: 200,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
+        JSON.stringify({ users: [], error: 'Configuration manquante' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const authHeader = `Basic ${btoa(`${wpUsername}:${wpAppPassword}`)}`;
     const url = new URL(req.url);
     const page = url.searchParams.get('page') || '1';
     const perPage = url.searchParams.get('per_page') || '100';
     const search = url.searchParams.get('search') || '';
 
-    let wpUrl = `${WORDPRESS_URL}/wp-json/wp/v2/users?page=${page}&per_page=${perPage}&context=edit`;
-    if (search) {
-      wpUrl += `&search=${encodeURIComponent(search)}`;
-    }
+    let wpApiUrl = `${wpUrl}/wp-json/wp/v2/users?page=${page}&per_page=${perPage}&context=edit`;
+    if (search) wpApiUrl += `&search=${encodeURIComponent(search)}`;
 
-    const response = await fetch(wpUrl, {
-      headers: {
-        'Authorization': authHeader,
-      },
-    });
+    const response = await fetch(wpApiUrl, { headers: { 'Authorization': authHeader } });
 
     if (!response.ok) {
       throw new Error(`WordPress API error: ${response.status}`);
@@ -83,32 +56,13 @@ Deno.serve(async (req: Request) => {
     }));
 
     return new Response(
-      JSON.stringify({
-        users: formattedUsers,
-        totalPages: totalPages ? parseInt(totalPages) : 1,
-        totalItems: totalItems ? parseInt(totalItems) : formattedUsers.length
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
+      JSON.stringify({ users: formattedUsers, totalPages: totalPages ? parseInt(totalPages) : 1, totalItems: totalItems ? parseInt(totalItems) : formattedUsers.length }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error fetching WordPress users:', error);
     return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Unknown error',
-        users: []
-      }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
+      JSON.stringify({ users: [], error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

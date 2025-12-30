@@ -17,25 +17,14 @@ const getAuthHeader = () => {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
     if (!WORDPRESS_URL || !WC_CONSUMER_KEY || !WC_CONSUMER_SECRET) {
       return new Response(
-        JSON.stringify({
-          error: 'Configuration manquante : Les variables WORDPRESS_URL, WOOCOMMERCE_CONSUMER_KEY et WOOCOMMERCE_CONSUMER_SECRET doivent être configurées dans Supabase Edge Functions Secrets.'
-        }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
+        JSON.stringify({ error: 'Configuration manquante' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -54,260 +43,59 @@ Deno.serve(async (req: Request) => {
       const page = url.searchParams.get('page') || '1';
       const perPage = url.searchParams.get('per_page') || '10';
       const search = url.searchParams.get('search') || '';
-
       let wcUrl = `${WORDPRESS_URL}/wp-json/wc/v3/products?page=${page}&per_page=${perPage}`;
-      if (search) {
-        wcUrl += `&search=${encodeURIComponent(search)}`;
-      }
+      if (search) wcUrl += `&search=${encodeURIComponent(search)}`;
 
-      const response = await fetch(wcUrl, {
-        headers: {
-          'Authorization': getAuthHeader(),
-        },
-      });
-
+      const response = await fetch(wcUrl, { headers: { 'Authorization': getAuthHeader() } });
       const products = await response.json();
-      const totalPages = response.headers.get('X-WP-TotalPages');
-      const totalItems = response.headers.get('X-WP-Total');
 
       return new Response(
-        JSON.stringify({ products, totalPages, totalItems }),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
+        JSON.stringify({ products, totalPages: response.headers.get('X-WP-TotalPages'), totalItems: response.headers.get('X-WP-Total') }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (action === 'get' && productId) {
-      const response = await fetch(
-        `${WORDPRESS_URL}/wp-json/wc/v3/products/${productId}`,
-        {
-          headers: {
-            'Authorization': getAuthHeader(),
-          },
-        }
-      );
-
-      const product = await response.json();
-
-      return new Response(
-        JSON.stringify(product),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const response = await fetch(`${WORDPRESS_URL}/wp-json/wc/v3/products/${productId}`, {
+        headers: { 'Authorization': getAuthHeader() }
+      });
+      return new Response(JSON.stringify(await response.json()), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     if (action === 'create' && req.method === 'POST') {
       const productData = requestBody?.productData || requestBody;
-
-      const response = await fetch(
-        `${WORDPRESS_URL}/wp-json/wc/v3/products`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(productData),
-        }
-      );
-
-      const product = await response.json();
-
-      if (!response.ok) {
-        return new Response(
-          JSON.stringify({ error: 'Erreur WooCommerce', details: product }),
-          {
-            status: response.status,
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
-
-      return new Response(
-        JSON.stringify(product),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const response = await fetch(`${WORDPRESS_URL}/wp-json/wc/v3/products`, {
+        method: 'POST',
+        headers: { 'Authorization': getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData)
+      });
+      return new Response(JSON.stringify(await response.json()), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     if (action === 'update' && productId) {
       const productData = requestBody?.productData || requestBody;
-
-      const response = await fetch(
-        `${WORDPRESS_URL}/wp-json/wc/v3/products/${productId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(productData),
-        }
-      );
-
-      const product = await response.json();
-
-      if (!response.ok) {
-        return new Response(
-          JSON.stringify({ error: 'Erreur WooCommerce', details: product }),
-          {
-            status: response.status,
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
-
-      return new Response(
-        JSON.stringify(product),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const response = await fetch(`${WORDPRESS_URL}/wp-json/wc/v3/products/${productId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData)
+      });
+      return new Response(JSON.stringify(await response.json()), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    if (action === 'delete' && productId && req.method === 'DELETE') {
-      const response = await fetch(
-        `${WORDPRESS_URL}/wp-json/wc/v3/products/${productId}?force=true`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': getAuthHeader(),
-          },
-        }
-      );
-
-      const result = await response.json();
-
-      return new Response(
-        JSON.stringify(result),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    }
-
-    if (action === 'draft' && productId) {
-      const response = await fetch(
-        `${WORDPRESS_URL}/wp-json/wc/v3/products/${productId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ status: 'draft' }),
-        }
-      );
-
-      const product = await response.json();
-
-      if (!response.ok) {
-        return new Response(
-          JSON.stringify({ error: 'Erreur WooCommerce', details: product }),
-          {
-            status: response.status,
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
-
-      return new Response(
-        JSON.stringify(product),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    }
-
-    if (action === 'publish' && productId) {
-      const response = await fetch(
-        `${WORDPRESS_URL}/wp-json/wc/v3/products/${productId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ status: 'publish' }),
-        }
-      );
-
-      const product = await response.json();
-
-      if (!response.ok) {
-        return new Response(
-          JSON.stringify({ error: 'Erreur WooCommerce', details: product }),
-          {
-            status: response.status,
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-      }
-
-      return new Response(
-        JSON.stringify(product),
-        {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    }
-
-    return new Response(
-      JSON.stringify({ error: 'Invalid action' }),
-      {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    return new Response(JSON.stringify({ error: 'Invalid action' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 });

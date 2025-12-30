@@ -8,17 +8,14 @@ const corsHeaders = {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
     const envVars = {
       WORDPRESS_URL: Deno.env.get('WORDPRESS_URL') ? 'DÉFINI (' + Deno.env.get('WORDPRESS_URL')?.substring(0, 30) + '...)' : 'NON DÉFINI',
-      WOOCOMMERCE_CONSUMER_KEY: Deno.env.get('WOOCOMMERCE_CONSUMER_KEY') ? 'DÉFINI (longueur: ' + Deno.env.get('WOOCOMMERCE_CONSUMER_KEY')?.length + ' chars, commence par: ' + Deno.env.get('WOOCOMMERCE_CONSUMER_KEY')?.substring(0, 3) + ')' : 'NON DÉFINI',
-      WOOCOMMERCE_CONSUMER_SECRET: Deno.env.get('WOOCOMMERCE_CONSUMER_SECRET') ? 'DÉFINI (longueur: ' + Deno.env.get('WOOCOMMERCE_CONSUMER_SECRET')?.length + ' chars, commence par: ' + Deno.env.get('WOOCOMMERCE_CONSUMER_SECRET')?.substring(0, 3) + ')' : 'NON DÉFINI',
+      WOOCOMMERCE_CONSUMER_KEY: Deno.env.get('WOOCOMMERCE_CONSUMER_KEY') ? 'DÉFINI (longueur: ' + Deno.env.get('WOOCOMMERCE_CONSUMER_KEY')?.length + ' chars)' : 'NON DÉFINI',
+      WOOCOMMERCE_CONSUMER_SECRET: Deno.env.get('WOOCOMMERCE_CONSUMER_SECRET') ? 'DÉFINI (longueur: ' + Deno.env.get('WOOCOMMERCE_CONSUMER_SECRET')?.length + ' chars)' : 'NON DÉFINI',
     };
 
     let connectionTest = null;
@@ -27,11 +24,7 @@ Deno.serve(async (req: Request) => {
         const credentials = btoa(`${Deno.env.get('WOOCOMMERCE_CONSUMER_KEY')}:${Deno.env.get('WOOCOMMERCE_CONSUMER_SECRET')}`);
         const testUrl = `${Deno.env.get('WORDPRESS_URL')}/wp-json/wc/v3/products?per_page=1`;
 
-        const response = await fetch(testUrl, {
-          headers: {
-            'Authorization': `Basic ${credentials}`,
-          },
-        });
+        const response = await fetch(testUrl, { headers: { 'Authorization': `Basic ${credentials}` } });
 
         connectionTest = {
           status: response.status,
@@ -45,36 +38,18 @@ Deno.serve(async (req: Request) => {
           connectionTest.errorBody = errorBody.substring(0, 500);
         }
       } catch (error) {
-        connectionTest = {
-          error: error.message,
-          success: false,
-        };
+        connectionTest = { error: error.message, success: false };
       }
     }
 
     return new Response(
-      JSON.stringify({
-        envVars,
-        connectionTest,
-        timestamp: new Date().toISOString(),
-      }, null, 2),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
+      JSON.stringify({ envVars, connectionTest, timestamp: new Date().toISOString() }, null, 2),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

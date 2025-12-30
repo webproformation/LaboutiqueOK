@@ -7,81 +7,24 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-interface OrderItem {
-  product_id: number;
-  quantity: number;
-  name: string;
-  price: string;
-}
-
-interface OrderData {
-  customer_id?: number;
-  payment_method: string;
-  payment_method_title: string;
-  set_paid: boolean;
-  billing: {
-    first_name: string;
-    last_name: string;
-    address_1: string;
-    address_2?: string;
-    city: string;
-    state?: string;
-    postcode: string;
-    country: string;
-    email: string;
-    phone: string;
-  };
-  shipping: {
-    first_name: string;
-    last_name: string;
-    address_1: string;
-    address_2?: string;
-    city: string;
-    state?: string;
-    postcode: string;
-    country: string;
-  };
-  line_items: OrderItem[];
-  shipping_lines: {
-    method_id: string;
-    method_title: string;
-    total: string;
-  }[];
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: { Authorization: req.headers.get("Authorization")! },
-        },
-      }
+      { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
     );
 
-    const {
-      data: { user },
-    } = await supabaseClient.auth.getUser();
+    const { data: { user } } = await supabaseClient.auth.getUser();
 
     if (!user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
-        {
-          status: 401,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -94,16 +37,8 @@ Deno.serve(async (req: Request) => {
 
     if (!WORDPRESS_URL || !WC_CONSUMER_KEY || !WC_CONSUMER_SECRET) {
       return new Response(
-        JSON.stringify({
-          error: "WooCommerce configuration manquante : vérifiez WORDPRESS_URL, WOOCOMMERCE_CONSUMER_KEY et WOOCOMMERCE_CONSUMER_SECRET" 
-        }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
+        JSON.stringify({ error: "WooCommerce configuration manquante" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -123,19 +58,15 @@ Deno.serve(async (req: Request) => {
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error("WooCommerce API error:", errorData);
       throw new Error(`Failed to create order in WooCommerce: ${response.statusText}`);
     }
 
     const woocommerceOrder = await response.json();
 
-    await supabaseClient
-      .from("orders")
-      .update({ 
-        woocommerce_order_id: woocommerceOrder.id,
-        woocommerce_order_number: woocommerceOrder.number,
-      })
-      .eq("id", localOrderId);
+    await supabaseClient.from("orders").update({ 
+      woocommerce_order_id: woocommerceOrder.id,
+      woocommerce_order_number: woocommerceOrder.number,
+    }).eq("id", localOrderId);
 
     return new Response(
       JSON.stringify({ 
@@ -144,26 +75,12 @@ Deno.serve(async (req: Request) => {
         woocommerce_order_number: woocommerceOrder.number,
         order: woocommerceOrder,
       }),
-      {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error creating WooCommerce order:", error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : "Unknown error" 
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

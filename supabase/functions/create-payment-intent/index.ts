@@ -9,57 +9,32 @@ const corsHeaders = {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: { Authorization: req.headers.get("Authorization")! },
-        },
-      }
+      { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
     );
 
-    const {
-      data: { user },
-    } = await supabaseClient.auth.getUser();
+    const { data: { user } } = await supabaseClient.auth.getUser();
 
     if (!user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
-        {
-          status: 401,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const { amount, currency = "eur", orderId } = await req.json();
-
     const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
 
     if (!STRIPE_SECRET_KEY) {
       return new Response(
-        JSON.stringify({ 
-          error: "Stripe not configured",
-          message: "Please configure STRIPE_SECRET_KEY"
-        }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
+        JSON.stringify({ error: "Stripe not configured", message: "Please configure STRIPE_SECRET_KEY" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -81,46 +56,23 @@ Deno.serve(async (req: Request) => {
 
     if (!stripeResponse.ok) {
       const errorData = await stripeResponse.text();
-      console.error("Stripe API error:", errorData);
       throw new Error(`Failed to create payment intent: ${stripeResponse.statusText}`);
     }
 
     const paymentIntent = await stripeResponse.json();
 
     if (orderId) {
-      await supabaseClient
-        .from("orders")
-        .update({
-          stripe_payment_intent_id: paymentIntent.id,
-        })
-        .eq("id", orderId);
+      await supabaseClient.from("orders").update({ stripe_payment_intent_id: paymentIntent.id }).eq("id", orderId);
     }
 
     return new Response(
-      JSON.stringify({ 
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
+      JSON.stringify({ clientSecret: paymentIntent.client_secret, paymentIntentId: paymentIntent.id }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error creating payment intent:", error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : "Unknown error" 
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
