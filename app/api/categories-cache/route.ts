@@ -32,11 +32,10 @@ export async function GET(request: Request) {
     let query = supabase
       .from('categories')
       .select('*')
-      .eq('is_active', true)
       .order('name', { ascending: true });
 
     if (parentOnly) {
-      query = query.eq('woocommerce_parent_id', 0);
+      query = query.is('woocommerce_parent_id', null);
     }
 
     const { data, error } = await query;

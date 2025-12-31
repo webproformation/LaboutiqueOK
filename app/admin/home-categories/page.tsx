@@ -88,11 +88,17 @@ export default function HomeCategoriesPage() {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('[Home Categories] Réponse API:', data);
+        console.log('[Home Categories] data.categories:', data.categories);
         const cachedCategories = Array.isArray(data.categories) ? data.categories : [];
+        console.log('[Home Categories] Catégories reçues par le composant:', cachedCategories);
+        console.log('[Home Categories] Nombre de catégories:', cachedCategories.length);
         setAllWooCategories(cachedCategories);
 
         if (cachedCategories.length === 0) {
           toast.info('Aucune catégorie dans le cache. Cliquez sur "Rafraîchir depuis WordPress" pour synchroniser.');
+        } else {
+          console.log(`[Home Categories] ✅ ${cachedCategories.length} catégories chargées avec succès`);
         }
       } else {
         console.error('Failed to fetch cached categories');
@@ -136,16 +142,30 @@ export default function HomeCategoriesPage() {
       }
 
       const syncResult = await syncResponse.json();
+      console.log('[Home Categories] Résultat de la synchro:', syncResult);
 
-      // Reload from cache
+      // Reload from cache avec logs détaillés
+      console.log('[Home Categories] 🔄 Rechargement automatique après synchro...');
       const cacheResponse = await fetch('/api/categories-cache?parent_only=true');
       if (cacheResponse.ok) {
         const data = await cacheResponse.json();
+        console.log('[Home Categories] Données après synchro:', data);
         const cachedCategories = Array.isArray(data.categories) ? data.categories : [];
+        console.log('[Home Categories] Catégories après synchro:', cachedCategories);
+        console.log('[Home Categories] Nombre après synchro:', cachedCategories.length);
         setAllWooCategories(cachedCategories);
-      }
 
-      toast.success(`${syncResult.count} catégories synchronisées`);
+        if (cachedCategories.length > 0) {
+          console.log(`[Home Categories] ✅ ${cachedCategories.length} catégories disponibles après synchro`);
+          toast.success(`${syncResult.count || cachedCategories.length} catégories synchronisées et chargées`);
+        } else {
+          console.warn('[Home Categories] ⚠️ Synchro réussie mais aucune catégorie trouvée après');
+          toast.warning('Synchronisation réussie mais aucune catégorie disponible');
+        }
+      } else {
+        console.error('[Home Categories] Erreur lors du rechargement après synchro');
+        toast.warning('Synchronisation réussie mais erreur de rechargement');
+      }
     } catch (error) {
       console.error('Error refreshing categories:', error);
       toast.error('Erreur lors de la synchronisation');
@@ -183,7 +203,7 @@ export default function HomeCategoriesPage() {
             name: decodeHtmlEntities(wooCat.name),
             slug: wooCat.slug,
             description: '',
-            woocommerce_parent_id: wooCat.parent || 0,
+            woocommerce_parent_id: wooCat.parent && wooCat.parent !== 0 ? wooCat.parent : null,
             image_url: wooCat.image?.src || null,
             count: wooCat.count || 0,
             is_active: true
@@ -349,6 +369,10 @@ export default function HomeCategoriesPage() {
   const availableCategories = Array.isArray(allWooCategories)
     ? allWooCategories.filter(woo => !selectedCategories.some(home => home.category_slug === woo.slug))
     : [];
+
+  console.log('[Home Categories] Avant le render - allWooCategories:', allWooCategories);
+  console.log('[Home Categories] Avant le render - availableCategories:', availableCategories);
+  console.log('[Home Categories] Avant le render - selectedCategories:', selectedCategories);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
