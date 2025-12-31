@@ -76,9 +76,18 @@ export async function GET(request: Request) {
   } catch (error: any) {
     console.error('[Home Categories API] Unexpected error:', {
       message: error?.message,
-      stack: error?.stack
+      stack: error?.stack,
+      code: error?.code,
+      details: error?.details,
+      hint: error?.hint
     });
-    return NextResponse.json([]);
+    return NextResponse.json({
+      success: false,
+      error: error?.message || 'Unknown error',
+      details: error?.details,
+      hint: error?.hint,
+      code: error?.code
+    }, { status: 500 });
   }
 }
 
@@ -105,8 +114,19 @@ export async function POST(request: Request) {
         .single();
 
       if (error) {
-        console.error('[Home Categories API] Error creating:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error('[Home Categories API] Error creating:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        return NextResponse.json({
+          success: false,
+          error: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        }, { status: 500 });
       }
 
       // Call webhook revalidator to clear PostgREST cache
@@ -139,8 +159,19 @@ export async function POST(request: Request) {
         .single();
 
       if (error) {
-        console.error('[Home Categories API] Error updating:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error('[Home Categories API] Error updating:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        return NextResponse.json({
+          success: false,
+          error: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        }, { status: 500 });
       }
 
       return NextResponse.json(data);
@@ -157,8 +188,19 @@ export async function POST(request: Request) {
         .eq('id', categoryId);
 
       if (error) {
-        console.error('[Home Categories API] Error deleting:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error('[Home Categories API] Error deleting:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        return NextResponse.json({
+          success: false,
+          error: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        }, { status: 500 });
       }
 
       return NextResponse.json({ success: true });
@@ -166,7 +208,18 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error: any) {
-    console.error('[Home Categories API] Unexpected error:', error);
-    return NextResponse.json({ error: error.message || 'Unknown error' }, { status: 500 });
+    console.error('[Home Categories API] Unexpected error:', {
+      message: error?.message,
+      stack: error?.stack,
+      code: error?.code,
+      details: error?.details
+    });
+    return NextResponse.json({
+      success: false,
+      error: error?.message || 'Unknown error',
+      details: error?.details,
+      hint: error?.hint,
+      code: error?.code
+    }, { status: 500 });
   }
 }

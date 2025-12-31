@@ -77,12 +77,21 @@ export default function HomeCategoriesPage() {
       const homeCategoriesResponse = await fetch('/api/home-categories-get');
 
       if (!homeCategoriesResponse.ok) {
-        console.error('[Home Categories] Failed to fetch home categories');
+        const errorData = await homeCategoriesResponse.json();
+        console.error('[Home Categories] Failed to fetch home categories:', errorData);
         setSelectedCategories([]);
       } else {
         const homeCategories = await homeCategoriesResponse.json();
-        console.log('[Home Categories] Home categories response:', homeCategories);
+        console.log('[Home Categories] Raw response:', homeCategories);
+        console.log('[Home Categories] Response type:', typeof homeCategories);
         console.log('[Home Categories] Is array?', Array.isArray(homeCategories));
+
+        // Handle error format
+        if (homeCategories?.success === false) {
+          console.error('[Home Categories] API returned error:', homeCategories);
+          setSelectedCategories([]);
+          return;
+        }
 
         // Handle both formats: direct array or { data: [...] }
         let categoriesArray = homeCategories;
@@ -93,7 +102,8 @@ export default function HomeCategoriesPage() {
 
         // Ensure we have an array
         const safeHomeCategories = Array.isArray(categoriesArray) ? categoriesArray : [];
-        console.log('[Home Categories] Safe home categories count:', safeHomeCategories.length);
+        console.log('[Home Categories] Final categories count:', safeHomeCategories.length);
+        console.log('[Home Categories] Sample category:', safeHomeCategories[0]);
         setSelectedCategories(safeHomeCategories);
       }
 

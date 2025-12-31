@@ -151,11 +151,12 @@ export async function POST(request: Request) {
     let totalProductsProcessed = 0;
     const errors: Array<{ productId: number; productName: string; error: string }> = [];
 
-    // Pagination settings
+    // Pagination settings - LIMIT TO 3 PRODUCTS FOR TESTING
     let page = 1;
-    const perPage = 20; // Process 20 products at a time to avoid timeout
+    const perPage = 3; // TEST MODE: Process only 3 products at a time
     let hasMore = true;
     let totalProducts = 0;
+    const MAX_PAGES = 1; // TEST MODE: Process only 1 page
 
     // Helper function to process a single product
     const processProduct = async (wcProduct: WooCommerceProduct) => {
@@ -218,13 +219,19 @@ export async function POST(request: Request) {
           .single();
 
         if (upsertError) {
-          console.error(`[Sync Products] Error upserting product ${wcProduct.id}:`, upsertError);
+          console.error(`[Sync Products] Error upserting product ${wcProduct.id}:`, {
+            message: upsertError.message,
+            details: upsertError.details,
+            hint: upsertError.hint,
+            code: upsertError.code
+          });
           errors.push({
             productId: wcProduct.id,
             productName: wcProduct.name,
-            error: upsertError.message
+            error: `${upsertError.message} (Code: ${upsertError.code})${upsertError.hint ? ` - Hint: ${upsertError.hint}` : ''}${upsertError.details ? ` - Details: ${upsertError.details}` : ''}`
           });
         } else {
+          console.log(`[Sync Products] Successfully upserted product ${wcProduct.id} (${wcProduct.name})`);
           // Check if it was created (created_at is recent) or updated
           const isNewlyCreated = upsertedProduct &&
             new Date(upsertedProduct.created_at).getTime() > Date.now() - 5000;
@@ -340,7 +347,12 @@ export async function POST(request: Request) {
 
           // Check if there are more pages
           const totalPages = response.headers.get('X-WP-TotalPages');
-          if (totalPages && page >= parseInt(totalPages)) {
+
+          // TEST MODE: Stop after MAX_PAGES
+          if (page >= MAX_PAGES) {
+            hasMore = false;
+            console.log(`[Sync Products] TEST MODE: Stopping after ${MAX_PAGES} page(s)`);
+          } else if (totalPages && page >= parseInt(totalPages)) {
             hasMore = false;
             console.log('[Sync Products] All pages processed');
           } else {
@@ -374,14 +386,33 @@ export async function POST(request: Request) {
       errors: errors.length
     });
 
+    // DEBUG: Verify products were actually created in database
+    const { count: dbCount, error: countError } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true });
+
+    console.log(`[Sync Products] Database verification: ${dbCount} products in database`);
+
+    if (countError) {
+      console.error('[Sync Products] Error verifying database count:', countError);
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Synchronisation terminée avec succès`,
+      message: `Synchronisation terminée - TEST MODE (${perPage} produits max)`,
       productsProcessed: totalProductsProcessed,
       totalProducts: totalProducts > 0 ? totalProducts : totalProductsProcessed,
       productsCreated,
       productsUpdated,
-      errors: errors.length > 0 ? errors : undefined
+      databaseCount: dbCount || 0,
+      errors: errors.length > 0 ? errors : [],
+      debugInfo: {
+        testMode: true,
+        maxProductsPerPage: perPage,
+        maxPages: MAX_PAGES,
+        hasErrors: errors.length > 0,
+        errorDetails: errors
+      }
     });
 
   } catch (error: any) {
