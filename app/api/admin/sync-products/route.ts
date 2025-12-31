@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   console.log('[Sync Products] GET request - Configuration check');
 
   try {
-    const wcUrl = process.env.NEXT_PUBLIC_WORDPRESS_API_URL;
+    const wcUrl = process.env.WORDPRESS_URL;
     const wcConsumerKey = process.env.WC_CONSUMER_KEY;
     const wcConsumerSecret = process.env.WC_CONSUMER_SECRET;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       configuration: {
-        wordpress_api_url: wcUrl ? `${wcUrl.substring(0, 20)}...` : 'MISSING',
+        wordpress_url: wcUrl || 'MISSING',
         wc_consumer_key: wcConsumerKey ? `${wcConsumerKey.substring(0, 10)}...` : 'MISSING',
         wc_consumer_secret: wcConsumerSecret ? '***CONFIGURED***' : 'MISSING',
         supabase_url: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'MISSING',
@@ -60,14 +60,14 @@ export async function POST(request: Request) {
   try {
     console.log('[Sync Products] Step 1: Checking environment variables...');
 
-    const wcUrl = process.env.NEXT_PUBLIC_WORDPRESS_API_URL;
+    const wcUrl = process.env.WORDPRESS_URL;
     const wcConsumerKey = process.env.WC_CONSUMER_KEY;
     const wcConsumerSecret = process.env.WC_CONSUMER_SECRET;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     console.log('[Sync Products] Environment check:', {
-      hasWcUrl: !!wcUrl,
+      wcUrl: wcUrl || 'MISSING',
       hasWcConsumerKey: !!wcConsumerKey,
       hasWcConsumerSecret: !!wcConsumerSecret,
       hasSupabaseUrl: !!supabaseUrl,
@@ -160,21 +160,45 @@ export async function POST(request: Request) {
     // Helper function to process a single product
     const processProduct = async (wcProduct: WooCommerceProduct) => {
       try {
+        // Extract primary category (first category) and find its UUID in categories table
+        let categoryId: string | null = null;
+        let wooCategoryId: number | null = null;
+
+        if (wcProduct.categories && wcProduct.categories.length > 0) {
+          wooCategoryId = wcProduct.categories[0].id;
+
+          // Find category UUID from categories table
+          const { data: categoryData } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('woocommerce_id', wooCategoryId)
+            .maybeSingle();
+
+          if (categoryData) {
+            categoryId = categoryData.id;
+            console.log(`[Sync Products] Product ${wcProduct.id}: Linked to category UUID ${categoryId} (WooCommerce ID: ${wooCategoryId})`);
+          } else {
+            console.log(`[Sync Products] Product ${wcProduct.id}: Category ${wooCategoryId} not found in categories table (will remain null)`);
+          }
+        }
+
         const productData = {
           woocommerce_id: wcProduct.id,
           name: wcProduct.name,
           slug: wcProduct.slug,
           description: wcProduct.description || '',
           short_description: wcProduct.short_description || '',
-          price: wcProduct.regular_price ? parseFloat(wcProduct.regular_price) : 0,
+          regular_price: wcProduct.regular_price ? parseFloat(wcProduct.regular_price) : 0,
           sale_price: wcProduct.sale_price ? parseFloat(wcProduct.sale_price) : null,
           image_url: wcProduct.images && wcProduct.images.length > 0 ? wcProduct.images[0].src : null,
-          gallery_images: wcProduct.images ? wcProduct.images.map(img => ({
+          images: wcProduct.images ? wcProduct.images.map(img => ({
             src: img.src,
             alt: img.alt || wcProduct.name
           })) : [],
           stock_status: wcProduct.stock_status || 'instock',
           stock_quantity: wcProduct.stock_quantity,
+          category_id: categoryId,
+          woocommerce_category_id: wooCategoryId,
           categories: wcProduct.categories || [],
           tags: wcProduct.tags || [],
           attributes: wcProduct.attributes || [],
@@ -237,7 +261,7 @@ export async function POST(request: Request) {
         const apiUrl = `${wcUrl}/wp-json/wc/v3/products?page=${page}&per_page=${perPage}&consumer_key=${wcConsumerKey}&consumer_secret=${wcConsumerSecret}`;
 
         console.log(`[Sync Products] Step 5.${page}: Fetching page ${page} (${perPage} products per page)...`);
-        console.log(`[Sync Products] API URL (without credentials): ${wcUrl}/wp-json/wc/v3/products?page=${page}&per_page=${perPage}`);
+        console.log(`[Sync Products] Full API URL: ${wcUrl}/wp-json/wc/v3/products?page=${page}&per_page=${perPage}&consumer_key=${wcConsumerKey?.substring(0, 10)}...`);
 
         const response = await fetch(apiUrl, {
           method: 'GET',
@@ -249,12 +273,20 @@ export async function POST(request: Request) {
           throw new Error(`Erreur réseau: ${fetchError.message}`);
         });
 
+        console.log(`[Sync Products] Response status: ${response.status}`);
+        console.log(`[Sync Products] Response headers:`, {
+          contentType: response.headers.get('content-type'),
+          total: response.headers.get('X-WP-Total'),
+          totalPages: response.headers.get('X-WP-TotalPages')
+        });
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`[Sync Products] WooCommerce API error on page ${page}:`, {
             status: response.status,
             statusText: response.statusText,
-            body: errorText.substring(0, 500)
+            contentType: response.headers.get('content-type'),
+            bodyPreview: errorText.substring(0, 500)
           });
 
           if (response.status === 401) {
@@ -270,10 +302,28 @@ export async function POST(request: Request) {
             );
           }
 
-          throw new Error(`WooCommerce API error: ${response.status} - ${errorText}`);
+          throw new Error(`WooCommerce API error: ${response.status} - ${errorText.substring(0, 200)}`);
         }
 
-        const products: WooCommerceProduct[] = await response.json();
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const textResponse = await response.text();
+          console.error('[Sync Products] Expected JSON but received:', {
+            contentType,
+            bodyPreview: textResponse.substring(0, 500)
+          });
+          throw new Error(`La réponse n'est pas du JSON. Type reçu: ${contentType}. Corps: ${textResponse.substring(0, 200)}`);
+        }
+
+        let products: WooCommerceProduct[];
+        try {
+          products = await response.json();
+        } catch (jsonError: any) {
+          const textResponse = await response.text();
+          console.error('[Sync Products] JSON parse error:', jsonError);
+          console.error('[Sync Products] Response body:', textResponse.substring(0, 1000));
+          throw new Error(`Impossible de parser la réponse JSON: ${jsonError.message}. Corps: ${textResponse.substring(0, 200)}`);
+        }
 
         // Get total products from headers on first page
         if (page === 1) {
