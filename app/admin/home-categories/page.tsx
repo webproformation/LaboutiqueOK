@@ -74,38 +74,42 @@ export default function HomeCategoriesPage() {
       setLoading(true);
 
       // Charger les catégories sélectionnées via l'API route (bypass PostgREST cache)
-      const homeCategoriesResponse = await fetch('/api/home-categories-get');
+      // Add 5 second timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      if (!homeCategoriesResponse.ok) {
-        const errorData = await homeCategoriesResponse.json();
-        console.error('[Home Categories] Failed to fetch home categories:', errorData);
-        setSelectedCategories([]);
-      } else {
-        const homeCategories = await homeCategoriesResponse.json();
-        console.log('[Home Categories] Raw response:', homeCategories);
-        console.log('[Home Categories] Response type:', typeof homeCategories);
-        console.log('[Home Categories] Is array?', Array.isArray(homeCategories));
-
-        // Handle error format
-        if (homeCategories?.success === false) {
-          console.error('[Home Categories] API returned error:', homeCategories);
+      let homeCategoriesResponse;
+      try {
+        homeCategoriesResponse = await fetch('/api/home-categories-get', {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          console.error('[Home Categories] API timeout after 5 seconds');
           setSelectedCategories([]);
-          return;
+          throw new Error('La requête a dépassé le délai de 5 secondes');
         }
-
-        // Handle both formats: direct array or { data: [...] }
-        let categoriesArray = homeCategories;
-        if (!Array.isArray(homeCategories) && homeCategories?.data) {
-          console.log('[Home Categories] Extracting data from response.data');
-          categoriesArray = homeCategories.data;
-        }
-
-        // Ensure we have an array
-        const safeHomeCategories = Array.isArray(categoriesArray) ? categoriesArray : [];
-        console.log('[Home Categories] Final categories count:', safeHomeCategories.length);
-        console.log('[Home Categories] Sample category:', safeHomeCategories[0]);
-        setSelectedCategories(safeHomeCategories);
+        throw fetchError;
       }
+
+      const homeCategories = await homeCategoriesResponse.json();
+      console.log('[Home Categories] Raw response:', homeCategories);
+
+      // Check for error response
+      if (!homeCategoriesResponse.ok || homeCategories?.success === false) {
+        console.error('[Home Categories] API error:', homeCategories);
+        setSelectedCategories([]);
+        return;
+      }
+
+      // Extract data from { success: true, data: [...] } format
+      const categoriesArray = homeCategories?.data || [];
+      console.log('[Home Categories] Extracted categories:', categoriesArray.length);
+      console.log('[Home Categories] Sample category:', categoriesArray[0]);
+
+      setSelectedCategories(Array.isArray(categoriesArray) ? categoriesArray : []);
 
       // Charger toutes les catégories depuis le cache Supabase
       const response = await fetch('/api/categories-cache?parent_only=true');
@@ -130,10 +134,11 @@ export default function HomeCategoriesPage() {
         console.error('[Home Categories] Failed to fetch cached categories');
         setAllWooCategories([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Home Categories] Error loading data:', error);
       setAllWooCategories([]);
       setSelectedCategories([]);
+      toast.error(error?.message || 'Erreur lors du chargement des catégories');
     } finally {
       setLoading(false);
     }

@@ -5,6 +5,8 @@ export const maxDuration = 30;
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+  console.log('[Home Categories API] GET request started');
+
   try {
     const url = new URL(request.url);
     const active = url.searchParams.get('active') === 'true';
@@ -14,7 +16,7 @@ export async function GET(request: Request) {
 
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('[Home Categories API] Missing Supabase configuration');
-      return NextResponse.json([]);
+      return NextResponse.json({ success: false, error: 'Missing configuration', data: [] });
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
@@ -24,55 +26,95 @@ export async function GET(request: Request) {
       }
     });
 
+    console.log('[Home Categories API] Step 1: Fetching home_categories...');
+
+    // Step 1: Fetch home_categories (simple query, no JOIN)
     let query = supabase
       .from('home_categories')
-      .select(`
-        *,
-        category:categories!category_id (
-          id,
-          woocommerce_id,
-          name,
-          slug,
-          description,
-          image_url,
-          count
-        )
-      `)
+      .select('*')
       .order('display_order', { ascending: true });
 
     if (active) {
       query = query.eq('is_active', true);
     }
 
-    const { data, error } = await query;
+    const { data: homeCategories, error: homeCategoriesError } = await query;
 
-    if (error) {
-      console.error('[Home Categories API] Error fetching:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
+    if (homeCategoriesError) {
+      console.error('[Home Categories API] Error fetching home_categories:', {
+        message: homeCategoriesError.message,
+        details: homeCategoriesError.details,
+        hint: homeCategoriesError.hint,
+        code: homeCategoriesError.code
       });
-      return NextResponse.json([]);
+      return NextResponse.json({
+        success: false,
+        error: homeCategoriesError.message,
+        details: homeCategoriesError.details,
+        hint: homeCategoriesError.hint,
+        code: homeCategoriesError.code,
+        data: []
+      }, { status: 500 });
     }
 
-    if (!data || data.length === 0) {
-      return NextResponse.json([]);
+    console.log(`[Home Categories API] Found ${homeCategories?.length || 0} home_categories`);
+
+    if (!homeCategories || homeCategories.length === 0) {
+      console.log('[Home Categories API] No home_categories found, returning empty array');
+      return NextResponse.json({ success: true, data: [] });
     }
 
-    const formattedData = Array.isArray(data) ? data.map(item => ({
-      id: item.id,
-      category_id: item.category_id,
-      category_slug: item.category_slug || item.category?.slug || '',
-      category_name: item.category_name || item.category?.name || '',
-      display_order: item.display_order,
-      is_active: item.is_active,
-      image_url: item.image_url || item.category?.image_url || null,
-      description: item.description || item.category?.description || null,
-      category: item.category || null
-    })) : [];
+    // Step 2: Get unique category IDs
+    const categoryIds = Array.from(new Set(
+      homeCategories
+        .map(hc => hc.category_id)
+        .filter(id => id != null)
+    ));
 
-    return NextResponse.json(formattedData);
+    console.log(`[Home Categories API] Step 2: Fetching ${categoryIds.length} categories...`);
+
+    let categoriesData: any[] = [];
+
+    if (categoryIds.length > 0) {
+      const { data: categories, error: categoriesError } = await supabase
+        .from('categories')
+        .select('id, woocommerce_id, name, slug, description, image_url, count')
+        .in('id', categoryIds);
+
+      if (categoriesError) {
+        console.error('[Home Categories API] Error fetching categories:', {
+          message: categoriesError.message,
+          details: categoriesError.details,
+          hint: categoriesError.hint,
+          code: categoriesError.code
+        });
+        // Continue without category details
+      } else {
+        categoriesData = categories || [];
+        console.log(`[Home Categories API] Fetched ${categoriesData.length} category details`);
+      }
+    }
+
+    // Step 3: Combine data
+    const formattedData = homeCategories.map(item => {
+      const category = categoriesData.find(cat => cat.id === item.category_id);
+
+      return {
+        id: item.id,
+        category_id: item.category_id,
+        category_slug: item.category_slug || category?.slug || '',
+        category_name: item.category_name || category?.name || '',
+        display_order: item.display_order,
+        is_active: item.is_active,
+        image_url: item.image_url || category?.image_url || null,
+        description: item.description || category?.description || null,
+        category: category || null
+      };
+    });
+
+    console.log('[Home Categories API] Returning formatted data:', formattedData.length);
+
+    return NextResponse.json({ success: true, data: formattedData });
   } catch (error: any) {
     console.error('[Home Categories API] Unexpected error:', {
       message: error?.message,
@@ -86,7 +128,8 @@ export async function GET(request: Request) {
       error: error?.message || 'Unknown error',
       details: error?.details,
       hint: error?.hint,
-      code: error?.code
+      code: error?.code,
+      data: []
     }, { status: 500 });
   }
 }

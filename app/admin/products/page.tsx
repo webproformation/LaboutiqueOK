@@ -70,11 +70,19 @@ interface SyncResult {
   totalProducts?: number;
   productsCreated: number;
   productsUpdated: number;
+  databaseCount?: number;
   errors?: Array<{
     productId: number;
     productName: string;
     error: string;
   }>;
+  debugInfo?: {
+    testMode?: boolean;
+    maxProductsPerPage?: number;
+    maxPages?: number;
+    hasErrors?: boolean;
+    errorDetails?: any[];
+  };
 }
 
 function decodeHtmlEntities(text: string): string {
@@ -365,12 +373,33 @@ export default function AdminProducts() {
                     <div className="mt-1 text-sm space-y-0.5">
                       {syncResult.totalProducts && <p>Total WooCommerce: {syncResult.totalProducts}</p>}
                       <p>Traités: {syncResult.productsProcessed} | Créés: {syncResult.productsCreated} | Mis à jour: {syncResult.productsUpdated}</p>
+                      {syncResult.databaseCount !== undefined && (
+                        <p className="font-bold text-green-600">✓ Produits en base: {syncResult.databaseCount}</p>
+                      )}
+                      {syncResult.debugInfo?.testMode && (
+                        <p className="text-yellow-600">⚠️ MODE TEST: Limité à {syncResult.debugInfo.maxProductsPerPage} produits</p>
+                      )}
                     </div>
                   </div>
                 ) : (
                   <div>
                     <strong>Erreur</strong>
                     <p className="mt-1 text-sm">{syncResult.error}</p>
+                    {syncResult.debugInfo?.errorDetails && syncResult.debugInfo.errorDetails.length > 0 && (
+                      <div className="mt-2 text-xs">
+                        <p className="font-semibold">Détails des erreurs:</p>
+                        <ul className="list-disc pl-4 space-y-1">
+                          {syncResult.debugInfo.errorDetails.slice(0, 5).map((err: any, idx: number) => (
+                            <li key={idx}>
+                              Produit {err.productId} ({err.productName}): {err.error}
+                            </li>
+                          ))}
+                          {syncResult.debugInfo.errorDetails.length > 5 && (
+                            <li>... et {syncResult.debugInfo.errorDetails.length - 5} autres erreurs</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 )}
               </AlertDescription>
