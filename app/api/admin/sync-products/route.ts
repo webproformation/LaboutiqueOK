@@ -191,7 +191,7 @@ export async function POST(request: Request) {
           regular_price: wcProduct.regular_price ? parseFloat(wcProduct.regular_price) : 0,
           sale_price: wcProduct.sale_price ? parseFloat(wcProduct.sale_price) : null,
           image_url: wcProduct.images && wcProduct.images.length > 0 ? wcProduct.images[0].src : null,
-          images: wcProduct.images ? wcProduct.images.map(img => ({
+          images: Array.isArray(wcProduct.images) ? wcProduct.images.map(img => ({
             src: img.src,
             alt: img.alt || wcProduct.name
           })) : [],
@@ -207,42 +207,32 @@ export async function POST(request: Request) {
           updated_at: new Date().toISOString()
         };
 
-        const { data: existingProduct } = await supabase
+        // Use upsert with onConflict to handle both insert and update in one query
+        const { data: upsertedProduct, error: upsertError } = await supabase
           .from('products')
-          .select('id')
-          .eq('woocommerce_id', wcProduct.id)
-          .maybeSingle();
+          .upsert(productData, {
+            onConflict: 'woocommerce_id',
+            ignoreDuplicates: false
+          })
+          .select('id, created_at')
+          .single();
 
-        if (existingProduct) {
-          const { error: updateError } = await supabase
-            .from('products')
-            .update(productData)
-            .eq('woocommerce_id', wcProduct.id);
+        if (upsertError) {
+          console.error(`[Sync Products] Error upserting product ${wcProduct.id}:`, upsertError);
+          errors.push({
+            productId: wcProduct.id,
+            productName: wcProduct.name,
+            error: upsertError.message
+          });
+        } else {
+          // Check if it was created (created_at is recent) or updated
+          const isNewlyCreated = upsertedProduct &&
+            new Date(upsertedProduct.created_at).getTime() > Date.now() - 5000;
 
-          if (updateError) {
-            console.error(`[Sync Products] Error updating product ${wcProduct.id}:`, updateError);
-            errors.push({
-              productId: wcProduct.id,
-              productName: wcProduct.name,
-              error: updateError.message
-            });
+          if (isNewlyCreated) {
+            productsCreated++;
           } else {
             productsUpdated++;
-          }
-        } else {
-          const { error: insertError } = await supabase
-            .from('products')
-            .insert([productData]);
-
-          if (insertError) {
-            console.error(`[Sync Products] Error inserting product ${wcProduct.id}:`, insertError);
-            errors.push({
-              productId: wcProduct.id,
-              productName: wcProduct.name,
-              error: insertError.message
-            });
-          } else {
-            productsCreated++;
           }
         }
       } catch (productError: any) {

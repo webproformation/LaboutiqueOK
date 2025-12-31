@@ -60,7 +60,7 @@ export async function GET(request: Request) {
       return NextResponse.json([]);
     }
 
-    const formattedData = data.map(item => ({
+    const formattedData = Array.isArray(data) ? data.map(item => ({
       id: item.id,
       category_id: item.category_id,
       category_slug: item.category_slug || item.category?.slug || '',
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
       image_url: item.image_url || item.category?.image_url || null,
       description: item.description || item.category?.description || null,
       category: item.category || null
-    }));
+    })) : [];
 
     return NextResponse.json(formattedData);
   } catch (error: any) {

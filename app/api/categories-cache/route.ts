@@ -53,7 +53,7 @@ export async function GET(request: Request) {
 
     console.log(`[Categories Cache API] Found ${data?.length || 0} categories in cache`);
 
-    const formattedData = (data || []).map(cat => ({
+    const formattedData = Array.isArray(data) ? data.map(cat => ({
       id: cat.woocommerce_id,
       name: cat.name,
       slug: cat.slug,
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
       image: cat.image_url ? { src: cat.image_url } : null,
       image_url: cat.image_url,
       description: cat.description
-    }));
+    })) : [];
 
     return NextResponse.json({
       success: true,
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
       }
 
       console.log(`[Categories Cache API] Step 5: Formatting ${categories.length} categories for table 'categories'...`);
-      const formattedCategories = categories.map((cat, index) => {
+      const formattedCategories = Array.isArray(categories) ? categories.map((cat, index) => {
         if (!cat.id || !cat.name || !cat.slug) {
           console.error(`[Categories Cache API] Invalid category at index ${index}:`, cat);
         }
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
           is_active: true,
           updated_at: new Date().toISOString()
         };
-      });
+      }) : [];
 
       console.log(`[Categories Cache API] Step 6: Sample category data:`, formattedCategories[0]);
 

@@ -68,11 +68,11 @@ export async function GET() {
       success: true,
       tableExists: true,
       count,
-      sampleInvoices: invoices?.map(inv => ({
+      sampleInvoices: Array.isArray(invoices) ? invoices.map(inv => ({
         id: inv.id,
         invoice_number: inv.invoice_number,
         order_number: inv.order_number
-      }))
+      })) : []
     });
 
   } catch (error: any) {

@@ -133,7 +133,7 @@ async function loadCategoriesFromWooCommerce() {
     }
 
     // Retourner directement (pas de cache Supabase)
-    return allCategories.map((cat: any) => ({
+    return Array.isArray(allCategories) ? allCategories.map((cat: any) => ({
       category_id: cat.id,
       name: cat.name,
       slug: cat.slug,
@@ -141,7 +141,7 @@ async function loadCategoriesFromWooCommerce() {
       description: cat.description || '',
       image: cat.image,
       count: cat.count || 0,
-    }));
+    })) : [];
   } catch (error: any) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
@@ -219,7 +219,7 @@ export async function GET(request: Request) {
       console.log(`[Categories API] Loaded ${loaded.length} categories`);
 
       // Convertir au format attendu
-      const categories: Category[] = loaded.map((cat: any) => ({
+      const categories: Category[] = Array.isArray(loaded) ? loaded.map((cat: any) => ({
         id: cat.category_id,
         name: cat.name,
         slug: cat.slug,
@@ -227,7 +227,7 @@ export async function GET(request: Request) {
         description: cat.description || '',
         image: cat.image,
         count: cat.count || 0,
-      }));
+      })) : [];
 
       // Retourner selon l'action demandée
       if (action === 'list') {

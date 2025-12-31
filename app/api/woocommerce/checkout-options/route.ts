@@ -82,7 +82,9 @@ export async function GET() {
     const paymentGateways = paymentResponse.ok ? await paymentResponse.json() : [];
     const taxRates = taxResponse.ok ? await taxResponse.json() : [];
 
-    const activePaymentGateways = paymentGateways.filter((gateway: any) => gateway.enabled);
+    const activePaymentGateways = Array.isArray(paymentGateways)
+      ? paymentGateways.filter((gateway: any) => gateway.enabled)
+      : [];
 
     return NextResponse.json({
       shippingMethods,

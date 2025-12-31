@@ -31,13 +31,13 @@ export async function GET() {
     const categories = await response.json();
 
     // Transform to include count
-    const categoriesWithCount = categories.map((cat: any) => ({
+    const categoriesWithCount = Array.isArray(categories) ? categories.map((cat: any) => ({
       id: cat.id,
       name: cat.name,
       slug: cat.slug,
       count: cat.count || 0,
       image: cat.image,
-    }));
+    })) : [];
 
     return NextResponse.json(categoriesWithCount);
   } catch (error) {

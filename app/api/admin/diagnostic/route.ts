@@ -575,7 +575,7 @@ async function testWooCommerce(): Promise<TestResult[]> {
       name: 'WooCommerce - Zones de livraison (Lecture)',
       status: response.ok ? 'success' : 'error',
       message: response.ok ? `${data.length || 0} zones configurées` : 'Erreur',
-      details: response.ok ? { zones: data.map((z: any) => z.name) } : data
+      details: response.ok ? { zones: Array.isArray(data) ? data.map((z: any) => z.name) : [] } : data
     });
   } catch (error: any) {
     results.push({

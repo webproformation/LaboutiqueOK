@@ -41,14 +41,19 @@ interface Product {
   woocommerce_id: number;
   name: string;
   slug: string;
-  price: number;
+  regular_price: number;
   sale_price: number | null;
   image_url: string | null;
   stock_status: string;
   stock_quantity: number | null;
   is_active: boolean;
+  category_id: string | null;
   created_at: string;
   updated_at: string;
+  categories?: {
+    id: string;
+    name: string;
+  };
 }
 
 interface ProductFlags {
@@ -101,12 +106,19 @@ export default function AdminProducts() {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(`
+          *,
+          categories (
+            id,
+            name
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      setProducts(data || []);
+      const safeProducts = Array.isArray(data) ? data : [];
+      setProducts(safeProducts);
     } catch (error) {
       console.error('Error loading products:', error);
       setProducts([]);
@@ -125,16 +137,19 @@ export default function AdminProducts() {
       if (error) throw error;
 
       const flagsMap = new Map<number, ProductFlags>();
-      data?.forEach((flag) => {
-        flagsMap.set(flag.product_id, {
-          product_id: flag.product_id,
-          is_active: flag.is_active,
-          is_hidden_diamond: flag.is_hidden_diamond,
+      if (Array.isArray(data)) {
+        data.forEach((flag) => {
+          flagsMap.set(flag.product_id, {
+            product_id: flag.product_id,
+            is_active: flag.is_active,
+            is_hidden_diamond: flag.is_hidden_diamond,
+          });
         });
-      });
+      }
       setProductFlags(flagsMap);
     } catch (error) {
       console.error('Error loading product flags:', error);
+      setProductFlags(new Map());
     }
   };
 
@@ -263,6 +278,8 @@ export default function AdminProducts() {
   };
 
   const filteredProducts = useMemo(() => {
+    if (!Array.isArray(products)) return [];
+
     let filtered = products;
 
     if (search.trim()) {
@@ -282,12 +299,16 @@ export default function AdminProducts() {
   }, [products, search, statusFilter]);
 
   const paginatedProducts = useMemo(() => {
+    if (!Array.isArray(filteredProducts)) return [];
+
     const start = (page - 1) * perPage;
     const end = start + perPage;
     return filteredProducts.slice(start, end);
   }, [filteredProducts, page, perPage]);
 
-  const totalPages = Math.ceil(filteredProducts.length / perPage);
+  const totalPages = Array.isArray(filteredProducts)
+    ? Math.ceil(filteredProducts.length / perPage)
+    : 0;
 
   useEffect(() => {
     setPage(1);
@@ -301,7 +322,7 @@ export default function AdminProducts() {
             <h1 className="text-2xl sm:text-3xl font-bold">Gestion des Produits</h1>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
               <div className="text-sm text-gray-500 whitespace-nowrap">
-                {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''}
+                {Array.isArray(filteredProducts) ? filteredProducts.length : 0} produit{(Array.isArray(filteredProducts) && filteredProducts.length > 1) ? 's' : ''}
               </div>
               <Button
                 onClick={handleSync}
@@ -391,7 +412,7 @@ export default function AdminProducts() {
         <div className="flex justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
         </div>
-      ) : paginatedProducts.length === 0 ? (
+      ) : (!Array.isArray(paginatedProducts) || paginatedProducts.length === 0) ? (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-gray-600">
@@ -422,7 +443,7 @@ export default function AdminProducts() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedProducts.map((product) => {
+                  {Array.isArray(paginatedProducts) && paginatedProducts.map((product) => {
                     const isDraft = !product.is_active;
                     const flags = productFlags.get(product.woocommerce_id);
                     const isFeatured = flags?.is_active || false;
@@ -453,6 +474,11 @@ export default function AdminProducts() {
                                 {decodeHtmlEntities(product.name)}
                               </div>
                               <div className="text-sm text-gray-500">{product.slug}</div>
+                              {product.categories?.name && (
+                                <div className="text-xs text-blue-600 mt-0.5">
+                                  {decodeHtmlEntities(product.categories.name)}
+                                </div>
+                              )}
                             </div>
                             <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
                               <ShoppingCart className="w-3 h-3 mr-1" />
@@ -461,7 +487,7 @@ export default function AdminProducts() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{product.price}€</div>
+                          <div className="font-medium">{product.regular_price}€</div>
                           {product.sale_price && (
                             <div className="text-sm text-gray-400 line-through">
                               {product.sale_price}€
@@ -548,7 +574,7 @@ export default function AdminProducts() {
           </div>
 
           <div className="lg:hidden space-y-4">
-            {paginatedProducts.map((product) => {
+            {Array.isArray(paginatedProducts) && paginatedProducts.map((product) => {
               const isDraft = !product.is_active;
               const flags = productFlags.get(product.woocommerce_id);
               const isFeatured = flags?.is_active || false;
@@ -582,8 +608,14 @@ export default function AdminProducts() {
                           </Badge>
                         </div>
 
+                        {product.categories?.name && (
+                          <div className="text-xs text-blue-600 mb-1">
+                            {decodeHtmlEntities(product.categories.name)}
+                          </div>
+                        )}
+
                         <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <div className="font-bold text-lg">{product.price}€</div>
+                          <div className="font-bold text-lg">{product.regular_price}€</div>
                           {product.sale_price && (
                             <div className="text-sm text-gray-400 line-through">
                               {product.sale_price}€

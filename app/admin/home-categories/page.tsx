@@ -77,10 +77,24 @@ export default function HomeCategoriesPage() {
       const homeCategoriesResponse = await fetch('/api/home-categories-get');
 
       if (!homeCategoriesResponse.ok) {
-        console.error('Failed to fetch home categories');
+        console.error('[Home Categories] Failed to fetch home categories');
+        setSelectedCategories([]);
       } else {
         const homeCategories = await homeCategoriesResponse.json();
-        setSelectedCategories(homeCategories || []);
+        console.log('[Home Categories] Home categories response:', homeCategories);
+        console.log('[Home Categories] Is array?', Array.isArray(homeCategories));
+
+        // Handle both formats: direct array or { data: [...] }
+        let categoriesArray = homeCategories;
+        if (!Array.isArray(homeCategories) && homeCategories?.data) {
+          console.log('[Home Categories] Extracting data from response.data');
+          categoriesArray = homeCategories.data;
+        }
+
+        // Ensure we have an array
+        const safeHomeCategories = Array.isArray(categoriesArray) ? categoriesArray : [];
+        console.log('[Home Categories] Safe home categories count:', safeHomeCategories.length);
+        setSelectedCategories(safeHomeCategories);
       }
 
       // Charger toutes les catégories depuis le cache Supabase
@@ -90,6 +104,8 @@ export default function HomeCategoriesPage() {
         const data = await response.json();
         console.log('[Home Categories] Réponse API:', data);
         console.log('[Home Categories] data.categories:', data.categories);
+        console.log('[Home Categories] data.categories is array?', Array.isArray(data.categories));
+
         const cachedCategories = Array.isArray(data.categories) ? data.categories : [];
         console.log('[Home Categories] Catégories reçues par le composant:', cachedCategories);
         console.log('[Home Categories] Nombre de catégories:', cachedCategories.length);
@@ -101,11 +117,11 @@ export default function HomeCategoriesPage() {
           console.log(`[Home Categories] ✅ ${cachedCategories.length} catégories chargées avec succès`);
         }
       } else {
-        console.error('Failed to fetch cached categories');
+        console.error('[Home Categories] Failed to fetch cached categories');
         setAllWooCategories([]);
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('[Home Categories] Error loading data:', error);
       setAllWooCategories([]);
       setSelectedCategories([]);
     } finally {
@@ -219,7 +235,7 @@ export default function HomeCategoriesPage() {
         categoryId = newCategory.id;
       }
 
-      const maxOrder = selectedCategories.length > 0
+      const maxOrder = Array.isArray(selectedCategories) && selectedCategories.length > 0
         ? Math.max(...selectedCategories.map(c => c.display_order))
         : -1;
 
@@ -245,7 +261,8 @@ export default function HomeCategoriesPage() {
       }
 
       const data = await response.json();
-      setSelectedCategories([...selectedCategories, data]);
+      const currentCategories = Array.isArray(selectedCategories) ? selectedCategories : [];
+      setSelectedCategories([...currentCategories, data]);
       toast.success(`${decodeHtmlEntities(wooCat.name)} ajoutée`);
     } catch (error: any) {
       console.error('Error adding category:', error);
@@ -273,7 +290,8 @@ export default function HomeCategoriesPage() {
         throw new Error(errorData.error || 'Erreur lors de la suppression');
       }
 
-      setSelectedCategories(selectedCategories.filter(cat => cat.id !== id));
+      const currentCategories = Array.isArray(selectedCategories) ? selectedCategories : [];
+      setSelectedCategories(currentCategories.filter(cat => cat.id !== id));
       toast.success('Catégorie retirée');
     } catch (error: any) {
       console.error('Error removing category:', error);
@@ -300,8 +318,9 @@ export default function HomeCategoriesPage() {
         throw new Error(errorData.error || 'Erreur lors de la mise à jour');
       }
 
+      const currentCategories = Array.isArray(selectedCategories) ? selectedCategories : [];
       setSelectedCategories(
-        selectedCategories.map(cat =>
+        currentCategories.map(cat =>
           cat.id === id ? { ...cat, is_active: !currentValue } : cat
         )
       );
@@ -313,14 +332,16 @@ export default function HomeCategoriesPage() {
   };
 
   const moveCategory = async (index: number, direction: 'up' | 'down') => {
+    const currentCategories = Array.isArray(selectedCategories) ? selectedCategories : [];
+
     if (
       (direction === 'up' && index === 0) ||
-      (direction === 'down' && index === selectedCategories.length - 1)
+      (direction === 'down' && index === currentCategories.length - 1)
     ) {
       return;
     }
 
-    const newCategories = [...selectedCategories];
+    const newCategories = [...currentCategories];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
 
     [newCategories[index], newCategories[targetIndex]] =
@@ -366,8 +387,9 @@ export default function HomeCategoriesPage() {
     return null;
   }
 
+  const safeSelectedCategories = Array.isArray(selectedCategories) ? selectedCategories : [];
   const availableCategories = Array.isArray(allWooCategories)
-    ? allWooCategories.filter(woo => !selectedCategories.some(home => home.category_slug === woo.slug))
+    ? allWooCategories.filter(woo => !safeSelectedCategories.some(home => home.category_slug === woo.slug))
     : [];
 
   console.log('[Home Categories] Avant le render - allWooCategories:', allWooCategories);
@@ -478,11 +500,11 @@ export default function HomeCategoriesPage() {
           <CardHeader>
             <CardTitle>Catégories sélectionnées</CardTitle>
             <CardDescription>
-              {selectedCategories.length} catégorie(s) configurée(s) pour la page d'accueil
+              {Array.isArray(selectedCategories) ? selectedCategories.length : 0} catégorie(s) configurée(s) pour la page d'accueil
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {selectedCategories.length === 0 ? (
+            {(!Array.isArray(selectedCategories) || selectedCategories.length === 0) ? (
               <p className="text-gray-500 text-center py-8">
                 Aucune catégorie sélectionnée
               </p>
@@ -566,7 +588,7 @@ export default function HomeCategoriesPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {selectedCategories
+            {(Array.isArray(selectedCategories) ? selectedCategories : [])
               .filter(cat => cat.is_active)
               .map((category, index, activeCategories) => {
                 const isLast = index === activeCategories.length - 1;
@@ -603,7 +625,7 @@ export default function HomeCategoriesPage() {
                 );
               })}
           </div>
-          {selectedCategories.filter(cat => cat.is_active).length === 0 && (
+          {(Array.isArray(selectedCategories) ? selectedCategories : []).filter(cat => cat.is_active).length === 0 && (
             <p className="text-gray-500 text-center py-8">
               Aucune catégorie active à afficher
             </p>

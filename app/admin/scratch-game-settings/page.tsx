@@ -541,7 +541,7 @@ export default function ScratchGameSettingsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {prizes.map((prize) => {
+                    {(Array.isArray(prizes) ? prizes : []).map((prize) => {
                       const activePrizes = Array.isArray(prizes) ? prizes.filter(p => p.is_active) : [];
                       const totalWeight = activePrizes.reduce((sum, p) => sum + p.weight, 0);
                       const probability = totalWeight > 0 ? ((prize.weight / totalWeight) * 100).toFixed(1) : '0';
