@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 
     console.log('[Admin Products API] Step 1: Fetching products from database...');
 
-    // Fetch products with category join
+    // Fetch products with all columns
     let query = supabase
       .from('products')
       .select(`
@@ -48,7 +48,12 @@ export async function GET(request: Request) {
         images,
         stock_status,
         stock_quantity,
-        category_ids,
+        category_id,
+        woocommerce_category_id,
+        categories,
+        tags,
+        attributes,
+        variations,
         is_featured,
         is_active,
         is_hidden_diamond,
@@ -87,16 +92,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    // Step 2: Get all unique category IDs
+    // Step 2: Get all unique category IDs from the categories jsonb field
     const allCategoryIds = new Set<number>();
     products.forEach(product => {
-      if (Array.isArray(product.category_ids)) {
-        product.category_ids.forEach((id: number) => allCategoryIds.add(id));
+      // Extract WooCommerce category IDs from the categories jsonb array
+      if (Array.isArray(product.categories)) {
+        product.categories.forEach((cat: any) => {
+          if (cat && cat.id) {
+            allCategoryIds.add(cat.id);
+          }
+        });
       }
     });
 
     const categoryIdsArray = Array.from(allCategoryIds);
-    console.log(`[Admin Products API] Step 2: Fetching ${categoryIdsArray.length} categories...`);
+    console.log(`[Admin Products API] Step 2: Fetching ${categoryIdsArray.length} unique categories...`);
 
     let categoriesData: any[] = [];
 
@@ -121,12 +131,17 @@ export async function GET(request: Request) {
     // Step 3: Combine data - add category names to products
     const productsWithCategories = products.map(product => {
       const categoryNames: string[] = [];
+      const matchedCategories: any[] = [];
 
-      if (Array.isArray(product.category_ids)) {
-        product.category_ids.forEach((catId: number) => {
-          const category = categoriesData.find(c => c.woocommerce_id === catId);
-          if (category) {
-            categoryNames.push(category.name);
+      // Extract category IDs from the product's categories jsonb field
+      if (Array.isArray(product.categories)) {
+        product.categories.forEach((cat: any) => {
+          if (cat && cat.id) {
+            const matchedCategory = categoriesData.find(c => c.woocommerce_id === cat.id);
+            if (matchedCategory) {
+              categoryNames.push(matchedCategory.name);
+              matchedCategories.push(matchedCategory);
+            }
           }
         });
       }
@@ -134,10 +149,7 @@ export async function GET(request: Request) {
       return {
         ...product,
         category_names: categoryNames,
-        categories: categoriesData.filter(c =>
-          Array.isArray(product.category_ids) &&
-          product.category_ids.includes(c.woocommerce_id)
-        )
+        matched_categories: matchedCategories
       };
     });
 

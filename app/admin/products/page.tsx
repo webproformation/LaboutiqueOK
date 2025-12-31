@@ -41,25 +41,32 @@ interface Product {
   woocommerce_id: number;
   name: string;
   slug: string;
+  description?: string;
+  short_description?: string;
   regular_price: number;
   sale_price: number | null;
   image_url: string | null;
   images?: Array<{ src: string; alt?: string }>;
   stock_status: string;
   stock_quantity: number | null;
+  category_id?: string | null;
+  woocommerce_category_id?: number | null;
+  categories?: Array<{ id: number; name: string; slug: string }>;
+  tags?: Array<any>;
+  attributes?: Array<any>;
+  variations?: Array<any>;
   is_active: boolean;
   is_featured?: boolean;
   is_hidden_diamond?: boolean;
-  category_ids?: number[];
   category_names?: string[];
-  created_at: string;
-  updated_at: string;
-  categories?: Array<{
+  matched_categories?: Array<{
     id: string;
     woocommerce_id: number;
     name: string;
     slug: string;
   }>;
+  created_at: string;
+  updated_at: string;
 }
 
 interface ProductFlags {
