@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, RefreshCw, TestTube, Settings } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 interface TestResult {
   name: string;
@@ -132,6 +133,67 @@ export default function DiagnosticPage() {
               )}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Tests Spécifiques</CardTitle>
+          <CardDescription>
+            Testez individuellement des fonctionnalités critiques
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Link href="/admin/test-categories-cache">
+              <div className="border rounded-lg p-4 hover:bg-accent hover:border-primary transition-colors cursor-pointer h-full">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <TestTube className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold mb-1">Test Cache Catégories</p>
+                    <p className="text-sm text-muted-foreground">
+                      Testez l'API de cache WooCommerce categories (GET et POST)
+                    </p>
+                    <div className="mt-2">
+                      <Badge variant="outline" className="text-xs">
+                        /api/categories-cache
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Link>
+
+            <Link href="/admin/test-sync-config">
+              <div className="border rounded-lg p-4 hover:bg-accent hover:border-primary transition-colors cursor-pointer h-full">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Settings className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold mb-1">Test Configuration Sync</p>
+                    <p className="text-sm text-muted-foreground">
+                      Vérifiez la configuration de sync-products et variables d'environnement
+                    </p>
+                    <div className="mt-2">
+                      <Badge variant="outline" className="text-xs">
+                        /api/admin/sync-products
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </div>
+
+          <Alert className="mt-4">
+            <AlertDescription className="text-sm">
+              <strong>Astuce:</strong> Ces tests incluent des logs détaillés pour identifier précisément
+              où se produisent les erreurs 500. Consultez les logs serveur pendant les tests.
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
 
