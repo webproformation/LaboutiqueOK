@@ -55,10 +55,16 @@ export default function RelatedProductsManager({ productId }: RelatedProductsMan
         .eq('product_id', productId)
         .order('display_order', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading related products:', error);
+        setRelatedProducts([]);
+        setLoading(false);
+        return;
+      }
 
       if (!relatedData || relatedData.length === 0) {
         setRelatedProducts([]);
+        setLoading(false);
         return;
       }
 
@@ -72,11 +78,12 @@ export default function RelatedProductsManager({ productId }: RelatedProductsMan
       if (productsError) {
         console.error('Error loading products:', productsError);
         setRelatedProducts([]);
+        setLoading(false);
         return;
       }
 
       const relatedWithDetails = relatedData.map(rel => {
-        const product = productsData?.find(p => p.woocommerce_id.toString() === rel.related_product_id);
+        const product = productsData?.find(p => p.woocommerce_id?.toString() === rel.related_product_id);
         return {
           ...rel,
           product: product ? {

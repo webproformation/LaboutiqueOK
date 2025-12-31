@@ -48,34 +48,24 @@ export default function ProductAttributesManager({ attributes, onChange }: Produ
     setLoading(true);
     try {
       const response = await fetch('/api/woocommerce/attributes');
-      const data = await response.json();
-
-      console.log('WooCommerce attributes API response:', data);
 
       if (!response.ok) {
-        console.error('API Error:', data);
-        toast.error(`Erreur API: ${data.error || 'Erreur inconnue'}`);
+        console.warn('WooCommerce attributes not available:', response.status);
         setWooAttributes([]);
+        setLoading(false);
         return;
       }
 
+      const data = await response.json();
+
       if (data.message) {
         console.warn('WooCommerce message:', data.message);
-        toast.warning(data.message);
       }
 
       const attrs = data.attributes || [];
-      console.log(`Loaded ${attrs.length} WooCommerce attributes:`, attrs);
       setWooAttributes(attrs);
-
-      if (attrs.length === 0) {
-        toast.info('Aucun attribut WooCommerce trouvé.');
-      } else {
-        toast.success(`${attrs.length} attribut(s) WooCommerce chargé(s)`);
-      }
     } catch (error) {
       console.error('Error loading WooCommerce attributes:', error);
-      toast.error('Erreur réseau lors du chargement des attributs');
       setWooAttributes([]);
     } finally {
       setLoading(false);

@@ -144,18 +144,32 @@ export default function EditProductPage() {
 
   const loadCategories = async () => {
     try {
-      const response = await fetch('/api/woocommerce/categories');
+      const response = await fetch('/api/admin/categories');
       if (response.ok) {
-        const data = await response.json();
-        setCategories(data);
+        const result = await response.json();
+        const data = result.data || result;
+
+        const buildTree = (items: any[], parentId: number | null = null): WooCategory[] => {
+          return items
+            .filter(item => (item.parent || item.woocommerce_parent_id) === parentId)
+            .map(item => ({
+              id: item.woocommerce_id || item.id,
+              name: item.name || '',
+              slug: item.slug || '',
+              parent: item.parent || item.woocommerce_parent_id || undefined,
+              children: buildTree(items, item.woocommerce_id || item.id)
+            }));
+        };
+
+        const tree = buildTree(Array.isArray(data) ? data : []);
+        setCategories(tree);
       } else {
-        const errorData = await response.json();
-        console.error('Error loading categories:', errorData);
-        toast.error(`Impossible de charger les catégories: ${errorData.error || 'Erreur serveur'}`);
+        console.error('Error loading categories');
+        setCategories([]);
       }
     } catch (error) {
       console.error('Error loading categories:', error);
-      toast.error('Erreur lors du chargement des catégories');
+      setCategories([]);
     } finally {
       setLoadingCategories(false);
     }
@@ -234,13 +248,13 @@ export default function EditProductPage() {
         variations: formData.type === 'variable' ? formData.variations : undefined,
       };
 
-      const response = await fetch('/api/woocommerce/products', {
+      const response = await fetch('/api/admin/products', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          productId: parseInt(productId),
+          productId: productId,
           productData,
         }),
       });
@@ -249,7 +263,7 @@ export default function EditProductPage() {
 
       if (!response.ok) {
         console.error('Error updating product:', result);
-        const errorMessage = result.details?.message || result.error || 'Erreur lors de la mise à jour du produit';
+        const errorMessage = result.error || 'Erreur lors de la mise à jour du produit';
         throw new Error(errorMessage);
       }
 
