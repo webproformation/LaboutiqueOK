@@ -24,11 +24,22 @@ interface WooCategory {
 
 interface HomeCategory {
   id: string;
+  category_id?: string | null;
   category_slug: string;
   category_name: string;
   display_order: number;
   is_active: boolean;
   image_url: string | null;
+  description?: string | null;
+  category?: {
+    id: string;
+    woocommerce_id: number;
+    name: string;
+    slug: string;
+    description?: string;
+    image_url?: string;
+    count?: number;
+  } | null;
 }
 
 export default function HomeCategoriesPage() {
@@ -66,28 +77,30 @@ export default function HomeCategoriesPage() {
       const homeCategoriesResponse = await fetch('/api/home-categories-get');
 
       if (!homeCategoriesResponse.ok) {
-        throw new Error('Erreur lors du chargement des catégories depuis Supabase');
+        console.error('Failed to fetch home categories');
+      } else {
+        const homeCategories = await homeCategoriesResponse.json();
+        setSelectedCategories(homeCategories || []);
       }
 
-      const homeCategories = await homeCategoriesResponse.json();
-      setSelectedCategories(homeCategories || []);
-
-      // Charger toutes les catégories WordPress
-      const response = await fetch('/api/woocommerce/categories?action=list');
+      // Charger toutes les catégories depuis le cache Supabase
+      const response = await fetch('/api/categories-cache?parent_only=true');
 
       if (response.ok) {
-        const wooData = await response.json();
-        // Filtrer seulement les catégories parentes (parent = 0)
-        const parentCategories = wooData.filter((cat: WooCategory) => cat.parent === 0);
-        setAllWooCategories(parentCategories);
+        const cachedCategories = await response.json();
+        setAllWooCategories(cachedCategories || []);
+
+        if (cachedCategories.length === 0) {
+          toast.info('Aucune catégorie dans le cache. Cliquez sur "Rafraîchir depuis WordPress" pour synchroniser.');
+        }
       } else {
-        const errorData = await response.json();
-        console.error('Failed to fetch WooCommerce categories:', errorData);
-        toast.error('Erreur lors du chargement des catégories WordPress');
+        console.error('Failed to fetch cached categories');
+        setAllWooCategories([]);
       }
     } catch (error) {
       console.error('Error loading data:', error);
-      toast.error('Erreur lors du chargement des données');
+      setAllWooCategories([]);
+      setSelectedCategories([]);
     } finally {
       setLoading(false);
     }
@@ -98,16 +111,39 @@ export default function HomeCategoriesPage() {
       setRefreshing(true);
       toast.info('Synchronisation avec WordPress en cours...');
 
-      const response = await fetch('/api/woocommerce/categories?action=list&refresh=true');
+      // Fetch fresh data from WooCommerce
+      const wooResponse = await fetch('/api/woocommerce/categories?action=list&refresh=true');
 
-      if (response.ok) {
-        const wooData = await response.json();
-        const parentCategories = wooData.filter((cat: WooCategory) => cat.parent === 0);
-        setAllWooCategories(parentCategories);
-        toast.success('Catégories WordPress synchronisées');
-      } else {
-        throw new Error('Erreur lors de la synchronisation');
+      if (!wooResponse.ok) {
+        throw new Error('Erreur lors du chargement depuis WooCommerce');
       }
+
+      const wooData = await wooResponse.json();
+
+      // Sync to Supabase cache
+      const syncResponse = await fetch('/api/categories-cache', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'sync',
+          categories: wooData
+        })
+      });
+
+      if (!syncResponse.ok) {
+        throw new Error('Erreur lors de la synchronisation du cache');
+      }
+
+      const syncResult = await syncResponse.json();
+
+      // Reload from cache
+      const cacheResponse = await fetch('/api/categories-cache?parent_only=true');
+      if (cacheResponse.ok) {
+        const cachedCategories = await cacheResponse.json();
+        setAllWooCategories(cachedCategories || []);
+      }
+
+      toast.success(`${syncResult.count} catégories synchronisées`);
     } catch (error) {
       console.error('Error refreshing categories:', error);
       toast.error('Erreur lors de la synchronisation');
@@ -119,6 +155,48 @@ export default function HomeCategoriesPage() {
   const addCategory = async (wooCat: WooCategory) => {
     try {
       setSaving(true);
+
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+      const supabase = await import('@supabase/supabase-js').then(mod =>
+        mod.createClient(supabaseUrl, supabaseAnonKey)
+      );
+
+      let categoryId: string | null = null;
+
+      const { data: existingCategory } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('woocommerce_id', wooCat.id)
+        .maybeSingle();
+
+      if (existingCategory) {
+        categoryId = existingCategory.id;
+      } else {
+        const { data: newCategory, error: createError } = await supabase
+          .from('categories')
+          .insert({
+            woocommerce_id: wooCat.id,
+            name: decodeHtmlEntities(wooCat.name),
+            slug: wooCat.slug,
+            description: '',
+            woocommerce_parent_id: wooCat.parent || 0,
+            image_url: wooCat.image?.src || null,
+            count: wooCat.count || 0,
+            is_active: true
+          })
+          .select('id')
+          .single();
+
+        if (createError) {
+          console.error('Error creating category:', createError);
+          throw new Error('Impossible de créer la catégorie localement');
+        }
+
+        categoryId = newCategory.id;
+      }
+
       const maxOrder = selectedCategories.length > 0
         ? Math.max(...selectedCategories.map(c => c.display_order))
         : -1;
@@ -129,6 +207,7 @@ export default function HomeCategoriesPage() {
         body: JSON.stringify({
           action: 'create',
           categoryData: {
+            category_id: categoryId,
             category_slug: wooCat.slug,
             category_name: decodeHtmlEntities(wooCat.name),
             display_order: maxOrder + 1,

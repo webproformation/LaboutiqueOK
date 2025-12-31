@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Edit, Loader2, Upload, Filter, Eye, EyeOff, GripVertical, Star, Gem, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit, Loader2, Filter, GripVertical, Star, Gem, Trash2, Download, ShoppingCart, AlertCircle, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase-client';
@@ -33,26 +33,43 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 
-interface WooProduct {
-  id: number;
+interface Product {
+  id: string;
+  woocommerce_id: number;
   name: string;
   slug: string;
-  price: string;
-  regular_price: string;
-  status: string;
+  price: number;
+  sale_price: number | null;
+  image_url: string | null;
   stock_status: string;
   stock_quantity: number | null;
-  images?: Array<{
-    src: string;
-    name?: string;
-  }>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 interface ProductFlags {
   product_id: number;
   is_active: boolean;
   is_hidden_diamond: boolean;
+}
+
+interface SyncResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+  productsProcessed: number;
+  totalProducts?: number;
+  productsCreated: number;
+  productsUpdated: number;
+  errors?: Array<{
+    productId: number;
+    productName: string;
+    error: string;
+  }>;
 }
 
 function decodeHtmlEntities(text: string): string {
@@ -64,13 +81,14 @@ function decodeHtmlEntities(text: string): string {
 export default function AdminProducts() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [products, setProducts] = useState<WooProduct[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusUpdating, setStatusUpdating] = useState<number | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'publish' | 'draft'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'draft'>('all');
   const [productFlags, setProductFlags] = useState<Map<number, ProductFlags>>(new Map());
-  const [productToDelete, setProductToDelete] = useState<WooProduct | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const perPage = 10;
 
   useEffect(() => {
@@ -81,25 +99,17 @@ export default function AdminProducts() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/woocommerce/products?action=all');
-      if (!response.ok) {
-        console.error('Failed to fetch products:', response.status, response.statusText);
-        setProducts([]);
-        throw new Error('Failed to fetch products');
-      }
-      const data = await response.json();
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      // Ensure data is an array
-      if (Array.isArray(data)) {
-        setProducts(data);
-      } else {
-        console.error('Products data is not an array:', data);
-        setProducts([]);
-        toast.error('Format de données invalide');
-      }
+      if (error) throw error;
+
+      setProducts(data || []);
     } catch (error) {
       console.error('Error loading products:', error);
-      setProducts([]); // Always set to empty array on error
+      setProducts([]);
       toast.error('Erreur lors du chargement des produits');
     } finally {
       setLoading(false);
@@ -128,23 +138,59 @@ export default function AdminProducts() {
     }
   };
 
-  const toggleFeatured = async (productId: number) => {
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+
     try {
-      const currentFlags = productFlags.get(productId);
+      const response = await fetch('/api/admin/sync-products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result: SyncResult = await response.json();
+      setSyncResult(result);
+
+      if (result.success) {
+        toast.success('Synchronisation réussie!');
+        await loadProducts();
+      } else {
+        toast.error(result.error || 'Erreur lors de la synchronisation');
+      }
+    } catch (error: any) {
+      console.error('Error syncing products:', error);
+      setSyncResult({
+        success: false,
+        error: error.message || 'Erreur réseau',
+        productsProcessed: 0,
+        productsCreated: 0,
+        productsUpdated: 0,
+      });
+      toast.error('Erreur lors de la synchronisation');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const toggleFeatured = async (woocommerceId: number) => {
+    try {
+      const currentFlags = productFlags.get(woocommerceId);
       const newIsActive = !currentFlags?.is_active;
 
       if (currentFlags) {
         const { error } = await supabase
           .from('featured_products')
           .update({ is_active: newIsActive })
-          .eq('product_id', productId);
+          .eq('product_id', woocommerceId);
 
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('featured_products')
           .insert({
-            product_id: productId,
+            product_id: woocommerceId,
             is_active: newIsActive,
             is_hidden_diamond: false,
           });
@@ -160,23 +206,23 @@ export default function AdminProducts() {
     }
   };
 
-  const toggleHiddenDiamond = async (productId: number) => {
+  const toggleHiddenDiamond = async (woocommerceId: number) => {
     try {
-      const currentFlags = productFlags.get(productId);
+      const currentFlags = productFlags.get(woocommerceId);
       const newIsHiddenDiamond = !currentFlags?.is_hidden_diamond;
 
       if (currentFlags) {
         const { error } = await supabase
           .from('featured_products')
           .update({ is_hidden_diamond: newIsHiddenDiamond })
-          .eq('product_id', productId);
+          .eq('product_id', woocommerceId);
 
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('featured_products')
           .insert({
-            product_id: productId,
+            product_id: woocommerceId,
             is_active: false,
             is_hidden_diamond: newIsHiddenDiamond,
           });
@@ -192,125 +238,123 @@ export default function AdminProducts() {
     }
   };
 
-  const filteredProducts = useMemo(() => {
-    // Ensure products is always an array
-    if (!Array.isArray(products)) {
-      console.warn('Products is not an array:', products);
-      return [];
-    }
-
-    let filtered = products;
-
-    // Filter by search
-    if (search.trim()) {
-      const searchLower = search.toLowerCase();
-      filtered = filtered.filter((p: WooProduct) =>
-        p.name?.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Filter by status
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((p: WooProduct) => p.status === statusFilter);
-    }
-
-    return filtered;
-  }, [products, search, statusFilter]);
-
-  const paginatedProducts = useMemo(() => {
-    // Defensive check
-    if (!Array.isArray(filteredProducts)) {
-      return [];
-    }
-    const start = (page - 1) * perPage;
-    const end = start + perPage;
-    return filteredProducts.slice(start, end);
-  }, [filteredProducts, page, perPage]);
-
-  const totalPages = Math.ceil((Array.isArray(filteredProducts) ? filteredProducts.length : 0) / perPage);
-
-  useEffect(() => {
-    setPage(1);
-  }, [search, statusFilter]);
-
-  const handleStatusChange = async (productId: number, action: 'draft' | 'publish') => {
-    setStatusUpdating(productId);
-    try {
-      const response = await fetch('/api/woocommerce/products', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action,
-          productId,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Erreur lors de la mise à jour du statut`);
-      }
-
-      await loadProducts();
-      toast.success(action === 'draft' ? 'Produit mis en brouillon' : 'Produit publié');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de la mise à jour');
-      console.error(error);
-    } finally {
-      setStatusUpdating(null);
-    }
-  };
-
-  const handleDeleteProduct = async () => {
+  const handleDelete = async () => {
     if (!productToDelete) return;
 
     setIsDeleting(true);
     try {
-      const response = await fetch('/api/woocommerce/products', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'delete',
-          productId: productToDelete.id,
-        }),
-      });
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productToDelete.id);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erreur lors de la suppression du produit');
-      }
+      if (error) throw error;
 
       toast.success('Produit supprimé avec succès');
       await loadProducts();
       await loadProductFlags();
       setProductToDelete(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de la suppression');
+      toast.error('Erreur lors de la suppression');
       console.error(error);
     } finally {
       setIsDeleting(false);
     }
   };
 
+  const filteredProducts = useMemo(() => {
+    let filtered = products;
+
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter((p) =>
+        p.name?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    if (statusFilter === 'active') {
+      filtered = filtered.filter((p) => p.is_active);
+    } else if (statusFilter === 'draft') {
+      filtered = filtered.filter((p) => !p.is_active);
+    }
+
+    return filtered;
+  }, [products, search, statusFilter]);
+
+  const paginatedProducts = useMemo(() => {
+    const start = (page - 1) * perPage;
+    const end = start + perPage;
+    return filteredProducts.slice(start, end);
+  }, [filteredProducts, page, perPage]);
+
+  const totalPages = Math.ceil(filteredProducts.length / perPage);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
   return (
     <div>
       <div className="mb-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          <h1 className="text-2xl sm:text-3xl font-bold">Gestion des Produits</h1>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="text-sm text-gray-500 whitespace-nowrap">
-              {filteredProducts.length} produits
-            </div>
-            <Link href="/admin/products/create" className="w-full sm:w-auto">
-              <Button className="w-full sm:w-auto">
-                <Plus className="w-4 h-4 mr-2" />
-                Ajouter un produit
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <h1 className="text-2xl sm:text-3xl font-bold">Gestion des Produits</h1>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="text-sm text-gray-500 whitespace-nowrap">
+                {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''}
+              </div>
+              <Button
+                onClick={handleSync}
+                disabled={syncing}
+                variant="outline"
+                className="border-blue-200 hover:bg-blue-50"
+              >
+                {syncing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Synchronisation...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Sync WooCommerce
+                  </>
+                )}
               </Button>
-            </Link>
+              <Link href="/admin/products/create">
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Ajouter un produit
+                </Button>
+              </Link>
+            </div>
           </div>
+
+          {syncResult && (
+            <Alert className={syncResult.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
+              {syncResult.success ? (
+                <CheckCircle className="h-4 w-4 text-green-600" />
+              ) : (
+                <AlertCircle className="h-4 w-4 text-red-600" />
+              )}
+              <AlertDescription className={syncResult.success ? 'text-green-800' : 'text-red-800'}>
+                {syncResult.success ? (
+                  <div>
+                    <strong>Synchronisation réussie!</strong>
+                    <div className="mt-1 text-sm space-y-0.5">
+                      {syncResult.totalProducts && <p>Total WooCommerce: {syncResult.totalProducts}</p>}
+                      <p>Traités: {syncResult.productsProcessed} | Créés: {syncResult.productsCreated} | Mis à jour: {syncResult.productsUpdated}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <strong>Erreur</strong>
+                    <p className="mt-1 text-sm">{syncResult.error}</p>
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       </div>
 
@@ -334,7 +378,7 @@ export default function AdminProducts() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous les statuts</SelectItem>
-                  <SelectItem value="publish">Actifs</SelectItem>
+                  <SelectItem value="active">Actifs</SelectItem>
                   <SelectItem value="draft">Brouillons</SelectItem>
                 </SelectContent>
               </Select>
@@ -353,11 +397,14 @@ export default function AdminProducts() {
             <p className="text-gray-600">
               {search ? 'Aucun produit trouvé pour cette recherche' : 'Aucun produit disponible'}
             </p>
+            <Button onClick={handleSync} variant="outline" className="mt-4">
+              <Download className="w-4 h-4 mr-2" />
+              Synchroniser avec WooCommerce
+            </Button>
           </CardContent>
         </Card>
       ) : (
         <>
-          {/* Desktop Table View */}
           <div className="hidden lg:block">
             <Card>
               <Table>
@@ -368,7 +415,7 @@ export default function AdminProducts() {
                     <TableHead>Produit</TableHead>
                     <TableHead className="w-32">Prix</TableHead>
                     <TableHead className="w-32">Stock</TableHead>
-                    <TableHead className="w-32">Statut Produit</TableHead>
+                    <TableHead className="w-32">Statut</TableHead>
                     <TableHead className="w-24 text-center">Vedette</TableHead>
                     <TableHead className="w-24 text-center">Diamant</TableHead>
                     <TableHead className="w-32">Actions</TableHead>
@@ -376,8 +423,8 @@ export default function AdminProducts() {
                 </TableHeader>
                 <TableBody>
                   {paginatedProducts.map((product) => {
-                    const isDraft = product.status === 'draft';
-                    const flags = productFlags.get(product.id);
+                    const isDraft = !product.is_active;
+                    const flags = productFlags.get(product.woocommerce_id);
                     const isFeatured = flags?.is_active || false;
                     const isHiddenDiamond = flags?.is_hidden_diamond || false;
 
@@ -387,9 +434,9 @@ export default function AdminProducts() {
                           <GripVertical className="w-5 h-5 text-gray-400" />
                         </TableCell>
                         <TableCell>
-                          {product.images && product.images.length > 0 && product.images[0]?.src ? (
+                          {product.image_url ? (
                             <img
-                              src={product.images[0].src}
+                              src={product.image_url}
                               alt={product.name}
                               className={`w-12 h-12 object-cover rounded ${isDraft ? 'grayscale' : ''}`}
                             />
@@ -400,16 +447,24 @@ export default function AdminProducts() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className={`font-medium ${isDraft ? 'text-gray-400' : ''}`}>
-                            {decodeHtmlEntities(product.name)}
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <div className={`font-medium ${isDraft ? 'text-gray-400' : ''}`}>
+                                {decodeHtmlEntities(product.name)}
+                              </div>
+                              <div className="text-sm text-gray-500">{product.slug}</div>
+                            </div>
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
+                              <ShoppingCart className="w-3 h-3 mr-1" />
+                              WC
+                            </Badge>
                           </div>
-                          <div className="text-sm text-gray-500">{product.slug}</div>
                         </TableCell>
                         <TableCell>
                           <div className="font-medium">{product.price}€</div>
-                          {product.regular_price && product.price !== product.regular_price && (
+                          {product.sale_price && (
                             <div className="text-sm text-gray-400 line-through">
-                              {product.regular_price}€
+                              {product.sale_price}€
                             </div>
                           )}
                         </TableCell>
@@ -424,51 +479,19 @@ export default function AdminProducts() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          {isDraft ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                                Brouillon
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleStatusChange(product.id, 'publish')}
-                                disabled={statusUpdating === product.id}
-                                title="Publier ce produit"
-                              >
-                                {statusUpdating === product.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <Upload className="w-4 h-4 text-green-600" />
-                                )}
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded">
-                                Publié
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleStatusChange(product.id, 'draft')}
-                                disabled={statusUpdating === product.id}
-                                title="Mettre en brouillon"
-                              >
-                                {statusUpdating === product.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <EyeOff className="w-4 h-4 text-gray-400" />
-                                )}
-                              </Button>
-                            </div>
-                          )}
+                          <span className={`text-xs font-medium px-2 py-1 rounded ${
+                            isDraft
+                              ? 'bg-orange-50 text-orange-600'
+                              : 'bg-green-50 text-green-600'
+                          }`}>
+                            {isDraft ? 'Brouillon' : 'Publié'}
+                          </span>
                         </TableCell>
                         <TableCell className="text-center">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => toggleFeatured(product.id)}
+                            onClick={() => toggleFeatured(product.woocommerce_id)}
                             className="hover:bg-yellow-50"
                             title={isFeatured ? 'Retirer des vedettes' : 'Ajouter aux vedettes'}
                           >
@@ -485,7 +508,7 @@ export default function AdminProducts() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => toggleHiddenDiamond(product.id)}
+                            onClick={() => toggleHiddenDiamond(product.woocommerce_id)}
                             className="hover:bg-blue-50"
                             title={isHiddenDiamond ? 'Désactiver le diamant caché' : 'Activer le diamant caché'}
                           >
@@ -524,11 +547,10 @@ export default function AdminProducts() {
             </Card>
           </div>
 
-          {/* Mobile Card View */}
           <div className="lg:hidden space-y-4">
             {paginatedProducts.map((product) => {
-              const isDraft = product.status === 'draft';
-              const flags = productFlags.get(product.id);
+              const isDraft = !product.is_active;
+              const flags = productFlags.get(product.woocommerce_id);
               const isFeatured = flags?.is_active || false;
               const isHiddenDiamond = flags?.is_hidden_diamond || false;
 
@@ -537,9 +559,9 @@ export default function AdminProducts() {
                   <CardContent className="p-4">
                     <div className="flex gap-4">
                       <div className="flex-shrink-0">
-                        {product.images && product.images.length > 0 && product.images[0]?.src ? (
+                        {product.image_url ? (
                           <img
-                            src={product.images[0].src}
+                            src={product.image_url}
                             alt={product.name}
                             className={`w-20 h-20 object-cover rounded ${isDraft ? 'grayscale' : ''}`}
                           />
@@ -551,15 +573,20 @@ export default function AdminProducts() {
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <h3 className={`font-medium text-sm mb-1 line-clamp-2 ${isDraft ? 'text-gray-400' : ''}`}>
-                          {decodeHtmlEntities(product.name)}
-                        </h3>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className={`font-medium text-sm line-clamp-2 ${isDraft ? 'text-gray-400' : ''}`}>
+                            {decodeHtmlEntities(product.name)}
+                          </h3>
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
+                            WC
+                          </Badge>
+                        </div>
 
                         <div className="flex flex-wrap items-center gap-2 mb-2">
                           <div className="font-bold text-lg">{product.price}€</div>
-                          {product.regular_price && product.price !== product.regular_price && (
+                          {product.sale_price && (
                             <div className="text-sm text-gray-400 line-through">
-                              {product.regular_price}€
+                              {product.sale_price}€
                             </div>
                           )}
                         </div>
@@ -573,15 +600,13 @@ export default function AdminProducts() {
                             {product.stock_status === 'instock' ? 'En stock' : 'Rupture'}
                           </span>
 
-                          {isDraft ? (
-                            <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                              Brouillon
-                            </span>
-                          ) : (
-                            <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded">
-                              Publié
-                            </span>
-                          )}
+                          <span className={`text-xs font-medium px-2 py-1 rounded ${
+                            isDraft
+                              ? 'bg-orange-50 text-orange-600'
+                              : 'bg-green-50 text-green-600'
+                          }`}>
+                            {isDraft ? 'Brouillon' : 'Publié'}
+                          </span>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -595,9 +620,8 @@ export default function AdminProducts() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => toggleFeatured(product.id)}
+                            onClick={() => toggleFeatured(product.woocommerce_id)}
                             className="hover:bg-yellow-50"
-                            title={isFeatured ? 'Retirer des vedettes' : 'Ajouter aux vedettes'}
                           >
                             <Star
                               className={`w-5 h-5 ${
@@ -611,9 +635,8 @@ export default function AdminProducts() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => toggleHiddenDiamond(product.id)}
+                            onClick={() => toggleHiddenDiamond(product.woocommerce_id)}
                             className="hover:bg-blue-50"
-                            title={isHiddenDiamond ? 'Désactiver le diamant caché' : 'Activer le diamant caché'}
                           >
                             <Gem
                               className={`w-5 h-5 ${
@@ -627,25 +650,8 @@ export default function AdminProducts() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleStatusChange(product.id, isDraft ? 'publish' : 'draft')}
-                            disabled={statusUpdating === product.id}
-                            title={isDraft ? 'Publier ce produit' : 'Mettre en brouillon'}
-                          >
-                            {statusUpdating === product.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : isDraft ? (
-                              <Upload className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <EyeOff className="w-4 h-4 text-gray-400" />
-                            )}
-                          </Button>
-
-                          <Button
-                            variant="ghost"
-                            size="sm"
                             onClick={() => setProductToDelete(product)}
                             className="hover:bg-red-50 hover:text-red-600"
-                            title="Supprimer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -689,13 +695,13 @@ export default function AdminProducts() {
             <AlertDialogDescription>
               Êtes-vous sûr de vouloir supprimer le produit <strong>{productToDelete?.name}</strong> ?
               <br /><br />
-              Cette action est irréversible et supprimera le produit de WooCommerce ainsi que toutes les données associées.
+              Cette action supprimera le produit de Supabase uniquement. Pour le supprimer aussi de WooCommerce, utilisez l'interface WooCommerce.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteProduct}
+              onClick={handleDelete}
               disabled={isDeleting}
               className="bg-red-600 hover:bg-red-700"
             >

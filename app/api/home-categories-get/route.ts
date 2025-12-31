@@ -14,7 +14,7 @@ export async function GET(request: Request) {
 
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('[Home Categories API] Missing Supabase configuration');
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+      return NextResponse.json([]);
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
@@ -26,7 +26,18 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('home_categories')
-      .select('*')
+      .select(`
+        *,
+        category:categories!category_id (
+          id,
+          woocommerce_id,
+          name,
+          slug,
+          description,
+          image_url,
+          count
+        )
+      `)
       .order('display_order', { ascending: true });
 
     if (active) {
@@ -42,17 +53,31 @@ export async function GET(request: Request) {
         hint: error.hint,
         code: error.code
       });
-      // Return empty array instead of 500 to prevent frontend crash
       return NextResponse.json([]);
     }
 
-    return NextResponse.json(data || []);
+    if (!data || data.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    const formattedData = data.map(item => ({
+      id: item.id,
+      category_id: item.category_id,
+      category_slug: item.category_slug || item.category?.slug || '',
+      category_name: item.category_name || item.category?.name || '',
+      display_order: item.display_order,
+      is_active: item.is_active,
+      image_url: item.image_url || item.category?.image_url || null,
+      description: item.description || item.category?.description || null,
+      category: item.category || null
+    }));
+
+    return NextResponse.json(formattedData);
   } catch (error: any) {
     console.error('[Home Categories API] Unexpected error:', {
       message: error?.message,
       stack: error?.stack
     });
-    // Return empty array instead of 500 to prevent frontend crash
     return NextResponse.json([]);
   }
 }
