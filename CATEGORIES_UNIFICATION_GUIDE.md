@@ -256,11 +256,42 @@ WooCommerce API
 ✅ **RLS activé** : Accès public en lecture, sécurisé
 ✅ **Self-referencing** : Support des catégories parentes via `parent_id`
 
+## Corrections Frontend
+
+### `/admin/home-categories`
+
+**Problème** : Crash avec `b.filter is not a function` car le composant attendait un tableau mais recevait un objet `{ success: true, categories: [] }`.
+
+**Solution appliquée** :
+
+```typescript
+// ✅ AVANT (LIGNE 90)
+const cachedCategories = await response.json();
+setAllWooCategories(cachedCategories || []);
+
+// ✅ APRÈS
+const data = await response.json();
+const cachedCategories = Array.isArray(data.categories) ? data.categories : [];
+setAllWooCategories(cachedCategories);
+```
+
+**Protection ajoutée** :
+
+```typescript
+// ✅ Protection contre les valeurs non-array (LIGNE 349)
+const availableCategories = Array.isArray(allWooCategories)
+  ? allWooCategories.filter(woo => !selectedCategories.some(home => home.category_slug === woo.slug))
+  : [];
+```
+
+Même correction appliquée dans la fonction `refreshWooCategories()` (ligne 143).
+
 ## Prochaines Étapes
 
 1. **Déployer sur Vercel**
-2. **Tester via `/admin/test-categories-cache`**
-3. **Synchroniser les catégories WooCommerce** :
+2. **Tester via `/admin/home-categories`** - Plus de crash
+3. **Tester via `/admin/test-categories-cache`**
+4. **Synchroniser les catégories WooCommerce** :
    ```bash
    POST /api/categories-cache
    {
@@ -268,7 +299,7 @@ WooCommerce API
      "categories": [...]  // Fetch depuis WooCommerce
    }
    ```
-4. **Vérifier les logs Vercel** pour confirmer le succès
+5. **Vérifier les logs Vercel** pour confirmer le succès
 
 ## Suppression de l'Ancienne Table (Optionnel)
 

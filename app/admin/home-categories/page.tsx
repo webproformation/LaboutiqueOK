@@ -87,8 +87,9 @@ export default function HomeCategoriesPage() {
       const response = await fetch('/api/categories-cache?parent_only=true');
 
       if (response.ok) {
-        const cachedCategories = await response.json();
-        setAllWooCategories(cachedCategories || []);
+        const data = await response.json();
+        const cachedCategories = Array.isArray(data.categories) ? data.categories : [];
+        setAllWooCategories(cachedCategories);
 
         if (cachedCategories.length === 0) {
           toast.info('Aucune catégorie dans le cache. Cliquez sur "Rafraîchir depuis WordPress" pour synchroniser.');
@@ -139,8 +140,9 @@ export default function HomeCategoriesPage() {
       // Reload from cache
       const cacheResponse = await fetch('/api/categories-cache?parent_only=true');
       if (cacheResponse.ok) {
-        const cachedCategories = await cacheResponse.json();
-        setAllWooCategories(cachedCategories || []);
+        const data = await cacheResponse.json();
+        const cachedCategories = Array.isArray(data.categories) ? data.categories : [];
+        setAllWooCategories(cachedCategories);
       }
 
       toast.success(`${syncResult.count} catégories synchronisées`);
@@ -344,9 +346,9 @@ export default function HomeCategoriesPage() {
     return null;
   }
 
-  const availableCategories = allWooCategories.filter(
-    woo => !selectedCategories.some(home => home.category_slug === woo.slug)
-  );
+  const availableCategories = Array.isArray(allWooCategories)
+    ? allWooCategories.filter(woo => !selectedCategories.some(home => home.category_slug === woo.slug))
+    : [];
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
