@@ -24,36 +24,86 @@ interface WooCommerceProduct {
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
+  console.log('[Sync Products] GET request - Configuration check');
+
   try {
     const wcUrl = process.env.NEXT_PUBLIC_WORDPRESS_API_URL;
     const wcConsumerKey = process.env.WC_CONSUMER_KEY;
     const wcConsumerSecret = process.env.WC_CONSUMER_SECRET;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    return NextResponse.json({
+      success: true,
+      configuration: {
+        wordpress_api_url: wcUrl ? `${wcUrl.substring(0, 20)}...` : 'MISSING',
+        wc_consumer_key: wcConsumerKey ? `${wcConsumerKey.substring(0, 10)}...` : 'MISSING',
+        wc_consumer_secret: wcConsumerSecret ? '***CONFIGURED***' : 'MISSING',
+        supabase_url: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'MISSING',
+        supabase_service_key: supabaseServiceKey ? '***CONFIGURED***' : 'MISSING',
+      },
+      ready: !!(wcUrl && wcConsumerKey && wcConsumerSecret && supabaseUrl && supabaseServiceKey)
+    });
+  } catch (error: any) {
+    console.error('[Sync Products] GET error:', error);
+    return NextResponse.json({
+      success: false,
+      error: error?.message || 'Unknown error'
+    }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  console.log('[Sync Products] ===== STARTING SYNC REQUEST =====');
+
+  try {
+    console.log('[Sync Products] Step 1: Checking environment variables...');
+
+    const wcUrl = process.env.NEXT_PUBLIC_WORDPRESS_API_URL;
+    const wcConsumerKey = process.env.WC_CONSUMER_KEY;
+    const wcConsumerSecret = process.env.WC_CONSUMER_SECRET;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    console.log('[Sync Products] Environment check:', {
+      hasWcUrl: !!wcUrl,
+      hasWcConsumerKey: !!wcConsumerKey,
+      hasWcConsumerSecret: !!wcConsumerSecret,
+      hasSupabaseUrl: !!supabaseUrl,
+      hasSupabaseServiceKey: !!supabaseServiceKey
+    });
 
     if (!wcUrl || !wcConsumerKey || !wcConsumerSecret) {
-      console.error('[Sync Products] Missing WooCommerce configuration');
+      console.error('[Sync Products] Missing WooCommerce configuration:', {
+        wcUrl: !!wcUrl,
+        wcConsumerKey: !!wcConsumerKey,
+        wcConsumerSecret: !!wcConsumerSecret
+      });
       return NextResponse.json(
         {
           success: false,
-          error: 'Configuration WooCommerce manquante. Vérifiez vos variables d\'environnement.'
+          error: 'Configuration WooCommerce manquante. Vérifiez WC_CONSUMER_KEY et WC_CONSUMER_SECRET dans vos variables d\'environnement.'
         },
         { status: 500 }
       );
     }
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('[Sync Products] Missing Supabase configuration');
+      console.error('[Sync Products] Missing Supabase configuration:', {
+        supabaseUrl: !!supabaseUrl,
+        supabaseServiceKey: !!supabaseServiceKey
+      });
       return NextResponse.json(
         {
           success: false,
-          error: 'Configuration Supabase manquante.'
+          error: 'Configuration Supabase manquante. Vérifiez NEXT_PUBLIC_SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY.'
         },
         { status: 500 }
       );
     }
+
+    console.log('[Sync Products] Step 2: Creating Supabase client...');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -62,7 +112,38 @@ export async function POST(request: Request) {
       }
     });
 
-    console.log('[Sync Products] Starting product sync from WooCommerce...');
+    console.log('[Sync Products] Step 3: Verifying products table exists...');
+
+    try {
+      const { error: tableCheckError } = await supabase
+        .from('products')
+        .select('id')
+        .limit(1);
+
+      if (tableCheckError) {
+        console.error('[Sync Products] Products table check failed:', tableCheckError);
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'La table "products" n\'existe pas dans Supabase. Veuillez créer la table d\'abord.',
+            details: tableCheckError.message
+          },
+          { status: 500 }
+        );
+      }
+    } catch (tableError: any) {
+      console.error('[Sync Products] Error checking products table:', tableError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Impossible de vérifier la table products dans Supabase',
+          details: tableError?.message
+        },
+        { status: 500 }
+      );
+    }
+
+    console.log('[Sync Products] Step 4: Starting product sync from WooCommerce...');
 
     // Counters for tracking progress
     let productsCreated = 0;
@@ -155,13 +236,17 @@ export async function POST(request: Request) {
       try {
         const apiUrl = `${wcUrl}/wp-json/wc/v3/products?page=${page}&per_page=${perPage}&consumer_key=${wcConsumerKey}&consumer_secret=${wcConsumerSecret}`;
 
-        console.log(`[Sync Products] Fetching page ${page} (${perPage} products per page)...`);
+        console.log(`[Sync Products] Step 5.${page}: Fetching page ${page} (${perPage} products per page)...`);
+        console.log(`[Sync Products] API URL (without credentials): ${wcUrl}/wp-json/wc/v3/products?page=${page}&per_page=${perPage}`);
 
         const response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
           },
+        }).catch((fetchError) => {
+          console.error('[Sync Products] Network error during fetch:', fetchError);
+          throw new Error(`Erreur réseau: ${fetchError.message}`);
         });
 
         if (!response.ok) {
@@ -169,7 +254,7 @@ export async function POST(request: Request) {
           console.error(`[Sync Products] WooCommerce API error on page ${page}:`, {
             status: response.status,
             statusText: response.statusText,
-            body: errorText
+            body: errorText.substring(0, 500)
           });
 
           if (response.status === 401) {
@@ -260,17 +345,39 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
+    console.error('[Sync Products] ===== CRITICAL ERROR =====');
     console.error('[Sync Products] Unexpected error:', {
       message: error?.message,
-      stack: error?.stack
+      stack: error?.stack,
+      name: error?.name,
+      cause: error?.cause
     });
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: `Erreur inattendue: ${error?.message || 'Unknown error'}`
-      },
-      { status: 500 }
-    );
+    try {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Erreur inattendue: ${error?.message || 'Unknown error'}`,
+          details: process.env.NODE_ENV === 'development' ? {
+            message: error?.message,
+            name: error?.name,
+            stack: error?.stack
+          } : undefined
+        },
+        { status: 500 }
+      );
+    } catch (responseError) {
+      console.error('[Sync Products] Failed to send error response:', responseError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Critical error: Unable to format response'
+        }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
   }
 }
