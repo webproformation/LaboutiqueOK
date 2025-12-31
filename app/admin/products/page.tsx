@@ -44,16 +44,22 @@ interface Product {
   regular_price: number;
   sale_price: number | null;
   image_url: string | null;
+  images?: Array<{ src: string; alt?: string }>;
   stock_status: string;
   stock_quantity: number | null;
   is_active: boolean;
-  category_id: string | null;
+  is_featured?: boolean;
+  is_hidden_diamond?: boolean;
+  category_ids?: number[];
+  category_names?: string[];
   created_at: string;
   updated_at: string;
-  categories?: {
+  categories?: Array<{
     id: string;
+    woocommerce_id: number;
     name: string;
-  };
+    slug: string;
+  }>;
 }
 
 interface ProductFlags {
@@ -112,25 +118,44 @@ export default function AdminProducts() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          *,
-          categories (
-            id,
-            name
-          )
-        `)
-        .order('created_at', { ascending: false });
+      console.log('[Admin Products Page] Fetching products from API...');
 
-      if (error) throw error;
+      // Add timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      const safeProducts = Array.isArray(data) ? data : [];
+      let response;
+      try {
+        response = await fetch('/api/admin/products', {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          console.error('[Admin Products Page] API timeout after 10 seconds');
+          throw new Error('La requête a dépassé le délai de 10 secondes');
+        }
+        throw fetchError;
+      }
+
+      const result = await response.json();
+      console.log('[Admin Products Page] Raw response:', result);
+
+      if (!response.ok || result?.success === false) {
+        console.error('[Admin Products Page] API error:', result);
+        throw new Error(result.error || 'Failed to load products');
+      }
+
+      const productsData = result?.data || [];
+      console.log('[Admin Products Page] Extracted products:', productsData.length);
+
+      const safeProducts = Array.isArray(productsData) ? productsData : [];
       setProducts(safeProducts);
-    } catch (error) {
-      console.error('Error loading products:', error);
+    } catch (error: any) {
+      console.error('[Admin Products Page] Error loading products:', error);
+      toast.error(error?.message || 'Erreur lors du chargement des produits');
       setProducts([]);
-      toast.error('Erreur lors du chargement des produits');
     } finally {
       setLoading(false);
     }
@@ -503,9 +528,9 @@ export default function AdminProducts() {
                                 {decodeHtmlEntities(product.name)}
                               </div>
                               <div className="text-sm text-gray-500">{product.slug}</div>
-                              {product.categories?.name && (
+                              {product.category_names && product.category_names.length > 0 && (
                                 <div className="text-xs text-blue-600 mt-0.5">
-                                  {decodeHtmlEntities(product.categories.name)}
+                                  {product.category_names.map(name => decodeHtmlEntities(name)).join(', ')}
                                 </div>
                               )}
                             </div>
@@ -637,9 +662,9 @@ export default function AdminProducts() {
                           </Badge>
                         </div>
 
-                        {product.categories?.name && (
+                        {product.category_names && product.category_names.length > 0 && (
                           <div className="text-xs text-blue-600 mb-1">
-                            {decodeHtmlEntities(product.categories.name)}
+                            {product.category_names.map(name => decodeHtmlEntities(name)).join(', ')}
                           </div>
                         )}
 

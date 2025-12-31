@@ -151,12 +151,11 @@ export async function POST(request: Request) {
     let totalProductsProcessed = 0;
     const errors: Array<{ productId: number; productName: string; error: string }> = [];
 
-    // Pagination settings - LIMIT TO 3 PRODUCTS FOR TESTING
+    // Pagination settings - PRODUCTION MODE
     let page = 1;
-    const perPage = 3; // TEST MODE: Process only 3 products at a time
+    const perPage = 100; // Process 100 products per page
     let hasMore = true;
     let totalProducts = 0;
-    const MAX_PAGES = 1; // TEST MODE: Process only 1 page
 
     // Helper function to process a single product
     const processProduct = async (wcProduct: WooCommerceProduct) => {
@@ -348,11 +347,7 @@ export async function POST(request: Request) {
           // Check if there are more pages
           const totalPages = response.headers.get('X-WP-TotalPages');
 
-          // TEST MODE: Stop after MAX_PAGES
-          if (page >= MAX_PAGES) {
-            hasMore = false;
-            console.log(`[Sync Products] TEST MODE: Stopping after ${MAX_PAGES} page(s)`);
-          } else if (totalPages && page >= parseInt(totalPages)) {
+          if (totalPages && page >= parseInt(totalPages)) {
             hasMore = false;
             console.log('[Sync Products] All pages processed');
           } else {
@@ -407,9 +402,8 @@ export async function POST(request: Request) {
       databaseCount: dbCount || 0,
       errors: errors.length > 0 ? errors : [],
       debugInfo: {
-        testMode: true,
-        maxProductsPerPage: perPage,
-        maxPages: MAX_PAGES,
+        testMode: false,
+        productsPerPage: perPage,
         hasErrors: errors.length > 0,
         errorDetails: errors
       }
