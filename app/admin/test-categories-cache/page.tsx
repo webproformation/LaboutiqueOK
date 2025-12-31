@@ -21,11 +21,12 @@ export default function TestCategoriesCachePage() {
       const response = await fetch('/api/categories-cache');
       const data = await response.json();
 
-      if (response.ok) {
-        setCategories(data);
-        toast.success(`${data.length} catégories récupérées`);
+      if (response.ok && data.success) {
+        const cats = data.categories || [];
+        setCategories(cats);
+        toast.success(`${cats.length} catégories récupérées`);
       } else {
-        setError('Erreur lors de la récupération');
+        setError(data.error || 'Erreur lors de la récupération');
         toast.error('Erreur');
       }
     } catch (err: any) {
