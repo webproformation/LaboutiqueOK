@@ -43,16 +43,23 @@ export default function GeneralReviewForm() {
         .in('status', ['processing', 'completed'])
         .limit(1);
 
-      if (error) throw error;
-
-      setHasOrders((orders?.length || 0) > 0);
+      if (error) {
+        console.error('Error loading orders:', error);
+        setHasOrders(false);
+      } else {
+        setHasOrders((orders?.length || 0) > 0);
+      }
 
       if (user) {
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
           .select('first_name, last_name')
           .eq('id', user.id)
           .maybeSingle();
+
+        if (profileError) {
+          console.error('Error loading profile:', profileError);
+        }
 
         setFormData(prev => ({
           ...prev,
@@ -62,6 +69,7 @@ export default function GeneralReviewForm() {
       }
     } catch (error) {
       console.error('Error checking orders:', error);
+      setHasOrders(false);
     } finally {
       setLoading(false);
     }
@@ -92,7 +100,10 @@ export default function GeneralReviewForm() {
         .from('customer_reviews')
         .insert([reviewData]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error submitting review:', error);
+        throw error;
+      }
 
       toast.success('Merci pour votre avis ! Il sera publié après validation.');
 

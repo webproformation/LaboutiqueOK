@@ -50,17 +50,27 @@ export default function Home() {
 
   useEffect(() => {
     const fetchGameSettings = async () => {
-      const [scratchRes, wheelRes] = await Promise.all([
-        supabase.from('scratch_game_settings').select('*').limit(1).maybeSingle(),
-        supabase.from('wheel_game_settings').select('*').limit(1).maybeSingle()
-      ]);
+      try {
+        const [scratchRes, wheelRes] = await Promise.all([
+          supabase.from('scratch_game_settings').select('*').limit(1).maybeSingle(),
+          supabase.from('wheel_game_settings').select('*').limit(1).maybeSingle()
+        ]);
 
-      if (scratchRes.data?.is_enabled) {
-        setScratchSettings(scratchRes.data);
-        setActiveGame('scratch');
-      } else if (wheelRes.data?.is_enabled) {
-        setWheelSettings(wheelRes.data);
-        setActiveGame('wheel');
+        if (scratchRes.error) {
+          console.error('Error loading scratch settings:', scratchRes.error);
+        } else if (scratchRes.data?.is_enabled) {
+          setScratchSettings(scratchRes.data);
+          setActiveGame('scratch');
+        }
+
+        if (wheelRes.error) {
+          console.error('Error loading wheel settings:', wheelRes.error);
+        } else if (!scratchRes.data?.is_enabled && wheelRes.data?.is_enabled) {
+          setWheelSettings(wheelRes.data);
+          setActiveGame('wheel');
+        }
+      } catch (error) {
+        console.error('Error fetching game settings:', error);
       }
     };
 
@@ -83,24 +93,32 @@ export default function Home() {
         let canPlayNow = true;
 
         if (scratchSettings.max_plays_per_day > 0) {
-          const { data: playsToday } = await supabase
+          const { data: playsToday, error: rpcError } = await supabase
             .rpc('get_user_plays_today', { user_uuid: user.id });
 
-          const todayCount = playsToday || 0;
-          if (todayCount >= scratchSettings.max_plays_per_day) {
-            canPlayNow = false;
+          if (rpcError) {
+            console.error('Error loading plays today:', rpcError);
+          } else {
+            const todayCount = playsToday || 0;
+            if (todayCount >= scratchSettings.max_plays_per_day) {
+              canPlayNow = false;
+            }
           }
         }
 
         if (canPlayNow && scratchSettings.max_plays_per_user > 0) {
-          const { data: plays } = await supabase
+          const { data: plays, error: playsError } = await supabase
             .from('scratch_game_plays')
             .select('id')
             .eq('user_id', user.id);
 
-          const playCount = plays?.length || 0;
-          if (playCount >= scratchSettings.max_plays_per_user) {
-            canPlayNow = false;
+          if (playsError) {
+            console.error('Error loading user plays:', playsError);
+          } else {
+            const playCount = plays?.length || 0;
+            if (playCount >= scratchSettings.max_plays_per_user) {
+              canPlayNow = false;
+            }
           }
         }
 
@@ -136,12 +154,14 @@ export default function Home() {
 
         if (user) {
           if (wheelSettings.max_plays_per_user > 0) {
-            const { count: totalPlays } = await supabase
+            const { count: totalPlays, error: countError } = await supabase
               .from('wheel_game_plays')
               .select('*', { count: 'exact' })
               .eq('user_id', user.id);
 
-            if (totalPlays && totalPlays >= wheelSettings.max_plays_per_user) {
+            if (countError) {
+              console.error('Error loading wheel plays count:', countError);
+            } else if (totalPlays && totalPlays >= wheelSettings.max_plays_per_user) {
               canPlayNow = false;
             }
           }
@@ -150,13 +170,15 @@ export default function Home() {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            const { count } = await supabase
+            const { count, error: todayError } = await supabase
               .from('wheel_game_plays')
               .select('*', { count: 'exact' })
               .eq('user_id', user.id)
               .gte('created_at', today.toISOString());
 
-            if (count && count >= wheelSettings.max_plays_per_day) {
+            if (todayError) {
+              console.error('Error loading today plays:', todayError);
+            } else if (count && count >= wheelSettings.max_plays_per_day) {
               canPlayNow = false;
             }
           }
@@ -165,13 +187,15 @@ export default function Home() {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            const { count } = await supabase
+            const { count, error: sessionError } = await supabase
               .from('wheel_game_plays')
               .select('*', { count: 'exact' })
               .eq('session_id', sessionId)
               .gte('created_at', today.toISOString());
 
-            if (count && count >= wheelSettings.max_plays_per_day) {
+            if (sessionError) {
+              console.error('Error loading session plays:', sessionError);
+            } else if (count && count >= wheelSettings.max_plays_per_day) {
               canPlayNow = false;
             }
           }

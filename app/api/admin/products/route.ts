@@ -32,13 +32,30 @@ export async function GET(request: Request) {
     });
 
     if (id) {
-      console.log(`[Admin Products API] Fetching single product with woocommerce_id: ${id}`);
+      console.log(`[Admin Products API] Fetching single product with id: ${id}`);
 
-      const { data: product, error: productError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('woocommerce_id', parseInt(id))
-        .maybeSingle();
+      let product = null;
+      let productError = null;
+
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+      if (isUUID) {
+        const result = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+        product = result.data;
+        productError = result.error;
+      } else if (!isNaN(parseInt(id))) {
+        const result = await supabase
+          .from('products')
+          .select('*')
+          .eq('woocommerce_id', parseInt(id))
+          .maybeSingle();
+        product = result.data;
+        productError = result.error;
+      }
 
       if (productError) {
         console.error('[Admin Products API] Error fetching product:', productError);

@@ -40,10 +40,15 @@ export default function CustomerReviewsSlider() {
         .order('created_at', { ascending: false })
         .limit(6);
 
-      if (error) throw error;
-      setReviews(data || []);
+      if (error) {
+        console.error('Error loading reviews:', error);
+        setReviews([]);
+      } else {
+        setReviews(data || []);
+      }
     } catch (error) {
       console.error('Error loading reviews:', error);
+      setReviews([]);
     } finally {
       setLoading(false);
     }

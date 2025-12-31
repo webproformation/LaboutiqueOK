@@ -58,10 +58,13 @@ export default function WeeklyAmbassador() {
 
       if (error) {
         console.error("Error fetching ambassador:", error);
+        setAmbassador(null);
+      } else {
+        setAmbassador(data);
       }
-      setAmbassador(data);
     } catch (error) {
       console.error("Error fetching ambassador:", error);
+      setAmbassador(null);
     } finally {
       setIsLoading(false);
     }
