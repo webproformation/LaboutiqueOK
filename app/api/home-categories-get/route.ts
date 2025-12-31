@@ -74,6 +74,20 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
+      // Call webhook revalidator to clear PostgREST cache
+      try {
+        await fetch('https://qcqbtmvbvipsxwjlgjvk.supabase.co/functions/v1/webhook-revalidator', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`
+          },
+          body: JSON.stringify({ table: 'home_categories', action: 'INSERT' })
+        });
+      } catch (webhookError) {
+        console.error('[Home Categories API] Webhook error (non-fatal):', webhookError);
+      }
+
       return NextResponse.json(data);
     }
 
