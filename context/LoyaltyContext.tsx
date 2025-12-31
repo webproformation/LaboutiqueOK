@@ -75,6 +75,9 @@ export function LoyaltyProvider({ children }: { children: React.ReactNode }) {
 
       if (!response.ok) {
         console.error('Error fetching loyalty points:', response.status, response.statusText);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error details:', errorData);
+
         // Set default loyalty points on error to prevent UI breaking
         setLoyaltyPoints({
           id: 'default',
@@ -89,47 +92,8 @@ export function LoyaltyProvider({ children }: { children: React.ReactNode }) {
 
       const data = await response.json();
 
-      if (!data) {
-        try {
-          const createResponse = await fetch('/api/loyalty/points-get', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'create',
-              userId: user.id
-            })
-          });
-
-          if (!createResponse.ok) {
-            console.error('Error inserting loyalty points:', createResponse.status);
-            // Set default on insert error
-            setLoyaltyPoints({
-              id: 'default',
-              user_id: user.id,
-              page_visit_points: 0,
-              live_participation_count: 0,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            });
-            return;
-          }
-
-          const newData = await createResponse.json();
-          setLoyaltyPoints(newData);
-        } catch (insertErr) {
-          console.error('Caught error during insert:', insertErr);
-          setLoyaltyPoints({
-            id: 'default',
-            user_id: user.id,
-            page_visit_points: 0,
-            live_participation_count: 0,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
-        }
-      } else {
-        setLoyaltyPoints(data);
-      }
+      // API now creates the record automatically if it doesn't exist
+      setLoyaltyPoints(data);
     } catch (error: any) {
       console.error('Error in fetchLoyaltyPoints:', {
         error,

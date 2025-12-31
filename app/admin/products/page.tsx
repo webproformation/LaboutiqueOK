@@ -82,11 +82,24 @@ export default function AdminProducts() {
     setLoading(true);
     try {
       const response = await fetch('/api/woocommerce/products?action=all');
-      if (!response.ok) throw new Error('Failed to fetch products');
+      if (!response.ok) {
+        console.error('Failed to fetch products:', response.status, response.statusText);
+        setProducts([]);
+        throw new Error('Failed to fetch products');
+      }
       const data = await response.json();
-      setProducts(data);
+
+      // Ensure data is an array
+      if (Array.isArray(data)) {
+        setProducts(data);
+      } else {
+        console.error('Products data is not an array:', data);
+        setProducts([]);
+        toast.error('Format de données invalide');
+      }
     } catch (error) {
       console.error('Error loading products:', error);
+      setProducts([]); // Always set to empty array on error
       toast.error('Erreur lors du chargement des produits');
     } finally {
       setLoading(false);
@@ -180,13 +193,19 @@ export default function AdminProducts() {
   };
 
   const filteredProducts = useMemo(() => {
+    // Ensure products is always an array
+    if (!Array.isArray(products)) {
+      console.warn('Products is not an array:', products);
+      return [];
+    }
+
     let filtered = products;
 
     // Filter by search
     if (search.trim()) {
       const searchLower = search.toLowerCase();
       filtered = filtered.filter((p: WooProduct) =>
-        p.name.toLowerCase().includes(searchLower)
+        p.name?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -199,12 +218,16 @@ export default function AdminProducts() {
   }, [products, search, statusFilter]);
 
   const paginatedProducts = useMemo(() => {
+    // Defensive check
+    if (!Array.isArray(filteredProducts)) {
+      return [];
+    }
     const start = (page - 1) * perPage;
     const end = start + perPage;
     return filteredProducts.slice(start, end);
   }, [filteredProducts, page, perPage]);
 
-  const totalPages = Math.ceil(filteredProducts.length / perPage);
+  const totalPages = Math.ceil((Array.isArray(filteredProducts) ? filteredProducts.length : 0) / perPage);
 
   useEffect(() => {
     setPage(1);

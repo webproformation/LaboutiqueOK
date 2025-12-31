@@ -28,8 +28,9 @@ export async function POST(request: NextRequest) {
 
     const { data: pointsData, error: pointsError } = await supabase
       .from('loyalty_points')
-      .select('points')
-      .eq('user_id', user_id);
+      .select('total_points')
+      .eq('user_id', user_id)
+      .maybeSingle();
 
     if (pointsError) {
       console.error('Loyalty points error:', pointsError);
@@ -42,7 +43,19 @@ export async function POST(request: NextRequest) {
       }], { status: 200 });
     }
 
-    const totalPoints = pointsData?.reduce((sum: number, p: any) => sum + (p.points || 0), 0) || 0;
+    // If no loyalty points found, return default tier
+    if (!pointsData) {
+      console.log('No loyalty points found for user:', user_id);
+      return NextResponse.json([{
+        tier: 1,
+        multiplier: 1,
+        tier_name: 'Palier 1',
+        current_balance: 0,
+        next_tier_threshold: 200
+      }], { status: 200 });
+    }
+
+    const totalPoints = pointsData.total_points || 0;
     const current_balance = totalPoints * 0.01;
 
     let tier = 1;

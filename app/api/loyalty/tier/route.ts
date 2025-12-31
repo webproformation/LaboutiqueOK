@@ -19,18 +19,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
     }
 
-    // Execute raw SQL to bypass PostgREST cache
-    const { data: points, error } = await supabase.rpc('exec_sql', {
-      query: `SELECT COALESCE(SUM(points), 0) as total_points FROM loyalty_points WHERE user_id = $1`,
-      params: [userId]
-    });
+    // Fetch loyalty points from table
+    const { data: pointsData, error } = await supabase
+      .from('loyalty_points')
+      .select('total_points')
+      .eq('user_id', userId)
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching loyalty points:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      // Return default tier on error
+      return NextResponse.json([{
+        tier: 1,
+        multiplier: 1,
+        tier_name: 'Palier 1',
+        current_balance: 0,
+        next_tier_threshold: 200
+      }], { status: 200 });
     }
 
-    const totalPoints = points?.[0]?.total_points || 0;
+    // If no record found, return default tier
+    if (!pointsData) {
+      console.log('No loyalty points found for user:', userId);
+      return NextResponse.json([{
+        tier: 1,
+        multiplier: 1,
+        tier_name: 'Palier 1',
+        current_balance: 0,
+        next_tier_threshold: 200
+      }], { status: 200 });
+    }
+
+    const totalPoints = pointsData.total_points || 0;
 
     // Determine tier and multiplier based on balance
     let tier = 1;
@@ -62,6 +82,13 @@ export async function GET(request: NextRequest) {
     }]);
   } catch (error: any) {
     console.error('Error in tier GET:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Return default tier on any error
+    return NextResponse.json([{
+      tier: 1,
+      multiplier: 1,
+      tier_name: 'Palier 1',
+      current_balance: 0,
+      next_tier_threshold: 200
+    }], { status: 200 });
   }
 }

@@ -19,12 +19,14 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching loyalty points:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      // Return empty array instead of error to avoid breaking the frontend
+      return NextResponse.json([]);
     }
 
     return NextResponse.json(data || []);
   } catch (error: any) {
     console.error('Error in loyalty points GET:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Return empty array instead of error to avoid breaking the frontend
+    return NextResponse.json([]);
   }
 }

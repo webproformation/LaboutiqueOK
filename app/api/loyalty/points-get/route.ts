@@ -53,6 +53,48 @@ export async function GET(request: Request) {
       }, { status: 500 });
     }
 
+    // If no loyalty points exist for this user, create them
+    if (!data) {
+      console.log('[Loyalty Points API] No loyalty points found, creating new record');
+
+      const { data: newData, error: insertError } = await supabase
+        .from('loyalty_points')
+        .insert({
+          user_id: userId,
+          page_visit_points: 0,
+          live_participation_count: 0,
+          order_points: 0,
+          live_share_points: 0,
+          total_points: 0,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('[Loyalty Points API] Error creating loyalty points:', {
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code
+        });
+
+        // Return default values if creation fails (shouldn't happen with permissive RLS)
+        return NextResponse.json({
+          user_id: userId,
+          page_visit_points: 0,
+          live_participation_count: 0,
+          order_points: 0,
+          live_share_points: 0,
+          total_points: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      console.log('[Loyalty Points API] Successfully created loyalty points');
+      return NextResponse.json(newData);
+    }
+
     console.log('[Loyalty Points API] Successfully fetched loyalty points');
     return NextResponse.json(data);
   } catch (error: any) {

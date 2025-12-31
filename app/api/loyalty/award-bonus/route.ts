@@ -24,39 +24,67 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    const { data: lastBonus } = await supabase
+    // Get user's loyalty points
+    const { data: loyaltyPoints, error: fetchError } = await supabase
       .from('loyalty_points')
-      .select('created_at')
+      .select('*')
       .eq('user_id', user_id)
-      .eq('bonus_type', 'daily_connection')
-      .order('created_at', { ascending: false })
-      .limit(1)
       .maybeSingle();
 
-    if (lastBonus) {
-      const lastBonusDate = new Date(lastBonus.created_at).toDateString();
-      const today = new Date().toDateString();
+    if (fetchError) {
+      console.error('Fetch loyalty points error:', fetchError);
+      return NextResponse.json({
+        success: false,
+        message: 'Erreur lors de la récupération des points',
+        points: 0
+      }, { status: 200 });
+    }
 
-      if (lastBonusDate === today) {
+    // Create loyalty points record if it doesn't exist
+    if (!loyaltyPoints) {
+      const { data: newPoints, error: createError } = await supabase
+        .from('loyalty_points')
+        .insert({
+          user_id,
+          page_visit_points: 0,
+          live_participation_count: 0,
+          order_points: 10,
+          live_share_points: 0,
+          total_points: 10
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Create loyalty points error:', createError);
         return NextResponse.json({
           success: false,
-          message: 'Bonus déjà attribué aujourd\'hui',
+          message: 'Erreur lors de la création des points',
           points: 0
         }, { status: 200 });
       }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Vous avez gagné 10 points de fidélité pour votre connexion quotidienne !',
+        points: 10
+      }, { status: 200 });
     }
 
-    const { error } = await supabase
-      .from('loyalty_points')
-      .insert({
-        user_id,
-        points: 10,
-        bonus_type: 'daily_connection',
-        description: 'Bonus de connexion quotidien'
-      });
+    // Update existing loyalty points
+    const newTotalPoints = (loyaltyPoints.total_points || 0) + 10;
+    const newOrderPoints = (loyaltyPoints.order_points || 0) + 10;
 
-    if (error) {
-      console.error('Award bonus error:', error);
+    const { error: updateError } = await supabase
+      .from('loyalty_points')
+      .update({
+        order_points: newOrderPoints,
+        total_points: newTotalPoints
+      })
+      .eq('user_id', user_id);
+
+    if (updateError) {
+      console.error('Update bonus error:', updateError);
       return NextResponse.json({
         success: false,
         message: 'Erreur lors de l\'attribution du bonus',
