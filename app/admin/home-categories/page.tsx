@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase-client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -63,13 +62,14 @@ export default function HomeCategoriesPage() {
     try {
       setLoading(true);
 
-      // Charger les catégories sélectionnées depuis Supabase
-      const { data: homeCategories, error: supabaseError } = await supabase
-        .from('home_categories')
-        .select('*')
-        .order('display_order', { ascending: true });
+      // Charger les catégories sélectionnées via l'API route (bypass PostgREST cache)
+      const homeCategoriesResponse = await fetch('/api/home-categories-get');
 
-      if (supabaseError) throw supabaseError;
+      if (!homeCategoriesResponse.ok) {
+        throw new Error('Erreur lors du chargement des catégories depuis Supabase');
+      }
+
+      const homeCategories = await homeCategoriesResponse.json();
       setSelectedCategories(homeCategories || []);
 
       // Charger toutes les catégories WordPress
@@ -123,25 +123,32 @@ export default function HomeCategoriesPage() {
         ? Math.max(...selectedCategories.map(c => c.display_order))
         : -1;
 
-      const { data, error } = await supabase
-        .from('home_categories')
-        .insert({
-          category_slug: wooCat.slug,
-          category_name: decodeHtmlEntities(wooCat.name),
-          display_order: maxOrder + 1,
-          is_active: true,
-          image_url: wooCat.image?.src || null,
+      const response = await fetch('/api/home-categories-get', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          categoryData: {
+            category_slug: wooCat.slug,
+            category_name: decodeHtmlEntities(wooCat.name),
+            display_order: maxOrder + 1,
+            is_active: true,
+            image_url: wooCat.image?.src || null,
+          }
         })
-        .select()
-        .single();
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de l\'ajout');
+      }
 
+      const data = await response.json();
       setSelectedCategories([...selectedCategories, data]);
       toast.success(`${decodeHtmlEntities(wooCat.name)} ajoutée`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding category:', error);
-      toast.error('Erreur lors de l\'ajout de la catégorie');
+      toast.error(error.message || 'Erreur lors de l\'ajout de la catégorie');
     } finally {
       setSaving(false);
     }
@@ -150,18 +157,26 @@ export default function HomeCategoriesPage() {
   const removeCategory = async (id: string) => {
     try {
       setSaving(true);
-      const { error } = await supabase
-        .from('home_categories')
-        .delete()
-        .eq('id', id);
 
-      if (error) throw error;
+      const response = await fetch('/api/home-categories-get', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete',
+          categoryId: id
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de la suppression');
+      }
 
       setSelectedCategories(selectedCategories.filter(cat => cat.id !== id));
       toast.success('Catégorie retirée');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error removing category:', error);
-      toast.error('Erreur lors de la suppression');
+      toast.error(error.message || 'Erreur lors de la suppression');
     } finally {
       setSaving(false);
     }
@@ -169,12 +184,20 @@ export default function HomeCategoriesPage() {
 
   const toggleActive = async (id: string, currentValue: boolean) => {
     try {
-      const { error } = await supabase
-        .from('home_categories')
-        .update({ is_active: !currentValue })
-        .eq('id', id);
+      const response = await fetch('/api/home-categories-get', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update',
+          categoryId: id,
+          categoryData: { is_active: !currentValue }
+        })
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de la mise à jour');
+      }
 
       setSelectedCategories(
         selectedCategories.map(cat =>
@@ -182,9 +205,9 @@ export default function HomeCategoriesPage() {
         )
       );
       toast.success(currentValue ? 'Catégorie désactivée' : 'Catégorie activée');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error toggling category:', error);
-      toast.error('Erreur lors de la mise à jour');
+      toast.error(error.message || 'Erreur lors de la mise à jour');
     }
   };
 
@@ -210,10 +233,15 @@ export default function HomeCategoriesPage() {
 
     try {
       const updates = newCategories.map(cat =>
-        supabase
-          .from('home_categories')
-          .update({ display_order: cat.display_order })
-          .eq('id', cat.id)
+        fetch('/api/home-categories-get', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'update',
+            categoryId: cat.id,
+            categoryData: { display_order: cat.display_order }
+          })
+        })
       );
 
       await Promise.all(updates);
