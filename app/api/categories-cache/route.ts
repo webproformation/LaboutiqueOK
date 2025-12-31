@@ -108,13 +108,14 @@ export async function POST(request: Request) {
     });
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('[Categories Cache API] Missing Supabase configuration');
+      console.error('[Categories Sync Error]: Missing Supabase configuration');
       return NextResponse.json(
         {
           success: false,
+          categories: [],
           error: 'Configuration Supabase manquante'
         },
-        { status: 500 }
+        { status: 200 }
       );
     }
 
@@ -129,13 +130,14 @@ export async function POST(request: Request) {
     if (action === 'sync') {
       console.log('[Categories Cache API] Step 4: Validating categories array...');
       if (!Array.isArray(categories)) {
-        console.error('[Categories Cache API] categories is not an array:', typeof categories);
+        console.error('[Categories Sync Error]: categories is not an array:', typeof categories);
         return NextResponse.json(
           {
             success: false,
+            categories: [],
             error: 'categories doit être un tableau'
           },
-          { status: 400 }
+          { status: 200 }
         );
       }
 
@@ -159,7 +161,7 @@ export async function POST(request: Request) {
           woocommerce_id: cat.id,
           name: cat.name,
           slug: cat.slug,
-          woocommerce_parent_id: cat.parent || 0,
+          woocommerce_parent_id: cat.parent && cat.parent !== 0 ? cat.parent : null,
           description: cat.description || '',
           image_url: imageUrl,
           count: cat.count || 0,
@@ -181,23 +183,24 @@ export async function POST(request: Request) {
         .select();
 
       if (error) {
-        console.error('[Categories Cache API] ===== ERROR DURING UPSERT =====');
-        console.error('[Categories Cache API] Supabase upsert error:', {
+        console.error('[Categories Sync Error]: ===== ERROR DURING UPSERT =====');
+        console.error('[Categories Sync Error]:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
           code: error.code
         });
-        console.error('[Categories Cache API] Sample formatted category:', formattedCategories[0]);
+        console.error('[Categories Sync Error]: Sample formatted category:', formattedCategories[0]);
         return NextResponse.json(
           {
             success: false,
+            categories: [],
             error: error.message,
             details: error.details,
             hint: error.hint,
             code: error.code
           },
-          { status: 500 }
+          { status: 200 }
         );
       }
 
@@ -213,17 +216,18 @@ export async function POST(request: Request) {
       });
     }
 
-    console.error('[Categories Cache API] Invalid action:', action);
+    console.error('[Categories Sync Error]: Invalid action:', action);
     return NextResponse.json(
       {
         success: false,
+        categories: [],
         error: 'Action invalide. Utilisez action="sync"'
       },
-      { status: 400 }
+      { status: 200 }
     );
   } catch (error: any) {
-    console.error('[Categories Cache API] ===== CRITICAL ERROR =====');
-    console.error('[Categories Cache API] Unexpected error:', {
+    console.error('[Categories Sync Error]: ===== CRITICAL ERROR =====');
+    console.error('[Categories Sync Error]:', {
       message: error?.message,
       stack: error?.stack,
       name: error?.name,
@@ -234,6 +238,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
+          categories: [],
           error: error?.message || 'Erreur inconnue',
           details: process.env.NODE_ENV === 'development' ? {
             message: error?.message,
@@ -241,17 +246,18 @@ export async function POST(request: Request) {
             stack: error?.stack
           } : undefined
         },
-        { status: 500 }
+        { status: 200 }
       );
     } catch (responseError) {
-      console.error('[Categories Cache API] Failed to send error response:', responseError);
+      console.error('[Categories Sync Error]: Failed to send error response:', responseError);
       return new Response(
         JSON.stringify({
           success: false,
+          categories: [],
           error: 'Critical error: Unable to format response'
         }),
         {
-          status: 500,
+          status: 200,
           headers: { 'Content-Type': 'application/json' }
         }
       );

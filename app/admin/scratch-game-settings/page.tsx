@@ -142,10 +142,11 @@ export default function ScratchGameSettingsPage() {
         .order('weight', { ascending: false });
 
       if (error) throw error;
-      setPrizes(data || []);
+      setPrizes(Array.isArray(data) ? data : []);
     } catch (error: any) {
       console.error('Error fetching prizes:', error);
       toast.error('Erreur lors du chargement des lots');
+      setPrizes([]);
     } finally {
       setLoadingPrizes(false);
     }
@@ -160,10 +161,11 @@ export default function ScratchGameSettingsPage() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setAvailableCoupons(data || []);
+      setAvailableCoupons(Array.isArray(data) ? data : []);
     } catch (error: any) {
       console.error('Error fetching coupons:', error);
       toast.error('Erreur lors du chargement des coupons');
+      setAvailableCoupons([]);
     }
   };
 
@@ -268,6 +270,9 @@ export default function ScratchGameSettingsPage() {
   };
 
   const getAvailableCouponsForAdd = () => {
+    if (!Array.isArray(prizes) || !Array.isArray(availableCoupons)) {
+      return [];
+    }
     const usedCouponIds = prizes.map(p => p.coupon_type_id);
     return availableCoupons.filter(c => !usedCouponIds.includes(c.id));
   };
@@ -516,7 +521,7 @@ export default function ScratchGameSettingsPage() {
               <div className="flex justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-[#b8933d]" />
               </div>
-            ) : prizes.length === 0 ? (
+            ) : !Array.isArray(prizes) || prizes.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <Gift className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p>Aucun lot configuré</p>
@@ -537,7 +542,8 @@ export default function ScratchGameSettingsPage() {
                   </TableHeader>
                   <TableBody>
                     {prizes.map((prize) => {
-                      const totalWeight = prizes.filter(p => p.is_active).reduce((sum, p) => sum + p.weight, 0);
+                      const activePrizes = Array.isArray(prizes) ? prizes.filter(p => p.is_active) : [];
+                      const totalWeight = activePrizes.reduce((sum, p) => sum + p.weight, 0);
                       const probability = totalWeight > 0 ? ((prize.weight / totalWeight) * 100).toFixed(1) : '0';
 
                       return (
