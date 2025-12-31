@@ -71,19 +71,10 @@ export function LoyaltyProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('loyalty_points')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const response = await fetch(`/api/loyalty/points-get?user_id=${user.id}`);
 
-      if (error) {
-        console.error('Error fetching loyalty points:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
+      if (!response.ok) {
+        console.error('Error fetching loyalty points:', response.status, response.statusText);
         // Set default loyalty points on error to prevent UI breaking
         setLoyaltyPoints({
           id: 'default',
@@ -96,25 +87,21 @@ export function LoyaltyProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      const data = await response.json();
+
       if (!data) {
         try {
-          const { data: newData, error: insertError } = await supabase
-            .from('loyalty_points')
-            .insert({
-              user_id: user.id,
-              page_visit_points: 0,
-              live_participation_count: 0,
+          const createResponse = await fetch('/api/loyalty/points-get', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'create',
+              userId: user.id
             })
-            .select()
-            .single();
+          });
 
-          if (insertError) {
-            console.error('Error inserting loyalty points:', {
-              message: insertError.message,
-              details: insertError.details,
-              hint: insertError.hint,
-              code: insertError.code,
-            });
+          if (!createResponse.ok) {
+            console.error('Error inserting loyalty points:', createResponse.status);
             // Set default on insert error
             setLoyaltyPoints({
               id: 'default',
@@ -126,6 +113,8 @@ export function LoyaltyProvider({ children }: { children: React.ReactNode }) {
             });
             return;
           }
+
+          const newData = await createResponse.json();
           setLoyaltyPoints(newData);
         } catch (insertErr) {
           console.error('Caught error during insert:', insertErr);
@@ -170,14 +159,21 @@ export function LoyaltyProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const newPoints = loyaltyPoints.page_visit_points + POINTS_PER_VISIT;
-      const { error: updateError } = await supabase
-        .from('loyalty_points')
-        .update({
-          page_visit_points: newPoints,
+      const response = await fetch('/api/loyalty/points-get', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update',
+          userId: user.id,
+          loyaltyData: {
+            page_visit_points: newPoints,
+          }
         })
-        .eq('user_id', user.id);
+      });
 
-      if (updateError) throw updateError;
+      if (!response.ok) {
+        throw new Error('Failed to update loyalty points');
+      }
 
       await fetchLoyaltyPoints();
     } catch (error) {
