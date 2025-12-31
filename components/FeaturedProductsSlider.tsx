@@ -49,10 +49,23 @@ export default function FeaturedProductsSlider() {
     fetchFeaturedProducts();
   }, []);
 
-  const { data: productsData, loading } = useQuery<GetProductsByIdsResponse>(GET_PRODUCTS_BY_IDS, {
+  const { data: productsData, loading, error: apolloError } = useQuery<GetProductsByIdsResponse>(GET_PRODUCTS_BY_IDS, {
     variables: { ids: featuredProductIds },
     skip: loadingIds || featuredProductIds.length === 0,
   });
+
+  useEffect(() => {
+    if (featuredProductIds.length > 0) {
+      console.log('[FeaturedProductsSlider] Featured product IDs:', featuredProductIds);
+    }
+    if (productsData) {
+      console.log('[FeaturedProductsSlider] GraphQL response:', productsData);
+      console.log('[FeaturedProductsSlider] Products found:', productsData?.products?.nodes?.length || 0);
+    }
+    if (apolloError) {
+      console.error('[FeaturedProductsSlider] Apollo error:', apolloError);
+    }
+  }, [featuredProductIds, productsData, apolloError]);
 
   if (loadingIds || loading) {
     return (
@@ -74,7 +87,18 @@ export default function FeaturedProductsSlider() {
     );
   }
 
-  if (featuredProductIds.length === 0 || !productsData?.products?.nodes || productsData.products.nodes.length === 0) {
+  if (apolloError) {
+    console.error('[FeaturedProductsSlider] Error loading featured products:', apolloError);
+    return null;
+  }
+
+  if (featuredProductIds.length === 0) {
+    console.log('[FeaturedProductsSlider] No featured products configured');
+    return null;
+  }
+
+  if (!productsData?.products?.nodes || productsData.products.nodes.length === 0) {
+    console.log('[FeaturedProductsSlider] No products returned from WooCommerce');
     return null;
   }
 

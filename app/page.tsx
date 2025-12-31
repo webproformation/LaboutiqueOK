@@ -211,12 +211,12 @@ export default function Home() {
       <HomeCategories />
       <FeaturedProductsSlider />
       <VideoShowcase />
-      {/* <WeeklyAmbassador /> */}
-      {/* <GuestbookSlider /> */}
-      {/* <GuestbookCounters /> */}
-      {/* <LiveStreamsSlider /> */}
-      {/* <CustomerReviewsSlider /> */}
-      {/* <GeneralReviewForm /> */}
+      <WeeklyAmbassador />
+      <GuestbookSlider />
+      <GuestbookCounters />
+      <LiveStreamsSlider />
+      <CustomerReviewsSlider />
+      <GeneralReviewForm />
     </>
   );
 }

@@ -9,6 +9,7 @@ export async function GET(request: Request) {
 
   try {
     const url = new URL(request.url);
+    const id = url.searchParams.get('id');
     const search = url.searchParams.get('search') || '';
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -30,9 +31,36 @@ export async function GET(request: Request) {
       }
     });
 
+    if (id) {
+      console.log(`[Admin Products API] Fetching single product with woocommerce_id: ${id}`);
+
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('woocommerce_id', parseInt(id))
+        .maybeSingle();
+
+      if (productError) {
+        console.error('[Admin Products API] Error fetching product:', productError);
+        return NextResponse.json({
+          success: false,
+          error: productError.message
+        }, { status: 500 });
+      }
+
+      if (!product) {
+        return NextResponse.json({
+          success: false,
+          error: 'Product not found'
+        }, { status: 404 });
+      }
+
+      console.log('[Admin Products API] Product found:', product.name);
+      return NextResponse.json(product);
+    }
+
     console.log('[Admin Products API] Step 1: Fetching products from database...');
 
-    // Fetch products (simple query, no JOIN - same pattern as home-categories)
     let query = supabase
       .from('products')
       .select('*')
@@ -68,7 +96,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    // Step 2: Get unique category IDs (from category_id FK)
     const categoryIds = Array.from(new Set(
       products
         .map(p => p.category_id)
@@ -90,16 +117,13 @@ export async function GET(request: Request) {
           message: categoriesError.message,
           details: categoriesError.details
         });
-        // Continue without category details
       } else {
         categoriesData = categories || [];
         console.log(`[Admin Products API] Fetched ${categoriesData.length} category details`);
       }
     }
 
-    // Step 3: Combine data - add category name to each product
     const productsWithCategories = products.map(product => {
-      // Find the category using the category_id FK
       const category = categoriesData.find(c => c.id === product.category_id);
 
       return {

@@ -11,17 +11,17 @@ import { supabase } from '@/lib/supabase-client';
 import { toast } from 'sonner';
 import Image from 'next/image';
 
-interface WooProduct {
+interface Product {
   id: number;
+  woocommerce_id: number;
   name: string;
   slug: string;
-  sku: string;
-  price: string;
-  images: Array<{ src: string }>;
+  sku?: string;
+  regular_price: number;
+  image_url?: string;
+  images?: any[];
   stock_status: string;
 }
-
-interface Product extends WooProduct {}
 
 interface RelatedProduct {
   id: string;
@@ -49,7 +49,7 @@ export default function RelatedProductsManager({ productId }: RelatedProductsMan
   const loadRelatedProducts = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data: relatedData, error } = await supabase
         .from('related_products')
         .select('*')
         .eq('product_id', productId)
@@ -57,22 +57,43 @@ export default function RelatedProductsManager({ productId }: RelatedProductsMan
 
       if (error) throw error;
 
-      const relatedWithDetails = await Promise.all(
-        (data || []).map(async (rel) => {
-          try {
-            const response = await fetch(`/api/woocommerce/products?id=${rel.related_product_id}`);
-            const products = await response.json();
-            return {
-              ...rel,
-              product: products[0] || null,
-            };
-          } catch (err) {
-            return { ...rel, product: null };
-          }
-        })
-      );
+      if (!relatedData || relatedData.length === 0) {
+        setRelatedProducts([]);
+        return;
+      }
 
-      setRelatedProducts(relatedWithDetails.filter(r => r.product));
+      const productIds = relatedData.map(rel => parseInt(rel.related_product_id));
+
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select('*')
+        .in('woocommerce_id', productIds);
+
+      if (productsError) {
+        console.error('Error loading products:', productsError);
+        setRelatedProducts([]);
+        return;
+      }
+
+      const relatedWithDetails = relatedData.map(rel => {
+        const product = productsData?.find(p => p.woocommerce_id.toString() === rel.related_product_id);
+        return {
+          ...rel,
+          product: product ? {
+            id: product.woocommerce_id,
+            woocommerce_id: product.woocommerce_id,
+            name: product.name,
+            slug: product.slug,
+            sku: product.sku || '',
+            regular_price: product.regular_price,
+            image_url: product.image_url,
+            images: product.images || [],
+            stock_status: product.stock_status
+          } : null
+        };
+      }).filter(r => r.product);
+
+      setRelatedProducts(relatedWithDetails);
     } catch (error) {
       console.error('Error loading related products:', error);
       toast.error('Erreur lors du chargement des produits complémentaires');
@@ -86,13 +107,30 @@ export default function RelatedProductsManager({ productId }: RelatedProductsMan
 
     setSearching(true);
     try {
-      const response = await fetch(`/api/woocommerce/products?search=${encodeURIComponent(searchQuery)}&per_page=20`);
-      const products = await response.json();
+      const { data: products, error } = await supabase
+        .from('products')
+        .select('*')
+        .or(`name.ilike.%${searchQuery}%,sku.ilike.%${searchQuery}%`)
+        .limit(20);
 
-      const filtered = products.filter((p: Product) =>
-        p.id.toString() !== productId &&
-        !relatedProducts.find(rp => rp.related_product_id === p.id.toString())
-      );
+      if (error) throw error;
+
+      const filtered = (products || [])
+        .filter((p: any) =>
+          p.woocommerce_id.toString() !== productId &&
+          !relatedProducts.find(rp => rp.related_product_id === p.woocommerce_id.toString())
+        )
+        .map((p: any) => ({
+          id: p.woocommerce_id,
+          woocommerce_id: p.woocommerce_id,
+          name: p.name,
+          slug: p.slug,
+          sku: p.sku || '',
+          regular_price: p.regular_price,
+          image_url: p.image_url,
+          images: p.images || [],
+          stock_status: p.stock_status
+        }));
 
       setSearchResults(filtered);
     } catch (error) {
@@ -216,9 +254,9 @@ export default function RelatedProductsManager({ productId }: RelatedProductsMan
                   className="flex items-center gap-3 p-2 border rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   <div className="relative w-12 h-12 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
-                    {product.images[0]?.src ? (
+                    {product.image_url || product.images?.[0]?.src ? (
                       <Image
-                        src={product.images[0].src}
+                        src={product.image_url || product.images?.[0]?.src || ''}
                         alt={product.name}
                         fill
                         sizes="48px"
@@ -235,7 +273,7 @@ export default function RelatedProductsManager({ productId }: RelatedProductsMan
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <span>UGS: {product.sku || 'N/A'}</span>
                       <span>•</span>
-                      <span className="font-semibold text-[#b8933d]">{product.price} €</span>
+                      <span className="font-semibold text-[#b8933d]">{product.regular_price} €</span>
                     </div>
                   </div>
                   <Button
@@ -283,9 +321,9 @@ export default function RelatedProductsManager({ productId }: RelatedProductsMan
                   </div>
 
                   <div className="relative w-16 h-16 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
-                    {relatedProduct.product?.images[0]?.src ? (
+                    {relatedProduct.product?.image_url || relatedProduct.product?.images?.[0]?.src ? (
                       <Image
-                        src={relatedProduct.product.images[0].src}
+                        src={relatedProduct.product.image_url || relatedProduct.product?.images?.[0]?.src || ''}
                         alt={relatedProduct.product.name}
                         fill
                         sizes="64px"
@@ -306,7 +344,7 @@ export default function RelatedProductsManager({ productId }: RelatedProductsMan
                       <span>UGS: {relatedProduct.product?.sku || 'N/A'}</span>
                       <span>•</span>
                       <span className="font-semibold text-[#b8933d]">
-                        {relatedProduct.product?.price} €
+                        {relatedProduct.product?.regular_price} €
                       </span>
                       {relatedProduct.product?.stock_status === 'instock' ? (
                         <Badge variant="outline" className="text-green-600 border-green-600">

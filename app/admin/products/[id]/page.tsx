@@ -164,37 +164,47 @@ export default function EditProductPage() {
   const loadProductData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/woocommerce/products?action=get&id=${productId}`);
+      const response = await fetch(`/api/admin/products?id=${productId}`);
       if (!response.ok) {
-        throw new Error('Erreur lors du chargement du produit');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors du chargement du produit');
       }
 
       const product = await response.json();
+
+      const images = Array.isArray(product.images) ? product.images : [];
+      const mainImage = images[0] || {};
+      const galleryImages = images.slice(1).map((img: any) => ({
+        url: img.src || img.url || '',
+        id: img.id || 0
+      }));
 
       setFormData({
         name: product.name || '',
         slug: product.slug || '',
         description: product.description || '',
         short_description: product.short_description || '',
-        regular_price: product.regular_price || '',
-        sale_price: product.sale_price || '',
+        regular_price: product.regular_price?.toString() || '',
+        sale_price: product.sale_price?.toString() || '',
         stock_quantity: product.stock_quantity || null,
         manage_stock: product.manage_stock || false,
         stock_status: product.stock_status || 'instock',
         featured: product.featured || false,
-        image_id: product.images?.[0]?.id || 0,
-        image_url: product.images?.[0]?.src || '',
+        image_id: mainImage.id || 0,
+        image_url: mainImage.src || mainImage.url || '',
         sku: product.sku || '',
-        gallery_images: product.images?.slice(1).map((img: any) => ({ url: img.src, id: img.id })) || [],
-        attributes: product.attributes || [],
-        categories: product.categories?.map((cat: any) => cat.id) || [],
+        gallery_images: galleryImages,
+        attributes: Array.isArray(product.attributes) ? product.attributes : [],
+        categories: Array.isArray(product.categories)
+          ? product.categories.map((cat: any) => cat.id || cat)
+          : [],
         status: product.status || 'publish',
         type: product.type || 'simple',
-        variations: product.variations || [],
+        variations: Array.isArray(product.variations) ? product.variations : [],
       });
     } catch (error) {
       console.error('Error loading product:', error);
-      toast.error('Erreur lors du chargement du produit');
+      toast.error(error instanceof Error ? error.message : 'Erreur lors du chargement du produit');
     } finally {
       setLoading(false);
     }
