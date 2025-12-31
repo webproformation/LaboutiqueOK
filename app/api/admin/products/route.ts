@@ -32,34 +32,10 @@ export async function GET(request: Request) {
 
     console.log('[Admin Products API] Step 1: Fetching products from database...');
 
-    // Fetch products with all columns
+    // Fetch products (simple query, no JOIN - same pattern as home-categories)
     let query = supabase
       .from('products')
-      .select(`
-        id,
-        woocommerce_id,
-        name,
-        slug,
-        description,
-        short_description,
-        regular_price,
-        sale_price,
-        image_url,
-        images,
-        stock_status,
-        stock_quantity,
-        category_id,
-        woocommerce_category_id,
-        categories,
-        tags,
-        attributes,
-        variations,
-        is_featured,
-        is_active,
-        is_hidden_diamond,
-        created_at,
-        updated_at
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (search.trim()) {
@@ -92,29 +68,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    // Step 2: Get all unique category IDs from the categories jsonb field
-    const allCategoryIds = new Set<number>();
-    products.forEach(product => {
-      // Extract WooCommerce category IDs from the categories jsonb array
-      if (Array.isArray(product.categories)) {
-        product.categories.forEach((cat: any) => {
-          if (cat && cat.id) {
-            allCategoryIds.add(cat.id);
-          }
-        });
-      }
-    });
+    // Step 2: Get unique category IDs (from category_id FK)
+    const categoryIds = Array.from(new Set(
+      products
+        .map(p => p.category_id)
+        .filter(id => id != null)
+    ));
 
-    const categoryIdsArray = Array.from(allCategoryIds);
-    console.log(`[Admin Products API] Step 2: Fetching ${categoryIdsArray.length} unique categories...`);
+    console.log(`[Admin Products API] Step 2: Fetching ${categoryIds.length} categories...`);
 
     let categoriesData: any[] = [];
 
-    if (categoryIdsArray.length > 0) {
+    if (categoryIds.length > 0) {
       const { data: categories, error: categoriesError } = await supabase
         .from('categories')
-        .select('id, woocommerce_id, name, slug')
-        .in('woocommerce_id', categoryIdsArray);
+        .select('*')
+        .in('id', categoryIds);
 
       if (categoriesError) {
         console.error('[Admin Products API] Error fetching categories:', {
@@ -128,28 +97,15 @@ export async function GET(request: Request) {
       }
     }
 
-    // Step 3: Combine data - add category names to products
+    // Step 3: Combine data - add category name to each product
     const productsWithCategories = products.map(product => {
-      const categoryNames: string[] = [];
-      const matchedCategories: any[] = [];
-
-      // Extract category IDs from the product's categories jsonb field
-      if (Array.isArray(product.categories)) {
-        product.categories.forEach((cat: any) => {
-          if (cat && cat.id) {
-            const matchedCategory = categoriesData.find(c => c.woocommerce_id === cat.id);
-            if (matchedCategory) {
-              categoryNames.push(matchedCategory.name);
-              matchedCategories.push(matchedCategory);
-            }
-          }
-        });
-      }
+      // Find the category using the category_id FK
+      const category = categoriesData.find(c => c.id === product.category_id);
 
       return {
         ...product,
-        category_names: categoryNames,
-        matched_categories: matchedCategories
+        category_name: category ? category.name : null,
+        category_slug: category ? category.slug : null
       };
     });
 

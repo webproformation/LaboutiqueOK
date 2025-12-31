@@ -199,10 +199,6 @@ export async function POST(request: Request) {
           stock_quantity: wcProduct.stock_quantity,
           category_id: categoryId,
           woocommerce_category_id: wooCategoryId,
-          categories: wcProduct.categories || [],
-          tags: wcProduct.tags || [],
-          attributes: wcProduct.attributes || [],
-          variations: wcProduct.variations || [],
           is_active: wcProduct.status === 'publish',
           updated_at: new Date().toISOString()
         };

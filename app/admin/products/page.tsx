@@ -51,20 +51,11 @@ interface Product {
   stock_quantity: number | null;
   category_id?: string | null;
   woocommerce_category_id?: number | null;
-  categories?: Array<{ id: number; name: string; slug: string }>;
-  tags?: Array<any>;
-  attributes?: Array<any>;
-  variations?: Array<any>;
   is_active: boolean;
   is_featured?: boolean;
   is_hidden_diamond?: boolean;
-  category_names?: string[];
-  matched_categories?: Array<{
-    id: string;
-    woocommerce_id: number;
-    name: string;
-    slug: string;
-  }>;
+  category_name?: string | null;
+  category_slug?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -535,9 +526,9 @@ export default function AdminProducts() {
                                 {decodeHtmlEntities(product.name)}
                               </div>
                               <div className="text-sm text-gray-500">{product.slug}</div>
-                              {product.category_names && product.category_names.length > 0 && (
+                              {product.category_name && (
                                 <div className="text-xs text-blue-600 mt-0.5">
-                                  {product.category_names.map(name => decodeHtmlEntities(name)).join(', ')}
+                                  {decodeHtmlEntities(product.category_name)}
                                 </div>
                               )}
                             </div>
@@ -669,9 +660,9 @@ export default function AdminProducts() {
                           </Badge>
                         </div>
 
-                        {product.category_names && product.category_names.length > 0 && (
+                        {product.category_name && (
                           <div className="text-xs text-blue-600 mb-1">
-                            {product.category_names.map(name => decodeHtmlEntities(name)).join(', ')}
+                            {decodeHtmlEntities(product.category_name)}
                           </div>
                         )}
 
