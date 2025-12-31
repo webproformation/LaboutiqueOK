@@ -102,7 +102,19 @@ export async function GET(request: Request) {
       message: error?.message,
       stack: error?.stack
     });
-    return NextResponse.json({ error: error.message || 'Unknown error' }, { status: 500 });
+    // Return default values instead of 500 to prevent frontend crash
+    const url = new URL(request.url);
+    const userId = url.searchParams.get('user_id') || 'unknown';
+    return NextResponse.json({
+      user_id: userId,
+      page_visit_points: 0,
+      live_participation_count: 0,
+      order_points: 0,
+      live_share_points: 0,
+      total_points: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
   }
 }
 

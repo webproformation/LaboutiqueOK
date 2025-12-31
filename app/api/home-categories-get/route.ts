@@ -36,14 +36,24 @@ export async function GET(request: Request) {
     const { data, error } = await query;
 
     if (error) {
-      console.error('[Home Categories API] Error fetching:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('[Home Categories API] Error fetching:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      // Return empty array instead of 500 to prevent frontend crash
+      return NextResponse.json([]);
     }
 
     return NextResponse.json(data || []);
   } catch (error: any) {
-    console.error('[Home Categories API] Unexpected error:', error);
-    return NextResponse.json({ error: error.message || 'Unknown error' }, { status: 500 });
+    console.error('[Home Categories API] Unexpected error:', {
+      message: error?.message,
+      stack: error?.stack
+    });
+    // Return empty array instead of 500 to prevent frontend crash
+    return NextResponse.json([]);
   }
 }
 
