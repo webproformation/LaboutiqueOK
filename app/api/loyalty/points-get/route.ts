@@ -10,14 +10,18 @@ export async function GET(request: Request) {
     const userId = url.searchParams.get('user_id');
 
     if (!userId) {
+      console.error('[Loyalty Points API] Missing user_id parameter');
       return NextResponse.json({ error: 'user_id is required' }, { status: 400 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('[Loyalty Points API] Missing Supabase configuration');
+      console.error('[Loyalty Points API] Missing Supabase configuration', {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseServiceKey
+      });
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
@@ -28,6 +32,8 @@ export async function GET(request: Request) {
       }
     });
 
+    console.log('[Loyalty Points API] Fetching loyalty points for user:', userId);
+
     const { data, error } = await supabase
       .from('loyalty_points')
       .select('*')
@@ -35,13 +41,25 @@ export async function GET(request: Request) {
       .maybeSingle();
 
     if (error) {
-      console.error('[Loyalty Points API] Error fetching:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('[Loyalty Points API] Error fetching:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      return NextResponse.json({
+        error: error.message,
+        details: error.details
+      }, { status: 500 });
     }
 
+    console.log('[Loyalty Points API] Successfully fetched loyalty points');
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error('[Loyalty Points API] Unexpected error:', error);
+    console.error('[Loyalty Points API] Unexpected error:', {
+      message: error?.message,
+      stack: error?.stack
+    });
     return NextResponse.json({ error: error.message || 'Unknown error' }, { status: 500 });
   }
 }
