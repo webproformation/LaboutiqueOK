@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Edit, Trash2, Loader2, Save, X, FolderTree, Tags } from 'lucide-react';
+import { Plus, Edit, Trash2, Loader2, Save, X, FolderTree, Tags, Upload, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase-client';
 import {
   Select,
   SelectContent,
@@ -51,6 +52,7 @@ interface CategoryFormData {
   slug: string;
   description: string;
   parent: number;
+  image_url?: string;
 }
 
 export default function CategoriesManagementPage() {
@@ -62,12 +64,15 @@ export default function CategoriesManagementPage() {
   const [editingCategory, setEditingCategory] = useState<CategoryFormData | null>(null);
   const [seoDialogOpen, setSeoDialogOpen] = useState(false);
   const [selectedCategoryForSeo, setSelectedCategoryForSeo] = useState<WooCategory | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<CategoryFormData>({
     name: '',
     slug: '',
     description: '',
     parent: 0,
+    image_url: '',
   });
 
   const decodeHtmlEntities = (text: string): string => {
@@ -96,13 +101,65 @@ export default function CategoriesManagementPage() {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez sélectionner une image valide');
+      return;
+    }
+
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('L\'image ne doit pas dépasser 10MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', 'category-images');
+      formData.append('folder', 'categories');
+
+      const response = await fetch('/api/storage/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+      setFormData(prev => ({ ...prev, image_url: result.url }));
+      setImagePreview(result.url);
+      toast.success('Image uploadée avec succès');
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      toast.error(error.message || 'Erreur lors de l\'upload');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData(prev => ({ ...prev, image_url: '' }));
+    setImagePreview(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
 
     try {
       const action = editingCategory ? 'update' : 'create';
-      const response = await fetch('/api/woocommerce/categories', {
+
+      // Save to WooCommerce
+      const wooResponse = await fetch('/api/woocommerce/categories', {
         method: editingCategory ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,9 +176,44 @@ export default function CategoriesManagementPage() {
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
+      if (!wooResponse.ok) {
+        const errorData = await wooResponse.json();
         throw new Error(errorData.error || 'Failed to save category');
+      }
+
+      const wooData = await wooResponse.json();
+      const categoryId = wooData.id || editingCategory?.id;
+
+      // Save to Supabase categories table
+      if (categoryId) {
+        const categoryData = {
+          woocommerce_id: categoryId,
+          name: formData.name,
+          slug: formData.slug,
+          description: formData.description || '',
+          woocommerce_parent_id: formData.parent,
+          image_url: formData.image_url || null,
+          is_active: true,
+        };
+
+        if (editingCategory) {
+          const { error } = await supabase
+            .from('categories')
+            .update(categoryData)
+            .eq('woocommerce_id', categoryId);
+
+          if (error) {
+            console.error('Error updating category in Supabase:', error);
+          }
+        } else {
+          const { error } = await supabase
+            .from('categories')
+            .upsert(categoryData, { onConflict: 'woocommerce_id' });
+
+          if (error) {
+            console.error('Error inserting category in Supabase:', error);
+          }
+        }
       }
 
       toast.success(editingCategory ? 'Catégorie mise à jour' : 'Catégorie créée avec succès');
@@ -137,19 +229,23 @@ export default function CategoriesManagementPage() {
   };
 
   const handleEdit = (category: WooCategory) => {
+    const imageUrl = category.image?.src || '';
     setEditingCategory({
       id: category.id,
       name: category.name,
       slug: category.slug,
       description: category.description,
       parent: category.parent,
+      image_url: imageUrl,
     });
     setFormData({
       name: category.name,
       slug: category.slug,
       description: category.description,
       parent: category.parent,
+      image_url: imageUrl,
     });
+    setImagePreview(imageUrl);
     setIsDialogOpen(true);
   };
 
@@ -192,8 +288,10 @@ export default function CategoriesManagementPage() {
       slug: '',
       description: '',
       parent: 0,
+      image_url: '',
     });
     setEditingCategory(null);
+    setImagePreview(null);
   };
 
   const handleOpenDialog = () => {
@@ -275,6 +373,7 @@ export default function CategoriesManagementPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-20">Image</TableHead>
                   <TableHead>Nom</TableHead>
                   <TableHead>Slug</TableHead>
                   <TableHead>Description</TableHead>
@@ -291,6 +390,19 @@ export default function CategoriesManagementPage() {
 
                   return (
                     <TableRow key={category.id} className={level > 0 ? 'bg-gray-50' : ''}>
+                      <TableCell>
+                        {category.image?.src ? (
+                          <img
+                            src={category.image.src}
+                            alt={category.name}
+                            className="w-12 h-12 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                            <ImageIcon className="w-6 h-6 text-gray-400" />
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="font-medium">
                         <span style={{ marginLeft: `${level * 20}px` }}>
                           {prefix}{decodeHtmlEntities(category.name)}
@@ -430,6 +542,54 @@ export default function CategoriesManagementPage() {
                     ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Image de la catégorie
+              </label>
+              <div className="space-y-3">
+                {imagePreview ? (
+                  <div className="relative inline-block">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-32 h-32 object-cover rounded border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute -top-2 -right-2"
+                      onClick={handleRemoveImage}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="w-32 h-32 bg-gray-100 rounded border-2 border-dashed border-gray-300 flex items-center justify-center">
+                    <ImageIcon className="w-12 h-12 text-gray-400" />
+                  </div>
+                )}
+                <div>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={uploading}
+                    className="max-w-xs"
+                  />
+                  {uploading && (
+                    <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Upload en cours...
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Formats acceptés: JPG, PNG, GIF, WebP (max 10MB)
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
