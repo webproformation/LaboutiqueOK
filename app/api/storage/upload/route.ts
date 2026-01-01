@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.BYPASS_SUPABASE_URL!;
-const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE!;
+const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY!;
 
 if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Missing BYPASS_SUPABASE_URL or BYPASS_SUPABASE_SERVICE_ROLE');
+  throw new Error('Missing BYPASS_SUPABASE_URL or BYPASS_SUPABASE_SERVICE_ROLE_KEY');
 }
 
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {

@@ -99,44 +99,91 @@ async function registerInMediaLibrary(
   entityType: string,
   entityId: number
 ) {
-  const mediaData = {
-    file_name: fileName,
-    file_path: filePath,
-    public_url: publicUrl,
-    bucket_name: bucketName,
-    file_size: fileSize,
-    mime_type: mimeType,
-    is_optimized: false,
-    original_wordpress_url: originalUrl,
-    used_in_products: entityType === 'product' ? [entityId] : [],
-    used_in_categories: entityType === 'category' ? [entityId] : [],
-    usage_count: 1,
-    is_orphan: false
-  };
+  try {
+    // Validation des données requises
+    if (!publicUrl || !fileName || !filePath || !bucketName) {
+      console.error('❌ Missing required fields for media_library:', {
+        hasPublicUrl: !!publicUrl,
+        hasFileName: !!fileName,
+        hasFilePath: !!filePath,
+        hasBucketName: !!bucketName,
+        publicUrl,
+        fileName,
+        filePath,
+        bucketName
+      });
+      return;
+    }
 
-  const { error } = await supabase
-    .from('media_library')
-    .upsert(mediaData, { onConflict: 'file_path' });
+    const mediaData = {
+      file_name: fileName,
+      file_path: filePath,
+      public_url: publicUrl,
+      bucket_name: bucketName,
+      file_size: fileSize || 0,
+      mime_type: mimeType || 'image/jpeg',
+      is_optimized: false,
+      original_wordpress_url: originalUrl || null,
+      used_in_products: entityType === 'product' ? [entityId] : [],
+      used_in_categories: entityType === 'category' ? [entityId] : [],
+      usage_count: 1,
+      is_orphan: false
+    };
 
-  if (error) {
-    console.error('Error registering in media_library:', error);
+    console.log('📝 Inserting media into library:', {
+      fileName,
+      bucketName,
+      entityType,
+      entityId
+    });
+
+    const { error, data } = await supabase
+      .from('media_library')
+      .upsert(mediaData, { onConflict: 'file_path' })
+      .select();
+
+    if (error) {
+      console.error('❌ Error registering in media_library:', {
+        error,
+        errorMessage: error.message,
+        errorDetails: error.details,
+        errorHint: error.hint,
+        errorCode: error.code,
+        mediaData
+      });
+    } else {
+      console.log('✅ Media registered successfully:', fileName);
+    }
+  } catch (error) {
+    console.error('❌ Exception in registerInMediaLibrary:', error);
   }
 }
 
 export async function POST(request: Request) {
   try {
+    console.log('🚀 Starting migration process...');
+
     const { dryRun = false, entityType = 'all' } = await request.json();
+
+    console.log('📋 Migration config:', { dryRun, entityType });
 
     const supabaseUrl = process.env.BYPASS_SUPABASE_URL!;
     const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY!;
     const wordpressUrl = process.env.BYPASS_WORDPRESS_URL!;
 
     if (!supabaseUrl || !supabaseServiceKey || !wordpressUrl) {
+      console.error('❌ Missing environment variables:', {
+        hasSupabaseUrl: !!supabaseUrl,
+        hasServiceKey: !!supabaseServiceKey,
+        hasWordpressUrl: !!wordpressUrl
+      });
       return NextResponse.json(
         { error: 'Missing required environment variables' },
         { status: 500 }
       );
     }
+
+    console.log('✅ Environment variables loaded');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -151,25 +198,30 @@ export async function POST(request: Request) {
 
     // Migration des catégories
     if (entityType === 'all' || entityType === 'categories') {
+      console.log('📂 Starting category migration...');
       const { data: categories, error: catError } = await supabase
         .from('categories')
         .select('id, woocommerce_id, name, image_url')
         .not('image_url', 'is', null);
 
       if (catError) {
+        console.error('❌ Error fetching categories:', catError);
         stats.errors.push(`Error fetching categories: ${catError.message}`);
       } else if (categories) {
+        console.log(`✅ Found ${categories.length} categories`);
         stats.totalCategories = categories.length;
 
         for (const category of categories) {
-          const imageUrl = category.image_url;
+          try {
+            const imageUrl = category.image_url;
 
-          // Vérifier si c'est une URL WordPress
-          if (!imageUrl || !imageUrl.includes(wordpressUrl)) {
-            continue;
-          }
+            // Vérifier si c'est une URL WordPress
+            if (!imageUrl || !imageUrl.includes(wordpressUrl)) {
+              console.log(`⏭️  Skipping category ${category.woocommerce_id}: Not a WordPress URL`);
+              continue;
+            }
 
-          console.log(`Migrating category ${category.woocommerce_id}: ${category.name}`);
+            console.log(`📸 Migrating category ${category.woocommerce_id}: ${category.name}`);
 
           if (dryRun) {
             stats.migratedCategories++;
@@ -231,40 +283,50 @@ export async function POST(request: Request) {
             category.woocommerce_id
           );
 
-          stats.migratedCategories++;
-          stats.migratedFiles.push({
-            originalUrl: imageUrl,
-            newUrl: newUrl,
-            entityType: 'category',
-            entityId: category.woocommerce_id
-          });
+            stats.migratedCategories++;
+            stats.migratedFiles.push({
+              originalUrl: imageUrl,
+              newUrl: newUrl,
+              entityType: 'category',
+              entityId: category.woocommerce_id
+            });
 
-          console.log(`✓ Migrated category ${category.woocommerce_id}`);
+            console.log(`✅ Migrated category ${category.woocommerce_id}`);
+          } catch (categoryError: any) {
+            console.error(`❌ Error migrating category ${category.woocommerce_id}:`, categoryError);
+            stats.errors.push(`Category ${category.woocommerce_id}: ${categoryError.message}`);
+          }
         }
       }
     }
 
     // Migration des produits
     if (entityType === 'all' || entityType === 'products') {
+      console.log('📦 Starting product migration...');
+
       const { data: products, error: prodError } = await supabase
         .from('products')
         .select('id, woocommerce_id, name, image_url')
         .not('image_url', 'is', null);
 
       if (prodError) {
+        console.error('❌ Error fetching products:', prodError);
         stats.errors.push(`Error fetching products: ${prodError.message}`);
       } else if (products) {
+        console.log(`✅ Found ${products.length} products`);
         stats.totalProducts = products.length;
 
         for (const product of products) {
-          const imageUrl = product.image_url;
+          try {
+            const imageUrl = product.image_url;
 
-          // Vérifier si c'est une URL WordPress
-          if (!imageUrl || !imageUrl.includes(wordpressUrl)) {
-            continue;
-          }
+            // Vérifier si c'est une URL WordPress
+            if (!imageUrl || !imageUrl.includes(wordpressUrl)) {
+              console.log(`⏭️  Skipping product ${product.woocommerce_id}: Not a WordPress URL`);
+              continue;
+            }
 
-          console.log(`Migrating product ${product.woocommerce_id}: ${product.name}`);
+            console.log(`📸 Migrating product ${product.woocommerce_id}: ${product.name}`);
 
           if (dryRun) {
             stats.migratedProducts++;
@@ -326,18 +388,30 @@ export async function POST(request: Request) {
             product.woocommerce_id
           );
 
-          stats.migratedProducts++;
-          stats.migratedFiles.push({
-            originalUrl: imageUrl,
-            newUrl: newUrl,
-            entityType: 'product',
-            entityId: product.woocommerce_id
-          });
+            stats.migratedProducts++;
+            stats.migratedFiles.push({
+              originalUrl: imageUrl,
+              newUrl: newUrl,
+              entityType: 'product',
+              entityId: product.woocommerce_id
+            });
 
-          console.log(`✓ Migrated product ${product.woocommerce_id}`);
+            console.log(`✅ Migrated product ${product.woocommerce_id}`);
+          } catch (productError: any) {
+            console.error(`❌ Error migrating product ${product.woocommerce_id}:`, productError);
+            stats.errors.push(`Product ${product.woocommerce_id}: ${productError.message}`);
+          }
         }
       }
     }
+
+    console.log('✅ Migration completed:', {
+      totalCategories: stats.totalCategories,
+      migratedCategories: stats.migratedCategories,
+      totalProducts: stats.totalProducts,
+      migratedProducts: stats.migratedProducts,
+      errorCount: stats.errors.length
+    });
 
     return NextResponse.json({
       success: true,
@@ -346,9 +420,18 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error('Migration error:', error);
+    console.error('❌ FATAL Migration error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      error
+    });
     return NextResponse.json(
-      { error: error.message || 'Migration failed' },
+      {
+        error: error.message || 'Migration failed',
+        details: error.stack,
+        type: error.name
+      },
       { status: 500 }
     );
   }
@@ -357,11 +440,14 @@ export async function POST(request: Request) {
 // GET pour vérifier le statut de la migration
 export async function GET() {
   try {
+    console.log('📊 Checking migration status...');
+
     const supabaseUrl = process.env.BYPASS_SUPABASE_URL!;
     const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY!;
     const wordpressUrl = process.env.BYPASS_WORDPRESS_URL!;
 
     if (!supabaseUrl || !supabaseServiceKey || !wordpressUrl) {
+      console.error('❌ Missing environment variables for status check');
       return NextResponse.json(
         { error: 'Missing configuration' },
         { status: 500 }
@@ -371,34 +457,65 @@ export async function GET() {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Compter les images WordPress restantes
-    const { count: categoriesCount } = await supabase
+    console.log('🔍 Counting WordPress images in categories...');
+    const { count: categoriesCount, error: catError } = await supabase
       .from('categories')
       .select('*', { count: 'exact', head: true })
       .like('image_url', `%${wordpressUrl}%`);
 
-    const { count: productsCount } = await supabase
+    if (catError) {
+      console.error('❌ Error counting categories:', catError);
+    }
+
+    console.log('🔍 Counting WordPress images in products...');
+    const { count: productsCount, error: prodError } = await supabase
       .from('products')
       .select('*', { count: 'exact', head: true })
       .like('image_url', `%${wordpressUrl}%`);
 
+    if (prodError) {
+      console.error('❌ Error counting products:', prodError);
+    }
+
     // Statistiques de la médiathèque
-    const { data: mediaStats } = await supabase
+    console.log('📈 Fetching media library stats...');
+    const { data: mediaStats, error: statsError } = await supabase
       .from('media_library_stats')
       .select('*');
 
-    return NextResponse.json({
+    if (statsError) {
+      console.error('❌ Error fetching media stats:', statsError);
+    }
+
+    const result = {
       pendingMigration: {
         categories: categoriesCount || 0,
         products: productsCount || 0,
         total: (categoriesCount || 0) + (productsCount || 0)
       },
       mediaLibrary: mediaStats || []
-    });
+    };
+
+    console.log('✅ Status check completed:', result);
+
+    return NextResponse.json(result);
 
   } catch (error: any) {
-    console.error('Status check error:', error);
+    console.error('❌ FATAL Status check error:', {
+      message: error.message,
+      stack: error.stack,
+      error
+    });
     return NextResponse.json(
-      { error: error.message },
+      {
+        error: error.message,
+        pendingMigration: {
+          categories: 0,
+          products: 0,
+          total: 0
+        },
+        mediaLibrary: []
+      },
       { status: 500 }
     );
   }

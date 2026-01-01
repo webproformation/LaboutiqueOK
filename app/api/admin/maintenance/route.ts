@@ -7,16 +7,16 @@ export async function GET() {
   try {
     console.log('[Maintenance API GET] ===== DEBUT REQUETE GET =====');
     console.log('[Maintenance API GET] BYPASS_SUPABASE_URL:', process.env.BYPASS_SUPABASE_URL);
-    console.log('[Maintenance API GET] BYPASS_SUPABASE_SERVICE_ROLE présent:', process.env.BYPASS_SUPABASE_SERVICE_ROLE ? 'OUI' : 'NON');
+    console.log('[Maintenance API GET] BYPASS_SUPABASE_SERVICE_ROLE_KEY présent:', process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY ? 'OUI' : 'NON');
 
     const supabaseUrl = process.env.BYPASS_SUPABASE_URL;
-    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE;
+    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseServiceKey) {
       const errorDetails = {
         error: 'Configuration Supabase manquante',
         bypassUrl: process.env.BYPASS_SUPABASE_URL || 'MANQUANT',
-        bypassServiceRole: process.env.BYPASS_SUPABASE_SERVICE_ROLE ? 'PRESENT' : 'MANQUANT'
+        bypassServiceRoleKey: process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY ? 'PRESENT' : 'MANQUANT'
       };
       console.error('[Maintenance API GET] ERREUR CONFIGURATION:', errorDetails);
       return NextResponse.json(errorDetails, { status: 500 });
@@ -65,16 +65,16 @@ export async function POST(request: NextRequest) {
   try {
     console.log('[Maintenance API POST] ===== DEBUT REQUETE POST =====');
     console.log('[Maintenance API POST] API Maintenance - URL:', process.env.BYPASS_SUPABASE_URL);
-    console.log('[Maintenance API POST] BYPASS_SUPABASE_SERVICE_ROLE présent:', process.env.BYPASS_SUPABASE_SERVICE_ROLE ? 'OUI' : 'NON');
+    console.log('[Maintenance API POST] BYPASS_SUPABASE_SERVICE_ROLE_KEY présent:', process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY ? 'OUI' : 'NON');
 
     const supabaseUrl = process.env.BYPASS_SUPABASE_URL;
-    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE;
+    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseServiceKey) {
       const errorDetails = {
         error: 'Configuration Supabase manquante - Variables BYPASS non définies',
         bypassUrl: process.env.BYPASS_SUPABASE_URL || 'MANQUANT',
-        bypassServiceRole: process.env.BYPASS_SUPABASE_SERVICE_ROLE ? 'PRESENT' : 'MANQUANT'
+        bypassServiceRoleKey: process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY ? 'PRESENT' : 'MANQUANT'
       };
       console.error('[Maintenance API POST] ERREUR CONFIGURATION:', errorDetails);
       return NextResponse.json(errorDetails, { status: 500 });

@@ -7,17 +7,33 @@ function getSupabaseClient() {
     return supabaseInstance;
   }
 
-  const supabaseUrl = process.env.BYPASS_SUPABASE_URL || process.env.APP_DATABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.APP_DATABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // PRIORITE 1: Variables BYPASS_ (nouveau projet qcqbtmv)
+  // PRIORITE 2: Variables NEXT_PUBLIC_ (ancien projet - fallback)
+  const supabaseUrl =
+    process.env.BYPASS_SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  const supabaseAnonKey =
+    process.env.BYPASS_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('Missing Supabase environment variables!');
-    console.error('BYPASS_SUPABASE_URL, APP_DATABASE_URL or NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? 'Set' : 'Missing');
-    console.error('APP_DATABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Set' : 'Missing');
+    console.error('❌ Missing Supabase environment variables!');
+    console.error('BYPASS_SUPABASE_URL:', process.env.BYPASS_SUPABASE_URL ? '✅ Set' : '❌ Missing');
+    console.error('BYPASS_SUPABASE_ANON_KEY:', process.env.BYPASS_SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing');
+    console.error('NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? '✅ Set (fallback)' : '❌ Missing');
+    console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✅ Set (fallback)' : '❌ Missing');
     throw new Error('Supabase environment variables are required');
   }
 
-  console.log('Supabase client initialized with URL:', supabaseUrl);
+  const usingBypass = !!process.env.BYPASS_SUPABASE_URL;
+  console.log(
+    usingBypass
+      ? '✅ Supabase client initialized with BYPASS variables (project: qcqbtmv)'
+      : '⚠️  Supabase client initialized with NEXT_PUBLIC variables (deprecated project)'
+  );
+  console.log('📍 URL:', supabaseUrl);
+
   supabaseInstance = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       autoRefreshToken: true,

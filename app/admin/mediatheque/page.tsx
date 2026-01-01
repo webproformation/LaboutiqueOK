@@ -67,11 +67,39 @@ export default function MediathequeAdminPage() {
     setLoading(true);
     try {
       const response = await fetch('/api/admin/migrate-media');
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const data = await response.json();
-      setMigrationStatus(data);
+
+      // Initialiser avec des valeurs par défaut si vide
+      const safeData: MigrationStatus = {
+        pendingMigration: {
+          categories: data?.pendingMigration?.categories || 0,
+          products: data?.pendingMigration?.products || 0,
+          total: data?.pendingMigration?.total || 0
+        },
+        mediaLibrary: Array.isArray(data?.mediaLibrary) && data.mediaLibrary.length > 0
+          ? data.mediaLibrary
+          : []
+      };
+
+      setMigrationStatus(safeData);
     } catch (error) {
       console.error('Error loading migration status:', error);
       toast.error('Erreur lors du chargement du statut');
+
+      // Initialiser avec des valeurs par défaut en cas d'erreur
+      setMigrationStatus({
+        pendingMigration: {
+          categories: 0,
+          products: 0,
+          total: 0
+        },
+        mediaLibrary: []
+      });
     } finally {
       setLoading(false);
     }
@@ -178,24 +206,33 @@ export default function MediathequeAdminPage() {
             </CardContent>
           </Card>
 
-          {migrationStatus.mediaLibrary.map((stat) => (
-            <Card key={stat.bucket_name}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Database className="h-4 w-4 text-blue-600" />
-                  {stat.bucket_name === 'product-images' ? 'Images Produits' : 'Images Catégories'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.total_files}</div>
-                <div className="space-y-1 mt-2 text-xs text-gray-600">
-                  <p>Taille: {formatBytes(stat.total_size)}</p>
-                  <p>Non utilisées: {stat.orphan_count}</p>
-                  <p>Utilisation moyenne: {stat.avg_usage.toFixed(1)}x</p>
-                </div>
+          {migrationStatus.mediaLibrary.length > 0 ? (
+            migrationStatus.mediaLibrary.map((stat) => (
+              <Card key={stat?.bucket_name || 'unknown'}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Database className="h-4 w-4 text-blue-600" />
+                    {stat?.bucket_name === 'product-images' ? 'Images Produits' : 'Images Catégories'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stat?.total_files || 0}</div>
+                  <div className="space-y-1 mt-2 text-xs text-gray-600">
+                    <p>Taille: {formatBytes(stat?.total_size || 0)}</p>
+                    <p>Non utilisées: {stat?.orphan_count || 0}</p>
+                    <p>Utilisation moyenne: {(stat?.avg_usage || 0).toFixed(1)}x</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card className="col-span-2">
+              <CardContent className="py-8 text-center text-gray-500">
+                <Database className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                <p>Aucune image dans la médiathèque</p>
               </CardContent>
             </Card>
-          ))}
+          )}
         </div>
       )}
 
