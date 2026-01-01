@@ -151,35 +151,50 @@ export async function POST(request: Request) {
     let totalProductsProcessed = 0;
     const errors: Array<{ productId: number; productName: string; error: string }> = [];
 
-    // Pagination settings - PRODUCTION MODE
+    // Pagination settings - SAFETY MODE (10 products per batch)
     let page = 1;
-    const perPage = 100; // Process 100 products per page
+    const perPage = 10; // 🛡️ Process 10 products per batch to avoid timeouts
     let hasMore = true;
     let totalProducts = 0;
 
-    // Helper function to process a single product
+    console.log('[Sync Products] ⚙️ Configuration:', {
+      mode: 'SAFETY_MODE',
+      productsPerBatch: perPage,
+      rateLimiting: '500ms between batches',
+      maxDuration: '300s'
+    });
+
+    // 🛡️ Helper function to process a single product with ROBUST error handling
     const processProduct = async (wcProduct: WooCommerceProduct) => {
       try {
         // Extract primary category (first category) and find its UUID in categories table
         let categoryId: string | null = null;
         let wooCategoryId: number | null = null;
 
-        if (wcProduct.categories && wcProduct.categories.length > 0) {
-          wooCategoryId = wcProduct.categories[0].id;
+        // 🛡️ Protected category lookup
+        try {
+          if (wcProduct.categories && wcProduct.categories.length > 0) {
+            wooCategoryId = wcProduct.categories[0].id;
 
-          // Find category UUID from categories table
-          const { data: categoryData } = await supabase
-            .from('categories')
-            .select('id')
-            .eq('woocommerce_id', wooCategoryId)
-            .maybeSingle();
+            // Find category UUID from categories table
+            const { data: categoryData, error: categoryError } = await supabase
+              .from('categories')
+              .select('id')
+              .eq('woocommerce_id', wooCategoryId)
+              .maybeSingle();
 
-          if (categoryData) {
-            categoryId = categoryData.id;
-            console.log(`[Sync Products] Product ${wcProduct.id}: Linked to category UUID ${categoryId} (WooCommerce ID: ${wooCategoryId})`);
-          } else {
-            console.log(`[Sync Products] Product ${wcProduct.id}: Category ${wooCategoryId} not found in categories table (will remain null)`);
+            if (categoryError) {
+              console.warn(`[Sync Products] Product ${wcProduct.id}: Error looking up category ${wooCategoryId}:`, categoryError.message);
+            } else if (categoryData) {
+              categoryId = categoryData.id;
+              console.log(`[Sync Products] Product ${wcProduct.id}: Linked to category UUID ${categoryId} (WooCommerce ID: ${wooCategoryId})`);
+            } else {
+              console.log(`[Sync Products] Product ${wcProduct.id}: Category ${wooCategoryId} not found in categories table (will remain null)`);
+            }
           }
+        } catch (categoryLookupError: any) {
+          console.error(`[Sync Products] Product ${wcProduct.id}: Category lookup failed:`, categoryLookupError.message);
+          // Continue processing even if category lookup fails
         }
 
         const productData = {
@@ -330,15 +345,31 @@ export async function POST(request: Request) {
           hasMore = false;
           console.log('[Sync Products] No more products to fetch');
         } else {
-          // Process this batch of products immediately
-          console.log(`[Sync Products] Processing ${products.length} products from page ${page}...`);
+          // 🛡️ Process this batch of products immediately with ROBUST error handling
+          console.log(`[Sync Products] 📦 Processing batch ${page}: ${products.length} products...`);
+          const batchStartTime = Date.now();
 
-          for (const wcProduct of products) {
-            await processProduct(wcProduct);
-            totalProductsProcessed++;
+          for (let i = 0; i < products.length; i++) {
+            const wcProduct = products[i];
+            try {
+              console.log(`[Sync Products] [${i + 1}/${products.length}] Processing product ${wcProduct.id}: "${wcProduct.name}"`);
+              await processProduct(wcProduct);
+              totalProductsProcessed++;
+              console.log(`[Sync Products] ✅ [${i + 1}/${products.length}] Product ${wcProduct.id} processed successfully`);
+            } catch (productError: any) {
+              console.error(`[Sync Products] ❌ [${i + 1}/${products.length}] Failed to process product ${wcProduct.id}:`, productError.message);
+              errors.push({
+                productId: wcProduct.id,
+                productName: wcProduct.name,
+                error: productError.message || 'Unknown error during processing'
+              });
+              // 🛡️ Continue with next product even if this one fails
+            }
           }
 
-          console.log(`[Sync Products] Progress: ${totalProductsProcessed}${totalProducts > 0 ? `/${totalProducts}` : ''} products processed`);
+          const batchDuration = Date.now() - batchStartTime;
+          console.log(`[Sync Products] ✅ Batch ${page} completed in ${batchDuration}ms`);
+          console.log(`[Sync Products] 📊 Progress: ${totalProductsProcessed}${totalProducts > 0 ? `/${totalProducts}` : ''} products processed | Errors: ${errors.length}`);
 
           // Check if there are more pages
           const totalPages = response.headers.get('X-WP-TotalPages');
@@ -355,18 +386,34 @@ export async function POST(request: Request) {
           }
         }
       } catch (fetchError: any) {
-        console.error(`[Sync Products] Error fetching page ${page}:`, fetchError);
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Erreur lors de la récupération des produits (page ${page}): ${fetchError.message}`,
-            productsProcessed: totalProductsProcessed,
-            productsCreated,
-            productsUpdated,
-            errors: errors.length > 0 ? errors : undefined
-          },
-          { status: 500 }
-        );
+        console.error(`[Sync Products] ❌ Error fetching page ${page}:`, fetchError.message);
+
+        // 🛡️ Don't stop everything if one page fails, just log and continue
+        errors.push({
+          productId: -1,
+          productName: `Page ${page} fetch error`,
+          error: fetchError.message || 'Network or API error'
+        });
+
+        // If we haven't processed any products yet (first page), this is critical
+        if (totalProductsProcessed === 0) {
+          console.error('[Sync Products] ❌ Critical: Failed on first page, aborting sync');
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Erreur critique lors de la récupération de la première page: ${fetchError.message}`,
+              productsProcessed: 0,
+              productsCreated: 0,
+              productsUpdated: 0,
+              errors: errors
+            },
+            { status: 500 }
+          );
+        }
+
+        // If we've already processed some products, log error but continue
+        console.warn(`[Sync Products] ⚠️ Page ${page} failed but ${totalProductsProcessed} products already processed. Continuing...`);
+        hasMore = false; // Stop trying more pages
       }
     }
 
@@ -390,7 +437,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Synchronisation terminée - TEST MODE (${perPage} produits max)`,
+      message: `Synchronisation terminée - MODE SÉCURISÉ (${perPage} produits par batch)`,
       productsProcessed: totalProductsProcessed,
       totalProducts: totalProducts > 0 ? totalProducts : totalProductsProcessed,
       productsCreated,
@@ -398,8 +445,10 @@ export async function POST(request: Request) {
       databaseCount: dbCount || 0,
       errors: errors.length > 0 ? errors : [],
       debugInfo: {
-        testMode: false,
-        productsPerPage: perPage,
+        mode: 'SAFETY_MODE',
+        productsPerBatch: perPage,
+        totalBatches: page,
+        rateLimiting: '500ms',
         hasErrors: errors.length > 0,
         errorDetails: errors
       }

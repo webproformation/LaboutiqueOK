@@ -106,6 +106,12 @@ export default function AdminProducts() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const [showSyncConfig, setShowSyncConfig] = useState(false);
+  const [syncConfig, setSyncConfig] = useState({
+    productsPerBatch: 10,
+    rateLimitMs: 500,
+    autoRetryOnError: true
+  });
   const perPage = 10;
 
   useEffect(() => {
@@ -356,6 +362,15 @@ export default function AdminProducts() {
                 {Array.isArray(filteredProducts) ? filteredProducts.length : 0} produit{(Array.isArray(filteredProducts) && filteredProducts.length > 1) ? 's' : ''}
               </div>
               <Button
+                onClick={() => setShowSyncConfig(!showSyncConfig)}
+                variant="ghost"
+                size="sm"
+                className="text-blue-600 hover:text-blue-800"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                {showSyncConfig ? 'Masquer config' : 'Config sync'}
+              </Button>
+              <Button
                 onClick={handleSync}
                 disabled={syncing}
                 variant="outline"
@@ -427,6 +442,96 @@ export default function AdminProducts() {
                 )}
               </AlertDescription>
             </Alert>
+          )}
+
+          {showSyncConfig && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-blue-900">Configuration de la synchronisation</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowSyncConfig(false)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      Masquer
+                    </Button>
+                  </div>
+
+                  <Alert className="border-yellow-200 bg-yellow-50">
+                    <AlertCircle className="h-4 w-4 text-yellow-600" />
+                    <AlertDescription className="text-yellow-800 text-sm">
+                      <strong>Mode Sécurisé activé</strong>
+                      <p className="mt-1">La synchronisation traite les produits par petits lots pour éviter les timeouts. Configuration actuelle :</p>
+                      <ul className="list-disc ml-5 mt-2 space-y-1">
+                        <li><strong>Produits par batch :</strong> {syncConfig.productsPerBatch}</li>
+                        <li><strong>Délai entre batches :</strong> {syncConfig.rateLimitMs}ms</li>
+                        <li><strong>Réessai automatique :</strong> {syncConfig.autoRetryOnError ? 'Activé' : 'Désactivé'}</li>
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-blue-900 block mb-2">
+                        Produits par batch
+                      </label>
+                      <Select
+                        value={String(syncConfig.productsPerBatch)}
+                        onValueChange={(value) => setSyncConfig({...syncConfig, productsPerBatch: parseInt(value)})}
+                      >
+                        <SelectTrigger className="bg-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="5">5 (Très sûr)</SelectItem>
+                          <SelectItem value="10">10 (Recommandé)</SelectItem>
+                          <SelectItem value="20">20 (Rapide)</SelectItem>
+                          <SelectItem value="50">50 (Très rapide)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-blue-900 block mb-2">
+                        Délai entre batches (ms)
+                      </label>
+                      <Select
+                        value={String(syncConfig.rateLimitMs)}
+                        onValueChange={(value) => setSyncConfig({...syncConfig, rateLimitMs: parseInt(value)})}
+                      >
+                        <SelectTrigger className="bg-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="200">200ms (Rapide)</SelectItem>
+                          <SelectItem value="500">500ms (Recommandé)</SelectItem>
+                          <SelectItem value="1000">1000ms (Sûr)</SelectItem>
+                          <SelectItem value="2000">2000ms (Très sûr)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-end">
+                      <Button
+                        variant="outline"
+                        onClick={() => setSyncConfig({ productsPerBatch: 10, rateLimitMs: 500, autoRetryOnError: true })}
+                        className="w-full"
+                      >
+                        Réinitialiser
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-blue-700 bg-blue-100 p-3 rounded">
+                    <strong>Note :</strong> Les paramètres de cette interface sont informatifs. La configuration réelle est définie dans le code de l'API.
+                    La synchronisation utilise actuellement <strong>10 produits par batch</strong> avec <strong>500ms de délai</strong>.
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>
