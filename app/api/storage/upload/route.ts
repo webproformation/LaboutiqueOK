@@ -80,16 +80,13 @@ export async function POST(req: NextRequest) {
       .from(bucket)
       .getPublicUrl(fileName);
 
-    // Insérer dans media_library
+    // Insérer dans media_library (utilise le schéma actuel: filename, url)
     const insertPayload = {
-      file_name: file.name,
-      file_path: fileName,
-      public_url: urlData.publicUrl,
+      filename: file.name,
+      url: urlData.publicUrl,
       bucket_name: bucket,
       file_size: file.size,
-      mime_type: file.type,
-      usage_count: 0,
-      is_orphan: true
+      mime_type: file.type
     };
 
     console.log('📝 [MEDIA_LIBRARY] Attempting insert with payload:', {

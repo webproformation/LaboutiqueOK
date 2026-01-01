@@ -29,17 +29,21 @@ import { supabase } from '@/lib/supabase-client';
 
 interface MediaFile {
   id: string;
-  file_name: string;
-  file_path: string;
-  public_url: string;
+  filename: string;
+  url: string;
   bucket_name: string;
-  file_size: number;
-  mime_type: string;
+  file_size?: number;
+  mime_type?: string;
   width?: number;
   height?: number;
-  usage_count: number;
-  is_orphan: boolean;
-  created_at: string;
+  created_at?: string;
+
+  // Legacy support (pour compatibilité si anciennes données)
+  file_name?: string;
+  file_path?: string;
+  public_url?: string;
+  usage_count?: number;
+  is_orphan?: boolean;
 }
 
 interface MediaLibraryProps {
@@ -157,17 +161,30 @@ export default function MediaLibrary({
   };
 
   const handleDelete = async (media: MediaFile) => {
-    if (media.usage_count > 0 && !confirm(`Cette image est utilisée ${media.usage_count} fois. Êtes-vous sûr de vouloir la supprimer ?`)) {
+    const usageCount = media.usage_count || 0;
+    if (usageCount > 0 && !confirm(`Cette image est utilisée ${usageCount} fois. Êtes-vous sûr de vouloir la supprimer ?`)) {
       return;
     }
 
     try {
+      // 🛡️ Extraire le path depuis l'URL (support nouveau et ancien format)
+      const mediaUrl = media.url || media.public_url || '';
+      const urlParts = mediaUrl.split('/');
+      const filePath = urlParts[urlParts.length - 1];
+
+      if (!filePath) {
+        throw new Error('Impossible d\'extraire le chemin du fichier');
+      }
+
       // Supprimer du storage
       const { error: storageError } = await supabase.storage
         .from(media.bucket_name)
-        .remove([media.file_path]);
+        .remove([filePath]);
 
-      if (storageError) throw storageError;
+      if (storageError) {
+        console.error('Storage delete error:', storageError);
+        throw storageError;
+      }
 
       // Supprimer de media_library
       const { error: dbError } = await supabase
@@ -191,14 +208,17 @@ export default function MediaLibrary({
     }
   };
 
-  // Sécuriser le filtrage avec null-safe checks
+  // 🛡️ BLINDAGE TOTAL : Supporte filename ET file_name (anciennes données)
   const safeFiles = Array.isArray(files) ? files : [];
 
   const filteredFiles = safeFiles.filter(file => {
-    if (!file || !file.file_name) return false;
-    const fileName = (file.file_name || '').toLowerCase();
+    if (!file) return false;
+
+    // Support des deux formats (nouveau: filename, ancien: file_name)
+    const name = (file?.filename || file?.file_name || 'Sans nom').toLowerCase();
     const search = (searchTerm || '').toLowerCase();
-    return fileName.includes(search);
+
+    return name.includes(search);
   });
 
   const orphanFiles = filteredFiles.filter(f => f && f.is_orphan === true);
@@ -342,9 +362,15 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
     );
   }
 
-  // Sécuriser les fichiers avec validation
+  // 🛡️ BLINDAGE TOTAL : Validation stricte avec support des deux formats
   const safeFiles = Array.isArray(files)
-    ? files.filter(f => f && f.id && f.file_name && f.public_url)
+    ? files.filter(f => {
+        if (!f || !f.id) return false;
+        // Support nouveau format (url) ET ancien (public_url)
+        const hasUrl = f.url || f.public_url;
+        const hasName = f.filename || f.file_name;
+        return hasUrl && hasName;
+      })
     : [];
 
   if (safeFiles.length === 0) {
@@ -359,35 +385,40 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
   return (
     <ScrollArea className="h-[500px]">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-1">
-        {safeFiles.map((file) => (
+        {safeFiles.map((file) => {
+          // 🛡️ Support des deux formats
+          const fileUrl = file.url || file.public_url || '';
+          const fileName = file.filename || file.file_name || 'Sans nom';
+
+          return (
           <Card
             key={file.id}
             className={`cursor-pointer transition-all hover:shadow-lg ${
-              selectedFile === file.public_url
+              selectedFile === fileUrl
                 ? 'ring-2 ring-pink-500'
                 : ''
             }`}
-            onClick={() => onSelect(file.public_url)}
+            onClick={() => onSelect(fileUrl)}
           >
             <CardContent className="p-2">
               <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden mb-2">
                 <img
-                  src={file.public_url || ''}
-                  alt={file.file_name || 'Image'}
+                  src={fileUrl}
+                  alt={fileName}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999"%3E?%3C/text%3E%3C/svg%3E';
                   }}
                 />
-                {selectedFile === file.public_url && (
+                {selectedFile === fileUrl && (
                   <div className="absolute inset-0 bg-pink-500/20 flex items-center justify-center">
                     <CheckCircle2 className="h-8 w-8 text-pink-600" />
                   </div>
                 )}
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-medium truncate" title={file.file_name || 'Sans nom'}>
-                  {file.file_name || 'Sans nom'}
+                <p className="text-xs font-medium truncate" title={fileName}>
+                  {fileName}
                 </p>
                 <div className="flex items-center justify-between">
                   <Badge variant={file.is_orphan ? "secondary" : "default"} className="text-xs">
@@ -411,7 +442,8 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
     </ScrollArea>
   );
