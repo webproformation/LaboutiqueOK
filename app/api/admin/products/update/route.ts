@@ -4,26 +4,25 @@ import { createClient } from '@supabase/supabase-js';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+  console.log('[Update Product] POST request started');
+
   try {
     const body = await request.json();
-    const { productId, updates } = body;
+    const { productId, productData } = body;
 
-    if (!productId || !updates) {
+    if (!productId || !productData) {
       return NextResponse.json(
-        { success: false, error: 'productId et updates requis' },
+        { success: false, error: 'productId and productData required' },
         { status: 400 }
       );
     }
 
-    const wcUrl = process.env.NEXT_PUBLIC_WORDPRESS_API_URL;
-    const wcConsumerKey = process.env.WC_CONSUMER_KEY;
-    const wcConsumerSecret = process.env.WC_CONSUMER_SECRET;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-    if (!wcUrl || !wcConsumerKey || !wcConsumerSecret) {
+    if (!supabaseUrl || !supabaseServiceKey) {
       return NextResponse.json(
-        { success: false, error: 'Configuration WooCommerce manquante' },
+        { success: false, error: 'Missing Supabase configuration' },
         { status: 500 }
       );
     }
@@ -35,137 +34,127 @@ export async function POST(request: Request) {
       }
     });
 
-    // Get product from Supabase to find woocommerce_id
-    const { data: product, error: fetchError } = await supabase
-      .from('products')
-      .select('woocommerce_id')
-      .eq('id', productId)
-      .maybeSingle();
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productId);
 
-    if (fetchError || !product) {
-      return NextResponse.json(
-        { success: false, error: 'Produit non trouvé dans Supabase' },
-        { status: 404 }
-      );
-    }
-
-    const woocommerceId = product.woocommerce_id;
-
-    // Prepare updates for Supabase
-    const supabaseUpdates: any = {
+    const updates: any = {
+      name: productData.name,
+      slug: productData.slug || productData.name?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+      description: productData.description || '',
+      short_description: productData.short_description || '',
+      is_active: productData.status === 'publish' || productData.is_active !== false,
+      stock_status: productData.stock_status || 'instock',
       updated_at: new Date().toISOString()
     };
 
-    // Prepare updates for WooCommerce
-    const woocommerceUpdates: any = {};
-
-    // Map field names
-    if (updates.name !== undefined) {
-      supabaseUpdates.name = updates.name;
-      woocommerceUpdates.name = updates.name;
+    if (productData.regular_price !== undefined) {
+      updates.regular_price = productData.regular_price ? parseFloat(productData.regular_price) : null;
     }
 
-    if (updates.price !== undefined) {
-      supabaseUpdates.price = updates.price;
-      woocommerceUpdates.regular_price = String(updates.price);
+    if (productData.sale_price !== undefined) {
+      updates.sale_price = productData.sale_price ? parseFloat(productData.sale_price) : null;
     }
 
-    if (updates.sale_price !== undefined) {
-      supabaseUpdates.sale_price = updates.sale_price;
-      woocommerceUpdates.sale_price = updates.sale_price ? String(updates.sale_price) : '';
+    if (productData.stock_quantity !== undefined) {
+      updates.stock_quantity = productData.stock_quantity || null;
     }
 
-    if (updates.stock_quantity !== undefined) {
-      supabaseUpdates.stock_quantity = updates.stock_quantity;
-      woocommerceUpdates.stock_quantity = updates.stock_quantity;
-    }
-
-    if (updates.stock_status !== undefined) {
-      supabaseUpdates.stock_status = updates.stock_status;
-      woocommerceUpdates.stock_status = updates.stock_status;
-    }
-
-    if (updates.description !== undefined) {
-      supabaseUpdates.description = updates.description;
-      woocommerceUpdates.description = updates.description;
-    }
-
-    if (updates.short_description !== undefined) {
-      supabaseUpdates.short_description = updates.short_description;
-      woocommerceUpdates.short_description = updates.short_description;
-    }
-
-    if (updates.is_active !== undefined) {
-      supabaseUpdates.is_active = updates.is_active;
-      woocommerceUpdates.status = updates.is_active ? 'publish' : 'draft';
-    }
-
-    // Update Supabase first
-    const { error: updateError } = await supabase
-      .from('products')
-      .update(supabaseUpdates)
-      .eq('id', productId);
-
-    if (updateError) {
-      console.error('[Update Product] Supabase error:', updateError);
-      return NextResponse.json(
-        { success: false, error: `Erreur Supabase: ${updateError.message}` },
-        { status: 500 }
-      );
-    }
-
-    // Update WooCommerce if there are changes
-    if (Object.keys(woocommerceUpdates).length > 0) {
-      try {
-        const apiUrl = `${wcUrl}/wp-json/wc/v3/products/${woocommerceId}?consumer_key=${wcConsumerKey}&consumer_secret=${wcConsumerSecret}`;
-
-        const wcResponse = await fetch(apiUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(woocommerceUpdates),
-        });
-
-        if (!wcResponse.ok) {
-          const errorText = await wcResponse.text();
-          console.error('[Update Product] WooCommerce error:', {
-            status: wcResponse.status,
-            body: errorText
-          });
-
-          // Don't fail the whole operation if WooCommerce sync fails
-          // The Supabase update was successful
-          return NextResponse.json({
-            success: true,
-            warning: 'Produit mis à jour dans Supabase mais erreur WooCommerce',
-            woocommerceError: errorText
-          });
-        }
-
-        console.log('[Update Product] Successfully updated both Supabase and WooCommerce');
-      } catch (wcError: any) {
-        console.error('[Update Product] WooCommerce sync error:', wcError);
-        return NextResponse.json({
-          success: true,
-          warning: 'Produit mis à jour dans Supabase mais erreur de connexion WooCommerce'
-        });
+    if (productData.images && Array.isArray(productData.images)) {
+      updates.images = productData.images;
+      if (productData.images.length > 0) {
+        const firstImage = productData.images[0];
+        updates.image_url = firstImage.src || firstImage.url || '';
       }
     }
 
+    if (productData.attributes && Array.isArray(productData.attributes)) {
+      updates.attributes = productData.attributes;
+    }
+
+    if (productData.variations && Array.isArray(productData.variations)) {
+      updates.variations = productData.variations;
+    }
+
+    if (productData.categories && Array.isArray(productData.categories) && productData.categories.length > 0) {
+      try {
+        const firstCategoryId = productData.categories[0]?.id || productData.categories[0];
+        if (firstCategoryId) {
+          const { data: category, error: catError } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('woocommerce_id', firstCategoryId)
+            .maybeSingle();
+
+          if (catError) {
+            console.error('[Update Product] Error fetching category:', catError);
+          } else if (category) {
+            updates.category_id = category.id;
+          }
+        }
+      } catch (catErr: any) {
+        console.error('[Update Product] Category mapping error:', catErr);
+      }
+    }
+
+    let updateQuery;
+    if (isUUID) {
+      updateQuery = supabase
+        .from('products')
+        .update(updates)
+        .eq('id', productId);
+    } else {
+      updateQuery = supabase
+        .from('products')
+        .update(updates)
+        .eq('woocommerce_id', parseInt(productId));
+    }
+
+    const { data: updatedProduct, error: updateError } = await updateQuery.select().single();
+
+    if (updateError) {
+      console.error('[Update Product] Error updating product:', updateError);
+      return NextResponse.json({
+        success: false,
+        error: updateError.message
+      }, { status: 500 });
+    }
+
+    try {
+      if (productData.featured === true) {
+        const { error: featuredError } = await supabase
+          .from('featured_products')
+          .upsert({
+            product_id: updatedProduct.id,
+            display_order: 0,
+            is_active: true
+          }, {
+            onConflict: 'product_id'
+          });
+
+        if (featuredError) {
+          console.error('[Update Product] Error updating featured status:', featuredError);
+        }
+      } else if (productData.featured === false) {
+        await supabase
+          .from('featured_products')
+          .delete()
+          .eq('product_id', updatedProduct.id);
+      }
+    } catch (featuredErr: any) {
+      console.error('[Update Product] Featured products error:', featuredErr);
+    }
+
+    console.log('[Update Product] Product updated successfully:', updatedProduct.name);
+
     return NextResponse.json({
       success: true,
-      message: 'Produit mis à jour avec succès'
+      data: updatedProduct
     });
 
   } catch (error: any) {
     console.error('[Update Product] Unexpected error:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: `Erreur inattendue: ${error?.message || 'Unknown error'}`
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: error?.message || 'Unknown error'
+    }, { status: 500 });
   }
 }

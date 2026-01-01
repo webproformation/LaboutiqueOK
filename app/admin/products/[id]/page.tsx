@@ -17,8 +17,6 @@ import WordPressMediaSelector from '@/components/WordPressMediaSelector';
 import ProductGalleryManager, { GalleryImage } from '@/components/ProductGalleryManager';
 import ProductAttributesManager from '@/components/ProductAttributesManager';
 import ProductVariationsManager, { ProductVariation } from '@/components/ProductVariationsManager';
-import SeoMetadataEditor from '@/components/SeoMetadataEditor';
-import RelatedProductsManager from '@/components/RelatedProductsManager';
 
 interface ProductAttribute {
   name: string;
@@ -229,27 +227,29 @@ export default function EditProductPage() {
     setSaving(true);
 
     try {
+      const allImages = formData.image_id && formData.image_url
+        ? [{ id: formData.image_id, url: formData.image_url, src: formData.image_url }, ...formData.gallery_images]
+        : formData.gallery_images;
+
       const productData = {
         name: formData.name,
-        type: formData.type,
+        slug: formData.slug,
         description: formData.description,
         short_description: formData.short_description,
         regular_price: formData.type === 'simple' ? formData.regular_price : '',
         sale_price: formData.type === 'simple' ? formData.sale_price : '',
-        manage_stock: formData.type === 'simple' ? formData.manage_stock : false,
         stock_quantity: formData.type === 'simple' ? formData.stock_quantity : undefined,
         stock_status: formData.stock_status,
         featured: formData.featured,
-        images: formData.image_id ? [{ id: formData.image_id }, ...formData.gallery_images.map(img => ({ id: img.id }))] : formData.gallery_images.map(img => ({ id: img.id })),
-        sku: formData.sku,
+        images: allImages,
         attributes: formData.attributes,
         categories: formData.categories.map(id => ({ id })),
         status: formData.status,
         variations: formData.type === 'variable' ? formData.variations : undefined,
       };
 
-      const response = await fetch('/api/admin/products', {
-        method: 'PUT',
+      const response = await fetch('/api/admin/products/update', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -268,7 +268,10 @@ export default function EditProductPage() {
       }
 
       toast.success('Produit mis à jour avec succès');
-      router.push('/admin/products');
+      setTimeout(() => {
+        router.push('/admin/products');
+        router.refresh();
+      }, 500);
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de la mise à jour');
       console.error('Error updating product:', error);
@@ -609,15 +612,6 @@ export default function EditProductPage() {
           </CardContent>
         </Card>
 
-        {formData.slug && (
-          <SeoMetadataEditor
-            entityType="category"
-            entityIdentifier={formData.slug}
-            autoSave={false}
-          />
-        )}
-
-        <RelatedProductsManager productId={productId} />
 
         <div className="flex justify-end gap-4">
           <Link href="/admin/products">
