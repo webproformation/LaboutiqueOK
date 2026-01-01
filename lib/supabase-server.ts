@@ -7,14 +7,14 @@ export async function createServerClient() {
   // PRIORITE 1: Variables BYPASS_ (nouveau projet qcqbtmv)
   // PRIORITE 2: Variables NEXT_PUBLIC_ (ancien projet - fallback)
   const supabaseUrl =
-    process.env.BYPASS_SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL ||
     process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
   const supabaseAnonKey =
-    process.env.BYPASS_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_BYPASS_SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  const usingBypass = !!process.env.BYPASS_SUPABASE_URL;
+  const usingBypass = !!process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL;
   console.log(
     usingBypass
       ? '✅ Server client initialized with BYPASS variables (project: qcqbtmv)'

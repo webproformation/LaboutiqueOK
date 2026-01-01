@@ -26,6 +26,47 @@ export default function ImageUploader({
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
 
+  const optimizeImage = async (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      img.onload = () => {
+        // Redimensionnement max 1200px (règle WebP)
+        const maxWidth = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        // Conversion en WebP qualité 80% (règle WebP)
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Erreur lors de l\'optimisation'));
+            }
+          },
+          'image/webp',
+          0.8 // Qualité 80% (règle WebP)
+        );
+      };
+
+      img.onerror = () => reject(new Error('Erreur lors du chargement de l\'image'));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -36,7 +77,7 @@ export default function ImageUploader({
       return;
     }
 
-    // Validate file size (10MB max)
+    // Validate file size (10MB max avant optimisation)
     if (file.size > 10 * 1024 * 1024) {
       toast.error('L\'image ne doit pas dépasser 10MB');
       return;
@@ -44,8 +85,19 @@ export default function ImageUploader({
 
     setUploading(true);
     try {
+      // RÈGLE WEBP : Optimisation client-side obligatoire
+      toast.info('Optimisation de l\'image en cours...');
+      const optimizedBlob = await optimizeImage(file);
+
+      // Créer un nouveau fichier WebP
+      const optimizedFile = new File(
+        [optimizedBlob],
+        file.name.replace(/\.[^/.]+$/, '.webp'),
+        { type: 'image/webp' }
+      );
+
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', optimizedFile);
       formData.append('bucket', bucket);
       if (folder) {
         formData.append('folder', folder);
@@ -64,7 +116,7 @@ export default function ImageUploader({
 
       setPreview(result.url);
       onChange(result.url);
-      toast.success('Image uploadée avec succès');
+      toast.success(`Image optimisée et uploadée (${(optimizedBlob.size / 1024).toFixed(0)}KB)`);
     } catch (error: any) {
       console.error('Error uploading image:', error);
       toast.error(error.message || 'Erreur lors de l\'upload');

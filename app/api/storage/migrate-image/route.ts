@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.BYPASS_SUPABASE_URL!;
-const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY!;
+// Marquer la route comme dynamique pour éviter le pré-rendu statique
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Missing BYPASS_SUPABASE_URL or BYPASS_SUPABASE_SERVICE_ROLE_KEY');
+  console.error('❌ Missing Supabase credentials for migrate-image API');
 }
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
+const supabaseAdmin = supabaseUrl && supabaseServiceKey
+  ? createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+  : null;
 
 /**
  * Migrate an image from WordPress to Supabase Storage
@@ -22,6 +28,13 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
  */
 export async function POST(req: NextRequest) {
   try {
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Supabase credentials not configured' },
+        { status: 500 }
+      );
+    }
+
     const { url, bucket, folder = '' } = await req.json();
 
     if (!url) {
