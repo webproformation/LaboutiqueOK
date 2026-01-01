@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -52,12 +53,14 @@ interface MigrationStats {
 }
 
 export default function MediathequeAdminPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [migrationStatus, setMigrationStatus] = useState<MigrationStatus | null>(null);
   const [migrating, setMigrating] = useState(false);
   const [migrationResults, setMigrationResults] = useState<MigrationStats | null>(null);
   const [selectedBucket, setSelectedBucket] = useState<'product-images' | 'category-images'>('product-images');
   const [dryRun, setDryRun] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     loadMigrationStatus();
@@ -144,6 +147,13 @@ export default function MediathequeAdminPage() {
     }
   };
 
+  const handleUploadSuccess = () => {
+    console.log('🔄 Upload réussi, rafraîchissement des stats...');
+    loadMigrationStatus();
+    router.refresh();
+    setRefreshKey(prev => prev + 1);
+  };
+
   const cleanupOrphans = async () => {
     if (!confirm('Supprimer toutes les images non utilisées de plus de 30 jours ?')) {
       return;
@@ -156,6 +166,7 @@ export default function MediathequeAdminPage() {
 
       toast.success(`${data[0]?.deleted_count || 0} images supprimées`);
       loadMigrationStatus();
+      router.refresh();
     } catch (error) {
       console.error('Cleanup error:', error);
       toast.error('Erreur lors du nettoyage');
@@ -360,14 +371,18 @@ export default function MediathequeAdminPage() {
             </TabsList>
             <TabsContent value="product-images" className="mt-4">
               <MediaLibrary
+                key={`products-${refreshKey}`}
                 bucket="product-images"
                 onSelect={(url) => console.log('Selected:', url)}
+                onUploadSuccess={handleUploadSuccess}
               />
             </TabsContent>
             <TabsContent value="category-images" className="mt-4">
               <MediaLibrary
+                key={`categories-${refreshKey}`}
                 bucket="category-images"
                 onSelect={(url) => console.log('Selected:', url)}
+                onUploadSuccess={handleUploadSuccess}
               />
             </TabsContent>
           </Tabs>

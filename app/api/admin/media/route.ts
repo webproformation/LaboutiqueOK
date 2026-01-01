@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 // Synchroniser l'utilisation des médias avec les tables products et categories
@@ -8,8 +10,8 @@ export async function POST(request: Request) {
   try {
     const { action } = await request.json();
 
-    const supabaseUrl = process.env.BYPASS_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY!;
+    const supabaseUrl = process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseServiceKey) {
       return NextResponse.json(
@@ -187,8 +189,8 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const action = url.searchParams.get('action');
 
-    const supabaseUrl = process.env.BYPASS_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY!;
+    const supabaseUrl = process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseServiceKey) {
       return NextResponse.json(

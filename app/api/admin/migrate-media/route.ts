@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes max pour la migration
 
 interface MigrationStats {
@@ -167,9 +169,9 @@ export async function POST(request: Request) {
 
     console.log('📋 Migration config:', { dryRun, entityType });
 
-    const supabaseUrl = process.env.BYPASS_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY!;
-    const wordpressUrl = process.env.BYPASS_WORDPRESS_URL!;
+    const supabaseUrl = process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const wordpressUrl = process.env.BYPASS_WORDPRESS_URL || process.env.WORDPRESS_URL;
 
     if (!supabaseUrl || !supabaseServiceKey || !wordpressUrl) {
       console.error('❌ Missing environment variables:', {
@@ -442,9 +444,9 @@ export async function GET() {
   try {
     console.log('📊 Checking migration status...');
 
-    const supabaseUrl = process.env.BYPASS_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY!;
-    const wordpressUrl = process.env.BYPASS_WORDPRESS_URL!;
+    const supabaseUrl = process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const wordpressUrl = process.env.BYPASS_WORDPRESS_URL || process.env.WORDPRESS_URL;
 
     if (!supabaseUrl || !supabaseServiceKey || !wordpressUrl) {
       console.error('❌ Missing environment variables for status check');
@@ -485,7 +487,20 @@ export async function GET() {
 
     if (statsError) {
       console.error('❌ Error fetching media stats:', statsError);
+      console.log('⚠️  Using empty stats as fallback');
     }
+
+    // Assurer que mediaStats est un tableau valide avec des valeurs par défaut
+    const safeMediaStats = Array.isArray(mediaStats) && mediaStats.length > 0
+      ? mediaStats.map(stat => ({
+          bucket_name: stat?.bucket_name || 'unknown',
+          total_files: stat?.total_files || 0,
+          total_size: stat?.total_size || 0,
+          orphan_count: stat?.orphan_count || 0,
+          optimized_count: stat?.optimized_count || 0,
+          avg_usage: stat?.avg_usage || 0
+        }))
+      : [];
 
     const result = {
       pendingMigration: {
@@ -493,7 +508,7 @@ export async function GET() {
         products: productsCount || 0,
         total: (categoriesCount || 0) + (productsCount || 0)
       },
-      mediaLibrary: mediaStats || []
+      mediaLibrary: safeMediaStats
     };
 
     console.log('✅ Status check completed:', result);

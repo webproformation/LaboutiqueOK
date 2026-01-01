@@ -80,11 +80,49 @@ export async function POST(req: NextRequest) {
       .from(bucket)
       .getPublicUrl(fileName);
 
+    // Insérer dans media_library
+    console.log('📝 Registering in media_library:', {
+      fileName,
+      path: fileName,
+      url: urlData.publicUrl,
+      bucket,
+      size: file.size,
+      type: file.type
+    });
+
+    const { error: dbError, data: mediaData } = await supabaseAdmin
+      .from('media_library')
+      .insert({
+        file_name: file.name,
+        file_path: fileName,
+        public_url: urlData.publicUrl,
+        bucket_name: bucket,
+        file_size: file.size,
+        mime_type: file.type,
+        usage_count: 0,
+        is_orphan: true
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('❌ Error inserting into media_library:', {
+        error: dbError,
+        message: dbError.message,
+        details: dbError.details,
+        hint: dbError.hint,
+        code: dbError.code
+      });
+    } else {
+      console.log('✅ Successfully registered in media_library:', mediaData);
+    }
+
     return NextResponse.json({
       success: true,
       url: urlData.publicUrl,
       path: fileName,
       bucket,
+      mediaId: mediaData?.id
     });
   } catch (error: any) {
     console.error('[Storage Upload] Exception:', error);

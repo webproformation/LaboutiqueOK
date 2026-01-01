@@ -47,13 +47,15 @@ interface MediaLibraryProps {
   selectedUrl?: string;
   onSelect: (url: string) => void;
   onClose?: () => void;
+  onUploadSuccess?: () => void;
 }
 
 export default function MediaLibrary({
   bucket = 'product-images',
   selectedUrl,
   onSelect,
-  onClose
+  onClose,
+  onUploadSuccess
 }: MediaLibraryProps) {
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,31 +120,24 @@ export default function MediaLibrary({
         throw new Error(result.error || 'Upload failed');
       }
 
-      // Enregistrer dans media_library
-      const fileName = file.name;
-      const filePath = `${bucket === 'product-images' ? 'products' : 'categories'}/${fileName}`;
+      console.log('✅ Upload response:', result);
 
-      const { error: dbError } = await supabase
-        .from('media_library')
-        .insert({
-          file_name: fileName,
-          file_path: filePath,
-          public_url: result.url,
-          bucket_name: bucket,
-          file_size: file.size,
-          mime_type: file.type,
-          usage_count: 0,
-          is_orphan: true
-        });
-
-      if (dbError) {
-        console.error('Error saving to media_library:', dbError);
+      if (result.mediaId) {
+        console.log('✅ Media registered in library with ID:', result.mediaId);
       }
 
       toast.success('Image uploadée avec succès');
-      loadMediaFiles();
+
+      // Recharger la liste des fichiers
+      await loadMediaFiles();
+
       setSelectedFile(result.url);
       onSelect(result.url);
+
+      // Notifier le parent pour rafraîchir les stats
+      if (onUploadSuccess) {
+        onUploadSuccess();
+      }
     } catch (error: any) {
       console.error('Upload error:', error);
       toast.error(error.message || 'Erreur lors de l\'upload');
@@ -173,8 +168,13 @@ export default function MediaLibrary({
       if (dbError) throw dbError;
 
       toast.success('Image supprimée avec succès');
-      loadMediaFiles();
+      await loadMediaFiles();
       setDeleteConfirm(null);
+
+      // Notifier le parent pour rafraîchir les stats
+      if (onUploadSuccess) {
+        onUploadSuccess();
+      }
     } catch (error) {
       console.error('Delete error:', error);
       toast.error('Erreur lors de la suppression');
