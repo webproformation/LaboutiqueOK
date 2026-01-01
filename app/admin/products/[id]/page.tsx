@@ -21,6 +21,7 @@ interface SupabaseCategory {
   slug: string;
   woocommerce_id: number;
   woocommerce_parent_id: number | null;
+  parent_id: string | null;
 }
 
 interface ProductFormData {
@@ -38,6 +39,7 @@ interface ProductFormData {
   image_url: string;
   gallery_images: GalleryImage[];
   category_id: string | null;
+  child_category_ids: string[];
   status: 'publish' | 'draft';
 }
 
@@ -62,6 +64,7 @@ export default function EditProductPage() {
     image_url: '',
     gallery_images: [],
     category_id: null,
+    child_category_ids: [],
     status: 'publish',
   });
   const [saving, setSaving] = useState(false);
@@ -127,6 +130,13 @@ export default function EditProductPage() {
         id: img.id || 0
       }));
 
+      let childCategoryIds: string[] = [];
+      if (product.categories && Array.isArray(product.categories)) {
+        childCategoryIds = product.categories
+          .filter((cat: any) => cat && typeof cat === 'object' && cat.id)
+          .map((cat: any) => cat.id);
+      }
+
       setFormData({
         name: product.name || '',
         slug: product.slug || '',
@@ -137,12 +147,13 @@ export default function EditProductPage() {
         stock_quantity: product.stock_quantity || null,
         manage_stock: false,
         stock_status: product.stock_status || 'instock',
-        featured: product.featured || false,
+        featured: product.featured === true,
         image_id: mainImage.id || 0,
         image_url: mainImage.src || mainImage.url || '',
         gallery_images: galleryImages,
         category_id: product.category_id || null,
-        status: product.is_active ? 'publish' : 'draft',
+        child_category_ids: childCategoryIds,
+        status: product.is_active === true ? 'publish' : 'draft',
       });
     } catch (error) {
       console.error('[Load Product] Error:', error);
@@ -161,6 +172,15 @@ export default function EditProductPage() {
         ? [{ id: formData.image_id, url: formData.image_url, src: formData.image_url }, ...formData.gallery_images]
         : formData.gallery_images;
 
+      const categoriesArray = formData.child_category_ids
+        .map(id => categories.find(c => c.id === id))
+        .filter(Boolean)
+        .map(cat => ({
+          id: cat!.id,
+          name: cat!.name,
+          slug: cat!.slug
+        }));
+
       const productData = {
         name: formData.name,
         slug: formData.slug,
@@ -173,6 +193,7 @@ export default function EditProductPage() {
         featured: formData.featured,
         images: allImages,
         category_id: formData.category_id,
+        categories: categoriesArray,
         status: formData.status,
       };
 
@@ -294,11 +315,11 @@ export default function EditProductPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Catégorie</CardTitle>
+            <CardTitle>Catégories</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="category">Catégorie du produit</Label>
+              <Label htmlFor="parent_category">Catégorie parente</Label>
               {loadingCategories ? (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -306,23 +327,99 @@ export default function EditProductPage() {
                 </div>
               ) : (
                 <select
-                  id="category"
+                  id="parent_category"
                   value={formData.category_id || ''}
-                  onChange={(e) => setFormData({ ...formData, category_id: e.target.value || null })}
+                  onChange={(e) => {
+                    const newCategoryId = e.target.value || null;
+                    setFormData({
+                      ...formData,
+                      category_id: newCategoryId,
+                      child_category_ids: []
+                    });
+                  }}
                   className="w-full border rounded px-3 py-2"
                 >
-                  <option value="">Aucune catégorie</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {decodeHtmlEntities(category.name)}
-                    </option>
-                  ))}
+                  <option value="">Aucune catégorie parente</option>
+                  {categories
+                    .filter(cat => !cat.parent_id && !cat.woocommerce_parent_id)
+                    .map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {decodeHtmlEntities(category.name)}
+                      </option>
+                    ))}
                 </select>
               )}
               <p className="text-xs text-gray-500 mt-1">
-                Sélectionnez la catégorie principale de ce produit
+                Sélectionnez la catégorie principale du produit
               </p>
             </div>
+
+            {formData.category_id && (
+              <div>
+                <Label htmlFor="child_categories">Catégories enfants (sous-catégories)</Label>
+                {loadingCategories ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Chargement...
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded p-3">
+                      {categories
+                        .filter(cat => {
+                          const selectedParent = categories.find(c => c.id === formData.category_id);
+                          if (!selectedParent) return false;
+
+                          return (
+                            cat.parent_id === formData.category_id ||
+                            (selectedParent.woocommerce_id && cat.woocommerce_parent_id === selectedParent.woocommerce_id)
+                          );
+                        })
+                        .map((category) => (
+                          <div key={category.id} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id={`child_cat_${category.id}`}
+                              checked={formData.child_category_ids.includes(category.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setFormData({
+                                    ...formData,
+                                    child_category_ids: [...formData.child_category_ids, category.id]
+                                  });
+                                } else {
+                                  setFormData({
+                                    ...formData,
+                                    child_category_ids: formData.child_category_ids.filter(id => id !== category.id)
+                                  });
+                                }
+                              }}
+                              className="rounded"
+                            />
+                            <label htmlFor={`child_cat_${category.id}`} className="text-sm cursor-pointer">
+                              {decodeHtmlEntities(category.name)}
+                            </label>
+                          </div>
+                        ))}
+                      {categories.filter(cat => {
+                        const selectedParent = categories.find(c => c.id === formData.category_id);
+                        if (!selectedParent) return false;
+
+                        return (
+                          cat.parent_id === formData.category_id ||
+                          (selectedParent.woocommerce_id && cat.woocommerce_parent_id === selectedParent.woocommerce_id)
+                        );
+                      }).length === 0 && (
+                        <p className="text-sm text-gray-500 italic">Aucune sous-catégorie disponible pour cette catégorie</p>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Cochez les sous-catégories auxquelles appartient ce produit
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

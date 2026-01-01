@@ -72,8 +72,19 @@ export async function GET(request: Request) {
         }, { status: 404 });
       }
 
-      console.log('[Admin Products API] Product found:', product.name);
-      return NextResponse.json(product);
+      const { data: featuredProduct } = await supabase
+        .from('featured_products')
+        .select('is_active')
+        .eq('product_id', product.id)
+        .maybeSingle();
+
+      const productWithFeatured = {
+        ...product,
+        featured: featuredProduct?.is_active === true
+      };
+
+      console.log('[Admin Products API] Product found:', product.name, 'featured:', productWithFeatured.featured);
+      return NextResponse.json(productWithFeatured);
     }
 
     console.log('[Admin Products API] Step 1: Fetching products from database...');

@@ -36,6 +36,14 @@ export async function POST(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('[Maintenance API] Missing Supabase configuration');
+      return NextResponse.json(
+        { error: 'Configuration Supabase manquante' },
+        { status: 500 }
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
@@ -46,39 +54,86 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { is_maintenance_mode, maintenance_message, maintenance_start, maintenance_end } = body;
 
-    const updates: any = {
+    console.log('[Maintenance API] Received data:', { is_maintenance_mode, maintenance_message, maintenance_start, maintenance_end });
+
+    const upsertData: any = {
+      id: 'general',
       updated_at: new Date().toISOString()
     };
 
     if (typeof is_maintenance_mode !== 'undefined') {
-      updates.is_maintenance_mode = is_maintenance_mode;
+      upsertData.is_maintenance_mode = Boolean(is_maintenance_mode);
     }
 
     if (maintenance_message !== undefined) {
-      updates.maintenance_message = maintenance_message;
+      upsertData.maintenance_message = maintenance_message || 'Le site est actuellement en maintenance. Nous serons bientôt de retour.';
     }
 
-    if (maintenance_start !== undefined) {
-      updates.maintenance_start = maintenance_start;
+    if (maintenance_start !== undefined && maintenance_start !== null && maintenance_start !== '') {
+      try {
+        const startDate = new Date(maintenance_start);
+        if (!isNaN(startDate.getTime())) {
+          upsertData.maintenance_start = startDate.toISOString();
+        } else {
+          upsertData.maintenance_start = null;
+        }
+      } catch (e) {
+        console.error('[Maintenance API] Invalid start date:', maintenance_start);
+        upsertData.maintenance_start = null;
+      }
+    } else {
+      upsertData.maintenance_start = null;
     }
 
-    if (maintenance_end !== undefined) {
-      updates.maintenance_end = maintenance_end;
+    if (maintenance_end !== undefined && maintenance_end !== null && maintenance_end !== '') {
+      try {
+        const endDate = new Date(maintenance_end);
+        if (!isNaN(endDate.getTime())) {
+          upsertData.maintenance_end = endDate.toISOString();
+        } else {
+          upsertData.maintenance_end = null;
+        }
+      } catch (e) {
+        console.error('[Maintenance API] Invalid end date:', maintenance_end);
+        upsertData.maintenance_end = null;
+      }
+    } else {
+      upsertData.maintenance_end = null;
     }
+
+    console.log('[Maintenance API] Upserting data:', upsertData);
 
     const { data, error } = await supabase
       .from('site_settings')
-      .update(updates)
-      .eq('id', 'general')
+      .upsert(upsertData, {
+        onConflict: 'id'
+      })
       .select()
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('[Maintenance API] Supabase error:', error);
+      return NextResponse.json(
+        {
+          error: error.message,
+          details: error.details || 'Aucun détail disponible',
+          hint: error.hint || 'Aucune indication disponible'
+        },
+        { status: 500 }
+      );
     }
+
+    console.log('[Maintenance API] Success:', data);
 
     return NextResponse.json({ data, success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[Maintenance API] Unexpected error:', error);
+    return NextResponse.json(
+      {
+        error: error.message || 'Erreur inconnue',
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
+      { status: 500 }
+    );
   }
 }

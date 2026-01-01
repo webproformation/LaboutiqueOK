@@ -41,10 +41,13 @@ export async function POST(request: Request) {
       slug: productData.slug || productData.name?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
       description: productData.description || '',
       short_description: productData.short_description || '',
-      is_active: productData.status === 'publish' || productData.is_active !== false,
+      is_active: productData.status === 'publish',
       stock_status: productData.stock_status || 'instock',
       updated_at: new Date().toISOString()
     };
+
+    console.log('[Update Product] Status:', productData.status, '-> is_active:', updates.is_active);
+    console.log('[Update Product] Featured:', productData.featured);
 
     if (productData.regular_price !== undefined) {
       updates.regular_price = productData.regular_price ? parseFloat(productData.regular_price) : null;
@@ -68,6 +71,10 @@ export async function POST(request: Request) {
 
     if (productData.category_id !== undefined) {
       updates.category_id = productData.category_id || null;
+    }
+
+    if (productData.categories !== undefined) {
+      updates.categories = productData.categories || [];
     }
 
     let updateQuery;
