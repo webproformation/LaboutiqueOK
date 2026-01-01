@@ -33,31 +33,27 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabaseUrl = process.env.BYPASS_SUPABASE_URL || process.env.APP_DATABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE || process.env.APP_DATABASE_SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    console.log('[Maintenance API] ===== DEBUT REQUETE =====');
+    console.log('[Maintenance API] BYPASS_SUPABASE_URL:', process.env.BYPASS_SUPABASE_URL);
+    console.log('[Maintenance API] BYPASS_SUPABASE_SERVICE_ROLE présent:', process.env.BYPASS_SUPABASE_SERVICE_ROLE ? 'OUI' : 'NON');
+    console.log('[Maintenance API] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+
+    const supabaseUrl = process.env.BYPASS_SUPABASE_URL;
+    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE;
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('[Maintenance API] Missing Supabase configuration');
-      console.error('[Maintenance API] URL:', supabaseUrl ? 'Set' : 'Missing');
-      console.error('[Maintenance API] Service Key:', supabaseServiceKey ? 'Set' : 'Missing');
-      console.error('[Maintenance API] BYPASS_SUPABASE_URL:', process.env.BYPASS_SUPABASE_URL ? 'Set' : 'Missing');
-      console.error('[Maintenance API] BYPASS_SUPABASE_SERVICE_ROLE:', process.env.BYPASS_SUPABASE_SERVICE_ROLE ? 'Set' : 'Missing');
-      return NextResponse.json(
-        {
-          error: 'Configuration Supabase manquante',
-          details: {
-            url: supabaseUrl ? 'Set' : 'Missing',
-            serviceKey: supabaseServiceKey ? 'Set' : 'Missing',
-            bypassUrl: process.env.BYPASS_SUPABASE_URL ? 'Set' : 'Missing',
-            bypassServiceKey: process.env.BYPASS_SUPABASE_SERVICE_ROLE ? 'Set' : 'Missing'
-          }
-        },
-        { status: 500 }
-      );
+      const errorDetails = {
+        error: 'Configuration Supabase manquante',
+        bypassUrl: process.env.BYPASS_SUPABASE_URL || 'MANQUANT',
+        bypassServiceRole: process.env.BYPASS_SUPABASE_SERVICE_ROLE ? 'PRESENT' : 'MANQUANT',
+        fallbackUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'MANQUANT'
+      };
+      console.error('[Maintenance API] ERREUR CONFIGURATION:', errorDetails);
+      return NextResponse.json(errorDetails, { status: 500 });
     }
 
-    console.log('[Maintenance API] Using BYPASS_SUPABASE_URL:', process.env.BYPASS_SUPABASE_URL ? 'YES' : 'NO');
-    console.log('[Maintenance API] Final Supabase URL:', supabaseUrl);
+    console.log('[Maintenance API] URL utilisée:', supabaseUrl);
+    console.log('[Maintenance API] Service role: PRESENT');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -138,14 +134,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[Maintenance API] Success:', data);
+    console.log('[Maintenance API] SUCCESS! Data saved:', data);
+    console.log('[Maintenance API] ===== FIN REQUETE (SUCCESS) =====');
 
     return NextResponse.json({ data, success: true });
   } catch (error: any) {
-    console.error('[Maintenance API] Unexpected error:', error);
+    console.error('[Maintenance API] ===== ERREUR CRITIQUE =====');
+    console.error('[Maintenance API] Message:', error.message);
+    console.error('[Maintenance API] Details:', error.details);
+    console.error('[Maintenance API] Hint:', error.hint);
+    console.error('[Maintenance API] Code:', error.code);
+    console.error('[Maintenance API] Stack:', error.stack);
+    console.error('[Maintenance API] ===== FIN ERREUR =====');
+
     return NextResponse.json(
       {
         error: error.message || 'Erreur inconnue',
+        details: error.details || 'Pas de détails',
+        hint: error.hint || 'Pas d\'indice',
+        code: error.code || 'Pas de code',
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       },
       { status: 500 }
