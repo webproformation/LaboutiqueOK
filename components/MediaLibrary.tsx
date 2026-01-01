@@ -77,12 +77,22 @@ export default function MediaLibrary({
         .eq('bucket_name', bucket)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading media files:', error);
+        throw error;
+      }
 
-      setFiles(data || []);
+      // Sécuriser les données avec validation
+      const safeFiles = Array.isArray(data)
+        ? data.filter(file => file && typeof file === 'object')
+        : [];
+
+      console.log(`📚 Loaded ${safeFiles.length} files from ${bucket}`);
+      setFiles(safeFiles);
     } catch (error) {
       console.error('Error loading media files:', error);
       toast.error('Erreur lors du chargement des médias');
+      setFiles([]); // Assurer un tableau vide en cas d'erreur
     } finally {
       setLoading(false);
     }
@@ -181,12 +191,18 @@ export default function MediaLibrary({
     }
   };
 
-  const filteredFiles = files.filter(file =>
-    file.file_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Sécuriser le filtrage avec null-safe checks
+  const safeFiles = Array.isArray(files) ? files : [];
 
-  const orphanFiles = filteredFiles.filter(f => f.is_orphan);
-  const usedFiles = filteredFiles.filter(f => !f.is_orphan);
+  const filteredFiles = safeFiles.filter(file => {
+    if (!file || !file.file_name) return false;
+    const fileName = (file.file_name || '').toLowerCase();
+    const search = (searchTerm || '').toLowerCase();
+    return fileName.includes(search);
+  });
+
+  const orphanFiles = filteredFiles.filter(f => f && f.is_orphan === true);
+  const usedFiles = filteredFiles.filter(f => f && f.is_orphan !== true);
 
   return (
     <div className="space-y-4">
@@ -326,7 +342,12 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
     );
   }
 
-  if (files.length === 0) {
+  // Sécuriser les fichiers avec validation
+  const safeFiles = Array.isArray(files)
+    ? files.filter(f => f && f.id && f.file_name && f.public_url)
+    : [];
+
+  if (safeFiles.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-gray-400">
         <FolderOpen className="h-12 w-12 mb-2" />
@@ -338,7 +359,7 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
   return (
     <ScrollArea className="h-[500px]">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-1">
-        {files.map((file) => (
+        {safeFiles.map((file) => (
           <Card
             key={file.id}
             className={`cursor-pointer transition-all hover:shadow-lg ${
@@ -351,9 +372,12 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
             <CardContent className="p-2">
               <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden mb-2">
                 <img
-                  src={file.public_url}
-                  alt={file.file_name}
+                  src={file.public_url || ''}
+                  alt={file.file_name || 'Image'}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999"%3E?%3C/text%3E%3C/svg%3E';
+                  }}
                 />
                 {selectedFile === file.public_url && (
                   <div className="absolute inset-0 bg-pink-500/20 flex items-center justify-center">
@@ -362,12 +386,12 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
                 )}
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-medium truncate" title={file.file_name}>
-                  {file.file_name}
+                <p className="text-xs font-medium truncate" title={file.file_name || 'Sans nom'}>
+                  {file.file_name || 'Sans nom'}
                 </p>
                 <div className="flex items-center justify-between">
                   <Badge variant={file.is_orphan ? "secondary" : "default"} className="text-xs">
-                    {file.is_orphan ? 'Non utilisée' : `Utilisée ${file.usage_count}x`}
+                    {file.is_orphan ? 'Non utilisée' : `Utilisée ${file.usage_count || 0}x`}
                   </Badge>
                   <Button
                     size="sm"
@@ -382,7 +406,7 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500">
-                  {(file.file_size / 1024).toFixed(1)} KB
+                  {((file.file_size || 0) / 1024).toFixed(1)} KB
                 </p>
               </div>
             </CardContent>

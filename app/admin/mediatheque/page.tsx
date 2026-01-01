@@ -217,9 +217,11 @@ export default function MediathequeAdminPage() {
             </CardContent>
           </Card>
 
-          {migrationStatus.mediaLibrary.length > 0 ? (
-            migrationStatus.mediaLibrary.map((stat) => (
-              <Card key={stat?.bucket_name || 'unknown'}>
+          {Array.isArray(migrationStatus.mediaLibrary) && migrationStatus.mediaLibrary.length > 0 ? (
+            migrationStatus.mediaLibrary
+              .filter(stat => stat && typeof stat === 'object')
+              .map((stat, index) => (
+              <Card key={stat?.bucket_name || `stat-${index}`}>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Database className="h-4 w-4 text-blue-600" />

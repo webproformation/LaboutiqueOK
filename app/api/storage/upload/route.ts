@@ -81,40 +81,56 @@ export async function POST(req: NextRequest) {
       .getPublicUrl(fileName);
 
     // Insérer dans media_library
-    console.log('📝 Registering in media_library:', {
-      fileName,
-      path: fileName,
-      url: urlData.publicUrl,
-      bucket,
-      size: file.size,
-      type: file.type
+    const insertPayload = {
+      file_name: file.name,
+      file_path: fileName,
+      public_url: urlData.publicUrl,
+      bucket_name: bucket,
+      file_size: file.size,
+      mime_type: file.type,
+      usage_count: 0,
+      is_orphan: true
+    };
+
+    console.log('📝 [MEDIA_LIBRARY] Attempting insert with payload:', {
+      ...insertPayload,
+      timestamp: new Date().toISOString()
+    });
+
+    console.log('📝 [MEDIA_LIBRARY] Using Supabase Admin client:', {
+      hasClient: !!supabaseAdmin,
+      url: supabaseUrl?.substring(0, 30) + '...',
+      hasServiceKey: !!supabaseServiceKey
     });
 
     const { error: dbError, data: mediaData } = await supabaseAdmin
       .from('media_library')
-      .insert({
-        file_name: file.name,
-        file_path: fileName,
-        public_url: urlData.publicUrl,
-        bucket_name: bucket,
-        file_size: file.size,
-        mime_type: file.type,
-        usage_count: 0,
-        is_orphan: true
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
     if (dbError) {
-      console.error('❌ Error inserting into media_library:', {
-        error: dbError,
-        message: dbError.message,
-        details: dbError.details,
-        hint: dbError.hint,
-        code: dbError.code
+      console.error('❌ [MEDIA_LIBRARY] Insert FAILED:', {
+        errorObject: dbError,
+        errorName: dbError.name,
+        errorMessage: dbError.message,
+        errorDetails: dbError.details,
+        errorHint: dbError.hint,
+        errorCode: dbError.code,
+        payload: insertPayload,
+        timestamp: new Date().toISOString()
       });
+
+      // Ne pas échouer l'upload si juste l'insertion DB échoue
+      console.warn('⚠️  [MEDIA_LIBRARY] File uploaded to storage but DB insert failed');
     } else {
-      console.log('✅ Successfully registered in media_library:', mediaData);
+      console.log('✅ [MEDIA_LIBRARY] Insert SUCCESS:', {
+        mediaData,
+        id: mediaData?.id,
+        file_name: mediaData?.file_name,
+        bucket: mediaData?.bucket_name,
+        timestamp: new Date().toISOString()
+      });
     }
 
     return NextResponse.json({
