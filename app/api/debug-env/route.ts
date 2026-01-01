@@ -9,10 +9,6 @@ export async function GET() {
   let urlInstance = 'INCONNU';
   if (supabaseUrl.includes('qcqbtmvbvipsxwjlgjvk')) {
     urlInstance = 'qcqbtmvbvipsxwjlgjvk (PRODUCTION ✅)';
-  } else if (supabaseUrl.includes('hondlefoprhtrpxnumyj')) {
-    urlInstance = 'hondlefoprhtrpxnumyj (ANCIEN ❌)';
-  } else if (supabaseUrl.includes('ftgclacfleknkqbfbsbs')) {
-    urlInstance = 'ftgclacfleknkqbfbsbs (ANCIEN ❌)';
   }
 
   let anonKeyInstance = 'INCONNU';
@@ -22,10 +18,6 @@ export async function GET() {
       anonKeyInstance = anonKeyPayload.ref;
       if (anonKeyInstance === 'qcqbtmvbvipsxwjlgjvk') {
         anonKeyInstance += ' (PRODUCTION ✅)';
-      } else if (anonKeyInstance === 'hondlefoprhtrpxnumyj') {
-        anonKeyInstance += ' (ANCIEN ❌)';
-      } else if (anonKeyInstance === 'ftgclacfleknkqbfbsbs') {
-        anonKeyInstance += ' (ANCIEN ❌)';
       }
     } catch (e) {
       anonKeyInstance = 'ERREUR DE DÉCODAGE';
@@ -39,10 +31,6 @@ export async function GET() {
       serviceKeyInstance = serviceKeyPayload.ref;
       if (serviceKeyInstance === 'qcqbtmvbvipsxwjlgjvk') {
         serviceKeyInstance += ' (PRODUCTION ✅)';
-      } else if (serviceKeyInstance === 'hondlefoprhtrpxnumyj') {
-        serviceKeyInstance += ' (ANCIEN ❌)';
-      } else if (serviceKeyInstance === 'ftgclacfleknkqbfbsbs') {
-        serviceKeyInstance += ' (ANCIEN ❌)';
       }
     } catch (e) {
       serviceKeyInstance = 'ERREUR DE DÉCODAGE';

@@ -5,8 +5,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const supabaseUrl = process.env.BYPASS_SUPABASE_URL || process.env.APP_DATABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE || process.env.APP_DATABASE_SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
@@ -33,16 +33,31 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const supabaseUrl = process.env.BYPASS_SUPABASE_URL || process.env.APP_DATABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE || process.env.APP_DATABASE_SERVICE_ROLE || process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('[Maintenance API] Missing Supabase configuration');
+      console.error('[Maintenance API] URL:', supabaseUrl ? 'Set' : 'Missing');
+      console.error('[Maintenance API] Service Key:', supabaseServiceKey ? 'Set' : 'Missing');
+      console.error('[Maintenance API] BYPASS_SUPABASE_URL:', process.env.BYPASS_SUPABASE_URL ? 'Set' : 'Missing');
+      console.error('[Maintenance API] BYPASS_SUPABASE_SERVICE_ROLE:', process.env.BYPASS_SUPABASE_SERVICE_ROLE ? 'Set' : 'Missing');
       return NextResponse.json(
-        { error: 'Configuration Supabase manquante' },
+        {
+          error: 'Configuration Supabase manquante',
+          details: {
+            url: supabaseUrl ? 'Set' : 'Missing',
+            serviceKey: supabaseServiceKey ? 'Set' : 'Missing',
+            bypassUrl: process.env.BYPASS_SUPABASE_URL ? 'Set' : 'Missing',
+            bypassServiceKey: process.env.BYPASS_SUPABASE_SERVICE_ROLE ? 'Set' : 'Missing'
+          }
+        },
         { status: 500 }
       );
     }
+
+    console.log('[Maintenance API] Using BYPASS_SUPABASE_URL:', process.env.BYPASS_SUPABASE_URL ? 'YES' : 'NO');
+    console.log('[Maintenance API] Final Supabase URL:', supabaseUrl);
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
