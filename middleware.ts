@@ -31,7 +31,47 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (request.nextUrl.pathname === '/maintenance') {
+    return response;
+  }
+
+  if (request.nextUrl.pathname.startsWith('/api/admin/maintenance')) {
+    return response;
+  }
+
+  try {
+    const maintenanceResponse = await fetch(`${request.nextUrl.origin}/api/admin/maintenance`, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
+    });
+
+    if (maintenanceResponse.ok) {
+      const { data } = await maintenanceResponse.json();
+
+      if (data?.is_maintenance_mode) {
+        let isAdmin = false;
+
+        if (user) {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          isAdmin = profile?.role === 'admin';
+        }
+
+        if (!isAdmin) {
+          return NextResponse.redirect(new URL('/maintenance', request.url));
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Maintenance check error:', error);
+  }
 
   return response;
 }

@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -7,119 +7,84 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
-import Link from 'next/link';
+import { Loader2, ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { decodeHtmlEntities } from '@/lib/utils';
+import Link from 'next/link';
 import RichTextEditor from '@/components/RichTextEditor';
 import WordPressMediaSelector from '@/components/WordPressMediaSelector';
 import ProductGalleryManager, { GalleryImage } from '@/components/ProductGalleryManager';
-import ProductAttributesManager from '@/components/ProductAttributesManager';
-import ProductVariationsManager, { ProductVariation } from '@/components/ProductVariationsManager';
 
-interface ProductAttribute {
-  name: string;
-  options: string[];
-  visible: boolean;
-  variation: boolean;
-}
-
-interface WooCategory {
-  id: number;
+interface SupabaseCategory {
+  id: string;
   name: string;
   slug: string;
-  parent?: number;
-  children?: WooCategory[];
+  woocommerce_id: number;
+  woocommerce_parent_id: number | null;
 }
 
-interface CategoryItemProps {
-  category: WooCategory;
-  selectedCategories: number[];
-  onToggle: (categoryId: number, checked: boolean) => void;
-  level: number;
+interface ProductFormData {
+  name: string;
+  slug: string;
+  description: string;
+  short_description: string;
+  regular_price: string;
+  sale_price: string;
+  stock_quantity: number | null;
+  stock_status: 'instock' | 'outofstock';
+  image_id: number;
+  image_url: string;
+  gallery_images: GalleryImage[];
+  category_id: string | null;
+  is_active: boolean;
 }
 
-function CategoryItem({ category, selectedCategories, onToggle, level }: CategoryItemProps) {
-  const indent = level * 24;
-  const fontWeight = level === 0 ? 'font-semibold' : 'font-normal';
-  const textColor = level === 0 ? 'text-gray-900' : 'text-gray-700';
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center space-x-2" style={{ paddingLeft: `${indent}px` }}>
-        <Checkbox
-          id={`category-${category.id}`}
-          checked={selectedCategories.includes(category.id)}
-          onCheckedChange={(checked) => onToggle(category.id, checked as boolean)}
-        />
-        <Label
-          htmlFor={`category-${category.id}`}
-          className={`text-sm cursor-pointer ${fontWeight} ${textColor}`}
-        >
-          {decodeHtmlEntities(category.name)}
-        </Label>
-      </div>
-      {category.children && category.children.length > 0 && (
-        <div className="space-y-2">
-          {category.children.map((subcategory) => (
-            <CategoryItem
-              key={subcategory.id}
-              category={subcategory}
-              selectedCategories={selectedCategories}
-              onToggle={onToggle}
-              level={level + 1}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function CreateProduct() {
+export default function CreateProductPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<WooCategory[]>([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
-  const [product, setProduct] = useState({
+
+  const [formData, setFormData] = useState<ProductFormData>({
     name: '',
+    slug: '',
     description: '',
     short_description: '',
     regular_price: '',
     sale_price: '',
-    stock_quantity: '',
-    manage_stock: true,
-    image_url: '',
+    stock_quantity: null,
+    stock_status: 'instock',
     image_id: 0,
-    sku: '',
-    gallery_images: [] as GalleryImage[],
-    attributes: [] as ProductAttribute[],
-    categories: [] as number[],
-    status: 'publish' as 'publish' | 'draft',
-    featured: false,
-    type: 'simple' as 'simple' | 'variable',
-    variations: [] as ProductVariation[],
+    image_url: '',
+    gallery_images: [],
+    category_id: null,
+    is_active: true,
   });
+  const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState<SupabaseCategory[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
 
   useEffect(() => {
     loadCategories();
   }, []);
 
   const loadCategories = async () => {
+    setLoadingCategories(true);
     try {
-      const response = await fetch('/api/woocommerce/categories');
-      if (response.ok) {
-        const data = await response.json();
+      const response = await fetch('/api/admin/categories');
+      if (!response.ok) {
+        throw new Error('Erreur lors du chargement des catégories');
+      }
+
+      const result = await response.json();
+      const data = result.data || result;
+
+      if (Array.isArray(data)) {
         setCategories(data);
       } else {
-        const errorData = await response.json();
-        console.error('Error loading categories:', errorData);
-        toast.error(`Impossible de charger les catégories: ${errorData.error || 'Erreur serveur'}`);
+        setCategories([]);
       }
     } catch (error) {
       console.error('Error loading categories:', error);
       toast.error('Erreur lors du chargement des catégories');
+      setCategories([]);
     } finally {
       setLoadingCategories(false);
     }
@@ -127,91 +92,101 @@ export default function CreateProduct() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
 
     try {
-      const response = await fetch('/api/woocommerce/products', {
+      if (!formData.name || !formData.regular_price) {
+        throw new Error('Le nom et le prix sont obligatoires');
+      }
+
+      const allImages = formData.image_id && formData.image_url
+        ? [{ id: formData.image_id, url: formData.image_url, src: formData.image_url }, ...formData.gallery_images]
+        : formData.gallery_images;
+
+      const productData = {
+        name: formData.name,
+        slug: formData.slug,
+        description: formData.description,
+        short_description: formData.short_description,
+        regular_price: formData.regular_price,
+        sale_price: formData.sale_price,
+        stock_quantity: formData.stock_quantity,
+        stock_status: formData.stock_status,
+        image_url: formData.image_url,
+        images: allImages,
+        category_id: formData.category_id,
+        is_active: formData.is_active,
+      };
+
+      const response = await fetch('/api/admin/products/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          action: 'create',
-          productData: {
-            name: product.name,
-            type: product.type,
-            description: product.description,
-            short_description: product.short_description,
-            regular_price: product.type === 'simple' ? product.regular_price : '',
-            sale_price: product.type === 'simple' ? product.sale_price : '',
-            manage_stock: product.type === 'simple' ? product.manage_stock : false,
-            stock_quantity: product.type === 'simple' ? (parseInt(product.stock_quantity) || 0) : undefined,
-            images: product.image_id ? [{ id: product.image_id }, ...product.gallery_images.map(img => ({ id: img.id }))] : product.gallery_images.map(img => ({ id: img.id })),
-            sku: product.sku,
-            attributes: product.attributes,
-            categories: product.categories.map(id => ({ id })),
-            status: product.status,
-            featured: product.featured,
-            variations: product.type === 'variable' ? product.variations : undefined,
-          },
-        }),
+        body: JSON.stringify(productData),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de la création');
+      }
 
       const result = await response.json();
 
-      if (!response.ok) {
-        console.error('Error creating product:', result);
-        const errorMessage = result.details?.message || result.error || 'Erreur lors de la création du produit';
-        toast.error(errorMessage);
-      } else {
-        toast.success('Produit créé avec succès');
+      toast.success('Produit créé avec succès');
+      setTimeout(() => {
         router.push('/admin/products');
-      }
+        router.refresh();
+      }, 500);
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de la création');
       console.error('Error creating product:', error);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   return (
-    <div>
-      <div className="flex items-center gap-4 mb-8">
+    <div className="max-w-4xl mx-auto">
+      <div className="mb-6">
         <Link href="/admin/products">
-          <Button variant="outline" size="sm">
-            <ArrowLeft className="w-4 h-4" />
+          <Button variant="ghost" className="mb-4">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Retour à la liste
           </Button>
         </Link>
-        <h1 className="text-3xl font-bold">Créer un produit</h1>
+        <h1 className="text-3xl font-bold">Créer un nouveau produit</h1>
+        <p className="text-gray-600 mt-2">
+          Ajoutez un nouveau produit à votre catalogue
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <Card className="mb-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
           <CardHeader>
             <CardTitle>Image principale</CardTitle>
           </CardHeader>
           <CardContent>
             <WordPressMediaSelector
-              selectedImage={product.image_url}
-              onSelect={(url, id) => setProduct({ ...product, image_url: url, image_id: id })}
+              selectedImage={formData.image_url}
+              onSelect={(url, id) => setFormData({ ...formData, image_url: url, image_id: id })}
             />
           </CardContent>
         </Card>
 
-        <Card className="mb-6">
+        <Card>
           <CardHeader>
-            <CardTitle>Galerie d'images</CardTitle>
+            <CardTitle>Galerie d&apos;images</CardTitle>
           </CardHeader>
           <CardContent>
             <ProductGalleryManager
-              images={product.gallery_images}
-              onChange={(images) => setProduct({ ...product, gallery_images: images })}
+              images={formData.gallery_images}
+              onChange={(images) => setFormData({ ...formData, gallery_images: images })}
             />
           </CardContent>
         </Card>
 
-        <Card className="mb-6">
+        <Card>
           <CardHeader>
             <CardTitle>Informations générales</CardTitle>
           </CardHeader>
@@ -220,22 +195,23 @@ export default function CreateProduct() {
               <Label htmlFor="name">Nom du produit *</Label>
               <Input
                 id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
-                value={product.name}
-                onChange={(e) => setProduct({ ...product, name: e.target.value })}
+                placeholder="Ex: Robe d'été fleurie"
               />
             </div>
 
             <div>
-              <Label htmlFor="sku">UGS (Référence unique)</Label>
+              <Label htmlFor="slug">Slug (URL)</Label>
               <Input
-                id="sku"
-                value={product.sku}
-                onChange={(e) => setProduct({ ...product, sku: e.target.value })}
-                placeholder="Ex: VES-MNK-001"
+                id="slug"
+                value={formData.slug}
+                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                placeholder="Laissez vide pour générer automatiquement"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Identifiant unique pour ce produit (SKU)
+                L&apos;URL sera générée automatiquement à partir du nom si vide
               </p>
             </div>
 
@@ -243,249 +219,169 @@ export default function CreateProduct() {
               <Label htmlFor="short_description">Description courte</Label>
               <RichTextEditor
                 id="short_description"
-                value={product.short_description}
-                onChange={(value) => setProduct({ ...product, short_description: value })}
+                value={formData.short_description}
+                onChange={(value) => setFormData({ ...formData, short_description: value })}
                 rows={4}
                 placeholder="Description courte visible sur la page produit..."
               />
             </div>
+
             <div>
               <Label htmlFor="description">Description complète</Label>
               <RichTextEditor
                 id="description"
-                value={product.description}
-                onChange={(value) => setProduct({ ...product, description: value })}
+                value={formData.description}
+                onChange={(value) => setFormData({ ...formData, description: value })}
                 rows={8}
-                placeholder="Description détaillée du produit (matières, entretien, détails...)..."
+                placeholder="Description détaillée du produit..."
               />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="mb-6">
+        <Card>
           <CardHeader>
-            <CardTitle>Catégories</CardTitle>
+            <CardTitle>Catégorie</CardTitle>
           </CardHeader>
-          <CardContent>
-            {loadingCategories ? (
-              <div className="flex justify-center py-4">
-                <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {categories.length === 0 ? (
-                  <p className="text-sm text-gray-500">Aucune catégorie disponible</p>
-                ) : (
-                  categories.map((category) => (
-                    <CategoryItem
-                      key={category.id}
-                      category={category}
-                      selectedCategories={product.categories}
-                      onToggle={(categoryId, checked) => {
-                        if (checked) {
-                          setProduct({
-                            ...product,
-                            categories: [...product.categories, categoryId]
-                          });
-                        } else {
-                          setProduct({
-                            ...product,
-                            categories: product.categories.filter(id => id !== categoryId)
-                          });
-                        }
-                      }}
-                      level={0}
-                    />
-                  ))
-                )}
-              </div>
-            )}
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="category">Catégorie du produit</Label>
+              {loadingCategories ? (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Chargement des catégories...
+                </div>
+              ) : (
+                <select
+                  id="category"
+                  value={formData.category_id || ''}
+                  onChange={(e) => setFormData({ ...formData, category_id: e.target.value || null })}
+                  className="w-full border rounded px-3 py-2"
+                >
+                  <option value="">Aucune catégorie</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {decodeHtmlEntities(category.name)}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Sélectionnez la catégorie principale de ce produit
+              </p>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="mb-6">
+        <Card>
           <CardHeader>
-            <CardTitle>Type de produit</CardTitle>
+            <CardTitle>Prix</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4">
-              <Label htmlFor="type">Type</Label>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="regular_price">Prix normal (€) *</Label>
+                <Input
+                  id="regular_price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.regular_price}
+                  onChange={(e) => setFormData({ ...formData, regular_price: e.target.value })}
+                  required
+                  placeholder="55.99"
+                />
+                <p className="text-xs text-gray-500 mt-1">Ex: 55.99 pour 55,99 €</p>
+              </div>
+              <div>
+                <Label htmlFor="sale_price">Prix promo (€)</Label>
+                <Input
+                  id="sale_price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.sale_price}
+                  onChange={(e) => setFormData({ ...formData, sale_price: e.target.value })}
+                  placeholder="50.00"
+                />
+                <p className="text-xs text-gray-500 mt-1">Ex: 50.00 pour 50,00 €</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Stock</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="stock_quantity">Quantité en stock</Label>
+              <Input
+                id="stock_quantity"
+                type="number"
+                value={formData.stock_quantity || ''}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  stock_quantity: e.target.value ? parseInt(e.target.value) : null
+                })}
+                placeholder="Ex: 10"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="stock_status">Statut du stock</Label>
               <select
-                id="type"
-                value={product.type}
-                onChange={(e) => {
-                  const newType = e.target.value as 'simple' | 'variable';
-                  setProduct({
-                    ...product,
-                    type: newType,
-                    variations: newType === 'simple' ? [] : product.variations,
-                  });
-                }}
+                id="stock_status"
+                value={formData.stock_status}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  stock_status: e.target.value as 'instock' | 'outofstock'
+                })}
                 className="border rounded px-3 py-2"
               >
-                <option value="simple">Produit simple</option>
-                <option value="variable">Produit variable</option>
+                <option value="instock">En stock</option>
+                <option value="outofstock">Rupture de stock</option>
               </select>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              {product.type === 'simple'
-                ? 'Un produit simple a un seul prix et stock'
-                : 'Un produit variable possède plusieurs variations (ex: différentes couleurs ou tailles)'}
-            </p>
           </CardContent>
         </Card>
 
-        {product.type === 'simple' && (
-          <>
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Prix</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="regular_price">Prix normal (€) *</Label>
-                    <Input
-                      id="regular_price"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      required
-                      value={product.regular_price}
-                      onChange={(e) => setProduct({ ...product, regular_price: e.target.value })}
-                      placeholder="55.99"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Ex: 55.99 pour 55,99 €</p>
-                  </div>
-                  <div>
-                    <Label htmlFor="sale_price">Prix promo (€)</Label>
-                    <Input
-                      id="sale_price"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={product.sale_price}
-                      onChange={(e) => setProduct({ ...product, sale_price: e.target.value })}
-                      placeholder="50.00"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Ex: 50.00 pour 50,00 €</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Stock</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={product.manage_stock}
-                    onCheckedChange={(checked) =>
-                      setProduct({ ...product, manage_stock: checked })
-                    }
-                  />
-                  <Label>Gérer le stock</Label>
-                </div>
-                {product.manage_stock && (
-                  <div>
-                    <Label htmlFor="stock_quantity">Quantité en stock</Label>
-                    <Input
-                      id="stock_quantity"
-                      type="number"
-                      value={product.stock_quantity}
-                      onChange={(e) => setProduct({ ...product, stock_quantity: e.target.value })}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </>
-        )}
-
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Attributs du produit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ProductAttributesManager
-              attributes={product.attributes}
-              onChange={(attributes) => setProduct({ ...product, attributes })}
-            />
-            <p className="text-xs text-gray-500 mt-4">
-              Les attributs permettent de définir des caractéristiques comme la couleur, la taille, etc.
-              {product.type === 'variable' && (
-                <> Activez "Utilisé pour les variations" pour créer des variantes de produit.</>
-              )}
-            </p>
-          </CardContent>
-        </Card>
-
-        {product.type === 'variable' && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Variations du produit</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ProductVariationsManager
-                attributes={product.attributes}
-                variations={product.variations}
-                onChange={(variations) => setProduct({ ...product, variations })}
-              />
-            </CardContent>
-          </Card>
-        )}
-
-        <Card className="mb-6">
+        <Card>
           <CardHeader>
             <CardTitle>Statut du produit</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <Label htmlFor="status">Statut de publication</Label>
+                <Label htmlFor="is_active">Produit actif</Label>
                 <p className="text-xs text-gray-500 mt-1">
-                  Les brouillons ne sont pas visibles sur le site
-                </p>
-              </div>
-              <select
-                id="status"
-                value={product.status}
-                onChange={(e) => setProduct({
-                  ...product,
-                  status: e.target.value as 'publish' | 'draft'
-                })}
-                className="border rounded px-3 py-2"
-              >
-                <option value="publish">Actif</option>
-                <option value="draft">Brouillon</option>
-              </select>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="featured">Produit en vedette</Label>
-                <p className="text-xs text-gray-500 mt-1">
-                  Les produits vedettes sont mis en avant sur le site
+                  Les produits inactifs ne sont pas visibles sur le site
                 </p>
               </div>
               <Switch
-                id="featured"
-                checked={product.featured}
-                onCheckedChange={(checked) =>
-                  setProduct({ ...product, featured: checked })
-                }
+                id="is_active"
+                checked={formData.is_active}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
               />
             </div>
           </CardContent>
         </Card>
 
-        <div className="flex gap-4">
-          <Button type="submit" disabled={loading}>
-            {loading ? (
+        <div className="flex justify-end gap-4 sticky bottom-0 bg-white py-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push('/admin/products')}
+            disabled={saving}
+          >
+            Annuler
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Création...
+                Création en cours...
               </>
             ) : (
               <>
@@ -494,11 +390,6 @@ export default function CreateProduct() {
               </>
             )}
           </Button>
-          <Link href="/admin/products">
-            <Button type="button" variant="outline">
-              Annuler
-            </Button>
-          </Link>
         </div>
       </form>
     </div>

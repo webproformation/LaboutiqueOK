@@ -66,33 +66,8 @@ export async function POST(request: Request) {
       }
     }
 
-    if (productData.attributes && Array.isArray(productData.attributes)) {
-      updates.attributes = productData.attributes;
-    }
-
-    if (productData.variations && Array.isArray(productData.variations)) {
-      updates.variations = productData.variations;
-    }
-
-    if (productData.categories && Array.isArray(productData.categories) && productData.categories.length > 0) {
-      try {
-        const firstCategoryId = productData.categories[0]?.id || productData.categories[0];
-        if (firstCategoryId) {
-          const { data: category, error: catError } = await supabase
-            .from('categories')
-            .select('id')
-            .eq('woocommerce_id', firstCategoryId)
-            .maybeSingle();
-
-          if (catError) {
-            console.error('[Update Product] Error fetching category:', catError);
-          } else if (category) {
-            updates.category_id = category.id;
-          }
-        }
-      } catch (catErr: any) {
-        console.error('[Update Product] Category mapping error:', catErr);
-      }
+    if (productData.category_id !== undefined) {
+      updates.category_id = productData.category_id || null;
     }
 
     let updateQuery;
