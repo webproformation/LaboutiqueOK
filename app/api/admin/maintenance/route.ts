@@ -92,20 +92,12 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // FORCE l'utilisation des clés BYPASS pour ignorer les secrets verrouillés de Bolt
-    const supabaseUrl = process.env.BYPASS_SUPABASE_URL;
-    const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE;
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error("ERREUR CRITIQUE : Les variables BYPASS sont absentes du .env");
-    }
-
-    const supabase = createClient(supabaseUrl!, supabaseServiceKey!, {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false
-    }
- });
+      }
+    });
 
     const body = await request.json();
     const { is_maintenance_mode, maintenance_message, maintenance_start, maintenance_end } = body;
