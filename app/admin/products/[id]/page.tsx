@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, ArrowLeft, Save } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { decodeHtmlEntities } from '@/lib/utils';
 import Link from 'next/link';
 import RichTextEditor from '@/components/RichTextEditor';
-import WordPressMediaSelector from '@/components/WordPressMediaSelector';
+import MediaLibrary from '@/components/MediaLibrary';
 import ProductGalleryManager, { GalleryImage } from '@/components/ProductGalleryManager';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface SupabaseCategory {
   id: string;
@@ -71,6 +72,7 @@ export default function EditProductPage() {
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<SupabaseCategory[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -254,11 +256,39 @@ export default function EditProductPage() {
           <CardHeader>
             <CardTitle>Image principale</CardTitle>
           </CardHeader>
-          <CardContent>
-            <WordPressMediaSelector
-              selectedImage={formData.image_url}
-              onSelect={(url, id) => setFormData({ ...formData, image_url: url, image_id: id })}
-            />
+          <CardContent className="space-y-4">
+            {formData.image_url ? (
+              <div className="relative inline-block">
+                <img
+                  src={formData.image_url}
+                  alt="Image principale"
+                  className="w-48 h-48 object-cover rounded border"
+                />
+              </div>
+            ) : (
+              <div className="w-48 h-48 bg-gray-100 rounded border-2 border-dashed border-gray-300 flex items-center justify-center">
+                <ImageIcon className="w-12 h-12 text-gray-400" />
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setMediaLibraryOpen(true)}
+              >
+                <ImageIcon className="w-4 h-4 mr-2" />
+                Choisir une image
+              </Button>
+              {formData.image_url && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setFormData({ ...formData, image_url: '', image_id: 0 })}
+                >
+                  Retirer l'image
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -571,6 +601,27 @@ export default function EditProductPage() {
           </Button>
         </div>
       </form>
+
+      {/* Dialog pour la médiathèque */}
+      <Dialog open={mediaLibraryOpen} onOpenChange={setMediaLibraryOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Médiathèque - Images Produits</DialogTitle>
+            <DialogDescription>
+              Sélectionnez une image existante ou uploadez-en une nouvelle
+            </DialogDescription>
+          </DialogHeader>
+          <MediaLibrary
+            bucket="product-images"
+            selectedUrl={formData.image_url || undefined}
+            onSelect={(url) => {
+              setFormData({ ...formData, image_url: url, image_id: 0 });
+              setMediaLibraryOpen(false);
+              toast.success('Image sélectionnée');
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

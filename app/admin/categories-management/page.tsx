@@ -32,6 +32,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import SeoMetadataEditor from '@/components/SeoMetadataEditor';
+import MediaLibrary from '@/components/MediaLibrary';
 
 interface WooCategory {
   id: number;
@@ -66,6 +67,7 @@ export default function CategoriesManagementPage() {
   const [selectedCategoryForSeo, setSelectedCategoryForSeo] = useState<WooCategory | null>(null);
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
 
   const [formData, setFormData] = useState<CategoryFormData>({
     name: '',
@@ -571,24 +573,17 @@ export default function CategoriesManagementPage() {
                     <ImageIcon className="w-12 h-12 text-gray-400" />
                   </div>
                 )}
-                <div>
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={uploading}
-                    className="max-w-xs"
-                  />
-                  {uploading && (
-                    <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Upload en cours...
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 mt-1">
-                    Formats acceptés: JPG, PNG, GIF, WebP (max 10MB)
-                  </p>
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setMediaLibraryOpen(true)}
+                >
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  Choisir depuis la médiathèque
+                </Button>
+                <p className="text-xs text-gray-500">
+                  Sélectionnez une image existante ou uploadez-en une nouvelle
+                </p>
               </div>
             </div>
 
@@ -670,6 +665,28 @@ export default function CategoriesManagementPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog pour la médiathèque */}
+      <Dialog open={mediaLibraryOpen} onOpenChange={setMediaLibraryOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Médiathèque - Images Catégories</DialogTitle>
+            <DialogDescription>
+              Sélectionnez une image existante ou uploadez-en une nouvelle
+            </DialogDescription>
+          </DialogHeader>
+          <MediaLibrary
+            bucket="category-images"
+            selectedUrl={imagePreview || undefined}
+            onSelect={(url) => {
+              setFormData(prev => ({ ...prev, image_url: url }));
+              setImagePreview(url);
+              setMediaLibraryOpen(false);
+              toast.success('Image sélectionnée');
+            }}
+          />
         </DialogContent>
       </Dialog>
     </div>
