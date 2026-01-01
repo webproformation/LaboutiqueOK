@@ -54,6 +54,26 @@ interface MediaLibraryProps {
   onUploadSuccess?: () => void;
 }
 
+// 🛡️ Fonction pour construire une URL d'image valide
+function buildImageUrl(rawUrl: string): string {
+  if (!rawUrl) return '';
+
+  // Si l'URL est déjà complète (commence par http/https), la retourner
+  if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+    // Nettoyer les doubles slashes sauf après le protocole
+    return rawUrl.replace(/([^:]\/)\/+/g, '$1');
+  }
+
+  // Sinon, construire l'URL avec l'URL Supabase
+  const supabaseUrl = process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+
+  // Enlever les slashes en début/fin pour éviter les doublons
+  const cleanBase = supabaseUrl.replace(/\/$/, '');
+  const cleanPath = rawUrl.replace(/^\//, '');
+
+  return `${cleanBase}/${cleanPath}`;
+}
+
 export default function MediaLibrary({
   bucket = 'product-images',
   selectedUrl,
@@ -386,31 +406,47 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
     <ScrollArea className="h-[500px]">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-1">
         {safeFiles.map((file) => {
-          // 🛡️ Support des deux formats
-          const fileUrl = file.url || file.public_url || '';
+          // 🛡️ Support des deux formats + construction URL valide
+          const rawUrl = file.url || file.public_url || '';
           const fileName = file.filename || file.file_name || 'Sans nom';
+          const finalUrl = buildImageUrl(rawUrl);
+
+          // 🔍 LOG DIAGNOSTIC : Voir les URLs générées
+          console.log('🖼️ [MEDIA_LIBRARY] Image render:', {
+            id: file.id,
+            filename: fileName,
+            rawUrl: rawUrl,
+            finalUrl: finalUrl,
+            bucket: file.bucket_name
+          });
 
           return (
           <Card
             key={file.id}
             className={`cursor-pointer transition-all hover:shadow-lg ${
-              selectedFile === fileUrl
+              selectedFile === finalUrl
                 ? 'ring-2 ring-pink-500'
                 : ''
             }`}
-            onClick={() => onSelect(fileUrl)}
+            onClick={() => onSelect(finalUrl)}
           >
             <CardContent className="p-2">
               <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden mb-2">
                 <img
-                  src={fileUrl}
+                  src={finalUrl}
                   alt={fileName}
+                  loading="lazy"
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999"%3E?%3C/text%3E%3C/svg%3E';
+                    console.error('❌ [MEDIA_LIBRARY] Image load error:', {
+                      filename: fileName,
+                      url: finalUrl,
+                      error: 'ERR_NAME_NOT_RESOLVED ou 404'
+                    });
+                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="48"%3E?%3C/text%3E%3C/svg%3E';
                   }}
                 />
-                {selectedFile === fileUrl && (
+                {selectedFile === finalUrl && (
                   <div className="absolute inset-0 bg-pink-500/20 flex items-center justify-center">
                     <CheckCircle2 className="h-8 w-8 text-pink-600" />
                   </div>

@@ -80,10 +80,34 @@ export async function POST(req: NextRequest) {
       .from(bucket)
       .getPublicUrl(fileName);
 
+    console.log('🔗 [STORAGE] getPublicUrl result:', {
+      fileName,
+      bucket,
+      publicUrl: urlData.publicUrl,
+      urlLength: urlData.publicUrl?.length,
+      startsWithHttp: urlData.publicUrl?.startsWith('http'),
+      timestamp: new Date().toISOString()
+    });
+
+    // 🛡️ Construire une URL complète si nécessaire
+    let finalUrl = urlData.publicUrl;
+
+    // Si l'URL ne commence pas par http, la construire manuellement
+    if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      finalUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${fileName}`;
+
+      console.log('🔧 [STORAGE] URL reconstructed:', {
+        original: urlData.publicUrl,
+        reconstructed: finalUrl,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Insérer dans media_library (utilise le schéma actuel: filename, url)
     const insertPayload = {
       filename: file.name,
-      url: urlData.publicUrl,
+      url: finalUrl,
       bucket_name: bucket,
       file_size: file.size,
       mime_type: file.type
@@ -124,7 +148,8 @@ export async function POST(req: NextRequest) {
       console.log('✅ [MEDIA_LIBRARY] Insert SUCCESS:', {
         mediaData,
         id: mediaData?.id,
-        file_name: mediaData?.file_name,
+        filename: mediaData?.filename,
+        url: mediaData?.url,
         bucket: mediaData?.bucket_name,
         timestamp: new Date().toISOString()
       });
@@ -132,7 +157,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      url: urlData.publicUrl,
+      url: finalUrl,
       path: fileName,
       bucket,
       mediaId: mediaData?.id
