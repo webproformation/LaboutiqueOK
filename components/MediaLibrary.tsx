@@ -90,6 +90,8 @@ export default function MediaLibrary({
 
   const loadMediaFiles = useCallback(async () => {
     setLoading(true);
+    console.log(`🔄 [MediaLibrary] Loading files for bucket: ${bucket}`);
+
     try {
       // Tenter de charger depuis media_library
       const { data, error } = await supabase
@@ -99,19 +101,23 @@ export default function MediaLibrary({
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error loading from media_library:', error);
+        console.error('❌ [MediaLibrary] Error loading from media_library:', error);
       }
 
-      // Sécuriser les données avec validation
+      // Sécuriser les données avec validation stricte
       let safeFiles = Array.isArray(data)
-        ? data.filter(file => file && typeof file === 'object')
+        ? data.filter(file => {
+            if (!file || typeof file !== 'object') return false;
+            if (!file.id || !file.url || !file.filename) return false;
+            return true;
+          })
         : [];
 
-      console.log(`📚 Loaded ${safeFiles.length} files from media_library (${bucket})`);
+      console.log(`📚 [MediaLibrary] Loaded ${safeFiles.length} files from media_library (${bucket})`);
 
       // 🔄 FALLBACK : Si media_library est vide, lister depuis Storage directement
       if (safeFiles.length === 0) {
-        console.log(`⚠️ media_library is empty, falling back to Storage API...`);
+        console.log(`⚠️ [MediaLibrary] media_library is empty, falling back to Storage API...`);
 
         try {
           // Déterminer le dossier selon le bucket
@@ -126,44 +132,53 @@ export default function MediaLibrary({
             });
 
           if (storageError) {
-            console.error('Storage list error:', storageError);
+            console.error('❌ [MediaLibrary] Storage list error:', storageError);
           } else if (storageFiles && storageFiles.length > 0) {
-            console.log(`✅ Found ${storageFiles.length} files in Storage (${bucket}/${folder})`);
+            console.log(`✅ [MediaLibrary] Found ${storageFiles.length} files in Storage (${bucket}/${folder})`);
 
             // Convertir les fichiers Storage en format MediaFile
             safeFiles = storageFiles
               .filter(file => file?.name && !file.name.endsWith('/')) // Exclure les dossiers
-              .map(file => {
-                const { data: urlData } = supabase.storage
-                  .from(bucket)
-                  .getPublicUrl(`${folder}/${file.name}`);
+              .map((file, index) => {
+                try {
+                  const { data: urlData } = supabase.storage
+                    .from(bucket)
+                    .getPublicUrl(`${folder}/${file.name}`);
 
-                // Générer un id unique si absent
-                const uniqueId = file?.id || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+                  // Générer un id unique garanti avec index + timestamp + random
+                  const uniqueId = file?.id || `temp-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 11)}`;
 
-                return {
-                  id: uniqueId,
-                  filename: file?.name || 'unknown.jpg',
-                  url: urlData?.publicUrl || '',
-                  bucket_name: bucket,
-                  file_size: file?.metadata?.size || 0,
-                  mime_type: file?.metadata?.mimetype || 'image/jpeg',
-                  created_at: file?.created_at || new Date().toISOString(),
-                  usage_count: 0,
-                  is_orphan: false
-                };
-              });
+                  return {
+                    id: uniqueId,
+                    filename: file?.name || 'unknown.jpg',
+                    url: urlData?.publicUrl || '',
+                    bucket_name: bucket,
+                    file_size: file?.metadata?.size || 0,
+                    mime_type: file?.metadata?.mimetype || 'image/jpeg',
+                    created_at: file?.created_at || new Date().toISOString(),
+                    usage_count: 0,
+                    is_orphan: false
+                  };
+                } catch (mapError) {
+                  console.error(`❌ [MediaLibrary] Error mapping file ${file?.name}:`, mapError);
+                  return null;
+                }
+              })
+              .filter(file => file !== null) as MediaFile[];
 
-            console.log(`🔄 Converted ${safeFiles.length} Storage files to MediaFile format`);
+            console.log(`🔄 [MediaLibrary] Converted ${safeFiles.length} Storage files to MediaFile format`);
+          } else {
+            console.log(`ℹ️ [MediaLibrary] No files found in Storage (${bucket}/${folder})`);
           }
         } catch (storageError) {
-          console.error('Error listing from Storage:', storageError);
+          console.error('❌ [MediaLibrary] Error listing from Storage:', storageError);
         }
       }
 
+      console.log(`✅ [MediaLibrary] Final file count: ${safeFiles.length}`);
       setFiles(safeFiles);
     } catch (error) {
-      console.error('Error loading media files:', error);
+      console.error('❌ [MediaLibrary] Critical error loading media files:', error);
       toast.error('Erreur lors du chargement des médias');
       setFiles([]);
     } finally {
@@ -284,20 +299,44 @@ export default function MediaLibrary({
   };
 
   // 🛡️ BLINDAGE TOTAL : Supporte filename ET file_name (anciennes données)
-  const safeFiles = Array.isArray(files) ? files.filter(f => f && typeof f === 'object' && f.id) : [];
+  const safeFiles = Array.isArray(files)
+    ? files.filter(f => {
+        if (!f || typeof f !== 'object') return false;
+        if (!f.id || !f.url) return false;
+        return true;
+      })
+    : [];
 
   const filteredFiles = safeFiles.filter(file => {
-    if (!file || !file.id) return false;
+    try {
+      if (!file || !file.id) return false;
 
-    // Support des deux formats (nouveau: filename, ancien: file_name)
-    const name = (file?.filename || file?.file_name || 'Sans nom').toLowerCase();
-    const search = (searchTerm || '').toLowerCase();
+      // Support des deux formats (nouveau: filename, ancien: file_name)
+      const name = (file?.filename || file?.file_name || 'Sans nom').toLowerCase();
+      const search = (searchTerm || '').toLowerCase();
 
-    return name.includes(search);
+      return name.includes(search);
+    } catch (error) {
+      console.error('❌ [MediaLibrary] Error filtering file:', error);
+      return false;
+    }
   });
 
-  const orphanFiles = filteredFiles.filter(f => f && f?.is_orphan === true);
-  const usedFiles = filteredFiles.filter(f => f && f?.is_orphan !== true);
+  const orphanFiles = filteredFiles.filter(f => {
+    try {
+      return f && f?.is_orphan === true;
+    } catch (error) {
+      return false;
+    }
+  });
+
+  const usedFiles = filteredFiles.filter(f => {
+    try {
+      return f && f?.is_orphan !== true;
+    } catch (error) {
+      return false;
+    }
+  });
 
   return (
     <div className="space-y-4">

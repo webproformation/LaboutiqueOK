@@ -68,11 +68,15 @@ export async function POST(request: NextRequest) {
         const publicUrl = urlData.publicUrl;
 
         // Check if already exists in media_library
-        const { data: existingMedia } = await supabase
+        const { data: existingMedia, error: checkError } = await supabase
           .from('media_library')
           .select('id')
           .eq('url', publicUrl)
           .maybeSingle();
+
+        if (checkError) {
+          console.error(`[Sync Media Library] ⚠️ Check error for ${file.name}:`, checkError);
+        }
 
         if (existingMedia) {
           console.log(`[Sync Media Library] ⏭️ Already exists: ${file.name}`);
@@ -81,27 +85,49 @@ export async function POST(request: NextRequest) {
 
         // Insert into media_library
         try {
-          const { error: insertError } = await supabase
+          const mediaEntry = {
+            filename: file.name,
+            url: publicUrl,
+            bucket_name: bucket,
+            file_size: file.metadata?.size || 0,
+            mime_type: file.metadata?.mimetype || 'image/jpeg',
+            usage_count: 0,
+            is_orphan: false
+          };
+
+          console.log(`[Sync Media Library] 📝 Inserting:`, {
+            filename: file.name,
+            url: publicUrl.substring(0, 80),
+            bucket: bucket
+          });
+
+          const { data: insertedData, error: insertError } = await supabase
             .from('media_library')
-            .insert({
-              filename: file.name,
-              url: publicUrl,
-              bucket_name: bucket,
-              file_size: file.metadata?.size || 0,
-              mime_type: file.metadata?.mimetype || 'image/jpeg',
-              usage_count: 0,
-              is_orphan: false
-            });
+            .insert(mediaEntry)
+            .select()
+            .single();
 
           if (insertError) {
-            console.error(`[Sync Media Library] ❌ Insert error for ${file.name}:`, insertError);
+            console.error(`[Sync Media Library] ❌ Insert error for ${file.name}:`, {
+              error: insertError,
+              code: insertError.code,
+              message: insertError.message,
+              details: insertError.details
+            });
             totalErrors++;
-          } else {
-            console.log(`[Sync Media Library] ✅ Synced: ${file.name}`);
+          } else if (insertedData) {
+            console.log(`[Sync Media Library] ✅ Synced: ${file.name} (ID: ${insertedData.id})`);
             totalSynced++;
+          } else {
+            console.error(`[Sync Media Library] ⚠️ No data returned for ${file.name}`);
+            totalErrors++;
           }
         } catch (error: any) {
-          console.error(`[Sync Media Library] ❌ Error syncing ${file.name}:`, error);
+          console.error(`[Sync Media Library] ❌ Exception syncing ${file.name}:`, {
+            error: error,
+            message: error?.message,
+            stack: error?.stack
+          });
           totalErrors++;
         }
       }
