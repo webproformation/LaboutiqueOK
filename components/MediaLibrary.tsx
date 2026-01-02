@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -88,11 +88,7 @@ export default function MediaLibrary({
   const [selectedFile, setSelectedFile] = useState<string | null>(selectedUrl || null);
   const [deleteConfirm, setDeleteConfirm] = useState<MediaFile | null>(null);
 
-  useEffect(() => {
-    loadMediaFiles();
-  }, [bucket]);
-
-  const loadMediaFiles = async () => {
+  const loadMediaFiles = useCallback(async () => {
     setLoading(true);
     try {
       // Tenter de charger depuis media_library
@@ -125,7 +121,7 @@ export default function MediaLibrary({
             .storage
             .from(bucket)
             .list(folder, {
-              limit: 100,
+              limit: 1000,
               sortBy: { column: 'created_at', order: 'desc' }
             });
 
@@ -136,20 +132,23 @@ export default function MediaLibrary({
 
             // Convertir les fichiers Storage en format MediaFile
             safeFiles = storageFiles
-              .filter(file => file.name && !file.name.endsWith('/')) // Exclure les dossiers
+              .filter(file => file?.name && !file.name.endsWith('/')) // Exclure les dossiers
               .map(file => {
                 const { data: urlData } = supabase.storage
                   .from(bucket)
                   .getPublicUrl(`${folder}/${file.name}`);
 
+                // Générer un id unique si absent
+                const uniqueId = file?.id || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
                 return {
-                  id: file.id || file.name,
-                  filename: file.name,
-                  url: urlData.publicUrl,
+                  id: uniqueId,
+                  filename: file?.name || 'unknown.jpg',
+                  url: urlData?.publicUrl || '',
                   bucket_name: bucket,
-                  file_size: file.metadata?.size || 0,
-                  mime_type: file.metadata?.mimetype || 'image/jpeg',
-                  created_at: file.created_at || new Date().toISOString(),
+                  file_size: file?.metadata?.size || 0,
+                  mime_type: file?.metadata?.mimetype || 'image/jpeg',
+                  created_at: file?.created_at || new Date().toISOString(),
                   usage_count: 0,
                   is_orphan: false
                 };
@@ -170,7 +169,11 @@ export default function MediaLibrary({
     } finally {
       setLoading(false);
     }
-  };
+  }, [bucket]); // Dépendance : bucket
+
+  useEffect(() => {
+    loadMediaFiles();
+  }, [loadMediaFiles]); // Dépendance : loadMediaFiles (stabilisée avec useCallback)
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -231,14 +234,14 @@ export default function MediaLibrary({
   };
 
   const handleDelete = async (media: MediaFile) => {
-    const usageCount = media.usage_count || 0;
+    const usageCount = media?.usage_count || 0;
     if (usageCount > 0 && !confirm(`Cette image est utilisée ${usageCount} fois. Êtes-vous sûr de vouloir la supprimer ?`)) {
       return;
     }
 
     try {
       // 🛡️ Extraire le path depuis l'URL (support nouveau et ancien format)
-      const mediaUrl = media.url || media.public_url || '';
+      const mediaUrl = media?.url || media?.public_url || '';
       const urlParts = mediaUrl.split('/');
       const filePath = urlParts[urlParts.length - 1];
 
@@ -248,7 +251,7 @@ export default function MediaLibrary({
 
       // Supprimer du storage
       const { error: storageError } = await supabase.storage
-        .from(media.bucket_name)
+        .from(media?.bucket_name || bucket)
         .remove([filePath]);
 
       if (storageError) {
@@ -256,13 +259,15 @@ export default function MediaLibrary({
         throw storageError;
       }
 
-      // Supprimer de media_library
-      const { error: dbError } = await supabase
-        .from('media_library')
-        .delete()
-        .eq('id', media.id);
+      // Supprimer de media_library seulement si l'entrée existe en base
+      if (media?.id && !media.id.startsWith('temp-')) {
+        const { error: dbError } = await supabase
+          .from('media_library')
+          .delete()
+          .eq('id', media.id);
 
-      if (dbError) throw dbError;
+        if (dbError) console.warn('DB delete warning:', dbError);
+      }
 
       toast.success('Image supprimée avec succès');
       await loadMediaFiles();
@@ -279,10 +284,10 @@ export default function MediaLibrary({
   };
 
   // 🛡️ BLINDAGE TOTAL : Supporte filename ET file_name (anciennes données)
-  const safeFiles = Array.isArray(files) ? files : [];
+  const safeFiles = Array.isArray(files) ? files.filter(f => f && typeof f === 'object' && f.id) : [];
 
   const filteredFiles = safeFiles.filter(file => {
-    if (!file) return false;
+    if (!file || !file.id) return false;
 
     // Support des deux formats (nouveau: filename, ancien: file_name)
     const name = (file?.filename || file?.file_name || 'Sans nom').toLowerCase();
@@ -291,8 +296,8 @@ export default function MediaLibrary({
     return name.includes(search);
   });
 
-  const orphanFiles = filteredFiles.filter(f => f && f.is_orphan === true);
-  const usedFiles = filteredFiles.filter(f => f && f.is_orphan !== true);
+  const orphanFiles = filteredFiles.filter(f => f && f?.is_orphan === true);
+  const usedFiles = filteredFiles.filter(f => f && f?.is_orphan !== true);
 
   return (
     <div className="space-y-4">
@@ -388,7 +393,7 @@ export default function MediaLibrary({
             <DialogTitle>Confirmer la suppression</DialogTitle>
             <DialogDescription>
               Êtes-vous sûr de vouloir supprimer cette image ?
-              {deleteConfirm && deleteConfirm.usage_count > 0 && (
+              {deleteConfirm && deleteConfirm?.usage_count && deleteConfirm.usage_count > 0 && (
                 <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded">
                   <AlertCircle className="h-4 w-4 text-amber-600 inline mr-2" />
                   <span className="text-amber-800">
@@ -404,7 +409,11 @@ export default function MediaLibrary({
             </Button>
             <Button
               variant="destructive"
-              onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
+              onClick={() => {
+                if (deleteConfirm) {
+                  handleDelete(deleteConfirm);
+                }
+              }}
             >
               Supprimer
             </Button>
@@ -426,8 +435,9 @@ interface MediaGridProps {
 function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGridProps) {
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg">
+        <Loader2 className="h-8 w-8 animate-spin text-pink-500 mb-3" />
+        <p className="text-sm text-gray-500">Chargement des médias...</p>
       </div>
     );
   }
@@ -435,17 +445,17 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
   // 🛡️ BLINDAGE TOTAL : Validation stricte avec support des deux formats
   const safeFiles = Array.isArray(files)
     ? files.filter(f => {
-        if (!f || !f.id) return false;
+        if (!f || !f?.id) return false;
         // Support nouveau format (url) ET ancien (public_url)
-        const hasUrl = f.url || f.public_url;
-        const hasName = f.filename || f.file_name;
+        const hasUrl = f?.url || f?.public_url;
+        const hasName = f?.filename || f?.file_name;
         return hasUrl && hasName;
       })
     : [];
 
   if (safeFiles.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+      <div className="flex flex-col items-center justify-center h-64 text-gray-400 bg-gray-50 rounded-lg">
         <FolderOpen className="h-12 w-12 mb-2" />
         <p>Aucune image trouvée</p>
       </div>
@@ -456,23 +466,25 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
     <ScrollArea className="h-[500px]">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-1">
         {safeFiles.map((file) => {
+          if (!file?.id) return null; // Sécurité supplémentaire
+
           // 🛡️ Support des deux formats + construction URL valide
-          const rawUrl = file.url || file.public_url || '';
-          const fileName = file.filename || file.file_name || 'Sans nom';
+          const rawUrl = file?.url || file?.public_url || '';
+          const fileName = file?.filename || file?.file_name || 'Sans nom';
           const finalUrl = buildImageUrl(rawUrl);
 
           // 🔍 LOG DIAGNOSTIC : Voir les URLs générées
           console.log('🖼️ [MEDIA_LIBRARY] Image render:', {
-            id: file.id,
+            id: file?.id,
             filename: fileName,
             rawUrl: rawUrl,
             finalUrl: finalUrl,
-            bucket: file.bucket_name
+            bucket: file?.bucket_name
           });
 
           return (
           <Card
-            key={file.id}
+            key={file?.id || `fallback-${Math.random()}`}
             className={`cursor-pointer transition-all hover:shadow-lg ${
               selectedFile === finalUrl
                 ? 'ring-2 ring-pink-500'
@@ -507,8 +519,8 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
                   {fileName}
                 </p>
                 <div className="flex items-center justify-between">
-                  <Badge variant={file.is_orphan ? "secondary" : "default"} className="text-xs">
-                    {file.is_orphan ? 'Non utilisée' : `Utilisée ${file.usage_count || 0}x`}
+                  <Badge variant={file?.is_orphan ? "secondary" : "default"} className="text-xs">
+                    {file?.is_orphan ? 'Non utilisée' : `Utilisée ${file?.usage_count || 0}x`}
                   </Badge>
                   <Button
                     size="sm"
@@ -523,7 +535,7 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
                   </Button>
                 </div>
                 <p className="text-xs text-gray-500">
-                  {((file.file_size || 0) / 1024).toFixed(1)} KB
+                  {((file?.file_size || 0) / 1024).toFixed(1)} KB
                 </p>
               </div>
             </CardContent>
