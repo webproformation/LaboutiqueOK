@@ -92,6 +92,7 @@ export default function MediathequeAdminPage() {
   const [settingsExist, setSettingsExist] = useState<boolean>(true);
   const [wordpressUrl, setWordpressUrl] = useState<string>('');
   const [savingSettings, setSavingSettings] = useState(false);
+  const [syncingLibrary, setSyncingLibrary] = useState(false);
 
   useEffect(() => {
     checkSettings();
@@ -300,6 +301,35 @@ export default function MediathequeAdminPage() {
       toast.error('Erreur lors de la synchronisation');
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleSyncMediaLibrary = async () => {
+    if (!confirm('Synchroniser la table media_library depuis Supabase Storage ?')) {
+      return;
+    }
+
+    setSyncingLibrary(true);
+    try {
+      const response = await fetch('/api/admin/sync-media-library', {
+        method: 'POST'
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`${result.totalSynced} fichiers synchronisés dans media_library`);
+        await loadMigrationStatus();
+        router.refresh();
+        setRefreshKey(prev => prev + 1);
+      } else {
+        toast.error(result.error || 'Erreur lors de la synchronisation');
+      }
+    } catch (error: any) {
+      console.error('Error syncing media library:', error);
+      toast.error('Erreur lors de la synchronisation');
+    } finally {
+      setSyncingLibrary(false);
     }
   };
 
@@ -670,14 +700,34 @@ export default function MediathequeAdminPage() {
                 Parcourez et gérez vos images Supabase
               </CardDescription>
             </div>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={cleanupOrphans}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Nettoyer les orphelins
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSyncMediaLibrary}
+                disabled={syncingLibrary}
+              >
+                {syncingLibrary ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sync...
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4 mr-2" />
+                    Sync media_library
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={cleanupOrphans}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Nettoyer les orphelins
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

@@ -95,6 +95,7 @@ export default function MediaLibrary({
   const loadMediaFiles = async () => {
     setLoading(true);
     try {
+      // Tenter de charger depuis media_library
       const { data, error } = await supabase
         .from('media_library')
         .select('*')
@@ -102,21 +103,70 @@ export default function MediaLibrary({
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error loading media files:', error);
-        throw error;
+        console.error('Error loading from media_library:', error);
       }
 
       // Sécuriser les données avec validation
-      const safeFiles = Array.isArray(data)
+      let safeFiles = Array.isArray(data)
         ? data.filter(file => file && typeof file === 'object')
         : [];
 
-      console.log(`📚 Loaded ${safeFiles.length} files from ${bucket}`);
+      console.log(`📚 Loaded ${safeFiles.length} files from media_library (${bucket})`);
+
+      // 🔄 FALLBACK : Si media_library est vide, lister depuis Storage directement
+      if (safeFiles.length === 0) {
+        console.log(`⚠️ media_library is empty, falling back to Storage API...`);
+
+        try {
+          // Déterminer le dossier selon le bucket
+          const folder = bucket === 'product-images' ? 'products' : 'categories';
+
+          const { data: storageFiles, error: storageError } = await supabase
+            .storage
+            .from(bucket)
+            .list(folder, {
+              limit: 100,
+              sortBy: { column: 'created_at', order: 'desc' }
+            });
+
+          if (storageError) {
+            console.error('Storage list error:', storageError);
+          } else if (storageFiles && storageFiles.length > 0) {
+            console.log(`✅ Found ${storageFiles.length} files in Storage (${bucket}/${folder})`);
+
+            // Convertir les fichiers Storage en format MediaFile
+            safeFiles = storageFiles
+              .filter(file => file.name && !file.name.endsWith('/')) // Exclure les dossiers
+              .map(file => {
+                const { data: urlData } = supabase.storage
+                  .from(bucket)
+                  .getPublicUrl(`${folder}/${file.name}`);
+
+                return {
+                  id: file.id || file.name,
+                  filename: file.name,
+                  url: urlData.publicUrl,
+                  bucket_name: bucket,
+                  file_size: file.metadata?.size || 0,
+                  mime_type: file.metadata?.mimetype || 'image/jpeg',
+                  created_at: file.created_at || new Date().toISOString(),
+                  usage_count: 0,
+                  is_orphan: false
+                };
+              });
+
+            console.log(`🔄 Converted ${safeFiles.length} Storage files to MediaFile format`);
+          }
+        } catch (storageError) {
+          console.error('Error listing from Storage:', storageError);
+        }
+      }
+
       setFiles(safeFiles);
     } catch (error) {
       console.error('Error loading media files:', error);
       toast.error('Erreur lors du chargement des médias');
-      setFiles([]); // Assurer un tableau vide en cas d'erreur
+      setFiles([]);
     } finally {
       setLoading(false);
     }

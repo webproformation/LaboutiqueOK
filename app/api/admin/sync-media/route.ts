@@ -223,23 +223,36 @@ export async function POST(request: NextRequest) {
 
           // 🛡️ Step 4: Create entry in media_library
           try {
-            const { error: mediaError } = await supabase
+            console.log(`[Media Sync] [${imageIndex}/${totalImages}] Creating media_library entry...`);
+
+            const mediaData = {
+              filename: originalFilename,
+              url: supabaseUrl,
+              bucket_name: 'product-images',
+              file_size: imageBlob.size,
+              mime_type: imageBlob.type || 'image/jpeg',
+              usage_count: 1,
+              is_orphan: false
+            };
+
+            const { data: mediaInsert, error: mediaError } = await supabase
               .from('media_library')
-              .insert({
-                filename: originalFilename,
-                url: supabaseUrl,
-                bucket_name: 'product-images',
-                file_size: imageBlob.size,
-                mime_type: imageBlob.type || 'image/jpeg'
-              });
+              .insert(mediaData)
+              .select()
+              .single();
 
             if (mediaError) {
-              console.warn(`[Media Sync] [${imageIndex}/${totalImages}] ⚠️ Media library insert failed:`, mediaError.message);
-              // Don't fail the whole process if just media_library insert fails
+              console.warn(`[Media Sync] [${imageIndex}/${totalImages}] ⚠️ Media library insert failed:`, {
+                error: mediaError.message,
+                code: mediaError.code,
+                details: mediaError.details,
+                hint: mediaError.hint
+              });
+            } else {
+              console.log(`[Media Sync] [${imageIndex}/${totalImages}] ✅ Media library entry created: ${mediaInsert.id}`);
             }
           } catch (mediaLibraryError: any) {
             console.warn(`[Media Sync] [${imageIndex}/${totalImages}] ⚠️ Media library error:`, mediaLibraryError.message);
-            // Continue anyway
           }
 
           // 🛡️ Step 5: Update product with new Supabase URL
