@@ -100,9 +100,9 @@ export async function POST(request: NextRequest) {
     });
 
     const body = await request.json();
-    const { is_maintenance_mode, maintenance_message, maintenance_start, maintenance_end } = body;
+    const { is_maintenance_mode, maintenance_message, maintenance_start, maintenance_end, wordpress_url } = body;
 
-    console.log('[Maintenance API POST] Données reçues:', { is_maintenance_mode, maintenance_message, maintenance_start, maintenance_end });
+    console.log('[Maintenance API POST] Données reçues:', { is_maintenance_mode, maintenance_message, maintenance_start, maintenance_end, wordpress_url });
 
     const upsertData: any = {
       id: 'general',
@@ -115,6 +115,10 @@ export async function POST(request: NextRequest) {
 
     if (maintenance_message !== undefined) {
       upsertData.maintenance_message = maintenance_message || 'Le site est actuellement en maintenance. Nous serons bientôt de retour.';
+    }
+
+    if (wordpress_url !== undefined) {
+      upsertData.wordpress_url = wordpress_url;
     }
 
     if (maintenance_start !== undefined && maintenance_start !== null && maintenance_start !== '') {
