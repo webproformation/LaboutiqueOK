@@ -81,12 +81,17 @@ export default function MediaLibrary({
   onClose,
   onUploadSuccess
 }: MediaLibraryProps) {
+  const [mounted, setMounted] = useState(false);
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFile, setSelectedFile] = useState<string | null>(selectedUrl || null);
   const [deleteConfirm, setDeleteConfirm] = useState<MediaFile | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const loadMediaFiles = useCallback(async () => {
     setLoading(true);
@@ -115,41 +120,61 @@ export default function MediaLibrary({
 
       console.log(`📚 [MediaLibrary] Loaded ${safeFiles.length} files from media_library (${bucket})`);
 
-      // 🔄 FALLBACK : Si media_library est vide, lister depuis Storage directement
+      // 🔄 FALLBACK : Si media_library est vide, synchroniser depuis Storage
       if (safeFiles.length === 0) {
-        console.log(`⚠️ [MediaLibrary] media_library is empty, falling back to Storage API...`);
+        console.log(`⚠️ [MediaLibrary] media_library is empty, syncing from Storage API...`);
 
         try {
-          // Déterminer le dossier selon le bucket
-          const folder = bucket === 'product-images' ? 'products' : 'categories';
+          // Appeler l'API de synchronisation
+          const syncResponse = await fetch('/api/admin/sync-media-library', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bucket })
+          });
 
-          const { data: storageFiles, error: storageError } = await supabase
-            .storage
-            .from(bucket)
-            .list(folder, {
-              limit: 1000,
-              sortBy: { column: 'created_at', order: 'desc' }
-            });
+          if (syncResponse.ok) {
+            const syncResult = await syncResponse.json();
+            console.log(`✅ [MediaLibrary] Sync completed: ${syncResult.totalSynced} files synced`);
 
-          if (storageError) {
-            console.error('❌ [MediaLibrary] Storage list error:', storageError);
-          } else if (storageFiles && storageFiles.length > 0) {
-            console.log(`✅ [MediaLibrary] Found ${storageFiles.length} files in Storage (${bucket}/${folder})`);
+            // Recharger depuis media_library après la sync
+            const { data: syncedData } = await supabase
+              .from('media_library')
+              .select('*')
+              .eq('bucket_name', bucket)
+              .order('created_at', { ascending: false });
 
-            // Convertir les fichiers Storage en format MediaFile
-            safeFiles = storageFiles
-              .filter(file => file?.name && !file.name.endsWith('/')) // Exclure les dossiers
-              .map((file, index) => {
-                try {
+            if (syncedData) {
+              safeFiles = Array.isArray(syncedData)
+                ? syncedData.filter(file => file?.id && file?.url && file?.filename)
+                : [];
+              console.log(`📚 [MediaLibrary] Loaded ${safeFiles.length} files after sync`);
+            }
+          } else {
+            console.warn('⚠️ [MediaLibrary] Sync API failed, listing from Storage directly...');
+
+            // Fallback ultime : lister depuis Storage directement
+            const folder = bucket === 'product-images' ? 'products' : 'categories';
+            const { data: storageFiles } = await supabase
+              .storage
+              .from(bucket)
+              .list(folder, {
+                limit: 1000,
+                sortBy: { column: 'created_at', order: 'desc' }
+              });
+
+            if (storageFiles && storageFiles.length > 0) {
+              safeFiles = storageFiles
+                .filter(file => file?.name && !file.name.endsWith('/'))
+                .map((file) => {
                   const { data: urlData } = supabase.storage
                     .from(bucket)
                     .getPublicUrl(`${folder}/${file.name}`);
 
-                  // Générer un id unique garanti avec index + timestamp + random
-                  const uniqueId = file?.id || `temp-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 11)}`;
+                  const filePath = `${bucket}/${folder}/${file.name}`;
+                  const stableId = `storage-${Buffer.from(filePath).toString('base64').replace(/[^a-zA-Z0-9]/g, '').substring(0, 32)}`;
 
                   return {
-                    id: uniqueId,
+                    id: stableId,
                     filename: file?.name || 'unknown.jpg',
                     url: urlData?.publicUrl || '',
                     bucket_name: bucket,
@@ -159,19 +184,12 @@ export default function MediaLibrary({
                     usage_count: 0,
                     is_orphan: false
                   };
-                } catch (mapError) {
-                  console.error(`❌ [MediaLibrary] Error mapping file ${file?.name}:`, mapError);
-                  return null;
-                }
-              })
-              .filter(file => file !== null) as MediaFile[];
-
-            console.log(`🔄 [MediaLibrary] Converted ${safeFiles.length} Storage files to MediaFile format`);
-          } else {
-            console.log(`ℹ️ [MediaLibrary] No files found in Storage (${bucket}/${folder})`);
+                })
+                .filter(file => file !== null) as MediaFile[];
+            }
           }
         } catch (storageError) {
-          console.error('❌ [MediaLibrary] Error listing from Storage:', storageError);
+          console.error('❌ [MediaLibrary] Error syncing from Storage:', storageError);
         }
       }
 
@@ -275,7 +293,8 @@ export default function MediaLibrary({
       }
 
       // Supprimer de media_library seulement si l'entrée existe en base
-      if (media?.id && !media.id.startsWith('temp-')) {
+      // Ne pas essayer de supprimer les entrées temporaires (temp- ou storage-)
+      if (media?.id && !media.id.startsWith('temp-') && !media.id.startsWith('storage-')) {
         const { error: dbError } = await supabase
           .from('media_library')
           .delete()
@@ -337,6 +356,14 @@ export default function MediaLibrary({
       return false;
     }
   });
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg">
+        <Loader2 className="h-8 w-8 animate-spin text-pink-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -512,18 +539,9 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
           const fileName = file?.filename || file?.file_name || 'Sans nom';
           const finalUrl = buildImageUrl(rawUrl);
 
-          // 🔍 LOG DIAGNOSTIC : Voir les URLs générées
-          console.log('🖼️ [MEDIA_LIBRARY] Image render:', {
-            id: file?.id,
-            filename: fileName,
-            rawUrl: rawUrl,
-            finalUrl: finalUrl,
-            bucket: file?.bucket_name
-          });
-
           return (
           <Card
-            key={file?.id || `fallback-${Math.random()}`}
+            key={file?.id}
             className={`cursor-pointer transition-all hover:shadow-lg ${
               selectedFile === finalUrl
                 ? 'ring-2 ring-pink-500'

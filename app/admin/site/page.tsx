@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Database, BarChart, Activity, Wrench, Loader2 } from 'lucide-react';
+import { Users, Database, BarChart, Activity, Wrench, Loader2, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -88,6 +88,14 @@ export default function SiteAdminPage() {
       href: '/admin/customers',
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
+    },
+    {
+      title: 'Médiathèque',
+      description: 'Gérer les images et médias du site',
+      icon: Image,
+      href: '/admin/mediatheque',
+      color: 'text-pink-600',
+      bgColor: 'bg-pink-50',
     },
     {
       title: 'Sauvegardes',

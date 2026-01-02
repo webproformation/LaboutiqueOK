@@ -8,6 +8,9 @@ export async function POST(request: NextRequest) {
   console.log('[Sync Media Library] Starting synchronization...');
 
   try {
+    const body = await request.json().catch(() => ({}));
+    const targetBucket = body.bucket;
+
     const supabaseUrl = process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -25,7 +28,8 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    const buckets = ['product-images', 'category-images'];
+    // Si un bucket spécifique est demandé, ne synchroniser que celui-là
+    const buckets = targetBucket ? [targetBucket] : ['product-images', 'category-images'];
     let totalSynced = 0;
     let totalErrors = 0;
 
