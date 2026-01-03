@@ -111,25 +111,33 @@ export default function AdminCoupons() {
       return;
     }
 
+    const validUntilFormatted = coupon.valid_until.includes(':00+00')
+      ? coupon.valid_until
+      : coupon.valid_until + ':00+00';
+
     const payload = {
       coupon_type_id: coupon.coupon_type_id,
-      code: coupon.code || '',
-      description: coupon.description || '',
-      value: coupon.value || 0,
-      valid_until: coupon.valid_until + ':00+00',
-      is_active: coupon.is_active !== undefined ? coupon.is_active : true,
+      code: coupon.code,
+      description: coupon.description,
+      value: Number(coupon.value),
+      valid_until: validUntilFormatted,
+      is_active: coupon.is_active ?? true,
     };
+
+    const formData = coupon.id
+      ? { id: coupon.id, ...payload }
+      : payload;
+
+    console.log('[DEBUG] Data sent to upsert:', formData);
 
     const { error } = await supabase
       .from('coupons')
-      .upsert(
-        coupon.id ? { id: coupon.id, ...payload } : payload,
-        { onConflict: 'id' }
-      );
+      .upsert(formData, { onConflict: 'id' });
 
     if (error) {
       toast.error(`Erreur : ${error.message}`);
-      console.error('Upsert error:', error);
+      console.error('[ERROR] Upsert error:', error);
+      console.error('[ERROR] Failed data:', formData);
       return;
     }
 
