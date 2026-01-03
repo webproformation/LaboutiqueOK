@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatPrice } from '@/lib/utils';
 import { supabase } from '@/lib/supabase-client';
-import { getSupabaseImageForProduct } from '@/lib/supabase-product-mapper';
+import { getSupabaseImageForProduct, getSupabaseGalleryForProduct } from '@/lib/supabase-product-mapper';
 
 interface ProductCardProps {
   product: Product;
@@ -42,49 +42,50 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [isSubmittingNotification, setIsSubmittingNotification] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
-  const [supabaseImage, setSupabaseImage] = useState<string | null>(null);
-  const [isLoadingSupabaseImage, setIsLoadingSupabaseImage] = useState(true);
+  const [supabaseImages, setSupabaseImages] = useState<string[]>([]);
+  const [isLoadingSupabaseImages, setIsLoadingSupabaseImages] = useState(true);
 
   const isInMySize = isProductInMySize(product);
 
-  // Récupérer l'image depuis Supabase en priorité
+  // Récupérer TOUTES les images (principale + galerie) depuis Supabase
   useEffect(() => {
-    const fetchSupabaseImage = async () => {
+    const fetchSupabaseImages = async () => {
       if (!product.databaseId) {
         console.warn('[ProductCard] Product without databaseId:', product.name);
-        setIsLoadingSupabaseImage(false);
+        setIsLoadingSupabaseImages(false);
         return;
       }
 
       const woocommerceId = product.databaseId;
-      const supabaseUrl = await getSupabaseImageForProduct(woocommerceId);
 
-      if (supabaseUrl) {
-        console.log(`[MediaMapper] ✅ Success: Swapped WP URL for Supabase WebP for product ID ${woocommerceId}`);
+      // Récupérer la galerie complète depuis Storage
+      const webpGallery = await getSupabaseGalleryForProduct(woocommerceId);
+
+      if (webpGallery.length > 0) {
+        console.log(`[MediaMapper] ✅ Success: Swapped WP URLs for Supabase WebP for product ID ${woocommerceId}`);
         console.log(`  Product: ${product.name}`);
         console.log(`  ❌ Old WP URL: ${product.image?.sourceUrl}`);
-        console.log(`  ✅ New Supabase URL: ${supabaseUrl}`);
-        setSupabaseImage(supabaseUrl);
+        console.log(`  ✅ New Supabase Gallery (${webpGallery.length} images):`, webpGallery);
+        setSupabaseImages(webpGallery);
       } else {
-        console.log(`[MediaMapper] ⚠️  Using WordPress URL for product ID ${woocommerceId} (${product.name})`);
+        console.log(`[MediaMapper] ⚠️  Using WordPress URLs for product ID ${woocommerceId} (${product.name})`);
       }
 
-      setIsLoadingSupabaseImage(false);
+      setIsLoadingSupabaseImages(false);
     };
 
-    fetchSupabaseImage();
+    fetchSupabaseImages();
   }, [product.databaseId, product.name]);
 
-  // Construire la liste d'images avec priorité Supabase
+  // Construire la liste d'images avec priorité TOTALE à Supabase
   const wordpressImages = [
     product.image?.sourceUrl,
     ...(product.galleryImages?.nodes?.map(img => img.sourceUrl) || [])
   ].filter(Boolean) as string[];
 
-  // Si on a une image Supabase, l'utiliser en premier
-  const images = supabaseImage
-    ? [supabaseImage, ...wordpressImages.slice(1)]
-    : wordpressImages;
+  // Si on a des images Supabase, les utiliser EXCLUSIVEMENT
+  // Sinon fallback vers WordPress
+  const images = supabaseImages.length > 0 ? supabaseImages : wordpressImages;
 
   const hasSelectableAttributes = () => {
     const isVariable = product.__typename === 'VariableProduct';

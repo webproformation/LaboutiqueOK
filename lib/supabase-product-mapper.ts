@@ -1,12 +1,13 @@
 /**
  * SERVICE DE MAPPING PRODUITS SUPABASE
  *
- * Force l'utilisation des images WebP depuis la table products
- * au lieu des URLs WordPress
+ * Utilise le Storage Supabase directement pour mapper les images WebP
+ * Fallback vers la table products si elle est remplie
  */
 
 import { supabase } from './supabase-client';
 import { Product } from '@/types';
+import { getMainWebPImageForProduct, getWebPImagesForProduct } from './webp-storage-mapper';
 
 interface SupabaseProduct {
   woocommerce_id: number;
@@ -14,55 +15,46 @@ interface SupabaseProduct {
   images: any;
 }
 
-// Cache pour éviter les requêtes multiples
-const imageCache = new Map<number, string | null>();
-
 /**
  * Récupère l'URL d'image Supabase pour un produit WooCommerce
+ * PRIORITÉ 1: Storage direct (webp-storage-mapper)
+ * PRIORITÉ 2: Table products (si remplie)
  * @param woocommerceId - L'ID WooCommerce du produit
  * @returns L'URL Supabase ou null si non trouvée
  */
 export async function getSupabaseImageForProduct(woocommerceId: number): Promise<string | null> {
-  // Vérifier le cache d'abord
-  if (imageCache.has(woocommerceId)) {
-    return imageCache.get(woocommerceId) || null;
+  // PRIORITÉ 1: Chercher dans le Storage via le mapper
+  const webpUrl = await getMainWebPImageForProduct(woocommerceId);
+  if (webpUrl) {
+    return webpUrl;
   }
 
+  // PRIORITÉ 2: Fallback vers la table products (au cas où elle serait remplie)
   try {
     const { data, error } = await supabase
       .from('products')
-      .select('image_url, images')
+      .select('image_url')
       .eq('woocommerce_id', woocommerceId)
       .maybeSingle();
 
-    if (error) {
-      console.error(`[SupabaseMapper] Error fetching product ${woocommerceId}:`, error);
-      imageCache.set(woocommerceId, null);
-      return null;
+    if (!error && data?.image_url) {
+      console.log(`[SupabaseMapper] ✅ Found image in products table for ${woocommerceId}`);
+      return data.image_url;
     }
-
-    if (!data) {
-      console.warn(`[SupabaseMapper] No product found for WooCommerce ID ${woocommerceId}`);
-      imageCache.set(woocommerceId, null);
-      return null;
-    }
-
-    const imageUrl = data.image_url;
-
-    if (imageUrl) {
-      // Cache le résultat
-      imageCache.set(woocommerceId, imageUrl);
-      console.log(`[SupabaseMapper] ✅ Found Supabase image for product ${woocommerceId}:`, imageUrl);
-      return imageUrl;
-    }
-
-    imageCache.set(woocommerceId, null);
-    return null;
   } catch (error) {
-    console.error(`[SupabaseMapper] Exception for product ${woocommerceId}:`, error);
-    imageCache.set(woocommerceId, null);
-    return null;
+    console.error(`[SupabaseMapper] Exception querying products table:`, error);
   }
+
+  return null;
+}
+
+/**
+ * Récupère TOUTES les images (galerie) pour un produit
+ * @param woocommerceId - L'ID WooCommerce du produit
+ * @returns Tableau d'URLs WebP
+ */
+export async function getSupabaseGalleryForProduct(woocommerceId: number): Promise<string[]> {
+  return getWebPImagesForProduct(woocommerceId);
 }
 
 /**

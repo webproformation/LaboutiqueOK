@@ -40,6 +40,7 @@ import { isColorAttribute } from '@/lib/colors';
 import ProductReviews from '@/components/ProductReviews';
 import HiddenDiamond from '@/components/HiddenDiamond';
 import RelatedProductsDisplay from '@/components/RelatedProductsDisplay';
+import { getSupabaseGalleryForProduct } from '@/lib/supabase-product-mapper';
 
 export default function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: rawSlug } = use(params);
@@ -61,6 +62,7 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
   const [redirectCountdown, setRedirectCountdown] = useState(5);
   const [hasHiddenDiamond, setHasHiddenDiamond] = useState(false);
   const [diamondPosition, setDiamondPosition] = useState<'title' | 'image' | 'description'>('title');
+  const [webpGallery, setWebpGallery] = useState<any[]>([]);
 
   useEffect(() => {
     if ((error || !data?.product) && !loading) {
@@ -84,6 +86,36 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
       checkHiddenDiamondStatus(data.product.databaseId);
     }
   }, [data?.product?.databaseId]);
+
+  // Récupérer les images WebP depuis Supabase Storage
+  useEffect(() => {
+    const fetchWebPGallery = async () => {
+      if (!data?.product?.databaseId) return;
+
+      const woocommerceId = data.product.databaseId;
+      const webpUrls = await getSupabaseGalleryForProduct(woocommerceId);
+
+      if (webpUrls.length > 0) {
+        console.log(`[GalleryMapper] ✅ Swapped ${webpUrls.length} gallery images for product ${woocommerceId}`);
+        console.log(`  Product: ${data.product.name}`);
+        console.log(`  ❌ Old WordPress gallery:`, product.galleryImages?.nodes?.map(img => img.sourceUrl));
+        console.log(`  ✅ New Supabase WebP gallery:`, webpUrls);
+
+        // Convertir les URLs en objets avec sourceUrl
+        const webpImages = webpUrls.map(url => ({ sourceUrl: url }));
+        setWebpGallery(webpImages);
+
+        // Mettre à jour currentImages si c'est la première fois
+        if (currentImages.length === 0) {
+          setCurrentImages(webpImages);
+        }
+      } else {
+        console.log(`[GalleryMapper] ⚠️  No WebP gallery for product ${woocommerceId}, using WordPress images`);
+      }
+    };
+
+    fetchWebPGallery();
+  }, [data?.product?.databaseId, data?.product?.name]);
 
   const checkHiddenDiamondStatus = async (productId: number) => {
     try {
@@ -422,7 +454,11 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
 
   const inWishlist = isInWishlist(product.slug);
   const galleryImages = product.galleryImages?.nodes || [];
-  const defaultImages = product.image ? [product.image, ...galleryImages] : galleryImages;
+
+  // PRIORITÉ ABSOLUE aux images WebP de Supabase Storage
+  const defaultImages = webpGallery.length > 0
+    ? webpGallery
+    : (product.image ? [product.image, ...galleryImages] : galleryImages);
   const isVariable = product.__typename === 'VariableProduct';
   const variations = product.variations?.nodes || [];
   const variationAttributes = product.attributes?.nodes?.filter((attr: any) => attr.variation) || [];
