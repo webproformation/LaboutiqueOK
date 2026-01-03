@@ -21,31 +21,62 @@ interface CouponType {
   is_active: boolean;
 }
 
+interface Coupon {
+  id: string;
+  coupon_type_id: string;
+  code: string;
+  description: string;
+  value: number;
+  valid_until: string;
+  is_active: boolean;
+}
+
 export default function AdminCoupons() {
-  const [coupons, setCoupons] = useState<CouponType[]>([]);
+  const [couponTypes, setCouponTypes] = useState<CouponType[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingCoupon, setEditingCoupon] = useState<CouponType | null>(null);
+  const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  const emptyCoupon: CouponType = {
+  const emptyCoupon: Coupon = {
     id: '',
+    coupon_type_id: '',
     code: '',
-    type: 'discount_amount',
-    value: 0,
     description: '',
-    valid_until: '2026-12-31 23:59:59+00',
+    value: 0,
+    valid_until: '2026-12-31T23:59',
     is_active: true,
+  };
+
+  const fetchCouponTypes = async () => {
+    const { data, error } = await supabase
+      .from('coupon_types')
+      .select('*')
+      .order('type', { ascending: true });
+
+    if (error) {
+      toast.error(`Erreur chargement types: ${error.message}`);
+      console.error(error);
+    } else {
+      setCouponTypes(data || []);
+    }
   };
 
   const fetchCoupons = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('coupon_types')
-      .select('*')
+      .from('coupons')
+      .select(`
+        *,
+        coupon_types (
+          type,
+          description
+        )
+      `)
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast.error('Erreur lors du chargement');
+      toast.error(`Erreur chargement coupons: ${error.message}`);
       console.error(error);
     } else {
       setCoupons(data || []);
@@ -54,62 +85,71 @@ export default function AdminCoupons() {
   };
 
   useEffect(() => {
+    fetchCouponTypes();
     fetchCoupons();
   }, []);
 
-  const handleSave = async (coupon: CouponType) => {
+  const handleSave = async (coupon: Coupon) => {
+    if (!coupon.coupon_type_id) {
+      toast.error('Veuillez sélectionner un type de coupon');
+      return;
+    }
+
+    if (!coupon.code) {
+      toast.error('Veuillez entrer un code');
+      return;
+    }
+
     const payload = {
+      coupon_type_id: coupon.coupon_type_id,
       code: coupon.code || '',
-      type: coupon.type || 'discount_amount',
-      value: coupon.value || 0,
       description: coupon.description || '',
-      valid_until: coupon.valid_until || '2026-12-31 23:59:59+00',
+      value: coupon.value || 0,
+      valid_until: coupon.valid_until + ':00+00',
       is_active: coupon.is_active !== undefined ? coupon.is_active : true,
     };
 
-    if (coupon.id) {
-      const { error } = await supabase
-        .from('coupon_types')
-        .update(payload)
-        .eq('id', coupon.id);
+    const { error } = await supabase
+      .from('coupons')
+      .upsert(
+        coupon.id ? { id: coupon.id, ...payload } : payload,
+        { onConflict: 'id' }
+      );
 
-      if (error) {
-        toast.error(`Erreur : ${error.message}`);
-        return;
-      }
-
-      toast.success('Coupon mis à jour');
-    } else {
-      const { error } = await supabase
-        .from('coupon_types')
-        .insert(payload);
-
-      if (error) {
-        toast.error(`Erreur : ${error.message}`);
-        return;
-      }
-
-      toast.success('Coupon créé');
+    if (error) {
+      toast.error(`Erreur : ${error.message}`);
+      console.error('Upsert error:', error);
+      return;
     }
 
+    toast.success(coupon.id ? 'Coupon mis à jour' : 'Coupon créé');
     setEditingCoupon(null);
     setIsCreating(false);
     fetchCoupons();
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer ce type de coupon ?')) return;
+    if (!confirm('Supprimer ce coupon ?')) return;
 
     const { error } = await supabase
-      .from('coupon_types')
+      .from('coupons')
       .delete()
       .eq('id', id);
 
     if (error) {
-      toast.error('Erreur lors de la suppression');
+      toast.error(`Erreur : ${error.message}`);
     } else {
       toast.success('Coupon supprimé');
       fetchCoupons();
+    }
+  };
+
+  const getTypeLabel = (typeString: string) => {
+    switch (typeString) {
+      case 'discount_amount': return 'Réduction montant';
+      case 'discount_percentage': return 'Réduction pourcentage';
+      case 'free_delivery': return 'Livraison offerte';
+      default: return typeString;
     }
   };
 
@@ -134,32 +174,34 @@ export default function AdminCoupons() {
           <CardContent className="pt-6">
             <div className="space-y-4">
               <div>
-                <Label>Code</Label>
-                <Input
-                  value={editingCoupon?.code || ''}
-                  onChange={(e) =>
-                    setEditingCoupon(prev => prev ? { ...prev, code: e.target.value } : emptyCoupon)
-                  }
-                  placeholder="EX: PROMO10"
-                />
-              </div>
-              <div>
-                <Label>Type</Label>
+                <Label>Type de coupon *</Label>
                 <Select
-                  value={editingCoupon?.type || 'discount_amount'}
+                  value={editingCoupon?.coupon_type_id || ''}
                   onValueChange={(value) =>
-                    setEditingCoupon(prev => prev ? { ...prev, type: value } : emptyCoupon)
+                    setEditingCoupon(prev => prev ? { ...prev, coupon_type_id: value } : emptyCoupon)
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Sélectionnez un type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="discount_amount">Réduction montant</SelectItem>
-                    <SelectItem value="discount_percentage">Réduction pourcentage</SelectItem>
-                    <SelectItem value="free_delivery">Livraison offerte</SelectItem>
+                    {couponTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {getTypeLabel(type.type)} - {type.description}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label>Code *</Label>
+                <Input
+                  value={editingCoupon?.code || ''}
+                  onChange={(e) =>
+                    setEditingCoupon(prev => prev ? { ...prev, code: e.target.value.toUpperCase() } : emptyCoupon)
+                  }
+                  placeholder="EX: PROMO10"
+                />
               </div>
               <div>
                 <Label>Valeur</Label>
@@ -187,7 +229,7 @@ export default function AdminCoupons() {
                   type="datetime-local"
                   value={editingCoupon?.valid_until?.slice(0, 16) || ''}
                   onChange={(e) =>
-                    setEditingCoupon(prev => prev ? { ...prev, valid_until: e.target.value + ':00+00' } : emptyCoupon)
+                    setEditingCoupon(prev => prev ? { ...prev, valid_until: e.target.value } : emptyCoupon)
                   }
                 />
               </div>
@@ -227,7 +269,7 @@ export default function AdminCoupons() {
         </div>
       ) : (
         <div className="space-y-4">
-          {(coupons || []).map((coupon) => (
+          {(coupons || []).map((coupon: any) => (
             <Card key={coupon.id}>
               <CardContent className="p-6">
                 <div className="flex justify-between items-start">
@@ -236,7 +278,7 @@ export default function AdminCoupons() {
                     <p className="text-gray-600">{coupon.description}</p>
                     <div className="flex gap-2 mt-2">
                       <span className="text-sm text-gray-500">
-                        Type: {coupon.type === 'discount_amount' ? 'Montant' : coupon.type === 'discount_percentage' ? 'Pourcentage' : 'Livraison'}
+                        Type: {coupon.coupon_types ? getTypeLabel(coupon.coupon_types.type) : 'N/A'}
                       </span>
                       <span className="text-sm text-gray-500">
                         Valeur: {coupon.value}
@@ -254,7 +296,15 @@ export default function AdminCoupons() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setEditingCoupon(coupon)}
+                      onClick={() => setEditingCoupon({
+                        id: coupon.id,
+                        coupon_type_id: coupon.coupon_type_id,
+                        code: coupon.code,
+                        description: coupon.description,
+                        value: coupon.value,
+                        valid_until: coupon.valid_until?.slice(0, 16) || '',
+                        is_active: coupon.is_active,
+                      })}
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
