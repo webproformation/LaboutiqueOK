@@ -107,15 +107,10 @@ export default function EditProductPage() {
         .select('id, name, slug, woocommerce_id, woocommerce_parent_id, parent_id')
         .order('name');
 
-      if (error) {
-        console.error('[LOAD] ❌ Erreur chargement catégories:', error);
-        throw new Error(`Erreur: ${error.message}`);
-      }
+      if (error) throw error;
 
       setCategories(data || []);
-      console.log(`[LOAD] 📂 ${data?.length || 0} catégories chargées`);
     } catch (error) {
-      console.error('[LOAD] 💥 Error loading categories:', error);
       toast.error('Erreur lors du chargement des catégories');
       setCategories([]);
     } finally {
@@ -128,8 +123,6 @@ export default function EditProductPage() {
     const supabase = createClient();
 
     try {
-      console.log('[LOAD] 📥 Chargement produit:', productId);
-
       // CHARGER LE PRODUIT
       const { data: product, error: productError } = await supabase
         .from('products')
@@ -137,40 +130,23 @@ export default function EditProductPage() {
         .eq('id', productId)
         .maybeSingle();
 
-      if (productError) {
-        console.error('[LOAD] ❌ Erreur chargement produit:', productError);
-        throw new Error(`Erreur: ${productError.message}`);
-      }
-
-      if (!product) {
-        throw new Error('Produit introuvable');
-      }
-
-      console.log('[LOAD] ✅ Produit chargé:', product.name);
+      if (productError) throw productError;
+      if (!product) throw new Error('Produit introuvable');
 
       // CHARGER LES CATÉGORIES DU PRODUIT
-      const { data: productCategories, error: categoriesError } = await supabase
+      const { data: productCategories } = await supabase
         .from('product_categories')
         .select('category_id')
         .eq('product_id', productId)
         .order('display_order');
 
-      if (categoriesError) {
-        console.error('[LOAD] ⚠️ Erreur chargement catégories:', categoriesError);
-      }
-
       const childCategoryIds = productCategories?.map(pc => pc.category_id) || [];
-      console.log(`[LOAD] 📂 ${childCategoryIds.length} catégories chargées`);
 
       // CHARGER LES ATTRIBUTS DU PRODUIT
-      const { data: productAttributeValues, error: attributesError } = await supabase
+      const { data: productAttributeValues } = await supabase
         .from('product_attribute_values')
         .select('attribute_id, term_id')
         .eq('product_id', productId);
-
-      if (attributesError) {
-        console.error('[LOAD] ⚠️ Erreur chargement attributs:', attributesError);
-      }
 
       const attributesMap = new Map<string, string[]>();
       productAttributeValues?.forEach(pav => {
@@ -185,8 +161,6 @@ export default function EditProductPage() {
         term_ids,
       }));
 
-      console.log(`[LOAD] 🏷️ ${attributes.length} attributs chargés`);
-
       // CHARGER LES IMAGES DU PRODUIT
       const { data: productImages, error: imagesError } = await supabase
         .from('product_images')
@@ -194,28 +168,12 @@ export default function EditProductPage() {
         .eq('product_id', productId)
         .order('display_order');
 
-      if (imagesError) {
-        console.error('[LOAD] ⚠️ Erreur chargement images:', imagesError);
-        throw new Error(`Erreur images: ${imagesError.message}`);
-      }
+      if (imagesError) throw imagesError;
 
-      // UTILISER product.image_url COMME IMAGE PRINCIPALE
-      let mainImageUrl = product.image_url || '';
-      let galleryImages: GalleryImage[] = [];
-
-      if (productImages && productImages.length > 0) {
-        galleryImages = productImages.map((img, idx) => ({
-          url: img.image_url,
-          id: idx,
-        }));
-        console.log(`[LOAD] 🖼️ ${productImages.length} images galerie chargées`);
-      }
-
-      if (mainImageUrl) {
-        console.log('[LOAD] 🖼️ Image principale:', mainImageUrl);
-      } else {
-        console.log('[LOAD] ⚠️ Aucune image principale définie');
-      }
+      const galleryImages: GalleryImage[] = productImages?.map((img, idx) => ({
+        url: img.image_url,
+        id: idx,
+      })) || [];
 
       setFormData({
         name: product.name || '',
@@ -230,7 +188,7 @@ export default function EditProductPage() {
         is_featured: product.is_featured === true,
         is_diamond: product.is_diamond === true,
         image_id: 0,
-        image_url: mainImageUrl,
+        image_url: product.image_url || '',
         gallery_images: galleryImages,
         category_id: product.category_id || null,
         child_category_ids: childCategoryIds,
@@ -238,11 +196,9 @@ export default function EditProductPage() {
         attributes: attributes,
       });
 
-      console.log('[LOAD] 🎉 Chargement complet réussi');
       setDataLoaded(true);
     } catch (error) {
-      console.error('[LOAD] 💥 ERREUR CRITIQUE:', error);
-      toast.error(error instanceof Error ? error.message : 'ERREUR: Impossible de charger les données');
+      toast.error(error instanceof Error ? error.message : 'Impossible de charger les données');
       setDataLoaded(false);
     } finally {
       setLoading(false);
@@ -251,25 +207,26 @@ export default function EditProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
 
+    if (!productId) {
+      toast.error('ID produit manquant');
+      return;
+    }
+
+    setSaving(true);
+    const toastId = toast.loading('Enregistrement en cours...');
     const supabase = createClient();
 
     try {
-      console.log('[SAVE] 🚀 Début sauvegarde produit:', productId);
-
-      // STEP 1: UPDATE PRODUCTS TABLE (y compris image_url et manage_stock)
-
-      // LOGIQUE DE STOCK: Si manage_stock = true et stock_quantity = 0, forcer outofstock
+      // LOGIQUE DE STOCK
       let finalStockStatus = formData.stock_status;
       if (formData.manage_stock && formData.stock_quantity === 0) {
         finalStockStatus = 'outofstock';
-        console.log('[SAVE] 📦 Stock géré: quantité = 0 → stock_status = outofstock');
       } else if (formData.manage_stock && formData.stock_quantity && formData.stock_quantity > 0) {
         finalStockStatus = 'instock';
-        console.log('[SAVE] 📦 Stock géré: quantité > 0 → stock_status = instock');
       }
 
+      // STEP 1: UPDATE PRODUCTS
       const { error: productError } = await supabase
         .from('products')
         .update({
@@ -290,37 +247,21 @@ export default function EditProductPage() {
         })
         .eq('id', productId);
 
-      if (productError) {
-        console.error('[SAVE] ❌ Erreur UPDATE products:', productError);
-        throw new Error(`Erreur produit: ${productError.message}`);
-      }
-      console.log('[SAVE] ✅ Produit mis à jour (image_url, manage_stock, stock)');
+      if (productError) throw productError;
 
-      // STEP 2: DELETE + INSERT PRODUCT_CATEGORIES
-      console.log('[SAVE] 📂 Début sauvegarde catégories pour produit:', productId);
-      console.log('[SAVE] 📂 Catégorie parente:', formData.category_id);
-      console.log('[SAVE] 📂 Sous-catégories:', formData.child_category_ids);
-
+      // STEP 2: DELETE OLD CATEGORIES
       const { error: deleteCategoriesError } = await supabase
         .from('product_categories')
         .delete()
         .eq('product_id', productId);
 
-      if (deleteCategoriesError) {
-        console.error('[SAVE] ❌ Erreur DELETE product_categories:', deleteCategoriesError);
-        toast.error(`Erreur suppression catégories: ${deleteCategoriesError.message}`);
-        throw new Error(`Erreur suppression catégories: ${deleteCategoriesError.message}`);
-      }
-      console.log('[SAVE] ✅ Anciennes catégories supprimées');
+      if (deleteCategoriesError) throw deleteCategoriesError;
 
-      // DÉTERMINER QUELLES CATÉGORIES À SAUVEGARDER
+      // STEP 3: INSERT NEW CATEGORIES
       let categoriesToSave: string[] = [];
-
       if (formData.child_category_ids.length > 0) {
-        // Si des sous-catégories sont sélectionnées, on les sauvegarde
         categoriesToSave = formData.child_category_ids;
       } else if (formData.category_id) {
-        // Si aucune sous-catégorie mais une catégorie parente, on sauvegarde la parente
         categoriesToSave = [formData.category_id];
       }
 
@@ -332,34 +273,22 @@ export default function EditProductPage() {
           display_order: index,
         }));
 
-        console.log('[SAVE] 📂 Insertion de', categoriesToInsert.length, 'catégorie(s):', categoriesToInsert);
-
         const { error: insertCategoriesError } = await supabase
           .from('product_categories')
           .insert(categoriesToInsert);
 
-        if (insertCategoriesError) {
-          console.error('[SAVE] ❌ Erreur INSERT product_categories:', insertCategoriesError);
-          toast.error(`Erreur insertion catégories: ${insertCategoriesError.message}`);
-          throw new Error(`Erreur insertion catégories: ${insertCategoriesError.message}`);
-        }
-        console.log(`[SAVE] ✅ ${categoriesToSave.length} catégorie(s) sauvegardée(s)`);
-        toast.success(`${categoriesToSave.length} catégorie(s) sauvegardée(s)`);
-      } else {
-        console.log('[SAVE] ℹ️ Aucune catégorie à sauvegarder');
+        if (insertCategoriesError) throw insertCategoriesError;
       }
 
-      // STEP 3: DELETE + INSERT PRODUCT_ATTRIBUTE_VALUES
+      // STEP 4: DELETE OLD ATTRIBUTES
       const { error: deleteAttributesError } = await supabase
         .from('product_attribute_values')
         .delete()
         .eq('product_id', productId);
 
-      if (deleteAttributesError) {
-        console.error('[SAVE] ❌ Erreur DELETE product_attribute_values:', deleteAttributesError);
-        throw new Error(`Erreur suppression attributs: ${deleteAttributesError.message}`);
-      }
+      if (deleteAttributesError) throw deleteAttributesError;
 
+      // STEP 5: INSERT NEW ATTRIBUTES
       if (formData.attributes && formData.attributes.length > 0) {
         const attributeValuesToInsert = formData.attributes.flatMap(attr =>
           attr.term_ids.map(termId => ({
@@ -374,28 +303,19 @@ export default function EditProductPage() {
             .from('product_attribute_values')
             .insert(attributeValuesToInsert);
 
-          if (insertAttributesError) {
-            console.error('[SAVE] ❌ Erreur INSERT product_attribute_values:', insertAttributesError);
-            throw new Error(`Erreur insertion attributs: ${insertAttributesError.message}`);
-          }
-          console.log(`[SAVE] ✅ ${attributeValuesToInsert.length} attributs sauvegardés`);
+          if (insertAttributesError) throw insertAttributesError;
         }
-      } else {
-        console.log('[SAVE] ℹ️ Aucun attribut à sauvegarder');
       }
 
-      // STEP 4: DELETE + INSERT PRODUCT_IMAGES (GALERIE UNIQUEMENT)
+      // STEP 6: DELETE OLD GALLERY IMAGES
       const { error: deleteImagesError } = await supabase
         .from('product_images')
         .delete()
         .eq('product_id', productId);
 
-      if (deleteImagesError) {
-        console.error('[SAVE] ❌ Erreur DELETE product_images:', deleteImagesError);
-        throw new Error(`Erreur suppression images: ${deleteImagesError.message}`);
-      }
+      if (deleteImagesError) throw deleteImagesError;
 
-      // NE SAUVEGARDER QUE LA GALERIE (image principale = product.image_url)
+      // STEP 7: INSERT NEW GALLERY IMAGES
       if (formData.gallery_images.length > 0) {
         const imagesToInsert = formData.gallery_images.map((img, index) => ({
           product_id: productId,
@@ -407,25 +327,17 @@ export default function EditProductPage() {
           .from('product_images')
           .insert(imagesToInsert);
 
-        if (insertImagesError) {
-          console.error('[SAVE] ❌ Erreur INSERT product_images:', insertImagesError);
-          throw new Error(`Erreur insertion images: ${insertImagesError.message}`);
-        }
-        console.log(`[SAVE] ✅ ${formData.gallery_images.length} images galerie sauvegardées`);
-      } else {
-        console.log('[SAVE] ℹ️ Aucune image galerie à sauvegarder');
+        if (insertImagesError) throw insertImagesError;
       }
 
-      console.log('[SAVE] 🎉 Sauvegarde complète réussie');
-      toast.success('Produit mis à jour avec succès');
+      toast.success('Produit mis à jour avec succès', { id: toastId });
 
       setTimeout(() => {
         router.push('/admin/products');
         router.refresh();
       }, 500);
     } catch (error: any) {
-      console.error('[SAVE] 💥 ERREUR CRITIQUE:', error);
-      toast.error(error.message || 'Erreur lors de la mise à jour');
+      toast.error(error.message || 'Erreur lors de la mise à jour', { id: toastId });
     } finally {
       setSaving(false);
     }
