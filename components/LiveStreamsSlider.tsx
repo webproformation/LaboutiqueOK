@@ -45,13 +45,12 @@ export default function LiveStreamsSlider() {
           .limit(6);
 
         if (error) {
-          console.error('❌ [LiveStreams] Erreur chargement streams:', error);
           setStreams([]);
-        } else if (data) {
-          setStreams(data);
+          return;
         }
+
+        setStreams(data || []);
       } catch (error) {
-        console.error('❌ [LiveStreams] Exception chargement streams:', error);
         setStreams([]);
       } finally {
         setLoading(false);

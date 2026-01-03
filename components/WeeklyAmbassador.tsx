@@ -57,13 +57,12 @@ export default function WeeklyAmbassador() {
         .maybeSingle();
 
       if (error) {
-        console.error("Error fetching ambassador:", error);
         setAmbassador(null);
-      } else {
-        setAmbassador(data);
+        return;
       }
+
+      setAmbassador(data);
     } catch (error) {
-      console.error("Error fetching ambassador:", error);
       setAmbassador(null);
     } finally {
       setIsLoading(false);

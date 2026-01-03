@@ -41,13 +41,12 @@ export default function CustomerReviewsSlider() {
         .limit(6);
 
       if (error) {
-        console.error('Error loading reviews:', error);
         setReviews([]);
-      } else {
-        setReviews(data || []);
+        return;
       }
+
+      setReviews(data || []);
     } catch (error) {
-      console.error('Error loading reviews:', error);
       setReviews([]);
     } finally {
       setLoading(false);
