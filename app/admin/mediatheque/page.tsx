@@ -317,19 +317,59 @@ export default function MediathequeAdminPage() {
 
       const result = await response.json();
 
+      // Afficher les logs complets dans la console
+      if (result.logs) {
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('SYNCHRONISATION MEDIA LIBRARY');
+        console.log('═══════════════════════════════════════════════════════════════');
+        result.logs.forEach((log: string) => console.log(log));
+      }
+
       if (result.success) {
-        toast.success(`${result.totalSynced} fichiers synchronisés dans media_library`);
+        toast.success(`${result.totalSynced} fichiers synchronisés dans media_library. Voir console (F12) pour détails.`);
         await loadMigrationStatus();
         router.refresh();
         setRefreshKey(prev => prev + 1);
       } else {
-        toast.error(result.error || 'Erreur lors de la synchronisation');
+        console.error('❌ Erreur synchronisation:', result);
+        toast.error(result.error || 'Erreur lors de la synchronisation. Voir console (F12).');
       }
     } catch (error: any) {
       console.error('Error syncing media library:', error);
       toast.error('Erreur lors de la synchronisation');
     } finally {
       setSyncingLibrary(false);
+    }
+  };
+
+  const handleVerifyStorage = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/verify-storage');
+      const result = await response.json();
+
+      // Afficher les logs complets dans la console
+      console.log('═══════════════════════════════════════════════════════════════');
+      console.log('VÉRIFICATION STORAGE SUPABASE');
+      console.log('═══════════════════════════════════════════════════════════════');
+
+      if (result.logs) {
+        result.logs.forEach((log: string) => console.log(log));
+      }
+
+      if (result.success) {
+        toast.success(
+          `${result.totalFiles} fichiers trouvés dans Storage. Voir console (F12) pour détails.`,
+          { duration: 5000 }
+        );
+      } else {
+        toast.error(result.error || 'Erreur lors de la vérification');
+      }
+    } catch (error: any) {
+      console.error('Error verifying storage:', error);
+      toast.error('Erreur lors de la vérification');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -342,10 +382,16 @@ export default function MediathequeAdminPage() {
             Gestion centralisée des médias Supabase
           </p>
         </div>
-        <Button onClick={loadMigrationStatus} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Actualiser
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleVerifyStorage} variant="outline" size="sm">
+            <Database className="h-4 w-4 mr-2" />
+            Vérifier Storage
+          </Button>
+          <Button onClick={loadMigrationStatus} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Actualiser
+          </Button>
+        </div>
       </div>
 
       {/* Alerte CRITIQUE: Buckets Storage vides */}

@@ -56,54 +56,74 @@ export async function POST(request: NextRequest) {
       addLog(`🪣 TRAITEMENT DU BUCKET: ${bucket}`);
       addLog('────────────────────────────────────────────────────────────────');
 
-      const folder = bucket === 'product-images' ? 'products' : 'categories';
-      addLog(`📁 Dossier à scanner: ${bucket}/${folder}`);
+      // SCANNER PLUSIEURS EMPLACEMENTS
+      const locationsToScan = [
+        '', // RACINE du bucket
+        bucket === 'product-images' ? 'products' : 'categories', // Sous-dossier
+      ];
 
-      // Lister TOUS les fichiers du Storage (sans filtre)
-      addLog(`🔍 Appel Storage API: list('${folder}', { limit: 1000 })`);
+      let allFiles: any[] = [];
 
-      const { data: storageFiles, error: storageError } = await supabase
-        .storage
-        .from(bucket)
-        .list(folder, {
-          limit: 1000,
-          sortBy: { column: 'created_at', order: 'desc' }
-        });
+      for (const location of locationsToScan) {
+        const displayPath = location || 'RACINE';
+        addLog(`📁 Scan de: ${bucket}/${displayPath}`);
+        addLog(`🔍 Appel Storage API: list('${location}', { limit: 1000 })`);
 
-      if (storageError) {
-        addLog(`❌ ERREUR STORAGE: ${JSON.stringify(storageError, null, 2)}`);
-        errorDetails.push({ bucket, error: 'Storage list failed', details: storageError });
+        const { data: storageFiles, error: storageError } = await supabase
+          .storage
+          .from(bucket)
+          .list(location, {
+            limit: 1000,
+            sortBy: { column: 'created_at', order: 'desc' }
+          });
+
+        if (storageError) {
+          addLog(`❌ ERREUR STORAGE pour ${displayPath}: ${JSON.stringify(storageError, null, 2)}`);
+          errorDetails.push({ bucket, location: displayPath, error: 'Storage list failed', details: storageError });
+          continue;
+        }
+
+        addLog(`📊 Résultat: ${storageFiles ? storageFiles.length : 0} fichiers dans ${displayPath}`);
+
+        if (storageFiles && storageFiles.length > 0) {
+          // Ajouter le préfixe de location pour les fichiers
+          const filesWithPath = storageFiles.map(f => ({
+            ...f,
+            fullPath: location ? `${location}/${f.name}` : f.name
+          }));
+          allFiles.push(...filesWithPath);
+        }
+      }
+
+      addLog('');
+      addLog(`📊 TOTAL pour ${bucket}: ${allFiles.length} fichiers trouvés`);
+
+      if (allFiles.length === 0) {
+        addLog(`⚠️  AUCUN FICHIER dans ${bucket} (ni racine, ni sous-dossiers)`);
+        addLog(`💡 Vérifiez que des fichiers existent dans ce bucket via le Supabase Dashboard`);
         continue;
       }
 
-      addLog(`📊 Résultat Storage API: ${storageFiles ? storageFiles.length : 0} fichiers trouvés`);
-
-      if (!storageFiles || storageFiles.length === 0) {
-        addLog(`⚠️  AUCUN FICHIER dans ${bucket}/${folder}`);
-        addLog(`💡 Vérifiez que des fichiers existent dans ce dossier Storage`);
-        continue;
-      }
-
-      addLog(`✅ ${storageFiles.length} fichiers détectés dans ${bucket}/${folder}`);
+      addLog(`✅ ${allFiles.length} fichiers détectés dans ${bucket}`);
       addLog('');
       addLog('🔄 DÉBUT DE L\'INSERTION EN BASE...');
 
       // Pour chaque fichier, forcer l'insertion
-      for (let i = 0; i < storageFiles.length; i++) {
-        const file = storageFiles[i];
+      for (let i = 0; i < allFiles.length; i++) {
+        const file = allFiles[i];
 
-        addLog(`\n[${i + 1}/${storageFiles.length}] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-        addLog(`📄 Fichier: ${file.name}`);
+        addLog(`\n[${i + 1}/${allFiles.length}] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        addLog(`📄 Fichier: ${file.name} (fullPath: ${file.fullPath})`);
 
-        if (!file.name || file.name.endsWith('/')) {
-          addLog('⏭️  SKIP: Dossier ou nom invalide');
+        if (!file.name || file.name.endsWith('/') || file.name === '.emptyFolderPlaceholder') {
+          addLog('⏭️  SKIP: Dossier ou fichier système');
           continue;
         }
 
-        // Construire l'URL publique
+        // Construire l'URL publique avec le chemin complet
         const { data: urlData } = supabase.storage
           .from(bucket)
-          .getPublicUrl(`${folder}/${file.name}`);
+          .getPublicUrl(file.fullPath);
 
         const publicUrl = urlData.publicUrl;
         addLog(`🔗 URL générée: ${publicUrl}`);
@@ -112,7 +132,7 @@ export async function POST(request: NextRequest) {
         const mediaEntry = {
           filename: file.name,
           url: publicUrl,
-          file_path: `${bucket}/${folder}/${file.name}`,
+          file_path: `${bucket}/${file.fullPath}`,
           bucket_name: bucket,
           file_size: file.metadata?.size || 0,
           mime_type: file.metadata?.mimetype || 'image/jpeg',
