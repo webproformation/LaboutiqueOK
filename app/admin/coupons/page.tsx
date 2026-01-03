@@ -11,28 +11,17 @@ import { Plus, Edit, Trash2, Loader2, Save, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase-client';
 import { toast } from 'sonner';
 
-interface CouponType {
-  id: string;
-  code: string;
-  type: string;
-  value: number;
-  description: string;
-  valid_until: string;
-  is_active: boolean;
-}
-
 interface Coupon {
   id: string;
-  coupon_type_id: string;
   code: string;
   description: string;
+  discount_type: string;
   value: number;
   valid_until: string;
   is_active: boolean;
 }
 
 export default function AdminCoupons() {
-  const [couponTypes, setCouponTypes] = useState<CouponType[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
@@ -40,130 +29,82 @@ export default function AdminCoupons() {
 
   const emptyCoupon: Coupon = {
     id: '',
-    coupon_type_id: '',
     code: '',
     description: '',
+    discount_type: 'amount',
     value: 0,
     valid_until: '2026-12-31T23:59',
     is_active: true,
   };
 
-  const fetchCouponTypes = async () => {
+  const fetchCoupons = async () => {
+    setLoading(true);
+    console.log('='.repeat(80));
+    console.log('🔍 FETCHING COUPONS - Project: qcqbtmvbvipsxwjlgjvk');
+
     const { data, error } = await supabase
-      .from('coupon_types')
+      .from('coupons')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      toast.error(`Erreur chargement types: ${error.message}`);
-      console.error('fetchCouponTypes error:', error);
-    } else {
-      if (!data || data.length === 0) {
-        toast.error('Aucun type de coupon disponible. Veuillez contacter un administrateur.');
-      }
-      setCouponTypes(data || []);
-    }
-  };
-
-  const fetchCoupons = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('coupons')
-      .select(`
-        id,
-        coupon_type_id,
-        code,
-        description,
-        value,
-        valid_until,
-        is_active,
-        created_at,
-        coupon_types!inner (
-          type,
-          description
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast.error(`Erreur chargement coupons: ${error.message}`);
-      console.error('fetchCoupons error:', error);
+      console.error('❌ Error:', error);
+      toast.error(`Erreur: ${error.message}`);
       setCoupons([]);
     } else {
+      console.log('✅ Coupons loaded:', data?.length || 0);
       setCoupons(data || []);
     }
+    console.log('='.repeat(80));
     setLoading(false);
   };
 
   useEffect(() => {
-    const verifyProject = async () => {
-      console.log('='.repeat(80));
-      console.log('🔍 ADMIN COUPONS - PROJECT VERIFICATION');
-      console.log('Current Project ID: qcqbtmvbvipsxwjlgjvk');
-      console.log('Expected URL: https://qcqbtmvbvipsxwjlgjvk.supabase.co');
-
-      // Test direct pour confirmer le projet utilisé
-      const { data, error } = await supabase
-        .from('coupon_types')
-        .select('id, code, type')
-        .limit(1);
-
-      if (!error && data) {
-        console.log('✅ Connected to correct project (coupon_types accessible)');
-        console.log('Sample coupon_type:', data[0]);
-      } else if (error) {
-        console.error('❌ Database connection error:', error.message);
-      }
-      console.log('='.repeat(80));
-    };
-
-    verifyProject();
-    fetchCouponTypes();
     fetchCoupons();
   }, []);
 
   const handleSave = async (coupon: Coupon) => {
-    if (!coupon.coupon_type_id) {
-      toast.error('Veuillez sélectionner un type de coupon');
+    if (!coupon.code.trim()) {
+      toast.error('Code obligatoire');
       return;
     }
 
-    if (!coupon.code) {
-      toast.error('Veuillez entrer un code');
+    if (!coupon.value || coupon.value <= 0) {
+      toast.error('Valeur doit être supérieure à 0');
       return;
     }
 
-    const validUntilFormatted = coupon.valid_until.includes(':00+00')
-      ? coupon.valid_until
-      : coupon.valid_until + ':00+00';
+    if (!coupon.discount_type) {
+      toast.error('Type de remise obligatoire');
+      return;
+    }
+
+    const validUntilFormatted = coupon.valid_until
+      ? new Date(coupon.valid_until).toISOString()
+      : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
 
     const payload = {
-      coupon_type_id: coupon.coupon_type_id,
-      code: coupon.code,
-      description: coupon.description,
+      code: coupon.code.trim().toUpperCase(),
+      description: coupon.description.trim() || '',
+      discount_type: coupon.discount_type,
       value: Number(coupon.value),
       valid_until: validUntilFormatted,
       is_active: coupon.is_active ?? true,
     };
 
-    const formData = coupon.id
-      ? { id: coupon.id, ...payload }
-      : payload;
+    console.log('💾 Saving coupon:', payload);
 
-    console.log('[DEBUG] Data sent to upsert:', formData);
-
-    const { error } = await supabase
-      .from('coupons')
-      .upsert(formData, { onConflict: 'id' });
+    const { error } = coupon.id
+      ? await supabase.from('coupons').update(payload).eq('id', coupon.id)
+      : await supabase.from('coupons').insert(payload);
 
     if (error) {
-      toast.error(`Erreur : ${error.message}`);
-      console.error('[ERROR] Upsert error:', error);
-      console.error('[ERROR] Failed data:', formData);
+      console.error('❌ Save error:', error);
+      toast.error(`Erreur: ${error.message}`);
       return;
     }
 
-    toast.success(coupon.id ? 'Coupon mis à jour' : 'Coupon créé');
+    toast.success(coupon.id ? 'Coupon modifié' : 'Coupon créé');
     setEditingCoupon(null);
     setIsCreating(false);
     fetchCoupons();
@@ -178,20 +119,15 @@ export default function AdminCoupons() {
       .eq('id', id);
 
     if (error) {
-      toast.error(`Erreur : ${error.message}`);
+      toast.error(`Erreur: ${error.message}`);
     } else {
       toast.success('Coupon supprimé');
       fetchCoupons();
     }
   };
 
-  const getTypeLabel = (typeString: string) => {
-    switch (typeString) {
-      case 'discount_amount': return 'Réduction montant';
-      case 'discount_percentage': return 'Réduction pourcentage';
-      case 'free_delivery': return 'Livraison offerte';
-      default: return typeString;
-    }
+  const getTypeLabel = (type: string) => {
+    return type === 'percent' ? 'Pourcentage' : 'Montant fixe';
   };
 
   return (
@@ -200,10 +136,6 @@ export default function AdminCoupons() {
         <h1 className="text-3xl font-bold">Gestion des Coupons</h1>
         <Button
           onClick={() => {
-            if (couponTypes.length === 0) {
-              toast.error('Impossible de créer un coupon: aucun type disponible');
-              return;
-            }
             setEditingCoupon(emptyCoupon);
             setIsCreating(true);
           }}
@@ -214,79 +146,62 @@ export default function AdminCoupons() {
         </Button>
       </div>
 
-      {!loading && couponTypes.length === 0 && (
-        <Card className="mb-6 bg-yellow-50 border-yellow-200">
-          <CardContent className="pt-6">
-            <p className="text-yellow-800 font-medium">Aucun type de coupon disponible</p>
-            <p className="text-yellow-700 text-sm mt-1">
-              Les types de coupons (remise montant, pourcentage, livraison) doivent être créés dans la table coupon_types.
-              Contactez un administrateur système si ce message persiste.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
       {(editingCoupon || isCreating) && (
         <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="space-y-4">
               <div>
-                <Label>Type de coupon *</Label>
-                {couponTypes.length === 0 ? (
-                  <div className="text-sm text-red-600 p-2 bg-red-50 rounded border border-red-200">
-                    Aucun type de coupon disponible. Impossible de créer un coupon.
-                  </div>
-                ) : (
-                  <Select
-                    value={editingCoupon?.coupon_type_id || ''}
-                    onValueChange={(value) =>
-                      setEditingCoupon(prev => prev ? { ...prev, coupon_type_id: value } : emptyCoupon)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionnez un type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {couponTypes.map((type) => (
-                        <SelectItem key={type.id} value={type.id}>
-                          {getTypeLabel(type.type)} - {type.description}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-              <div>
                 <Label>Code *</Label>
                 <Input
-                  value={editingCoupon?.code ?? ''}
+                  value={editingCoupon?.code || ''}
                   onChange={(e) =>
                     setEditingCoupon(prev => prev ? { ...prev, code: e.target.value.toUpperCase() } : emptyCoupon)
                   }
                   placeholder="EX: PROMO10"
                 />
               </div>
+
               <div>
-                <Label>Valeur</Label>
+                <Label>Type de remise *</Label>
+                <Select
+                  value={editingCoupon?.discount_type || 'amount'}
+                  onValueChange={(value) =>
+                    setEditingCoupon(prev => prev ? { ...prev, discount_type: value } : emptyCoupon)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionnez un type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="amount">Montant fixe</SelectItem>
+                    <SelectItem value="percent">Pourcentage</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Valeur *</Label>
                 <Input
                   type="number"
                   step="0.01"
-                  value={editingCoupon?.value ?? 0}
+                  value={editingCoupon?.value || 0}
                   onChange={(e) =>
                     setEditingCoupon(prev => prev ? { ...prev, value: parseFloat(e.target.value) || 0 } : emptyCoupon)
                   }
                 />
               </div>
+
               <div>
                 <Label>Description</Label>
                 <Input
-                  value={editingCoupon?.description ?? ''}
+                  value={editingCoupon?.description || ''}
                   onChange={(e) =>
                     setEditingCoupon(prev => prev ? { ...prev, description: e.target.value } : emptyCoupon)
                   }
                   placeholder="Ex: 10€ de réduction"
                 />
               </div>
+
               <div>
                 <Label>Valide jusqu&apos;au</Label>
                 <Input
@@ -297,6 +212,7 @@ export default function AdminCoupons() {
                   }
                 />
               </div>
+
               <div className="flex items-center space-x-2">
                 <Switch
                   checked={editingCoupon?.is_active ?? true}
@@ -306,10 +222,11 @@ export default function AdminCoupons() {
                 />
                 <Label>Actif</Label>
               </div>
+
               <div className="flex gap-2">
                 <Button
                   onClick={() => editingCoupon && handleSave(editingCoupon)}
-                  disabled={couponTypes.length === 0 || !editingCoupon?.coupon_type_id || !editingCoupon?.code}
+                  disabled={!editingCoupon?.code || !editingCoupon?.discount_type}
                 >
                   <Save className="w-4 h-4 mr-2" />
                   Enregistrer
@@ -337,13 +254,13 @@ export default function AdminCoupons() {
       ) : coupons.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
-            <p className="text-gray-500 text-lg">Aucun coupon créé pour le moment.</p>
-            <p className="text-gray-400 text-sm mt-2">Cliquez sur &quot;Ajouter un coupon&quot; pour commencer.</p>
+            <p className="text-gray-500 text-lg">Aucun coupon créé</p>
+            <p className="text-gray-400 text-sm mt-2">Cliquez sur &quot;Ajouter un coupon&quot; pour commencer</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
-          {(coupons || []).map((coupon: any) => (
+          {coupons.map((coupon) => (
             <Card key={coupon.id}>
               <CardContent className="p-6">
                 <div className="flex justify-between items-start">
@@ -352,10 +269,10 @@ export default function AdminCoupons() {
                     <p className="text-gray-600">{coupon.description}</p>
                     <div className="flex gap-2 mt-2">
                       <span className="text-sm text-gray-500">
-                        Type: {coupon.coupon_types ? getTypeLabel(coupon.coupon_types.type) : 'N/A'}
+                        Type: {getTypeLabel(coupon.discount_type)}
                       </span>
                       <span className="text-sm text-gray-500">
-                        Valeur: {coupon.value}
+                        Valeur: {coupon.value}{coupon.discount_type === 'percent' ? '%' : '€'}
                       </span>
                       <span className={`text-xs px-2 py-1 rounded ${
                         coupon.is_active
@@ -371,13 +288,13 @@ export default function AdminCoupons() {
                       variant="outline"
                       size="sm"
                       onClick={() => setEditingCoupon({
-                        id: coupon.id ?? '',
-                        coupon_type_id: coupon.coupon_type_id ?? '',
-                        code: coupon.code ?? '',
-                        description: coupon.description ?? '',
-                        value: coupon.value ?? 0,
+                        id: coupon.id,
+                        code: coupon.code,
+                        description: coupon.description,
+                        discount_type: coupon.discount_type,
+                        value: coupon.value,
                         valid_until: (coupon.valid_until && typeof coupon.valid_until === 'string') ? coupon.valid_until.slice(0, 16) : '',
-                        is_active: coupon.is_active ?? true,
+                        is_active: coupon.is_active,
                       })}
                     >
                       <Edit className="w-4 h-4" />
