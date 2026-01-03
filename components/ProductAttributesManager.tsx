@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, Check, AlertCircle } from 'lucide-react';
+import { Loader as Loader2, Check, CircleAlert as AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase-client';
 import { toast } from 'sonner';
 

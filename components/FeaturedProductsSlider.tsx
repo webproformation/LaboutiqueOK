@@ -14,6 +14,8 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 import Autoplay from 'embla-carousel-autoplay';
+import { enrichProductsWithSupabaseImages } from '@/lib/supabase-product-mapper';
+import { Product } from '@/types';
 
 interface GetProductsByIdsResponse {
   products: {
@@ -24,6 +26,7 @@ interface GetProductsByIdsResponse {
 export default function FeaturedProductsSlider() {
   const [featuredProductIds, setFeaturedProductIds] = useState<number[]>([]);
   const [loadingIds, setLoadingIds] = useState(true);
+  const [enrichedProducts, setEnrichedProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     const fetchFeaturedProducts = async () => {
@@ -67,6 +70,22 @@ export default function FeaturedProductsSlider() {
     }
   }, [featuredProductIds, productsData, apolloError]);
 
+  // ENRICHISSEMENT SUPABASE
+  useEffect(() => {
+    if (productsData?.products?.nodes && productsData.products.nodes.length > 0) {
+      console.log('[FeaturedProductsSlider] 🎯 Enriching', productsData.products.nodes.length, 'featured products');
+      enrichProductsWithSupabaseImages(productsData.products.nodes as Product[])
+        .then(enriched => {
+          console.log('[FeaturedProductsSlider] ✅ Enrichment complete');
+          setEnrichedProducts(enriched);
+        })
+        .catch(error => {
+          console.error('[FeaturedProductsSlider] ❌ Enrichment error:', error);
+          setEnrichedProducts(productsData.products.nodes as Product[]);
+        });
+    }
+  }, [productsData]);
+
   if (loadingIds || loading) {
     return (
       <div className="py-12 bg-gray-50">
@@ -102,7 +121,8 @@ export default function FeaturedProductsSlider() {
     return null;
   }
 
-  const products = productsData.products.nodes;
+  // UTILISER LES PRODUITS ENRICHIS (ou fallback vers originaux si pas encore enrichis)
+  const productsToDisplay = enrichedProducts.length > 0 ? enrichedProducts : productsData.products.nodes;
 
   return (
     <div className="py-12 bg-gray-50 overflow-hidden">
@@ -127,7 +147,7 @@ export default function FeaturedProductsSlider() {
             className="w-full"
           >
             <CarouselContent className="-ml-2 md:-ml-4">
-              {products.map((product: any, index: number) => (
+              {productsToDisplay.map((product: any, index: number) => (
                 <CarouselItem
                   key={product.databaseId}
                   className="pl-2 md:pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 animate-in fade-in duration-500"

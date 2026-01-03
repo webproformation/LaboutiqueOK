@@ -9,6 +9,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Home } from 'lucide-react';
 import { parsePrice } from '@/lib/utils';
+import { enrichProductsWithSupabaseImages } from '@/lib/supabase-product-mapper';
 
 interface ProductsResponse {
   products: {
@@ -44,7 +45,19 @@ export default function EnRayonPage() {
         const priceB = parsePrice(b.price);
         return priceA - priceB;
       });
-      setProducts(sortedProducts);
+
+      // ENRICHISSEMENT SUPABASE
+      console.log('[EnRayonPage] 🎯 Enriching', sortedProducts.length, 'products with Supabase images');
+      enrichProductsWithSupabaseImages(sortedProducts)
+        .then(enriched => {
+          console.log('[EnRayonPage] ✅ Enrichment complete');
+          setProducts(enriched);
+        })
+        .catch(error => {
+          console.error('[EnRayonPage] ❌ Enrichment error:', error);
+          setProducts(sortedProducts);
+        });
+
       setHasNextPage(productsData.products.pageInfo.hasNextPage);
       setEndCursor(productsData.products.pageInfo.endCursor);
     }

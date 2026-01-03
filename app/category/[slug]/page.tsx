@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery } from '@apollo/client/react';
 import { GET_PRODUCTS_BY_CATEGORY, GET_PRODUCTS_BY_CATEGORIES, GET_PRODUCT_CATEGORIES } from '@/lib/queries';
 import ProductCard from '@/components/ProductCard';
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { useParams } from 'next/navigation';
 import { parsePrice } from '@/lib/utils';
 import { useClientSize } from '@/hooks/use-client-size';
+import { enrichProductsWithSupabaseImages } from '@/lib/supabase-product-mapper';
 import {
   Sheet,
   SheetContent,
@@ -30,6 +31,8 @@ export default function CategoryPage() {
   const [filters, setFilters] = useState<Record<string, string[]>>({});
   const [priceFilter, setPriceFilter] = useState<{ min: number; max: number } | undefined>();
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [enrichedProducts, setEnrichedProducts] = useState<Product[]>([]);
+  const [isEnriching, setIsEnriching] = useState(false);
   const { isProductInMySize } = useClientSize();
 
   const { data: categoriesData } = useQuery<GetProductCategoriesResponse>(GET_PRODUCT_CATEGORIES);
@@ -89,6 +92,29 @@ export default function CategoryPage() {
   console.log('[CategoryPage] Published products:', products.length);
   console.log('[CategoryPage] Published product names:', products.map(p => p.name));
 
+  // ENRICHISSEMENT SUPABASE - Injecter les URLs WebP depuis Storage
+  useEffect(() => {
+    if (products.length > 0 && !isEnriching) {
+      setIsEnriching(true);
+      console.log('[CategoryPage] 🎯 Starting Supabase image enrichment for', products.length, 'products');
+
+      enrichProductsWithSupabaseImages(products)
+        .then(enriched => {
+          console.log('[CategoryPage] ✅ Enrichment complete');
+          setEnrichedProducts(enriched);
+          setIsEnriching(false);
+        })
+        .catch(error => {
+          console.error('[CategoryPage] ❌ Enrichment error:', error);
+          setEnrichedProducts(products);
+          setIsEnriching(false);
+        });
+    } else if (products.length === 0) {
+      setEnrichedProducts([]);
+      setIsEnriching(false);
+    }
+  }, [products]);
+
   const handleFilterChange = useCallback((newFilters: Record<string, string[]>, newPriceRange?: { min: number; max: number }) => {
     setFilters(newFilters);
     setPriceFilter(newPriceRange);
@@ -107,7 +133,9 @@ export default function CategoryPage() {
       filterValues: Object.values(filters)
     });
 
-    let result = [...products];
+    // UTILISER LES PRODUITS ENRICHIS AVEC SUPABASE
+    const productsToFilter = enrichedProducts.length > 0 ? enrichedProducts : products;
+    let result = [...productsToFilter];
 
     console.log('[CategoryPage] Before filtering:', result.map(p => ({
       name: p.name,
