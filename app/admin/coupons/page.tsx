@@ -52,12 +52,15 @@ export default function AdminCoupons() {
     const { data, error } = await supabase
       .from('coupon_types')
       .select('*')
-      .order('type', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (error) {
       toast.error(`Erreur chargement types: ${error.message}`);
-      console.error(error);
+      console.error('fetchCouponTypes error:', error);
     } else {
+      if (!data || data.length === 0) {
+        toast.error('Aucun type de coupon disponible. Veuillez contacter un administrateur.');
+      }
       setCouponTypes(data || []);
     }
   };
@@ -67,8 +70,15 @@ export default function AdminCoupons() {
     const { data, error } = await supabase
       .from('coupons')
       .select(`
-        *,
-        coupon_types (
+        id,
+        coupon_type_id,
+        code,
+        description,
+        value,
+        valid_until,
+        is_active,
+        created_at,
+        coupon_types!inner (
           type,
           description
         )
@@ -77,7 +87,8 @@ export default function AdminCoupons() {
 
     if (error) {
       toast.error(`Erreur chargement coupons: ${error.message}`);
-      console.error(error);
+      console.error('fetchCoupons error:', error);
+      setCoupons([]);
     } else {
       setCoupons(data || []);
     }
@@ -159,6 +170,10 @@ export default function AdminCoupons() {
         <h1 className="text-3xl font-bold">Gestion des Coupons</h1>
         <Button
           onClick={() => {
+            if (couponTypes.length === 0) {
+              toast.error('Impossible de créer un coupon: aucun type disponible');
+              return;
+            }
             setEditingCoupon(emptyCoupon);
             setIsCreating(true);
           }}
@@ -169,29 +184,47 @@ export default function AdminCoupons() {
         </Button>
       </div>
 
+      {!loading && couponTypes.length === 0 && (
+        <Card className="mb-6 bg-yellow-50 border-yellow-200">
+          <CardContent className="pt-6">
+            <p className="text-yellow-800 font-medium">Aucun type de coupon disponible</p>
+            <p className="text-yellow-700 text-sm mt-1">
+              Les types de coupons (remise montant, pourcentage, livraison) doivent être créés dans la table coupon_types.
+              Contactez un administrateur système si ce message persiste.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {(editingCoupon || isCreating) && (
         <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="space-y-4">
               <div>
                 <Label>Type de coupon *</Label>
-                <Select
-                  value={editingCoupon?.coupon_type_id || ''}
-                  onValueChange={(value) =>
-                    setEditingCoupon(prev => prev ? { ...prev, coupon_type_id: value } : emptyCoupon)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez un type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {couponTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.id}>
-                        {getTypeLabel(type.type)} - {type.description}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {couponTypes.length === 0 ? (
+                  <div className="text-sm text-red-600 p-2 bg-red-50 rounded border border-red-200">
+                    Aucun type de coupon disponible. Impossible de créer un coupon.
+                  </div>
+                ) : (
+                  <Select
+                    value={editingCoupon?.coupon_type_id || ''}
+                    onValueChange={(value) =>
+                      setEditingCoupon(prev => prev ? { ...prev, coupon_type_id: value } : emptyCoupon)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez un type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {couponTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.id}>
+                          {getTypeLabel(type.type)} - {type.description}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div>
                 <Label>Code *</Label>
@@ -243,7 +276,10 @@ export default function AdminCoupons() {
                 <Label>Actif</Label>
               </div>
               <div className="flex gap-2">
-                <Button onClick={() => editingCoupon && handleSave(editingCoupon)}>
+                <Button
+                  onClick={() => editingCoupon && handleSave(editingCoupon)}
+                  disabled={couponTypes.length === 0 || !editingCoupon?.coupon_type_id || !editingCoupon?.code}
+                >
                   <Save className="w-4 h-4 mr-2" />
                   Enregistrer
                 </Button>
@@ -267,6 +303,13 @@ export default function AdminCoupons() {
         <div className="flex justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
         </div>
+      ) : coupons.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <p className="text-gray-500 text-lg">Aucun coupon créé pour le moment.</p>
+            <p className="text-gray-400 text-sm mt-2">Cliquez sur &quot;Ajouter un coupon&quot; pour commencer.</p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-4">
           {(coupons || []).map((coupon: any) => (
