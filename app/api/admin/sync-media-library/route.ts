@@ -143,22 +143,27 @@ export async function POST(request: NextRequest) {
 
         addLog(`📝 Données à insérer: ${JSON.stringify(mediaEntry, null, 2)}`);
 
-        // INSERTION FORCÉE avec UPSERT
-        const { data: insertedData, error: insertError } = await supabase
-          .from('media_library')
-          .upsert(mediaEntry, {
-            onConflict: 'url',
-            ignoreDuplicates: false
-          })
-          .select()
-          .single();
+        // UTILISER RPC pour bypasser le cache PostgREST
+        addLog('🔧 Utilisation de fonction RPC (bypass PostgREST cache)');
+
+        const { data: insertedData, error: insertError } = await supabase.rpc('insert_media_library_entry', {
+          p_filename: mediaEntry.filename,
+          p_url: mediaEntry.url,
+          p_file_path: mediaEntry.file_path,
+          p_bucket_name: mediaEntry.bucket_name,
+          p_file_size: mediaEntry.file_size,
+          p_mime_type: mediaEntry.mime_type,
+          p_usage_count: mediaEntry.usage_count,
+          p_is_orphan: mediaEntry.is_orphan,
+          p_uploaded_by: mediaEntry.uploaded_by
+        });
 
         if (insertError) {
-          addLog(`❌ ERREUR D'INSERTION: ${JSON.stringify(insertError, null, 2)}`);
+          addLog(`❌ ERREUR D'INSERTION RPC: ${JSON.stringify(insertError, null, 2)}`);
           addLog(`   Code: ${insertError.code}`);
           addLog(`   Message: ${insertError.message}`);
-          addLog(`   Détails: ${insertError.details}`);
-          addLog(`   Hint: ${insertError.hint}`);
+          addLog(`   Détails: ${insertError.details || 'N/A'}`);
+          addLog(`   Hint: ${insertError.hint || 'N/A'}`);
           errorDetails.push({
             file: file.name,
             error: insertError.message,
@@ -166,11 +171,12 @@ export async function POST(request: NextRequest) {
             details: insertError
           });
           totalErrors++;
-        } else if (insertedData) {
+        } else if (insertedData && insertedData.id) {
           addLog(`✅ SUCCÈS: Fichier inséré avec ID ${insertedData.id}`);
           totalSynced++;
         } else {
           addLog(`⚠️  ANOMALIE: Pas d'erreur mais pas de données retournées`);
+          addLog(`   Data reçue: ${JSON.stringify(insertedData)}`);
           totalErrors++;
         }
       }
@@ -189,12 +195,10 @@ export async function POST(request: NextRequest) {
     addLog(`❌ Total erreurs: ${totalErrors}`);
     addLog('════════════════════════════════════════════════════════════════');
 
-    // Vérification finale en base
-    const { data: finalCount } = await supabase
-      .from('media_library')
-      .select('id', { count: 'exact', head: true });
+    // Vérification finale en base via RPC
+    const { data: finalCountData } = await supabase.rpc('count_media_library_entries');
 
-    addLog(`🔍 Vérification finale: ${(finalCount as any)?.count || 0} entrées dans media_library`);
+    addLog(`🔍 Vérification finale: ${finalCountData || 0} entrées dans media_library`);
 
     return NextResponse.json({
       success: totalSynced > 0,
