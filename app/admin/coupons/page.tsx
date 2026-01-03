@@ -229,7 +229,7 @@ export default function AdminCoupons() {
               <div>
                 <Label>Code *</Label>
                 <Input
-                  value={editingCoupon?.code || ''}
+                  value={editingCoupon?.code ?? ''}
                   onChange={(e) =>
                     setEditingCoupon(prev => prev ? { ...prev, code: e.target.value.toUpperCase() } : emptyCoupon)
                   }
@@ -240,7 +240,8 @@ export default function AdminCoupons() {
                 <Label>Valeur</Label>
                 <Input
                   type="number"
-                  value={editingCoupon?.value || 0}
+                  step="0.01"
+                  value={editingCoupon?.value ?? 0}
                   onChange={(e) =>
                     setEditingCoupon(prev => prev ? { ...prev, value: parseFloat(e.target.value) || 0 } : emptyCoupon)
                   }
@@ -249,7 +250,7 @@ export default function AdminCoupons() {
               <div>
                 <Label>Description</Label>
                 <Input
-                  value={editingCoupon?.description || ''}
+                  value={editingCoupon?.description ?? ''}
                   onChange={(e) =>
                     setEditingCoupon(prev => prev ? { ...prev, description: e.target.value } : emptyCoupon)
                   }
@@ -260,7 +261,7 @@ export default function AdminCoupons() {
                 <Label>Valide jusqu&apos;au</Label>
                 <Input
                   type="datetime-local"
-                  value={editingCoupon?.valid_until?.slice(0, 16) || ''}
+                  value={(editingCoupon?.valid_until && typeof editingCoupon.valid_until === 'string') ? editingCoupon.valid_until.slice(0, 16) : ''}
                   onChange={(e) =>
                     setEditingCoupon(prev => prev ? { ...prev, valid_until: e.target.value } : emptyCoupon)
                   }
@@ -340,13 +341,13 @@ export default function AdminCoupons() {
                       variant="outline"
                       size="sm"
                       onClick={() => setEditingCoupon({
-                        id: coupon.id,
-                        coupon_type_id: coupon.coupon_type_id,
-                        code: coupon.code,
-                        description: coupon.description,
-                        value: coupon.value,
-                        valid_until: coupon.valid_until?.slice(0, 16) || '',
-                        is_active: coupon.is_active,
+                        id: coupon.id ?? '',
+                        coupon_type_id: coupon.coupon_type_id ?? '',
+                        code: coupon.code ?? '',
+                        description: coupon.description ?? '',
+                        value: coupon.value ?? 0,
+                        valid_until: (coupon.valid_until && typeof coupon.valid_until === 'string') ? coupon.valid_until.slice(0, 16) : '',
+                        is_active: coupon.is_active ?? true,
                       })}
                     >
                       <Edit className="w-4 h-4" />
