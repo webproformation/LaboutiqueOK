@@ -22,6 +22,7 @@ interface AttributeTerm {
   name: string;
   slug: string;
   value: string | null;
+  color_code?: string | null;
   order_by: number;
 }
 
@@ -72,7 +73,7 @@ export default function ProductAttributesManager({
       const { data: attributesData, error: attrError } = await supabase
         .from('product_attributes')
         .select('*')
-        .eq('is_visible', true)
+        .eq('is_active', true)
         .order('order_by', { ascending: true });
 
       if (attrError) {
@@ -249,10 +250,11 @@ export default function ProductAttributesManager({
             {/* AFFICHAGE EN FONCTION DU TYPE */}
             {attribute.type === 'color' ? (
               // Pastilles colorées pour les couleurs
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 {attributeTerms.map((term) => {
                   const selected = isTermSelected(attribute.id, term.id);
-                  const bgColor = term.value || '#CCCCCC';
+                  // PRIORITÉ: color_code > value > fallback gris
+                  const bgColor = term.color_code || term.value || '#CCCCCC';
 
                   return (
                     <button
@@ -263,20 +265,20 @@ export default function ProductAttributesManager({
                       title={term.name}
                     >
                       <div
-                        className={`w-12 h-12 rounded-full border-2 transition-all ${
+                        className={`w-14 h-14 rounded-full border-3 transition-all shadow-md ${
                           selected
-                            ? 'border-blue-600 ring-2 ring-blue-200'
-                            : 'border-gray-300 hover:border-gray-400'
+                            ? 'border-[#C6A15B] ring-4 ring-[#C6A15B]/30 scale-110'
+                            : 'border-gray-300 hover:border-gray-500 hover:scale-105'
                         }`}
                         style={{ backgroundColor: bgColor }}
                       >
                         {selected && (
                           <div className="absolute inset-0 flex items-center justify-center">
-                            <Check className="w-5 h-5 text-white drop-shadow-md" />
+                            <Check className="w-6 h-6 text-white drop-shadow-lg" strokeWidth={3} />
                           </div>
                         )}
                       </div>
-                      <span className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs text-gray-600 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="absolute -bottom-7 left-1/2 transform -translate-x-1/2 text-xs font-medium text-gray-700 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded shadow-sm">
                         {term.name}
                       </span>
                     </button>
@@ -284,8 +286,8 @@ export default function ProductAttributesManager({
                 })}
               </div>
             ) : attribute.type === 'button' ? (
-              // Chips larges pour les tailles (optimisé mobile)
-              <div className="flex flex-wrap gap-2">
+              // Chips larges pour les tailles (optimisé mobile + tactile)
+              <div className="flex flex-wrap gap-3">
                 {attributeTerms.map((term) => {
                   const selected = isTermSelected(attribute.id, term.id);
 
@@ -296,13 +298,16 @@ export default function ProductAttributesManager({
                       variant={selected ? 'default' : 'outline'}
                       size="lg"
                       onClick={() => handleTermToggle(attribute.id, term.id)}
-                      className={`min-w-[80px] font-semibold ${
+                      className={`min-w-[100px] h-14 text-lg font-bold transition-all shadow-md ${
                         selected
-                          ? 'bg-blue-600 text-white hover:bg-blue-700'
-                          : 'hover:bg-gray-100'
+                          ? 'bg-[#C6A15B] text-white hover:bg-[#b8933d] ring-4 ring-[#C6A15B]/30 scale-105'
+                          : 'bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 hover:scale-105'
                       }`}
                     >
                       {term.name}
+                      {selected && (
+                        <Check className="ml-2 w-5 h-5" strokeWidth={3} />
+                      )}
                     </Button>
                   );
                 })}
