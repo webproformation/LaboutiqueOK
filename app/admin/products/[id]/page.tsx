@@ -43,7 +43,8 @@ interface ProductFormData {
   stock_quantity: number | null;
   manage_stock: boolean;
   stock_status: 'instock' | 'outofstock';
-  featured: boolean;
+  is_featured: boolean;
+  is_diamond: boolean;
   image_id: number;
   image_url: string;
   gallery_images: GalleryImage[];
@@ -69,7 +70,8 @@ export default function EditProductPage() {
     stock_quantity: null,
     manage_stock: false,
     stock_status: 'instock',
-    featured: false,
+    is_featured: false,
+    is_diamond: false,
     image_id: 0,
     image_url: '',
     gallery_images: [],
@@ -225,7 +227,8 @@ export default function EditProductPage() {
         stock_quantity: product.stock_quantity || null,
         manage_stock: product.manage_stock === true,
         stock_status: product.stock_status || 'instock',
-        featured: product.featured === true,
+        is_featured: product.is_featured === true,
+        is_diamond: product.is_diamond === true,
         image_id: 0,
         image_url: mainImageUrl,
         gallery_images: galleryImages,
@@ -279,7 +282,8 @@ export default function EditProductPage() {
           manage_stock: formData.manage_stock,
           stock_quantity: formData.stock_quantity,
           stock_status: finalStockStatus,
-          featured: formData.featured,
+          is_featured: formData.is_featured,
+          is_diamond: formData.is_diamond,
           image_url: formData.image_url || null,
           is_active: formData.status === 'publish',
           updated_at: new Date().toISOString(),
@@ -753,15 +757,28 @@ export default function EditProductPage() {
             </div>
             <div className="flex items-center justify-between">
               <div>
-                <Label htmlFor="featured">Produit en vedette</Label>
+                <Label htmlFor="is_featured">Produit en vedette</Label>
                 <p className="text-xs text-gray-500 mt-1">
                   Les produits vedettes sont mis en avant sur le site
                 </p>
               </div>
               <Switch
-                id="featured"
-                checked={formData.featured}
-                onCheckedChange={(checked) => setFormData({ ...formData, featured: checked })}
+                id="is_featured"
+                checked={formData.is_featured}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_featured: checked })}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="is_diamond">Diamant caché</Label>
+                <p className="text-xs text-gray-500 mt-1">
+                  Active le jeu du diamant caché pour ce produit
+                </p>
+              </div>
+              <Switch
+                id="is_diamond"
+                checked={formData.is_diamond}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_diamond: checked })}
               />
             </div>
           </CardContent>

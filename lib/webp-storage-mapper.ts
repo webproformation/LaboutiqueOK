@@ -49,11 +49,8 @@ class WebPStorageMapper {
    * Scanne le Storage et construit l'index
    */
   private async buildIndex(): Promise<WebPImageIndex> {
-    console.log('[WebPMapper] 🔍 Scanning Storage for images...');
-
     // Si pas de client Supabase, retourner index vide
     if (!supabase) {
-      console.warn('[WebPMapper] No Supabase client - returning empty index');
       return {};
     }
 
@@ -63,12 +60,8 @@ class WebPStorageMapper {
         .list('products', { limit: 1000 });
 
       if (error) {
-        console.error('❌ [WebPMapper] ERREUR CRITIQUE Storage:', error);
-        console.error('   Vérifier les permissions du bucket product-images');
         return {};
       }
-
-      console.log(`[WebPMapper] Found ${files?.length || 0} total files`);
 
       // Chercher TOUS les formats d'image (webp, jpg, png)
       const imageFiles = files?.filter(f =>
@@ -77,16 +70,6 @@ class WebPStorageMapper {
         f.name.endsWith('.jpeg') ||
         f.name.endsWith('.png')
       ) || [];
-
-      const webpCount = files?.filter(f => f.name.endsWith('.webp')).length || 0;
-      const jpgCount = files?.filter(f => f.name.endsWith('.jpg') || f.name.endsWith('.jpeg')).length || 0;
-      const pngCount = files?.filter(f => f.name.endsWith('.png')).length || 0;
-
-      console.log(`[WebPMapper] Image files breakdown:`);
-      console.log(`  - WebP: ${webpCount}`);
-      console.log(`  - JPG/JPEG: ${jpgCount}`);
-      console.log(`  - PNG: ${pngCount}`);
-      console.log(`  - TOTAL: ${imageFiles.length}`);
 
       const index: WebPImageIndex = {};
       // CRITIQUE: Utiliser le BON projet Supabase (qcqbtmv) pour les URLs publiques
@@ -109,17 +92,8 @@ class WebPStorageMapper {
             index[wooId] = [];
           }
           index[wooId].push(publicUrl);
-
-          // Log de détail pour CHAQUE produit trouvé
-          console.log(`[WebPMapper] FOUND: ${file.name} for WooCommerce ID ${wooId}`);
         }
       });
-
-      const productCount = Object.keys(index).length;
-      const totalImages = Object.values(index).reduce((sum, imgs) => sum + imgs.length, 0);
-      console.log(`[WebPMapper] ✅ Indexed ${productCount} products with ${totalImages} images`);
-      console.log(`[WebPMapper] Product IDs (first 30):`, Object.keys(index).slice(0, 30).join(', '));
-      console.log(`[WebPMapper] Products with multiple images:`, Object.entries(index).filter(([_, imgs]) => imgs.length > 1).length);
 
       return index;
     } catch (error) {
@@ -142,7 +116,6 @@ class WebPStorageMapper {
 
     // Si on est déjà en train d'indexer, attendre
     if (this.isIndexing) {
-      console.log('[WebPMapper] Indexing already in progress, waiting...');
       await new Promise(resolve => setTimeout(resolve, 1000));
       return this.imageIndex || {};
     }
@@ -165,19 +138,7 @@ class WebPStorageMapper {
    */
   async getImagesForProduct(woocommerceId: number): Promise<string[]> {
     const index = await this.getIndex();
-    const images = index[woocommerceId] || [];
-
-    if (images.length > 0) {
-      console.log(`[WebPMapper] ✅ Found ${images.length} image(s) for product ${woocommerceId}:`);
-      images.forEach((img, i) => {
-        const ext = img.split('.').pop();
-        console.log(`  ${i + 1}. ${ext?.toUpperCase()} - ${img}`);
-      });
-    } else {
-      console.log(`[WebPMapper] ⚠️  No images found in Supabase for product ${woocommerceId}`);
-    }
-
-    return images;
+    return index[woocommerceId] || [];
   }
 
   /**
@@ -204,14 +165,12 @@ class WebPStorageMapper {
   clearCache() {
     this.imageIndex = null;
     this.lastIndexTime = 0;
-    console.log('[WebPMapper] Cache cleared');
   }
 
   /**
    * Pré-charge l'index en arrière-plan
    */
   async preloadIndex() {
-    console.log('[WebPMapper] Preloading index...');
     await this.getIndex();
   }
 }

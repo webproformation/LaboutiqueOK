@@ -167,19 +167,20 @@ export default function AdminProducts() {
 
   const loadProductFlags = async () => {
     try {
+      // LIRE DEPUIS LA TABLE products (colonnes is_featured et is_diamond)
       const { data, error } = await supabase
-        .from('featured_products')
-        .select('product_id, is_active, is_hidden_diamond');
+        .from('products')
+        .select('woocommerce_id, is_featured, is_diamond');
 
       if (error) throw error;
 
       const flagsMap = new Map<number, ProductFlags>();
       if (Array.isArray(data)) {
-        data.forEach((flag) => {
-          flagsMap.set(flag.product_id, {
-            product_id: flag.product_id,
-            is_active: flag.is_active,
-            is_hidden_diamond: flag.is_hidden_diamond,
+        data.forEach((product) => {
+          flagsMap.set(product.woocommerce_id, {
+            product_id: product.woocommerce_id,
+            is_active: product.is_featured || false,
+            is_hidden_diamond: product.is_diamond || false,
           });
         });
       }
@@ -231,24 +232,13 @@ export default function AdminProducts() {
       const currentFlags = productFlags.get(woocommerceId);
       const newIsActive = !currentFlags?.is_active;
 
-      if (currentFlags) {
-        const { error } = await supabase
-          .from('featured_products')
-          .update({ is_active: newIsActive })
-          .eq('product_id', woocommerceId);
+      // UPDATE DIRECTEMENT LA COLONNE is_featured DANS products (pas featured_products)
+      const { error } = await supabase
+        .from('products')
+        .update({ is_featured: newIsActive })
+        .eq('woocommerce_id', woocommerceId);
 
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('featured_products')
-          .insert({
-            product_id: woocommerceId,
-            is_active: newIsActive,
-            is_hidden_diamond: false,
-          });
-
-        if (error) throw error;
-      }
+      if (error) throw error;
 
       toast.success(newIsActive ? 'Produit ajouté aux vedettes' : 'Produit retiré des vedettes');
       await loadProductFlags();
@@ -263,24 +253,13 @@ export default function AdminProducts() {
       const currentFlags = productFlags.get(woocommerceId);
       const newIsHiddenDiamond = !currentFlags?.is_hidden_diamond;
 
-      if (currentFlags) {
-        const { error } = await supabase
-          .from('featured_products')
-          .update({ is_hidden_diamond: newIsHiddenDiamond })
-          .eq('product_id', woocommerceId);
+      // UPDATE DIRECTEMENT LA COLONNE is_diamond DANS products (pas featured_products)
+      const { error } = await supabase
+        .from('products')
+        .update({ is_diamond: newIsHiddenDiamond })
+        .eq('woocommerce_id', woocommerceId);
 
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('featured_products')
-          .insert({
-            product_id: woocommerceId,
-            is_active: false,
-            is_hidden_diamond: newIsHiddenDiamond,
-          });
-
-        if (error) throw error;
-      }
+      if (error) throw error;
 
       toast.success(newIsHiddenDiamond ? 'Diamant caché activé' : 'Diamant caché désactivé');
       await loadProductFlags();

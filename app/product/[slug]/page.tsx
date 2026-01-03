@@ -119,16 +119,16 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
 
   const checkHiddenDiamondStatus = async (productId: number) => {
     try {
-      const { data: diamondData, error } = await supabase
-        .from('featured_products')
-        .select('is_hidden_diamond')
-        .eq('product_id', productId)
-        .eq('is_hidden_diamond', true)
+      const { data: productData, error } = await supabase
+        .from('products')
+        .select('is_diamond')
+        .eq('woocommerce_id', productId)
+        .eq('is_diamond', true)
         .maybeSingle();
 
       if (error) throw error;
 
-      if (diamondData) {
+      if (productData?.is_diamond) {
         setHasHiddenDiamond(true);
         const positions: ('title' | 'image' | 'description')[] = ['title', 'image', 'description'];
         const randomPosition = positions[Math.floor(Math.random() * positions.length)];

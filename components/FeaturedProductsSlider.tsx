@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery } from '@apollo/client/react';
-import { GET_PRODUCTS_BY_IDS } from '@/lib/queries';
-import { supabase } from '@/lib/supabase-client';
+import { createClient } from '@/lib/supabase-client';
 import ProductCard from './ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -14,82 +12,121 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 import Autoplay from 'embla-carousel-autoplay';
-import { enrichProductsWithSupabaseImages } from '@/lib/supabase-product-mapper';
 import { Product } from '@/types';
 
-interface GetProductsByIdsResponse {
-  products: {
-    nodes: any[];
+interface SupabaseProduct {
+  id: string;
+  woocommerce_id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  short_description?: string;
+  regular_price: number;
+  sale_price: number | null;
+  image_url: string | null;
+  images: any;
+  stock_status: string;
+  stock_quantity: number | null;
+  is_active: boolean;
+  is_featured: boolean;
+  attributes: any;
+  variations: any;
+  manage_stock: boolean;
+}
+
+function mapSupabaseProductToProduct(supabaseProduct: SupabaseProduct): Product {
+  const hasVariations = supabaseProduct.variations && Array.isArray(supabaseProduct.variations) && supabaseProduct.variations.length > 0;
+
+  const regularPrice = supabaseProduct.regular_price?.toString() || '0';
+  const salePrice = supabaseProduct.sale_price?.toString() || null;
+  const price = salePrice || regularPrice;
+
+  return {
+    id: supabaseProduct.id,
+    databaseId: supabaseProduct.woocommerce_id,
+    name: supabaseProduct.name,
+    slug: supabaseProduct.slug,
+    price: price,
+    regularPrice: regularPrice,
+    salePrice: salePrice,
+    onSale: !!salePrice && parseFloat(salePrice) < parseFloat(regularPrice),
+    type: hasVariations ? 'VARIABLE' : 'SIMPLE',
+    status: supabaseProduct.is_active ? 'publish' : 'draft',
+    stockStatus: supabaseProduct.stock_status || 'instock',
+    stockQuantity: supabaseProduct.stock_quantity,
+    manageStock: supabaseProduct.manage_stock,
+    featured: true,
+    description: supabaseProduct.description,
+    shortDescription: supabaseProduct.short_description,
+    image: supabaseProduct.image_url ? {
+      sourceUrl: supabaseProduct.image_url
+    } : undefined,
+    galleryImages: supabaseProduct.images && Array.isArray(supabaseProduct.images) ? {
+      nodes: supabaseProduct.images.map((img: any) => ({
+        sourceUrl: img.src || img.image_url || img
+      }))
+    } : { nodes: [] },
+    attributes: supabaseProduct.attributes ? {
+      nodes: Array.isArray(supabaseProduct.attributes) ? supabaseProduct.attributes.map((attr: any) => ({
+        name: attr.name,
+        slug: attr.slug,
+        options: attr.options || [],
+        variation: attr.variation
+      })) : []
+    } : { nodes: [] },
+    variations: hasVariations ? {
+      nodes: supabaseProduct.variations.map((variation: any) => ({
+        id: variation.id,
+        databaseId: variation.id,
+        name: variation.name,
+        price: variation.price?.toString() || '0',
+        regularPrice: variation.regular_price?.toString(),
+        salePrice: variation.sale_price?.toString(),
+        onSale: !!variation.sale_price,
+        stockStatus: variation.stock_status || 'instock',
+        stockQuantity: variation.stock_quantity,
+        attributes: variation.attributes || [],
+        image: variation.image ? {
+          sourceUrl: variation.image.src || variation.image
+        } : undefined
+      }))
+    } : { nodes: [] }
   };
 }
 
 export default function FeaturedProductsSlider() {
-  const [featuredProductIds, setFeaturedProductIds] = useState<number[]>([]);
-  const [loadingIds, setLoadingIds] = useState(true);
-  const [enrichedProducts, setEnrichedProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const supabase = createClient();
 
   useEffect(() => {
     const fetchFeaturedProducts = async () => {
       try {
+        setLoading(true);
+
         const { data, error } = await supabase
-          .from('featured_products')
-          .select('product_id')
+          .from('products')
+          .select('*')
+          .eq('is_featured', true)
           .eq('is_active', true)
-          .order('display_order', { ascending: true })
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(12);
 
         if (error) throw error;
 
-        const ids = data?.map((item: any) => item.product_id) || [];
-        setFeaturedProductIds(ids);
+        const mappedProducts = (data || []).map(mapSupabaseProductToProduct);
+        setProducts(mappedProducts);
       } catch (error) {
         console.error('Error fetching featured products:', error);
       } finally {
-        setLoadingIds(false);
+        setLoading(false);
       }
     };
 
     fetchFeaturedProducts();
   }, []);
 
-  const { data: productsData, loading, error: apolloError } = useQuery<GetProductsByIdsResponse>(GET_PRODUCTS_BY_IDS, {
-    variables: { ids: featuredProductIds },
-    skip: loadingIds || featuredProductIds.length === 0,
-  });
-
-  useEffect(() => {
-    if (featuredProductIds.length > 0) {
-      console.log('[FeaturedProductsSlider] Featured product IDs:', featuredProductIds);
-    }
-    if (productsData) {
-      console.log('[FeaturedProductsSlider] GraphQL response:', productsData);
-      console.log('[FeaturedProductsSlider] Products found:', productsData?.products?.nodes?.length || 0);
-    }
-    if (apolloError) {
-      console.error('[FeaturedProductsSlider] Apollo error:', apolloError);
-    }
-  }, [featuredProductIds, productsData, apolloError]);
-
-  // ENRICHISSEMENT SUPABASE - DÉSACTIVÉ TEMPORAIREMENT (risque boucle infinie)
-  useEffect(() => {
-    if (productsData?.products?.nodes && productsData.products.nodes.length > 0) {
-      // console.log('[FeaturedProductsSlider] 🎯 Enriching', productsData.products.nodes.length, 'featured products');
-      // enrichProductsWithSupabaseImages(productsData.products.nodes as Product[])
-      //   .then(enriched => {
-      //     console.log('[FeaturedProductsSlider] ✅ Enrichment complete');
-      //     setEnrichedProducts(enriched);
-      //   })
-      //   .catch(error => {
-      //     console.error('[FeaturedProductsSlider] ❌ Enrichment error:', error);
-      //     setEnrichedProducts(productsData.products.nodes as Product[]);
-      //   });
-
-      // UTILISER DIRECTEMENT PRODUITS SANS ENRICHISSEMENT
-      setEnrichedProducts(productsData.products.nodes as Product[]);
-    }
-  }, [productsData]);
-
-  if (loadingIds || loading) {
+  if (loading) {
     return (
       <div className="py-12 bg-gray-50">
         <div className="container mx-auto px-4">
@@ -99,9 +136,13 @@ export default function FeaturedProductsSlider() {
               Ces pièces que vous adorez... et que nous aussi !
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-96 w-full rounded-lg" />
+              <div key={i} className="space-y-3">
+                <Skeleton className="aspect-square w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
             ))}
           </div>
         </div>
@@ -109,26 +150,12 @@ export default function FeaturedProductsSlider() {
     );
   }
 
-  if (apolloError) {
-    console.error('[FeaturedProductsSlider] Error loading featured products:', apolloError);
+  if (!products || products.length === 0) {
     return null;
   }
-
-  if (featuredProductIds.length === 0) {
-    console.log('[FeaturedProductsSlider] No featured products configured');
-    return null;
-  }
-
-  if (!productsData?.products?.nodes || productsData.products.nodes.length === 0) {
-    console.log('[FeaturedProductsSlider] No products returned from WooCommerce');
-    return null;
-  }
-
-  // UTILISER LES PRODUITS ENRICHIS (ou fallback vers originaux si pas encore enrichis)
-  const productsToDisplay = enrichedProducts.length > 0 ? enrichedProducts : productsData.products.nodes;
 
   return (
-    <div className="py-12 bg-gray-50 overflow-hidden">
+    <div className="py-12 bg-gray-50">
       <div className="container mx-auto px-4">
         <div className="text-center mb-8">
           <h2 className="text-4xl font-bold mb-4" style={{ color: '#C6A15B' }}>Les pépites du moment</h2>
@@ -136,34 +163,31 @@ export default function FeaturedProductsSlider() {
             Ces pièces que vous adorez... et que nous aussi !
           </p>
         </div>
-        <div className="overflow-hidden">
-          <Carousel
-            opts={{
-              align: 'start',
-              loop: true,
-            }}
-            plugins={[
-              Autoplay({
-                delay: 4000,
-              }),
-            ]}
-            className="w-full"
-          >
-            <CarouselContent className="-ml-2 md:-ml-4">
-              {productsToDisplay.map((product: any, index: number) => (
-                <CarouselItem
-                  key={product.databaseId}
-                  className="pl-2 md:pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 animate-in fade-in duration-500"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
+
+        <Carousel
+          opts={{
+            align: 'start',
+            loop: true,
+          }}
+          plugins={[
+            Autoplay({
+              delay: 4000,
+            }),
+          ]}
+          className="w-full"
+        >
+          <CarouselContent>
+            {products.map((product) => (
+              <CarouselItem key={product.id} className="md:basis-1/3 lg:basis-1/4">
+                <div className="p-1">
                   <ProductCard product={product} />
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            <CarouselPrevious className="hidden md:flex" />
-            <CarouselNext className="hidden md:flex" />
-          </Carousel>
-        </div>
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious className="hidden md:flex" />
+          <CarouselNext className="hidden md:flex" />
+        </Carousel>
       </div>
     </div>
   );

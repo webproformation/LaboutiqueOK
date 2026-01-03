@@ -1,11 +1,9 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useQuery } from '@apollo/client/react';
-import { GET_PRODUCTS_BY_CATEGORY, GET_PRODUCTS_BY_CATEGORIES, GET_PRODUCT_CATEGORIES } from '@/lib/queries';
 import ProductCard from '@/components/ProductCard';
 import ProductFilters from '@/components/ProductFilters';
-import { Product, GetProductsByCategoryResponse, GetProductCategoriesResponse } from '@/types';
+import { Product } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertCircle, ArrowLeft, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -14,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useParams } from 'next/navigation';
 import { parsePrice } from '@/lib/utils';
 import { useClientSize } from '@/hooks/use-client-size';
-import { enrichProductsWithSupabaseImages } from '@/lib/supabase-product-mapper';
+import { createClient } from '@/lib/supabase-client';
 import {
   Sheet,
   SheetContent,
@@ -24,101 +22,183 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 
+interface SupabaseCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  parent_id: string | null;
+  woocommerce_id: number;
+}
+
+interface SupabaseProduct {
+  id: string;
+  woocommerce_id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  short_description?: string;
+  regular_price: number;
+  sale_price: number | null;
+  image_url: string | null;
+  images: any;
+  stock_status: string;
+  stock_quantity: number | null;
+  is_active: boolean;
+  is_featured: boolean;
+  is_diamond: boolean;
+  attributes: any;
+  variations: any;
+  manage_stock: boolean;
+}
+
+function mapSupabaseProductToProduct(supabaseProduct: SupabaseProduct): Product {
+  const hasVariations = supabaseProduct.variations && Array.isArray(supabaseProduct.variations) && supabaseProduct.variations.length > 0;
+
+  const regularPrice = supabaseProduct.regular_price?.toString() || '0';
+  const salePrice = supabaseProduct.sale_price?.toString() || null;
+  const price = salePrice || regularPrice;
+
+  return {
+    id: supabaseProduct.id,
+    databaseId: supabaseProduct.woocommerce_id,
+    name: supabaseProduct.name,
+    slug: supabaseProduct.slug,
+    price: price,
+    regularPrice: regularPrice,
+    salePrice: salePrice,
+    onSale: !!salePrice && parseFloat(salePrice) < parseFloat(regularPrice),
+    type: hasVariations ? 'VARIABLE' : 'SIMPLE',
+    status: supabaseProduct.is_active ? 'publish' : 'draft',
+    stockStatus: supabaseProduct.stock_status || 'instock',
+    stockQuantity: supabaseProduct.stock_quantity,
+    manageStock: supabaseProduct.manage_stock,
+    featured: supabaseProduct.is_featured,
+    description: supabaseProduct.description,
+    shortDescription: supabaseProduct.short_description,
+    image: supabaseProduct.image_url ? {
+      sourceUrl: supabaseProduct.image_url
+    } : undefined,
+    galleryImages: supabaseProduct.images && Array.isArray(supabaseProduct.images) ? {
+      nodes: supabaseProduct.images.map((img: any) => ({
+        sourceUrl: img.src || img.image_url || img
+      }))
+    } : { nodes: [] },
+    attributes: supabaseProduct.attributes ? {
+      nodes: Array.isArray(supabaseProduct.attributes) ? supabaseProduct.attributes.map((attr: any) => ({
+        name: attr.name,
+        slug: attr.slug,
+        options: attr.options || [],
+        variation: attr.variation
+      })) : []
+    } : { nodes: [] },
+    variations: hasVariations ? {
+      nodes: supabaseProduct.variations.map((variation: any) => ({
+        id: variation.id,
+        databaseId: variation.id,
+        name: variation.name,
+        price: variation.price?.toString() || '0',
+        regularPrice: variation.regular_price?.toString(),
+        salePrice: variation.sale_price?.toString(),
+        onSale: !!variation.sale_price,
+        stockStatus: variation.stock_status || 'instock',
+        stockQuantity: variation.stock_quantity,
+        attributes: variation.attributes || [],
+        image: variation.image ? {
+          sourceUrl: variation.image.src || variation.image
+        } : undefined
+      }))
+    } : { nodes: [] }
+  };
+}
+
 export default function CategoryPage() {
   const params = useParams();
   const rawSlug = params.slug as string;
   const slug = decodeURIComponent(rawSlug);
+
   const [filters, setFilters] = useState<Record<string, string[]>>({});
   const [priceFilter, setPriceFilter] = useState<{ min: number; max: number } | undefined>();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [enrichedProducts, setEnrichedProducts] = useState<Product[]>([]);
-  const [isEnriching, setIsEnriching] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentCategory, setCurrentCategory] = useState<SupabaseCategory | null>(null);
+  const [subCategories, setSubCategories] = useState<SupabaseCategory[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const { isProductInMySize } = useClientSize();
 
-  const { data: categoriesData } = useQuery<GetProductCategoriesResponse>(GET_PRODUCT_CATEGORIES);
+  const supabase = createClient();
 
-  const currentCategory = categoriesData?.productCategories?.nodes.find(
-    cat => cat.slug === slug
-  );
+  const loadCategoryAndProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  const subCategories = currentCategory
-    ? categoriesData?.productCategories?.nodes.filter(cat => cat.parentId === currentCategory.id) || []
-    : [];
+      const { data: categoryData, error: categoryError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('slug', slug)
+        .maybeSingle();
 
-  const allCategorySlugs = currentCategory
-    ? [slug, ...subCategories.map(cat => cat.slug)]
-    : [slug];
+      if (categoryError) throw categoryError;
 
-  const { loading: loadingProducts, error: errorProducts, data: dataProducts, refetch } =
-    useQuery<GetProductsByCategoryResponse>(
-      subCategories.length > 0 ? GET_PRODUCTS_BY_CATEGORIES : GET_PRODUCTS_BY_CATEGORY,
-      {
-        variables: subCategories.length > 0
-          ? { categorySlugs: allCategorySlugs }
-          : { categorySlug: slug },
+      if (!categoryData) {
+        setError('Catégorie introuvable');
+        setLoading(false);
+        return;
       }
-    );
 
-  const handleRefresh = async () => {
-    await refetch();
+      setCurrentCategory(categoryData);
+
+      const { data: subCategoriesData } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('parent_id', categoryData.id);
+
+      setSubCategories(subCategoriesData || []);
+
+      const categoryIds = [categoryData.id, ...(subCategoriesData || []).map((c: SupabaseCategory) => c.id)];
+
+      const { data: productCategoriesData, error: productCategoriesError } = await supabase
+        .from('product_categories')
+        .select('product_id')
+        .in('category_id', categoryIds);
+
+      if (productCategoriesError) throw productCategoriesError;
+
+      const productIds = (productCategoriesData || []).map((pc: any) => pc.product_id);
+
+      if (productIds.length === 0) {
+        setProducts([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select('*')
+        .in('id', productIds)
+        .eq('is_active', true);
+
+      if (productsError) throw productsError;
+
+      const mappedProducts = (productsData || []).map(mapSupabaseProductToProduct);
+      setProducts(mappedProducts);
+
+    } catch (err: any) {
+      setError(err.message || 'Erreur lors du chargement');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (errorProducts) {
-    console.error('GraphQL Error:', errorProducts);
-  }
-
-  // Always call hooks before any conditional returns
-  const allProducts = dataProducts?.products?.nodes || [];
-
-  console.log('[CategoryPage] All products received:', allProducts.length);
-  console.log('[CategoryPage] Product details:', allProducts.map((p: any) => ({
-    name: p.name,
-    id: p.id,
-    databaseId: p.databaseId,
-    type: p.__typename,
-    status: p.status,
-    slug: p.slug,
-    imageUrl: p.image?.sourceUrl
-  })));
-
-  const products: Product[] = allProducts.filter((p: Product) => {
-    const shouldInclude = !p.status || p.status === 'publish' || p.status === 'PUBLISH';
-    if (!shouldInclude) {
-      console.log('[CategoryPage] Filtered out product:', p.name, 'with status:', p.status);
-    }
-    return shouldInclude;
-  });
-
-  console.log('[CategoryPage] Published products:', products.length);
-  console.log('[CategoryPage] Published product names:', products.map(p => p.name));
-
-  // ENRICHISSEMENT SUPABASE - DÉSACTIVÉ TEMPORAIREMENT (causait boucle infinie)
-  // useEffect(() => {
-  //   if (products.length > 0 && !isEnriching) {
-  //     setIsEnriching(true);
-  //     console.log('[CategoryPage] 🎯 Starting Supabase image enrichment for', products.length, 'products');
-  //
-  //     enrichProductsWithSupabaseImages(products)
-  //       .then(enriched => {
-  //         console.log('[CategoryPage] ✅ Enrichment complete');
-  //         setEnrichedProducts(enriched);
-  //         setIsEnriching(false);
-  //       })
-  //       .catch(error => {
-  //         console.error('[CategoryPage] ❌ Enrichment error:', error);
-  //         setEnrichedProducts(products);
-  //         setIsEnriching(false);
-  //       });
-  //   } else if (products.length === 0) {
-  //     setEnrichedProducts([]);
-  //     setIsEnriching(false);
-  //   }
-  // }, [products]);
-
-  // UTILISER DIRECTEMENT LES PRODUITS SANS ENRICHISSEMENT
   useEffect(() => {
-    setEnrichedProducts(products);
-  }, [products.length]);
+    loadCategoryAndProducts();
+  }, [slug]);
+
+  const handleRefresh = () => {
+    loadCategoryAndProducts();
+  };
 
   const handleFilterChange = useCallback((newFilters: Record<string, string[]>, newPriceRange?: { min: number; max: number }) => {
     setFilters(newFilters);
@@ -129,26 +209,7 @@ export default function CategoryPage() {
     const hasAttributeFilters = Object.keys(filters).length > 0;
     const hasPriceFilter = priceFilter !== undefined;
 
-    console.log('[CategoryPage] Active filters:', {
-      filters,
-      priceFilter,
-      hasAttributeFilters,
-      hasPriceFilter,
-      filterKeys: Object.keys(filters),
-      filterValues: Object.values(filters)
-    });
-
-    // UTILISER LES PRODUITS ENRICHIS AVEC SUPABASE
-    const productsToFilter = enrichedProducts.length > 0 ? enrichedProducts : products;
-    let result = [...productsToFilter];
-
-    console.log('[CategoryPage] Before filtering:', result.map(p => ({
-      name: p.name,
-      type: p.type,
-      price: p.price,
-      parsedPrice: parsePrice(p.price),
-      hasAttributes: !!(p.attributes?.nodes?.length)
-    })));
+    let result = [...products];
 
     if (hasAttributeFilters || hasPriceFilter) {
       result = result.filter((product) => {
@@ -159,16 +220,6 @@ export default function CategoryPage() {
 
           if (productPrice === 0 && product.price === null) {
             const variations = product.variations?.nodes || [];
-            console.log('[CategoryPage] Checking variable product variations:', {
-              name: product.name,
-              variationCount: variations.length,
-              variations: variations.map((v: any) => ({
-                name: v.name,
-                price: v.price,
-                parsedPrice: parsePrice(v.price)
-              })),
-              range: priceFilter
-            });
 
             if (variations.length > 0) {
               const hasVariationInRange = variations.some((variation: any) => {
@@ -177,18 +228,11 @@ export default function CategoryPage() {
               });
 
               if (!hasVariationInRange) {
-                console.log('[CategoryPage] Variable product excluded - no variations in price range');
                 included = false;
                 return false;
               }
             }
           } else if (productPrice < priceFilter.min || productPrice > priceFilter.max) {
-            console.log('[CategoryPage] Product excluded by price filter:', {
-              name: product.name,
-              price: product.price,
-              parsedPrice: productPrice,
-              range: priceFilter
-            });
             included = false;
             return false;
           }
@@ -198,30 +242,13 @@ export default function CategoryPage() {
           const attributes = product.attributes?.nodes;
 
           if (!attributes || attributes.length === 0) {
-            console.log('[CategoryPage] Product without attributes excluded by attribute filter:', {
-              name: product.name,
-              type: product.type,
-              activeFilters: filters
-            });
             included = false;
             return false;
           }
 
           const matchesAllFilters = Object.entries(filters).every(([attributeSlug, selectedTermNames]) => {
             if (attributeSlug === 'my_size') {
-              const hasMatch = isProductInMySize(product);
-
-              if (!hasMatch) {
-                console.log('[CategoryPage] Product does not match size filter:', {
-                  name: product.name,
-                  productAttributes: attributes.map(a => ({
-                    name: a.name,
-                    options: a.options
-                  }))
-                });
-              }
-
-              return hasMatch;
+              return isProductInMySize(product);
             }
 
             const productAttribute = attributes.find(
@@ -237,29 +264,14 @@ export default function CategoryPage() {
             );
 
             if (!productAttribute || !productAttribute.options) {
-              console.log('[CategoryPage] Product missing required attribute:', {
-                name: product.name,
-                missingAttribute: attributeSlug
-              });
               return false;
             }
 
-            const hasMatch = selectedTermNames.some((termName) => {
+            return selectedTermNames.some((termName) => {
               return productAttribute.options.some((option) =>
                 option.toLowerCase().trim() === termName.toLowerCase().trim()
               );
             });
-
-            if (!hasMatch) {
-              console.log('[CategoryPage] Product does not match attribute filter:', {
-                name: product.name,
-                attribute: attributeSlug,
-                selectedTerms: selectedTermNames,
-                productOptions: productAttribute.options
-              });
-            }
-
-            return hasMatch;
           });
 
           included = matchesAllFilters;
@@ -276,12 +288,10 @@ export default function CategoryPage() {
       return priceA - priceB;
     });
 
-    console.log('[CategoryPage] After filtering:', result.map(p => p.name));
-
     return result;
-  }, [products, filters, priceFilter]);
+  }, [products, filters, priceFilter, isProductInMySize]);
 
-  if (loadingProducts) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
@@ -302,7 +312,7 @@ export default function CategoryPage() {
     );
   }
 
-  if (errorProducts) {
+  if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
@@ -316,9 +326,7 @@ export default function CategoryPage() {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Erreur</AlertTitle>
             <AlertDescription>
-              Impossible de charger les produits de cette catégorie.
-              <br />
-              <span className="text-xs">Détails: {errorProducts.message}</span>
+              {error}
             </AlertDescription>
           </Alert>
         </div>
@@ -341,10 +349,10 @@ export default function CategoryPage() {
           <Button
             variant="outline"
             onClick={handleRefresh}
-            disabled={loadingProducts}
+            disabled={loading}
             className="flex items-center gap-2"
           >
-            <RefreshCw className={`h-4 w-4 ${loadingProducts ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Actualiser
           </Button>
         </div>
@@ -362,7 +370,6 @@ export default function CategoryPage() {
           </p>
         </div>
 
-        {/* Bouton filtres mobile */}
         <div className="lg:hidden mb-4">
           <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
             <SheetTrigger asChild>
@@ -404,7 +411,6 @@ export default function CategoryPage() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Filtres desktop */}
           <aside className="hidden lg:block lg:w-64 flex-shrink-0">
             <ProductFilters
               onFilterChange={handleFilterChange}
@@ -426,17 +432,9 @@ export default function CategoryPage() {
               </Alert>
             ) : (
               <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-                {(() => {
-                  console.log('[CategoryPage] Rendering products:', filteredProducts.map(p => ({
-                    name: p.name,
-                    id: p.id,
-                    slug: p.slug,
-                    key: `${p.id}-${p.slug}`
-                  })));
-                  return filteredProducts.map((product) => (
-                    <ProductCard key={`${product.id}-${product.slug}`} product={product} />
-                  ));
-                })()}
+                {filteredProducts.map((product) => (
+                  <ProductCard key={`${product.id}-${product.slug}`} product={product} />
+                ))}
               </div>
             )}
           </div>
