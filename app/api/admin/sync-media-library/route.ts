@@ -143,23 +143,20 @@ export async function POST(request: NextRequest) {
 
         addLog(`📝 Données à insérer: ${JSON.stringify(mediaEntry, null, 2)}`);
 
-        // UTILISER RPC pour bypasser le cache PostgREST
-        addLog('🔧 Utilisation de fonction RPC (bypass PostgREST cache)');
+        // UTILISER .upsert() DIRECT avec service_role (bypass RLS et cache)
+        addLog('🔧 Utilisation de .upsert() direct avec service_role');
 
-        const { data: insertedData, error: insertError } = await supabase.rpc('insert_media_library_entry', {
-          p_filename: mediaEntry.filename,
-          p_url: mediaEntry.url,
-          p_file_path: mediaEntry.file_path,
-          p_bucket_name: mediaEntry.bucket_name,
-          p_file_size: mediaEntry.file_size,
-          p_mime_type: mediaEntry.mime_type,
-          p_usage_count: mediaEntry.usage_count,
-          p_is_orphan: mediaEntry.is_orphan,
-          p_uploaded_by: mediaEntry.uploaded_by
-        });
+        const { data: insertedData, error: insertError } = await supabase
+          .from('media_library')
+          .upsert(mediaEntry, {
+            onConflict: 'url',
+            ignoreDuplicates: false
+          })
+          .select('id, filename, url')
+          .single();
 
         if (insertError) {
-          addLog(`❌ ERREUR D'INSERTION RPC: ${JSON.stringify(insertError, null, 2)}`);
+          addLog(`❌ ERREUR D'INSERTION: ${JSON.stringify(insertError, null, 2)}`);
           addLog(`   Code: ${insertError.code}`);
           addLog(`   Message: ${insertError.message}`);
           addLog(`   Détails: ${insertError.details || 'N/A'}`);
@@ -195,10 +192,12 @@ export async function POST(request: NextRequest) {
     addLog(`❌ Total erreurs: ${totalErrors}`);
     addLog('════════════════════════════════════════════════════════════════');
 
-    // Vérification finale en base via RPC
-    const { data: finalCountData } = await supabase.rpc('count_media_library_entries');
+    // Vérification finale en base avec count direct
+    const { count: finalCount } = await supabase
+      .from('media_library')
+      .select('*', { count: 'exact', head: true });
 
-    addLog(`🔍 Vérification finale: ${finalCountData || 0} entrées dans media_library`);
+    addLog(`🔍 Vérification finale: ${finalCount || 0} entrées dans media_library`);
 
     return NextResponse.json({
       success: totalSynced > 0,
