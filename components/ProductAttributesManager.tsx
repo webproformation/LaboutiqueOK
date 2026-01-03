@@ -1,497 +1,361 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { X, Plus, Loader2, Check, RefreshCw, AlertCircle, Sparkles, Tag, Box } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Loader2, Check, AlertCircle } from 'lucide-react';
+import { supabase } from '@/lib/supabase-client';
 import { toast } from 'sonner';
 
-interface ProductAttribute {
-  name: string;
-  options: string[];
-  visible: boolean;
-  variation: boolean;
-}
-
-interface WooCommerceAttribute {
-  id: number;
+interface Attribute {
+  id: string;
   name: string;
   slug: string;
-  terms: Array<{ id: number; name: string; slug: string }>;
+  type: 'select' | 'color' | 'button' | 'text';
+  order_by: number;
+}
+
+interface AttributeTerm {
+  id: string;
+  attribute_id: string;
+  name: string;
+  slug: string;
+  value: string | null;
+  order_by: number;
+}
+
+interface ProductAttribute {
+  attribute_id: string;
+  term_ids: string[];
 }
 
 interface ProductAttributesManagerProps {
-  attributes: ProductAttribute[];
+  productId: string;
+  value: ProductAttribute[];
   onChange: (attributes: ProductAttribute[]) => void;
 }
 
-export default function ProductAttributesManager({ attributes, onChange }: ProductAttributesManagerProps) {
-  const [wooAttributes, setWooAttributes] = useState<WooCommerceAttribute[]>([]);
+export default function ProductAttributesManager({
+  productId,
+  value = [], // Protection: valeur par défaut
+  onChange
+}: ProductAttributesManagerProps) {
+  const [attributes, setAttributes] = useState<Attribute[]>([]);
+  const [terms, setTerms] = useState<Record<string, AttributeTerm[]>>({});
   const [loading, setLoading] = useState(true);
-  const [selectedWooAttr, setSelectedWooAttr] = useState<string>('');
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
-  const [newTermName, setNewTermName] = useState('');
-  const [addingTerm, setAddingTerm] = useState(false);
-  const [customAttributeName, setCustomAttributeName] = useState('');
-  const [customAttributeOptions, setCustomAttributeOptions] = useState('');
+  const [mounted, setMounted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadWooCommerceAttributes();
+    setMounted(true);
   }, []);
 
-  const loadWooCommerceAttributes = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/woocommerce/attributes');
+  useEffect(() => {
+    if (mounted) {
+      loadAttributes();
+    }
+  }, [mounted]);
 
-      if (!response.ok) {
-        console.warn('WooCommerce attributes not available:', response.status);
-        setWooAttributes([]);
+  const loadAttributes = async () => {
+    if (!supabase) {
+      console.error('[AttributesManager] No Supabase client');
+      setError('Client Supabase non disponible');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setError(null);
+
+      // Charger les attributs
+      const { data: attributesData, error: attrError } = await supabase
+        .from('product_attributes')
+        .select('*')
+        .eq('is_visible', true)
+        .order('order_by', { ascending: true });
+
+      if (attrError) {
+        console.error('[AttributesManager] Error loading attributes:', attrError);
+        // Ne pas throw, juste logger
+        setError('Impossible de charger les attributs');
+        setAttributes([]);
+        setTerms({});
         setLoading(false);
         return;
       }
 
-      const data = await response.json();
-
-      if (data.message) {
-        console.warn('WooCommerce message:', data.message);
+      // Protection: si pas de données ou tableau vide
+      if (!attributesData || attributesData.length === 0) {
+        console.log('[AttributesManager] No attributes found in database');
+        setAttributes([]);
+        setTerms({});
+        setLoading(false);
+        return;
       }
 
-      const attrs = data.attributes || [];
-      setWooAttributes(attrs);
+      setAttributes(attributesData);
+
+      // Charger les termes pour chaque attribut
+      const termsData: Record<string, AttributeTerm[]> = {};
+
+      for (const attr of attributesData) {
+        try {
+          const { data: termData, error: termError } = await supabase
+            .from('product_attribute_terms')
+            .select('*')
+            .eq('attribute_id', attr.id)
+            .eq('is_active', true)
+            .order('order_by', { ascending: true });
+
+          if (!termError && termData && termData.length > 0) {
+            termsData[attr.id] = termData;
+          } else {
+            // Pas de termes pour cet attribut
+            termsData[attr.id] = [];
+          }
+        } catch (termErr) {
+          console.error(`[AttributesManager] Error loading terms for ${attr.name}:`, termErr);
+          termsData[attr.id] = [];
+        }
+      }
+
+      setTerms(termsData);
     } catch (error) {
-      console.error('Error loading WooCommerce attributes:', error);
-      setWooAttributes([]);
+      console.error('[AttributesManager] Critical error:', error);
+      setError('Erreur lors du chargement des attributs');
+      setAttributes([]);
+      setTerms({});
     } finally {
       setLoading(false);
     }
   };
 
-  const getCurrentWooAttribute = () => {
-    return wooAttributes.find(attr => attr.slug === selectedWooAttr);
-  };
+  const handleTermToggle = (attributeId: string, termId: string) => {
+    // Protection: s'assurer que value est un tableau
+    const safeValue = Array.isArray(value) ? value : [];
+    const existingAttr = safeValue.find(a => a.attribute_id === attributeId);
 
-  const handleAddWooAttribute = () => {
-    if (!selectedWooAttr || selectedOptions.length === 0) {
-      toast.error('Veuillez sélectionner un attribut et au moins une option');
-      return;
-    }
+    if (existingAttr) {
+      // Si le terme est déjà sélectionné, le retirer
+      if (existingAttr.term_ids.includes(termId)) {
+        const newTermIds = existingAttr.term_ids.filter(id => id !== termId);
 
-    const wooAttr = getCurrentWooAttribute();
-    if (!wooAttr) return;
-
-    const existingAttrIndex = attributes.findIndex(
-      attr => attr.name.toLowerCase() === wooAttr.name.toLowerCase()
-    );
-
-    if (existingAttrIndex >= 0) {
-      const updatedAttributes = [...attributes];
-      const existingOptions = updatedAttributes[existingAttrIndex].options;
-      const newOptions = Array.from(new Set([...existingOptions, ...selectedOptions]));
-      updatedAttributes[existingAttrIndex] = {
-        ...updatedAttributes[existingAttrIndex],
-        options: newOptions,
-      };
-      onChange(updatedAttributes);
-    } else {
-      const newAttribute: ProductAttribute = {
-        name: wooAttr.name,
-        options: selectedOptions,
-        visible: true,
-        variation: false,
-      };
-      onChange([...attributes, newAttribute]);
-    }
-
-    setSelectedWooAttr('');
-    setSelectedOptions([]);
-    toast.success('Attribut ajouté avec succès');
-  };
-
-  const handleAddNewTerm = async () => {
-    if (!newTermName.trim() || !selectedWooAttr) return;
-
-    setAddingTerm(true);
-    try {
-      const wooAttr = getCurrentWooAttribute();
-      if (!wooAttr) return;
-
-      const response = await fetch('/api/woocommerce/attributes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          attributeId: wooAttr.id,
-          termName: newTermName.trim(),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur lors de l\'ajout du terme');
+        // Si plus de termes, retirer l'attribut complètement
+        if (newTermIds.length === 0) {
+          onChange(safeValue.filter(a => a.attribute_id !== attributeId));
+        } else {
+          onChange(
+            safeValue.map(a =>
+              a.attribute_id === attributeId
+                ? { ...a, term_ids: newTermIds }
+                : a
+            )
+          );
+        }
+      } else {
+        // Ajouter le terme
+        onChange(
+          safeValue.map(a =>
+            a.attribute_id === attributeId
+              ? { ...a, term_ids: [...a.term_ids, termId] }
+              : a
+          )
+        );
       }
-
-      const data = await response.json();
-
-      await loadWooCommerceAttributes();
-
-      setSelectedOptions([...selectedOptions, data.term.name]);
-      setNewTermName('');
-      toast.success(`Terme "${data.term.name}" ajouté à WooCommerce`);
-    } catch (error) {
-      console.error('Error adding term:', error);
-      toast.error('Erreur lors de l\'ajout du terme');
-    } finally {
-      setAddingTerm(false);
+    } else {
+      // Créer un nouvel attribut avec ce terme
+      onChange([...safeValue, { attribute_id: attributeId, term_ids: [termId] }]);
     }
   };
 
-  const handleAddCustomAttribute = () => {
-    if (!customAttributeName.trim() || !customAttributeOptions.trim()) {
-      toast.error('Veuillez remplir le nom et les options de l\'attribut');
-      return;
-    }
-
-    const options = customAttributeOptions
-      .split(',')
-      .map(opt => opt.trim())
-      .filter(opt => opt);
-
-    const newAttribute: ProductAttribute = {
-      name: customAttributeName.trim(),
-      options,
-      visible: true,
-      variation: false,
-    };
-
-    onChange([...attributes, newAttribute]);
-    setCustomAttributeName('');
-    setCustomAttributeOptions('');
-    toast.success('Attribut personnalisé ajouté');
+  const isTermSelected = (attributeId: string, termId: string): boolean => {
+    // Protection: s'assurer que value est un tableau
+    const safeValue = Array.isArray(value) ? value : [];
+    const attr = safeValue.find(a => a.attribute_id === attributeId);
+    return attr ? attr.term_ids.includes(termId) : false;
   };
 
-  const handleRemoveAttribute = (index: number) => {
-    const newAttributes = attributes.filter((_, i) => i !== index);
-    onChange(newAttributes);
-  };
+  // Protection hydration
+  if (!mounted) return null;
 
-  const handleUpdateAttribute = (index: number, field: keyof ProductAttribute, value: any) => {
-    const newAttributes = [...attributes];
-    newAttributes[index] = { ...newAttributes[index], [field]: value };
-    onChange(newAttributes);
-  };
-
-  const handleToggleOption = (optionName: string) => {
-    setSelectedOptions(prev =>
-      prev.includes(optionName)
-        ? prev.filter(o => o !== optionName)
-        : [...prev, optionName]
-    );
-  };
-
+  // Affichage pendant le chargement
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 space-y-4">
-        <div className="relative">
-          <Loader2 className="w-8 h-8 animate-spin text-[#b8933d]" />
-          <Sparkles className="w-4 h-4 text-[#b8933d] absolute -top-1 -right-1 animate-pulse" />
-        </div>
-        <p className="text-sm text-gray-600">Chargement des attributs WooCommerce...</p>
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+        <span className="ml-2 text-sm text-gray-500">Chargement des attributs...</span>
+      </div>
+    );
+  }
+
+  // Affichage si erreur critique
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+        <p className="text-sm font-medium text-gray-700 mb-2">{error}</p>
+        <p className="text-xs text-gray-500 mb-4">
+          Les attributs ne sont pas disponibles pour le moment.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={loadAttributes}
+        >
+          Réessayer
+        </Button>
+      </div>
+    );
+  }
+
+  // Affichage si aucun attribut configuré
+  if (attributes.length === 0) {
+    return (
+      <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50">
+        <AlertCircle className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+        <p className="text-sm font-medium text-gray-600 mb-1">Aucun attribut disponible</p>
+        <p className="text-xs text-gray-500 max-w-md mx-auto">
+          Les attributs (Couleur, Taille, etc.) doivent être créés dans la base de données Supabase
+          (tables <code className="bg-gray-200 px-1 rounded">product_attributes</code> et{' '}
+          <code className="bg-gray-200 px-1 rounded">product_attribute_terms</code>).
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {attributes.map((attr, index) => (
-        <Card key={index} className="border-2 hover:border-[#b8933d]/30 transition-all duration-200 hover:shadow-lg bg-gradient-to-br from-white to-gray-50/50">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-[#b8933d]/20 to-amber-100 flex items-center justify-center">
-                <Tag className="w-6 h-6 text-[#b8933d]" />
-              </div>
+      {attributes.map((attribute) => {
+        const attributeTerms = terms[attribute.id] || [];
 
-              <div className="flex-1 space-y-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Label className="font-bold text-lg text-gray-800">{attr.name}</Label>
-                    {attr.variation && (
-                      <Badge className="bg-[#b8933d] text-white">
-                        <Sparkles className="w-3 h-3 mr-1" />
-                        Variation
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {attr.options.map((option, optIndex) => (
-                      <Badge
-                        key={optIndex}
-                        variant="secondary"
-                        className="bg-gradient-to-r from-gray-100 to-gray-50 hover:from-[#b8933d]/10 hover:to-amber-50 transition-colors border border-gray-200"
+        if (attributeTerms.length === 0) {
+          // Afficher l'attribut mais indiquer qu'il n'a pas de termes
+          return (
+            <div key={attribute.id} className="space-y-3">
+              <Label className="text-base font-semibold">{attribute.name}</Label>
+              <div className="text-sm text-gray-500 italic border border-dashed border-gray-300 rounded p-3 bg-gray-50">
+                Aucun terme disponible pour cet attribut
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div key={attribute.id} className="space-y-3">
+            <Label className="text-base font-semibold">{attribute.name}</Label>
+
+            {/* AFFICHAGE EN FONCTION DU TYPE */}
+            {attribute.type === 'color' ? (
+              // Pastilles colorées pour les couleurs
+              <div className="flex flex-wrap gap-2">
+                {attributeTerms.map((term) => {
+                  const selected = isTermSelected(attribute.id, term.id);
+                  const bgColor = term.value || '#CCCCCC';
+
+                  return (
+                    <button
+                      key={term.id}
+                      type="button"
+                      onClick={() => handleTermToggle(attribute.id, term.id)}
+                      className="relative group"
+                      title={term.name}
+                    >
+                      <div
+                        className={`w-12 h-12 rounded-full border-2 transition-all ${
+                          selected
+                            ? 'border-blue-600 ring-2 ring-blue-200'
+                            : 'border-gray-300 hover:border-gray-400'
+                        }`}
+                        style={{ backgroundColor: bgColor }}
                       >
-                        {option}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-6 pt-2 border-t border-gray-100">
-                  <div className="flex items-center gap-3 group">
-                    <Switch
-                      checked={attr.visible}
-                      onCheckedChange={(checked) => handleUpdateAttribute(index, 'visible', checked)}
-                      className="data-[state=checked]:bg-[#b8933d]"
-                    />
-                    <Label className="text-sm font-medium text-gray-700 cursor-pointer group-hover:text-[#b8933d] transition-colors">
-                      Visible sur la page produit
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center gap-3 group">
-                    <Switch
-                      checked={attr.variation}
-                      onCheckedChange={(checked) => handleUpdateAttribute(index, 'variation', checked)}
-                      className="data-[state=checked]:bg-[#b8933d]"
-                    />
-                    <Label className="text-sm font-medium text-gray-700 cursor-pointer group-hover:text-[#b8933d] transition-colors">
-                      Utilisé pour les variations
-                    </Label>
-                  </div>
-                </div>
+                        {selected && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Check className="w-5 h-5 text-white drop-shadow-md" />
+                          </div>
+                        )}
+                      </div>
+                      <span className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs text-gray-600 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                        {term.name}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
+            ) : attribute.type === 'button' ? (
+              // Chips larges pour les tailles (optimisé mobile)
+              <div className="flex flex-wrap gap-2">
+                {attributeTerms.map((term) => {
+                  const selected = isTermSelected(attribute.id, term.id);
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => handleRemoveAttribute(index)}
-                className="hover:bg-red-50 hover:text-red-600 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-
-      <Card className="border-2 border-[#b8933d]/30 bg-gradient-to-br from-[#b8933d]/5 to-amber-50/30 shadow-lg overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#b8933d]/10 to-transparent rounded-full -translate-y-16 translate-x-16"></div>
-        <CardHeader className="relative">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#b8933d] to-amber-600 flex items-center justify-center shadow-md">
-                <Box className="w-6 h-6 text-white" />
-              </div>
-              <CardTitle className="text-xl font-bold bg-gradient-to-r from-[#b8933d] to-amber-700 bg-clip-text text-transparent">
-                Ajouter un attribut WooCommerce
-              </CardTitle>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={loadWooCommerceAttributes}
-              disabled={loading}
-              className="hover:bg-[#b8933d] hover:text-white transition-colors border-[#b8933d]/30"
-              title="Recharger les attributs"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4 relative">
-          <div>
-            <Label htmlFor="woo-attr-select" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Tag className="w-4 h-4 text-[#b8933d]" />
-              Sélectionner un attribut
-            </Label>
-            {wooAttributes.length === 0 ? (
-              <div className="mt-2 p-4 border-2 border-dashed border-amber-300 rounded-lg bg-gradient-to-r from-amber-50 to-yellow-50 shadow-inner">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-amber-900">
-                      Aucun attribut WooCommerce disponible
-                    </p>
-                    <p className="text-xs text-amber-700">
-                      Créez des attributs dans votre administration WooCommerce (Produits → Attributs) puis cliquez sur le bouton de rechargement ci-dessus.
-                    </p>
-                    <p className="text-xs text-amber-700">
-                      Ou utilisez un attribut personnalisé dans la section ci-dessous.
-                    </p>
-                  </div>
-                </div>
+                  return (
+                    <Button
+                      key={term.id}
+                      type="button"
+                      variant={selected ? 'default' : 'outline'}
+                      size="lg"
+                      onClick={() => handleTermToggle(attribute.id, term.id)}
+                      className={`min-w-[80px] font-semibold ${
+                        selected
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      {term.name}
+                    </Button>
+                  );
+                })}
               </div>
             ) : (
-              <Select value={selectedWooAttr} onValueChange={(value) => {
-                setSelectedWooAttr(value);
-                setSelectedOptions([]);
-              }}>
-                <SelectTrigger id="woo-attr-select" className="mt-2 border-2 focus:border-[#b8933d] bg-white">
-                  <SelectValue placeholder="Choisir un attribut..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {wooAttributes.map((attr) => (
-                    <SelectItem key={attr.id} value={attr.slug}>
-                      <div className="flex items-center gap-2">
-                        <Tag className="w-4 h-4 text-[#b8933d]" />
-                        <span className="font-medium">{attr.name}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {attr.terms.length} options
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+              // Badges pour les autres types
+              <div className="flex flex-wrap gap-2">
+                {attributeTerms.map((term) => {
+                  const selected = isTermSelected(attribute.id, term.id);
 
-          {selectedWooAttr && (
-            <>
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#b8933d]" />
-                  Options disponibles (cliquez pour sélectionner)
-                </Label>
-                <div className="flex flex-wrap gap-2 p-4 border-2 rounded-lg bg-white shadow-inner">
-                  {getCurrentWooAttribute()?.terms.map((term) => (
+                  return (
                     <Badge
                       key={term.id}
-                      variant={selectedOptions.includes(term.name) ? "default" : "outline"}
-                      className={`cursor-pointer transition-all duration-200 ${
-                        selectedOptions.includes(term.name)
-                          ? 'bg-[#b8933d] hover:bg-[#a07d35] text-white shadow-md scale-105'
-                          : 'hover:bg-[#b8933d]/10 hover:border-[#b8933d]'
-                      }`}
-                      onClick={() => handleToggleOption(term.name)}
+                      variant={selected ? 'default' : 'outline'}
+                      className="cursor-pointer px-4 py-2 text-sm"
+                      onClick={() => handleTermToggle(attribute.id, term.id)}
                     >
-                      {selectedOptions.includes(term.name) && (
-                        <Check className="w-3 h-3 mr-1" />
-                      )}
+                      {selected && <Check className="w-3 h-3 mr-1" />}
                       {term.name}
                     </Badge>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2 px-2">
-                  <div className="h-1 flex-1 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-[#b8933d] to-amber-500 transition-all duration-300"
-                      style={{ width: `${(selectedOptions.length / (getCurrentWooAttribute()?.terms.length || 1)) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-xs font-medium text-gray-600">
-                    {selectedOptions.length} / {getCurrentWooAttribute()?.terms.length}
-                  </span>
-                </div>
+                  );
+                })}
               </div>
+            )}
+          </div>
+        );
+      })}
 
-              <div className="bg-gradient-to-br from-white to-gray-50 p-4 rounded-lg border-2 border-dashed border-[#b8933d]/30 shadow-inner">
-                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Plus className="w-4 h-4 text-[#b8933d]" />
-                  Ajouter un nouveau terme
-                </Label>
-                <div className="flex gap-2 mt-3">
-                  <Input
-                    value={newTermName}
-                    onChange={(e) => setNewTermName(e.target.value)}
-                    placeholder="Ex: Rose poudré"
-                    className="flex-1 border-2 focus:border-[#b8933d]"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleAddNewTerm}
-                    disabled={!newTermName.trim() || addingTerm}
-                    className="bg-[#b8933d] hover:bg-[#a07d35]"
-                  >
-                    {addingTerm ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Plus className="w-4 h-4" />
-                    )}
-                  </Button>
+      {/* Résumé des sélections */}
+      {Array.isArray(value) && value.length > 0 && (
+        <div className="pt-4 border-t">
+          <p className="text-sm text-gray-600 mb-2">Sélection actuelle:</p>
+          <div className="flex flex-wrap gap-2">
+            {value.map((attr) => {
+              const attribute = attributes.find(a => a.id === attr.attribute_id);
+              if (!attribute) return null;
+
+              const selectedTerms = attr.term_ids
+                .map(termId => terms[attr.attribute_id]?.find(t => t.id === termId))
+                .filter(Boolean);
+
+              if (selectedTerms.length === 0) return null;
+
+              return (
+                <div key={attr.attribute_id} className="text-xs text-gray-700">
+                  <strong>{attribute.name}:</strong>{' '}
+                  {selectedTerms.map(t => t?.name).join(', ')}
                 </div>
-                <p className="text-xs text-gray-600 mt-2 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  Le nouveau terme sera ajouté à WooCommerce et sélectionné automatiquement
-                </p>
-              </div>
-
-              <Button
-                type="button"
-                onClick={handleAddWooAttribute}
-                disabled={selectedOptions.length === 0}
-                className="w-full bg-gradient-to-r from-[#b8933d] to-amber-600 hover:from-[#a07d35] hover:to-amber-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Ajouter cet attribut au produit
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="border-2 border-dashed border-gray-300 bg-gradient-to-br from-gray-50 to-white hover:border-[#b8933d]/50 transition-all duration-200">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <CardTitle className="text-lg font-bold text-gray-700">Ou créer un attribut personnalisé</CardTitle>
+              );
+            })}
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="custom-attr-name" className="text-sm font-medium text-gray-700">
-                Nom de l'attribut
-              </Label>
-              <Input
-                id="custom-attr-name"
-                value={customAttributeName}
-                onChange={(e) => setCustomAttributeName(e.target.value)}
-                placeholder="Ex: Matière, Style..."
-                className="mt-1 border-2 focus:border-gray-400"
-              />
-            </div>
-            <div>
-              <Label htmlFor="custom-attr-options" className="text-sm font-medium text-gray-700">
-                Options (séparées par des virgules)
-              </Label>
-              <Input
-                id="custom-attr-options"
-                value={customAttributeOptions}
-                onChange={(e) => setCustomAttributeOptions(e.target.value)}
-                placeholder="Ex: Coton, Polyester, Lin"
-                className="mt-1 border-2 focus:border-gray-400"
-              />
-            </div>
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleAddCustomAttribute}
-            disabled={!customAttributeName.trim() || !customAttributeOptions.trim()}
-            className="w-full border-2 hover:bg-gray-100 font-medium"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Ajouter l'attribut personnalisé
-          </Button>
-          <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <AlertCircle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-blue-700">
-              Les attributs personnalisés ne seront pas synchronisés avec WooCommerce
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }
