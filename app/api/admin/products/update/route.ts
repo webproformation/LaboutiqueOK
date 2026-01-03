@@ -77,6 +77,11 @@ export async function POST(request: Request) {
       updates.categories = productData.categories || [];
     }
 
+    // 🎯 SAUVEGARDER LES ATTRIBUTS (nouveau système autonome)
+    if (productData.attributes !== undefined) {
+      updates.attributes = productData.attributes || [];
+    }
+
     let updateQuery;
     if (isUUID) {
       updateQuery = supabase

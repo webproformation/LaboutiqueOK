@@ -14,7 +14,9 @@ import Link from 'next/link';
 import RichTextEditor from '@/components/RichTextEditor';
 import MediaLibrary from '@/components/MediaLibrary';
 import ProductGalleryManager, { GalleryImage } from '@/components/ProductGalleryManager';
+import ProductAttributesManager from '@/components/ProductAttributesManager';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { getWebPImagesForProduct } from '@/lib/webp-storage-mapper';
 
 interface SupabaseCategory {
   id: string;
@@ -23,6 +25,11 @@ interface SupabaseCategory {
   woocommerce_id: number;
   woocommerce_parent_id: number | null;
   parent_id: string | null;
+}
+
+interface ProductAttribute {
+  attribute_id: string;
+  term_ids: string[];
 }
 
 interface ProductFormData {
@@ -42,6 +49,7 @@ interface ProductFormData {
   category_id: string | null;
   child_category_ids: string[];
   status: 'publish' | 'draft';
+  attributes: ProductAttribute[];
 }
 
 
@@ -67,6 +75,7 @@ export default function EditProductPage() {
     category_id: null,
     child_category_ids: [],
     status: 'publish',
+    attributes: [],
   });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -125,12 +134,32 @@ export default function EditProductPage() {
         throw new Error('Produit introuvable ou données invalides');
       }
 
-      const images = Array.isArray(product.images) ? product.images : [];
-      const mainImage = images[0] || {};
-      const galleryImages = images.slice(1).map((img: any) => ({
-        url: img.src || img.url || '',
-        id: img.id || 0
-      }));
+      // 🔄 MAPPER LES IMAGES WORDPRESS → SUPABASE
+      const wooId = product.woocommerce_id || product.id;
+      const supabaseImages = await getWebPImagesForProduct(wooId);
+
+      // Si des images Supabase existent, les utiliser en priorité
+      let mainImageUrl = '';
+      let galleryImages: GalleryImage[] = [];
+
+      if (supabaseImages.length > 0) {
+        console.log(`[Admin] ✅ ${supabaseImages.length} images Supabase trouvées pour produit ${wooId}`);
+        mainImageUrl = supabaseImages[0];
+        galleryImages = supabaseImages.slice(1).map((url, idx) => ({
+          url,
+          id: idx
+        }));
+      } else {
+        // Fallback: utiliser les images WordPress si pas d'images Supabase
+        console.log(`[Admin] ⚠️ Pas d'images Supabase, utilisation WordPress`);
+        const images = Array.isArray(product.images) ? product.images : [];
+        const mainImage = images[0] || {};
+        mainImageUrl = mainImage.src || mainImage.url || '';
+        galleryImages = images.slice(1).map((img: any) => ({
+          url: img.src || img.url || '',
+          id: img.id || 0
+        }));
+      }
 
       let childCategoryIds: string[] = [];
       if (product.categories && Array.isArray(product.categories)) {
@@ -150,12 +179,13 @@ export default function EditProductPage() {
         manage_stock: false,
         stock_status: product.stock_status || 'instock',
         featured: product.featured === true,
-        image_id: mainImage.id || 0,
-        image_url: mainImage.src || mainImage.url || '',
+        image_id: 0,
+        image_url: mainImageUrl,
         gallery_images: galleryImages,
         category_id: product.category_id || null,
         child_category_ids: childCategoryIds,
         status: product.is_active === true ? 'publish' : 'draft',
+        attributes: product.attributes || [],
       });
     } catch (error) {
       console.error('[Load Product] Error:', error);
@@ -537,6 +567,19 @@ export default function EditProductPage() {
           </CardContent>
         </Card>
 
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Attributs du produit</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProductAttributesManager
+              productId={productId}
+              value={formData.attributes}
+              onChange={(attributes) => setFormData({ ...formData, attributes })}
+            />
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

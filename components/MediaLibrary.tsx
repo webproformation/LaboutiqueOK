@@ -215,6 +215,60 @@ export default function MediaLibrary({
     }
   }, [mounted, loadMediaFiles]); // Dépendances : mounted ET loadMediaFiles
 
+  /**
+   * 🖼️ Convertit une image en WebP côté client
+   */
+  const convertToWebP = async (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+      };
+
+      reader.onerror = () => reject(new Error('Erreur de lecture du fichier'));
+
+      img.onload = () => {
+        try {
+          // Créer un canvas pour la conversion
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Canvas context non disponible'));
+            return;
+          }
+
+          // Dessiner l'image
+          ctx.drawImage(img, 0, 0);
+
+          // Convertir en WebP avec qualité 90%
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                console.log(`✅ [WebP] Conversion réussie: ${file.name} (${(file.size / 1024).toFixed(0)}KB → ${(blob.size / 1024).toFixed(0)}KB)`);
+                resolve(blob);
+              } else {
+                reject(new Error('Conversion WebP échouée'));
+              }
+            },
+            'image/webp',
+            0.90 // Qualité 90%
+          );
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      img.onerror = () => reject(new Error('Erreur de chargement de l\'image'));
+
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -231,8 +285,32 @@ export default function MediaLibrary({
 
     setUploading(true);
     try {
+      // 🔄 CONVERSION WebP AUTOMATIQUE
+      let fileToUpload: File | Blob = file;
+      let fileName = file.name;
+
+      // Convertir en WebP si ce n'est pas déjà le cas
+      if (!file.type.includes('webp')) {
+        console.log(`🔄 [WebP] Conversion de ${file.name} en WebP...`);
+        toast.info('Conversion en WebP...');
+
+        try {
+          const webpBlob = await convertToWebP(file);
+          fileToUpload = webpBlob;
+
+          // Remplacer l'extension par .webp
+          fileName = file.name.replace(/\.(jpg|jpeg|png|gif)$/i, '.webp');
+          console.log(`✅ [WebP] Nouveau nom: ${fileName}`);
+        } catch (conversionError) {
+          console.warn('[WebP] Conversion échouée, upload du fichier original', conversionError);
+          toast.warning('Conversion WebP échouée, upload de l\'image originale');
+        }
+      } else {
+        console.log(`✅ [WebP] Image déjà en format WebP`);
+      }
+
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', fileToUpload, fileName);
       formData.append('bucket', bucket);
       formData.append('folder', bucket === 'product-images' ? 'products' : 'categories');
 
