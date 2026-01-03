@@ -364,21 +364,9 @@ export default function MediaLibrary({
     }
   });
 
-  // 🛡️ PROTECTION HYDRATION: Afficher un skeleton tant que non monté côté client
+  // 🛡️ FIX #460 RADICAL: Retourner null si pas monté (CLIENT ONLY)
   if (!mounted) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-4 animate-pulse">
-          <div className="flex-1 h-10 bg-gray-200 rounded"></div>
-          <div className="h-10 w-24 bg-gray-200 rounded"></div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-1">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <div key={`skeleton-${i}`} className="aspect-square bg-gray-200 rounded-lg animate-pulse"></div>
-          ))}
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (

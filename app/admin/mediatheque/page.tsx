@@ -348,6 +348,35 @@ export default function MediathequeAdminPage() {
         </Button>
       </div>
 
+      {/* Alerte CRITIQUE: Buckets Storage vides */}
+      {migrationStatus && migrationStatus.mediaLibrary.length === 0 && (
+        <Card className="border-orange-300 bg-orange-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-orange-800">
+              <AlertCircle className="h-5 w-5" />
+              Aucun fichier dans Storage
+            </CardTitle>
+            <CardDescription className="text-orange-700">
+              Les buckets Supabase Storage sont vides. Vous devez uploader des images pour commencer.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 text-sm text-orange-800">
+              <p className="font-semibold">Pour uploader des images:</p>
+              <ol className="list-decimal list-inside space-y-2 ml-2">
+                <li>Allez dans l'onglet "Bibliothèque de médias" ci-dessous</li>
+                <li>Cliquez sur "Uploader" et sélectionnez vos images</li>
+                <li>Les images seront automatiquement ajoutées à media_library</li>
+              </ol>
+              <div className="mt-4 p-3 bg-orange-100 rounded border border-orange-200">
+                <p className="text-xs font-semibold mb-1">Alternative: Synchroniser depuis WordPress</p>
+                <p className="text-xs">Si vos images sont déjà sur WordPress, utilisez la synchronisation ci-dessous.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Alerte si settings manquants */}
       {!settingsExist && (
         <Card className="border-red-200 bg-red-50">
