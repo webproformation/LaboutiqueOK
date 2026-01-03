@@ -189,7 +189,7 @@ export default function AdminCoupons() {
                 <Label>Valide jusqu&apos;au</Label>
                 <Input
                   type="datetime-local"
-                  value={editingCoupon?.valid_until.slice(0, 16)}
+                  value={editingCoupon?.valid_until?.slice(0, 16) || ''}
                   onChange={(e) =>
                     setEditingCoupon(prev => ({ ...prev!, valid_until: e.target.value + ':00+00' }))
                   }
@@ -231,7 +231,7 @@ export default function AdminCoupons() {
         </div>
       ) : (
         <div className="space-y-4">
-          {coupons.map((coupon) => (
+          {(coupons || []).map((coupon) => (
             <Card key={coupon.id}>
               <CardContent className="p-6">
                 <div className="flex justify-between items-start">

@@ -226,6 +226,7 @@ export default function EditProductPage() {
         images: allImages,
         category_id: formData.category_id,
         categories: categoriesArray,
+        attributes: formData.attributes,
         status: formData.status,
       };
 

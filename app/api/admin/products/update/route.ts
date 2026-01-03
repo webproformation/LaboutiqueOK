@@ -130,6 +130,97 @@ export async function POST(request: Request) {
       console.error('[Update Product] Featured products error:', featuredErr);
     }
 
+    // 🎯 SAUVEGARDER LES CATÉGORIES dans la table de liaison
+    if (productData.categories && Array.isArray(productData.categories)) {
+      await supabase
+        .from('product_categories')
+        .delete()
+        .eq('product_id', updatedProduct.id);
+
+      if (productData.categories.length > 0) {
+        const categoryLinks = productData.categories.map((cat: any, index: number) => ({
+          product_id: updatedProduct.id,
+          category_id: cat.id,
+          is_primary: index === 0,
+          display_order: index
+        }));
+
+        const { error: catError } = await supabase
+          .from('product_categories')
+          .insert(categoryLinks);
+
+        if (catError) {
+          console.error('[Update Product] Error saving categories:', catError);
+        } else {
+          console.log(`[Update Product] ✅ ${categoryLinks.length} catégories sauvegardées`);
+        }
+      }
+    }
+
+    // 🎯 SAUVEGARDER LES ATTRIBUTS dans la table de liaison
+    if (productData.attributes && Array.isArray(productData.attributes)) {
+      await supabase
+        .from('product_attribute_values')
+        .delete()
+        .eq('product_id', updatedProduct.id);
+
+      const attributeLinks: any[] = [];
+
+      for (const attr of productData.attributes) {
+        if (attr.terms && Array.isArray(attr.terms)) {
+          for (const term of attr.terms) {
+            if (term.id) {
+              attributeLinks.push({
+                product_id: updatedProduct.id,
+                attribute_id: attr.id,
+                term_id: term.id,
+                is_variation: attr.variation || false
+              });
+            }
+          }
+        }
+      }
+
+      if (attributeLinks.length > 0) {
+        const { error: attrError } = await supabase
+          .from('product_attribute_values')
+          .insert(attributeLinks);
+
+        if (attrError) {
+          console.error('[Update Product] Error saving attributes:', attrError);
+        } else {
+          console.log(`[Update Product] ✅ ${attributeLinks.length} attributs sauvegardés`);
+        }
+      }
+    }
+
+    // 🎯 SAUVEGARDER LES IMAGES dans la table de liaison
+    if (productData.images && Array.isArray(productData.images)) {
+      await supabase
+        .from('product_images')
+        .delete()
+        .eq('product_id', updatedProduct.id);
+
+      if (productData.images.length > 0) {
+        const imageLinks = productData.images.map((img: any, index: number) => ({
+          product_id: updatedProduct.id,
+          image_url: img.src || img.url || '',
+          alt_text: img.alt || img.name || '',
+          display_order: index
+        }));
+
+        const { error: imgError } = await supabase
+          .from('product_images')
+          .insert(imageLinks);
+
+        if (imgError) {
+          console.error('[Update Product] Error saving images:', imgError);
+        } else {
+          console.log(`[Update Product] ✅ ${imageLinks.length} images sauvegardées`);
+        }
+      }
+    }
+
     console.log('[Update Product] Product updated successfully:', updatedProduct.name);
 
     return NextResponse.json({

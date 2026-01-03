@@ -72,19 +72,104 @@ export async function GET(request: Request) {
         }, { status: 404 });
       }
 
+      // 🔄 CHARGER FEATURED
       const { data: featuredProduct } = await supabase
         .from('featured_products')
         .select('is_active')
         .eq('product_id', product.id)
         .maybeSingle();
 
-      const productWithFeatured = {
+      // 🔄 CHARGER LES CATÉGORIES depuis la table de liaison
+      const { data: productCategories } = await supabase
+        .from('product_categories')
+        .select(`
+          category_id,
+          is_primary,
+          display_order,
+          categories:category_id (
+            id,
+            name,
+            slug
+          )
+        `)
+        .eq('product_id', product.id)
+        .order('display_order', { ascending: true });
+
+      const categories = (productCategories || [])
+        .map((pc: any) => pc.categories)
+        .filter(Boolean);
+
+      // 🔄 CHARGER LES ATTRIBUTS depuis la table de liaison
+      const { data: productAttributeValues } = await supabase
+        .from('product_attribute_values')
+        .select(`
+          attribute_id,
+          term_id,
+          is_variation,
+          product_attributes:attribute_id (
+            id,
+            name,
+            slug,
+            type
+          ),
+          product_attribute_terms:term_id (
+            id,
+            name,
+            slug
+          )
+        `)
+        .eq('product_id', product.id);
+
+      // Grouper les attributs par attribute_id
+      const attributesMap = new Map();
+      (productAttributeValues || []).forEach((pav: any) => {
+        if (!attributesMap.has(pav.attribute_id)) {
+          attributesMap.set(pav.attribute_id, {
+            id: pav.attribute_id,
+            name: pav.product_attributes?.name || '',
+            slug: pav.product_attributes?.slug || '',
+            type: pav.product_attributes?.type || '',
+            variation: pav.is_variation || false,
+            terms: []
+          });
+        }
+        const attr = attributesMap.get(pav.attribute_id);
+        if (pav.product_attribute_terms) {
+          attr.terms.push({
+            id: pav.term_id,
+            name: pav.product_attribute_terms.name,
+            slug: pav.product_attribute_terms.slug
+          });
+        }
+      });
+
+      const attributes = Array.from(attributesMap.values());
+
+      // 🔄 CHARGER LES IMAGES depuis la table de liaison
+      const { data: productImages } = await supabase
+        .from('product_images')
+        .select('*')
+        .eq('product_id', product.id)
+        .order('display_order', { ascending: true });
+
+      const images = (productImages || []).map((img: any) => ({
+        id: img.id || 0,
+        src: img.image_url,
+        url: img.image_url,
+        alt: img.alt_text || '',
+        name: img.alt_text || ''
+      }));
+
+      const productWithAllData = {
         ...product,
-        featured: featuredProduct?.is_active === true
+        featured: featuredProduct?.is_active === true,
+        categories,
+        attributes,
+        images
       };
 
-      console.log('[Admin Products API] Product found:', product.name, 'featured:', productWithFeatured.featured);
-      return NextResponse.json(productWithFeatured);
+      console.log('[Admin Products API] Product found:', product.name, 'featured:', productWithAllData.featured, 'categories:', categories.length, 'attributes:', attributes.length, 'images:', images.length);
+      return NextResponse.json(productWithAllData);
     }
 
     console.log('[Admin Products API] Step 1: Fetching products from database...');
