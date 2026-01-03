@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatPrice } from '@/lib/utils';
 import { supabase } from '@/lib/supabase-client';
+import { mapWordPressImagesToSupabase } from '@/lib/image-mapper';
 
 interface ProductCardProps {
   product: Product;
@@ -41,13 +42,26 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [isSubmittingNotification, setIsSubmittingNotification] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [mappedImages, setMappedImages] = useState<string[]>([]);
 
   const isInMySize = isProductInMySize(product);
 
-  const images = [
+  const wordpressImages = [
     product.image?.sourceUrl,
     ...(product.galleryImages?.nodes?.map(img => img.sourceUrl) || [])
   ].filter(Boolean) as string[];
+
+  useEffect(() => {
+    const mapImages = async () => {
+      if (wordpressImages.length > 0) {
+        const mapped = await mapWordPressImagesToSupabase(wordpressImages);
+        setMappedImages(mapped);
+      }
+    };
+    mapImages();
+  }, [product.slug]);
+
+  const images = mappedImages.length > 0 ? mappedImages : wordpressImages;
 
   const hasSelectableAttributes = () => {
     const isVariable = product.__typename === 'VariableProduct';
