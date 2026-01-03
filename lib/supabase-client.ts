@@ -35,9 +35,10 @@ function getSupabaseClient() {
   if (!isBuildTime) {
     console.log(
       usingBypass
-        ? '✅ Supabase client initialized with BYPASS variables (project: qcqbtmv)'
-        : '⚠️  Supabase client initialized with NEXT_PUBLIC variables (deprecated project)'
+        ? '✅ Supabase client initialized with BYPASS variables (project: qcqbtmvbvipsxwjlgjvk)'
+        : '⚠️  Supabase client initialized with NEXT_PUBLIC variables (deprecated project hondlefoprhtrpxnumyj)'
     );
+    console.log('📍 Project ID:', supabaseUrl?.includes('qcqbtmv') ? 'qcqbtmvbvipsxwjlgjvk ✅' : 'WRONG PROJECT ❌');
     console.log('📍 URL:', supabaseUrl);
   }
 

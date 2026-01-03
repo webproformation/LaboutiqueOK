@@ -96,6 +96,28 @@ export default function AdminCoupons() {
   };
 
   useEffect(() => {
+    const verifyProject = async () => {
+      console.log('='.repeat(80));
+      console.log('🔍 ADMIN COUPONS - PROJECT VERIFICATION');
+      console.log('Current Project ID: qcqbtmvbvipsxwjlgjvk');
+      console.log('Expected URL: https://qcqbtmvbvipsxwjlgjvk.supabase.co');
+
+      // Test direct pour confirmer le projet utilisé
+      const { data, error } = await supabase
+        .from('coupon_types')
+        .select('id, code, type')
+        .limit(1);
+
+      if (!error && data) {
+        console.log('✅ Connected to correct project (coupon_types accessible)');
+        console.log('Sample coupon_type:', data[0]);
+      } else if (error) {
+        console.error('❌ Database connection error:', error.message);
+      }
+      console.log('='.repeat(80));
+    };
+
+    verifyProject();
     fetchCouponTypes();
     fetchCoupons();
   }, []);
