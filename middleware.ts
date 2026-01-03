@@ -59,10 +59,14 @@ export async function middleware(request: NextRequest) {
 
   // Vérifier le mode maintenance uniquement pour les routes non-exemptées
   try {
-    const maintenanceResponse = await fetch(`${request.nextUrl.origin}/api/admin/maintenance`, {
+    const maintenanceResponse = await fetch(`${request.nextUrl.origin}/api/admin/maintenance?t=${Date.now()}`, {
+      method: 'GET',
       headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       },
+      cache: 'no-store',
     });
 
     if (maintenanceResponse.ok) {
