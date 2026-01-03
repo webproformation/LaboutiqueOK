@@ -128,27 +128,20 @@ export async function POST(request: NextRequest) {
         const publicUrl = urlData.publicUrl;
         addLog(`🔗 URL générée: ${publicUrl}`);
 
-        // Préparer l'entrée media_library
-        const mediaEntry = {
+        // STRATÉGIE 1: Insertion avec SEULEMENT les colonnes obligatoires
+        addLog('🔧 Stratégie: Insertion minimale (3 colonnes obligatoires uniquement)');
+
+        const minimalEntry = {
           filename: file.name,
           url: publicUrl,
-          file_path: `${bucket}/${file.fullPath}`,
-          bucket_name: bucket,
-          file_size: file.metadata?.size || 0,
-          mime_type: file.metadata?.mimetype || 'image/jpeg',
-          usage_count: 0,
-          is_orphan: true,
-          uploaded_by: null
+          bucket_name: bucket
         };
 
-        addLog(`📝 Données à insérer: ${JSON.stringify(mediaEntry, null, 2)}`);
-
-        // UTILISER .upsert() DIRECT avec service_role (bypass RLS et cache)
-        addLog('🔧 Utilisation de .upsert() direct avec service_role');
+        addLog(`📝 Données minimales: ${JSON.stringify(minimalEntry, null, 2)}`);
 
         const { data: insertedData, error: insertError } = await supabase
           .from('media_library')
-          .upsert(mediaEntry, {
+          .upsert(minimalEntry, {
             onConflict: 'url',
             ignoreDuplicates: false
           })
@@ -170,6 +163,37 @@ export async function POST(request: NextRequest) {
           totalErrors++;
         } else if (insertedData && insertedData.id) {
           addLog(`✅ SUCCÈS: Fichier inséré avec ID ${insertedData.id}`);
+
+          // STRATÉGIE 2: Mise à jour avec métadonnées supplémentaires
+          const updateData: any = {};
+
+          if (file.fullPath) {
+            updateData.file_path = `${bucket}/${file.fullPath}`;
+          }
+          if (file.metadata?.size) {
+            updateData.file_size = file.metadata.size;
+          }
+          if (file.metadata?.mimetype) {
+            updateData.mime_type = file.metadata.mimetype;
+          }
+
+          // Mettre à jour si on a des données supplémentaires
+          if (Object.keys(updateData).length > 0) {
+            addLog(`🔄 Mise à jour métadonnées: ${JSON.stringify(updateData, null, 2)}`);
+
+            const { error: updateError } = await supabase
+              .from('media_library')
+              .update(updateData)
+              .eq('id', insertedData.id);
+
+            if (updateError) {
+              addLog(`⚠️  Échec mise à jour métadonnées: ${updateError.message}`);
+              addLog(`   (Fichier inséré mais sans métadonnées complètes)`);
+            } else {
+              addLog(`✅ Métadonnées mises à jour avec succès`);
+            }
+          }
+
           totalSynced++;
         } else {
           addLog(`⚠️  ANOMALIE: Pas d'erreur mais pas de données retournées`);
