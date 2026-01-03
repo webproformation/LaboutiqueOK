@@ -5,7 +5,7 @@
  * It automatically replaces WordPress URLs with optimized WebP versions from Supabase.
  */
 
-import { createClient } from '@/lib/supabase-client';
+import { supabase } from '@/lib/supabase-client';
 
 interface MediaLibraryEntry {
   id: string;
@@ -44,6 +44,13 @@ async function loadMediaLibraryCache(): Promise<void> {
 
   // If cache is fresh, skip reload
   if (mediaLibraryCache && (now - lastCacheUpdate) < CACHE_DURATION) {
+    return;
+  }
+
+  // Si pas de client Supabase, retourner
+  if (!supabase) {
+    console.warn('[ImageMapper] No Supabase client available');
+    mediaLibraryCache = new Map();
     return;
   }
 

@@ -11,15 +11,29 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// CRITIQUE: Utiliser le BON projet Supabase (qcqbtmv) avec les credentials BYPASS
+// CRITIQUE: Ce mapper doit fonctionner côté client ET serveur
+// Côté client: utilise ANON_KEY (public)
+// Côté serveur: utilise SERVICE_ROLE_KEY si disponible
 const supabaseUrl = process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('[WebPMapper] Missing Supabase credentials!');
+// Côté client: ANON_KEY uniquement (sécurisé)
+// Côté serveur: SERVICE_ROLE_KEY si disponible
+const supabaseKey = typeof window !== 'undefined'
+  ? (process.env.NEXT_PUBLIC_BYPASS_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  : (process.env.BYPASS_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_BYPASS_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+
+// Ne PAS crasher si credentials manquantes - retourner index vide
+let supabase: ReturnType<typeof createClient> | null = null;
+
+if (supabaseUrl && supabaseKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+  } catch (error) {
+    console.error('[WebPMapper] Failed to create Supabase client:', error);
+  }
+} else {
+  console.error('[WebPMapper] Missing Supabase credentials - image mapping will be disabled');
 }
-
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 interface WebPImageIndex {
   [woocommerceId: number]: string[]; // Multiple images par produit (galerie)
@@ -35,7 +49,13 @@ class WebPStorageMapper {
    * Scanne le Storage et construit l'index
    */
   private async buildIndex(): Promise<WebPImageIndex> {
-    console.log('[WebPMapper] 🔍 Scanning Storage for WebP images...');
+    console.log('[WebPMapper] 🔍 Scanning Storage for images...');
+
+    // Si pas de client Supabase, retourner index vide
+    if (!supabase) {
+      console.warn('[WebPMapper] No Supabase client - returning empty index');
+      return {};
+    }
 
     try {
       const { data: files, error } = await supabase.storage
@@ -69,10 +89,10 @@ class WebPStorageMapper {
 
       const index: WebPImageIndex = {};
       // CRITIQUE: Utiliser le BON projet Supabase (qcqbtmv) pour les URLs publiques
-      const publicSupabaseUrl = process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const publicSupabaseUrl = supabaseUrl; // Utilise la même URL que pour le client
 
       if (!publicSupabaseUrl) {
-        console.error('[WebPMapper] Missing NEXT_PUBLIC_BYPASS_SUPABASE_URL');
+        console.error('[WebPMapper] Missing Supabase URL for public URLs');
         return {};
       }
 
