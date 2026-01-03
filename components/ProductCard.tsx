@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatPrice } from '@/lib/utils';
 import { supabase } from '@/lib/supabase-client';
-import { mapWordPressImagesToSupabase } from '@/lib/image-mapper';
+import { getSupabaseImageForProduct } from '@/lib/supabase-product-mapper';
 
 interface ProductCardProps {
   product: Product;
@@ -42,26 +42,49 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [isSubmittingNotification, setIsSubmittingNotification] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
-  const [mappedImages, setMappedImages] = useState<string[]>([]);
+  const [supabaseImage, setSupabaseImage] = useState<string | null>(null);
+  const [isLoadingSupabaseImage, setIsLoadingSupabaseImage] = useState(true);
 
   const isInMySize = isProductInMySize(product);
 
+  // Récupérer l'image depuis Supabase en priorité
+  useEffect(() => {
+    const fetchSupabaseImage = async () => {
+      if (!product.databaseId) {
+        console.warn('[ProductCard] Product without databaseId:', product.name);
+        setIsLoadingSupabaseImage(false);
+        return;
+      }
+
+      const woocommerceId = product.databaseId;
+      const supabaseUrl = await getSupabaseImageForProduct(woocommerceId);
+
+      if (supabaseUrl) {
+        console.log(`[MediaMapper] ✅ Success: Swapped WP URL for Supabase WebP for product ID ${woocommerceId}`);
+        console.log(`  Product: ${product.name}`);
+        console.log(`  ❌ Old WP URL: ${product.image?.sourceUrl}`);
+        console.log(`  ✅ New Supabase URL: ${supabaseUrl}`);
+        setSupabaseImage(supabaseUrl);
+      } else {
+        console.log(`[MediaMapper] ⚠️  Using WordPress URL for product ID ${woocommerceId} (${product.name})`);
+      }
+
+      setIsLoadingSupabaseImage(false);
+    };
+
+    fetchSupabaseImage();
+  }, [product.databaseId, product.name]);
+
+  // Construire la liste d'images avec priorité Supabase
   const wordpressImages = [
     product.image?.sourceUrl,
     ...(product.galleryImages?.nodes?.map(img => img.sourceUrl) || [])
   ].filter(Boolean) as string[];
 
-  useEffect(() => {
-    const mapImages = async () => {
-      if (wordpressImages.length > 0) {
-        const mapped = await mapWordPressImagesToSupabase(wordpressImages);
-        setMappedImages(mapped);
-      }
-    };
-    mapImages();
-  }, [product.slug]);
-
-  const images = mappedImages.length > 0 ? mappedImages : wordpressImages;
+  // Si on a une image Supabase, l'utiliser en premier
+  const images = supabaseImage
+    ? [supabaseImage, ...wordpressImages.slice(1)]
+    : wordpressImages;
 
   const hasSelectableAttributes = () => {
     const isVariable = product.__typename === 'VariableProduct';

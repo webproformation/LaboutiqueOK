@@ -71,9 +71,11 @@ export default function CategoryPage() {
   console.log('[CategoryPage] Product details:', allProducts.map((p: any) => ({
     name: p.name,
     id: p.id,
+    databaseId: p.databaseId,
     type: p.__typename,
     status: p.status,
-    slug: p.slug
+    slug: p.slug,
+    imageUrl: p.image?.sourceUrl
   })));
 
   const products: Product[] = allProducts.filter((p: Product) => {
