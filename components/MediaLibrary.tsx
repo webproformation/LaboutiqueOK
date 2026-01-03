@@ -89,11 +89,15 @@ export default function MediaLibrary({
   const [selectedFile, setSelectedFile] = useState<string | null>(selectedUrl || null);
   const [deleteConfirm, setDeleteConfirm] = useState<MediaFile | null>(null);
 
+  // 🛡️ PROTECTION HYDRATION: Ne monter le composant que côté client
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const loadMediaFiles = useCallback(async () => {
+    // ⚠️ NE PAS charger si non monté (évite erreurs SSR)
+    if (!mounted) return;
+
     setLoading(true);
     console.log(`🔄 [MediaLibrary] Loading files for bucket: ${bucket}`);
 
@@ -202,11 +206,14 @@ export default function MediaLibrary({
     } finally {
       setLoading(false);
     }
-  }, [bucket]); // Dépendance : bucket
+  }, [bucket, mounted]); // Dépendances : bucket ET mounted
 
+  // 🛡️ Charger les médias uniquement après le mount côté client
   useEffect(() => {
-    loadMediaFiles();
-  }, [loadMediaFiles]); // Dépendance : loadMediaFiles (stabilisée avec useCallback)
+    if (mounted) {
+      loadMediaFiles();
+    }
+  }, [mounted, loadMediaFiles]); // Dépendances : mounted ET loadMediaFiles
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -357,10 +364,19 @@ export default function MediaLibrary({
     }
   });
 
+  // 🛡️ PROTECTION HYDRATION: Afficher un skeleton tant que non monté côté client
   if (!mounted) {
     return (
-      <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg">
-        <Loader2 className="h-8 w-8 animate-spin text-pink-500" />
+      <div className="space-y-4">
+        <div className="flex items-center gap-4 animate-pulse">
+          <div className="flex-1 h-10 bg-gray-200 rounded"></div>
+          <div className="h-10 w-24 bg-gray-200 rounded"></div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-1">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <div key={`skeleton-${i}`} className="aspect-square bg-gray-200 rounded-lg animate-pulse"></div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -499,31 +515,42 @@ interface MediaGridProps {
 }
 
 function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGridProps) {
+  // 🛡️ SKELETON LOADER pendant le chargement
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg">
-        <Loader2 className="h-8 w-8 animate-spin text-pink-500 mb-3" />
-        <p className="text-sm text-gray-500">Chargement des médias...</p>
+      <div className="space-y-4">
+        <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-lg">
+          <Loader2 className="h-8 w-8 animate-spin text-pink-500 mb-3" />
+          <p className="text-sm text-gray-500">Chargement des médias...</p>
+        </div>
       </div>
     );
   }
 
-  // 🛡️ BLINDAGE TOTAL : Validation stricte avec support des deux formats
+  // 🛡️ BLINDAGE TOTAL : Validation stricte + filtre null/undefined
   const safeFiles = Array.isArray(files)
     ? files.filter(f => {
-        if (!f || !f?.id) return false;
-        // Support nouveau format (url) ET ancien (public_url)
-        const hasUrl = f?.url || f?.public_url;
-        const hasName = f?.filename || f?.file_name;
-        return hasUrl && hasName;
+        try {
+          if (!f || typeof f !== 'object') return false;
+          if (!f?.id) return false;
+          // Support nouveau format (url) ET ancien (public_url)
+          const hasUrl = f?.url || f?.public_url;
+          const hasName = f?.filename || f?.file_name;
+          return Boolean(hasUrl && hasName);
+        } catch (error) {
+          console.error('❌ [MediaGrid] Filter error:', error);
+          return false;
+        }
       })
     : [];
 
+  // 🛡️ État vide avec UI friendly
   if (safeFiles.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-gray-400 bg-gray-50 rounded-lg">
         <FolderOpen className="h-12 w-12 mb-2" />
-        <p>Aucune image trouvée</p>
+        <p className="text-sm">Aucune image trouvée</p>
+        <p className="text-xs mt-1">Uploadez des images pour commencer</p>
       </div>
     );
   }
@@ -531,74 +558,95 @@ function MediaGrid({ files, loading, selectedFile, onSelect, onDelete }: MediaGr
   return (
     <ScrollArea className="h-[500px]">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-1">
-        {safeFiles.map((file) => {
-          if (!file?.id) return null; // Sécurité supplémentaire
+        {safeFiles.map((file, index) => {
+          try {
+            // 🛡️ Validation stricte avant le rendu
+            if (!file?.id) {
+              console.warn('⚠️ [MediaGrid] File without id at index:', index);
+              return null;
+            }
 
-          // 🛡️ Support des deux formats + construction URL valide
-          const rawUrl = file?.url || file?.public_url || '';
-          const fileName = file?.filename || file?.file_name || 'Sans nom';
-          const finalUrl = buildImageUrl(rawUrl);
+            // 🛡️ Support des deux formats + construction URL valide
+            const rawUrl = file?.url || file?.public_url || '';
+            const fileName = file?.filename || file?.file_name || 'Sans nom';
 
-          return (
-          <Card
-            key={file?.id}
-            className={`cursor-pointer transition-all hover:shadow-lg ${
-              selectedFile === finalUrl
-                ? 'ring-2 ring-pink-500'
-                : ''
-            }`}
-            onClick={() => onSelect(finalUrl)}
-          >
-            <CardContent className="p-2">
-              <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden mb-2">
-                <img
-                  src={finalUrl}
-                  alt={fileName}
-                  loading="lazy"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    console.error('❌ [MEDIA_LIBRARY] Image load error:', {
-                      filename: fileName,
-                      url: finalUrl,
-                      error: 'ERR_NAME_NOT_RESOLVED ou 404'
-                    });
-                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="48"%3E?%3C/text%3E%3C/svg%3E';
-                  }}
-                />
-                {selectedFile === finalUrl && (
-                  <div className="absolute inset-0 bg-pink-500/20 flex items-center justify-center">
-                    <CheckCircle2 className="h-8 w-8 text-pink-600" />
-                  </div>
-                )}
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium truncate" title={fileName}>
-                  {fileName}
-                </p>
-                <div className="flex items-center justify-between">
-                  <Badge variant={file?.is_orphan ? "secondary" : "default"} className="text-xs">
-                    {file?.is_orphan ? 'Non utilisée' : `Utilisée ${file?.usage_count || 0}x`}
-                  </Badge>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(file);
+            // Si pas d'URL valide, ignorer cette image
+            if (!rawUrl) {
+              console.warn('⚠️ [MediaGrid] File without URL:', file?.id);
+              return null;
+            }
+
+            const finalUrl = buildImageUrl(rawUrl);
+
+            // 🛡️ Clé unique robuste (évite les collisions)
+            const uniqueKey = `media-${file.id}-${index}`;
+
+            return (
+            <Card
+              key={uniqueKey}
+              className={`cursor-pointer transition-all hover:shadow-lg ${
+                selectedFile === finalUrl
+                  ? 'ring-2 ring-pink-500'
+                  : ''
+              }`}
+              onClick={() => onSelect(finalUrl)}
+            >
+              <CardContent className="p-2">
+                <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden mb-2">
+                  <img
+                    src={finalUrl}
+                    alt={fileName}
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      console.error('❌ [MediaGrid] Image load error:', {
+                        id: file.id,
+                        filename: fileName,
+                        url: finalUrl
+                      });
+                      // Image de fallback SVG grise avec icône
+                      e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23e5e7eb" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%239ca3af" font-size="16" dy=".3em"%3EImage introuvable%3C/text%3E%3C/svg%3E';
                     }}
-                  >
-                    <Trash2 className="h-3 w-3 text-red-500" />
-                  </Button>
+                  />
+                  {selectedFile === finalUrl && (
+                    <div className="absolute inset-0 bg-pink-500/20 flex items-center justify-center">
+                      <CheckCircle2 className="h-8 w-8 text-pink-600" />
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-gray-500">
-                  {((file?.file_size || 0) / 1024).toFixed(1)} KB
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          );
-        })}
+                <div className="space-y-1">
+                  <p className="text-xs font-medium truncate" title={fileName}>
+                    {fileName}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <Badge variant={file?.is_orphan ? "secondary" : "default"} className="text-xs">
+                      {file?.is_orphan ? 'Non utilisée' : `Utilisée ${file?.usage_count || 0}x`}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(file);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3 text-red-500" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {((file?.file_size || 0) / 1024).toFixed(1)} KB
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            );
+          } catch (renderError) {
+            // 🛡️ ATTRAPER toute erreur individuelle sans faire planter le composant entier
+            console.error('❌ [MediaGrid] Render error for file:', file?.id, renderError);
+            return null;
+          }
+        }).filter(Boolean)}
       </div>
     </ScrollArea>
   );

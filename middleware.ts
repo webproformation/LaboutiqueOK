@@ -33,14 +33,31 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (request.nextUrl.pathname === '/maintenance') {
+  // Routes exemptées du mode maintenance (accessibles même en maintenance)
+  const exemptedPaths = [
+    '/maintenance',
+    '/admin',
+    '/api/admin',
+    '/api/auth',
+    '/auth/login',
+    '/auth/register',
+    '/auth/forgot-password',
+    '/auth/reset-password',
+    '/clear-auth',
+    '/force-logout',
+    '/debug-auth'
+  ];
+
+  const isExemptedPath = exemptedPaths.some(path =>
+    request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(path + '/')
+  );
+
+  // Si la route est exemptée, laisser passer sans vérifier le mode maintenance
+  if (isExemptedPath) {
     return response;
   }
 
-  if (request.nextUrl.pathname.startsWith('/api/admin/maintenance')) {
-    return response;
-  }
-
+  // Vérifier le mode maintenance uniquement pour les routes non-exemptées
   try {
     const maintenanceResponse = await fetch(`${request.nextUrl.origin}/api/admin/maintenance`, {
       headers: {
@@ -51,7 +68,9 @@ export async function middleware(request: NextRequest) {
     if (maintenanceResponse.ok) {
       const { data } = await maintenanceResponse.json();
 
-      if (data?.is_maintenance_mode) {
+      // Si le mode maintenance est actif
+      if (data?.is_maintenance_mode === true) {
+        // Vérifier si l'utilisateur est admin
         let isAdmin = false;
 
         if (user) {
@@ -64,6 +83,7 @@ export async function middleware(request: NextRequest) {
           isAdmin = profile?.role === 'admin';
         }
 
+        // Rediriger vers /maintenance uniquement si l'utilisateur n'est PAS admin
         if (!isAdmin) {
           return NextResponse.redirect(new URL('/maintenance', request.url));
         }
