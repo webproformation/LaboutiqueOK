@@ -78,8 +78,8 @@ export default function ProductCard({ product }: ProductCardProps) {
   }, [product.databaseId, product.name]);
 
   // PRIORITÉ ABSOLUE: Supabase uniquement, JAMAIS WordPress
-  // Si pas d'image Supabase → placeholder
-  const PLACEHOLDER_IMAGE = 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=600';
+  // Si pas d'image Supabase → placeholder neutre (vêtements mode)
+  const PLACEHOLDER_IMAGE = 'https://images.pexels.com/photos/1926769/pexels-photo-1926769.jpeg?auto=compress&cs=tinysrgb&w=600';
 
   const images = supabaseImages.length > 0
     ? supabaseImages
@@ -87,7 +87,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   // Log si on utilise le placeholder
   if (supabaseImages.length === 0 && product.databaseId) {
-    console.log(`[ProductCard] ⚠️  No Supabase image for product ${product.databaseId}, using placeholder`);
+    console.warn(`[ProductCard] ⚠️  No Supabase image for product ${product.databaseId} (${product.name}), using placeholder`);
   }
 
   const hasSelectableAttributes = () => {
