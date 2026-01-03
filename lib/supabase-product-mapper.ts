@@ -86,7 +86,10 @@ export async function enrichProductWithSupabaseImages(product: Product): Promise
       },
     };
   } else {
-    console.log(`[MediaMapper] ⚠️  No Supabase image for product ID ${woocommerceId} (${product.name}), using WordPress URL`);
+    // LOG VISIBLE d'erreur de mapping
+    console.error(`❌ [MediaMapper] ÉCHEC: Pas d'image Supabase pour produit ${woocommerceId} (${product.name})`);
+    console.error(`   Fallback WordPress: ${product.image?.sourceUrl || 'AUCUNE IMAGE'}`);
+    console.error(`   Action requise: Uploader l'image dans Storage Supabase à /product-images/products/product-${woocommerceId}-*.webp`);
     return product;
   }
 }

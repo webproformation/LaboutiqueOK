@@ -73,7 +73,7 @@ export default function ProductAttributesManager({
       const { data: attributesData, error: attrError } = await supabase
         .from('product_attributes')
         .select('*')
-        .eq('is_active', true)
+        .eq('is_visible', true)
         .order('order_by', { ascending: true });
 
       if (attrError) {

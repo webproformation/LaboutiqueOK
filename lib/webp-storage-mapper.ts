@@ -63,7 +63,8 @@ class WebPStorageMapper {
         .list('products', { limit: 1000 });
 
       if (error) {
-        console.error('[WebPMapper] Storage error:', error);
+        console.error('❌ [WebPMapper] ERREUR CRITIQUE Storage:', error);
+        console.error('   Vérifier les permissions du bucket product-images');
         return {};
       }
 
