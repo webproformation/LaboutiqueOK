@@ -46,17 +46,20 @@ export default function EnRayonPage() {
         return priceA - priceB;
       });
 
-      // ENRICHISSEMENT SUPABASE
-      console.log('[EnRayonPage] 🎯 Enriching', sortedProducts.length, 'products with Supabase images');
-      enrichProductsWithSupabaseImages(sortedProducts)
-        .then(enriched => {
-          console.log('[EnRayonPage] ✅ Enrichment complete');
-          setProducts(enriched);
-        })
-        .catch(error => {
-          console.error('[EnRayonPage] ❌ Enrichment error:', error);
-          setProducts(sortedProducts);
-        });
+      // ENRICHISSEMENT SUPABASE - DÉSACTIVÉ TEMPORAIREMENT (risque boucle infinie)
+      // console.log('[EnRayonPage] 🎯 Enriching', sortedProducts.length, 'products with Supabase images');
+      // enrichProductsWithSupabaseImages(sortedProducts)
+      //   .then(enriched => {
+      //     console.log('[EnRayonPage] ✅ Enrichment complete');
+      //     setProducts(enriched);
+      //   })
+      //   .catch(error => {
+      //     console.error('[EnRayonPage] ❌ Enrichment error:', error);
+      //     setProducts(sortedProducts);
+      //   });
+
+      // UTILISER DIRECTEMENT PRODUITS SANS ENRICHISSEMENT
+      setProducts(sortedProducts);
 
       setHasNextPage(productsData.products.pageInfo.hasNextPage);
       setEndCursor(productsData.products.pageInfo.endCursor);

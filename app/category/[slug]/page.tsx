@@ -92,28 +92,33 @@ export default function CategoryPage() {
   console.log('[CategoryPage] Published products:', products.length);
   console.log('[CategoryPage] Published product names:', products.map(p => p.name));
 
-  // ENRICHISSEMENT SUPABASE - Injecter les URLs WebP depuis Storage
-  useEffect(() => {
-    if (products.length > 0 && !isEnriching) {
-      setIsEnriching(true);
-      console.log('[CategoryPage] 🎯 Starting Supabase image enrichment for', products.length, 'products');
+  // ENRICHISSEMENT SUPABASE - DÉSACTIVÉ TEMPORAIREMENT (causait boucle infinie)
+  // useEffect(() => {
+  //   if (products.length > 0 && !isEnriching) {
+  //     setIsEnriching(true);
+  //     console.log('[CategoryPage] 🎯 Starting Supabase image enrichment for', products.length, 'products');
+  //
+  //     enrichProductsWithSupabaseImages(products)
+  //       .then(enriched => {
+  //         console.log('[CategoryPage] ✅ Enrichment complete');
+  //         setEnrichedProducts(enriched);
+  //         setIsEnriching(false);
+  //       })
+  //       .catch(error => {
+  //         console.error('[CategoryPage] ❌ Enrichment error:', error);
+  //         setEnrichedProducts(products);
+  //         setIsEnriching(false);
+  //       });
+  //   } else if (products.length === 0) {
+  //     setEnrichedProducts([]);
+  //     setIsEnriching(false);
+  //   }
+  // }, [products]);
 
-      enrichProductsWithSupabaseImages(products)
-        .then(enriched => {
-          console.log('[CategoryPage] ✅ Enrichment complete');
-          setEnrichedProducts(enriched);
-          setIsEnriching(false);
-        })
-        .catch(error => {
-          console.error('[CategoryPage] ❌ Enrichment error:', error);
-          setEnrichedProducts(products);
-          setIsEnriching(false);
-        });
-    } else if (products.length === 0) {
-      setEnrichedProducts([]);
-      setIsEnriching(false);
-    }
-  }, [products]);
+  // UTILISER DIRECTEMENT LES PRODUITS SANS ENRICHISSEMENT
+  useEffect(() => {
+    setEnrichedProducts(products);
+  }, [products.length]);
 
   const handleFilterChange = useCallback((newFilters: Record<string, string[]>, newPriceRange?: { min: number; max: number }) => {
     setFilters(newFilters);

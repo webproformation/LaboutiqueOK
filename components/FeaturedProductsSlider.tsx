@@ -70,19 +70,22 @@ export default function FeaturedProductsSlider() {
     }
   }, [featuredProductIds, productsData, apolloError]);
 
-  // ENRICHISSEMENT SUPABASE
+  // ENRICHISSEMENT SUPABASE - DÉSACTIVÉ TEMPORAIREMENT (risque boucle infinie)
   useEffect(() => {
     if (productsData?.products?.nodes && productsData.products.nodes.length > 0) {
-      console.log('[FeaturedProductsSlider] 🎯 Enriching', productsData.products.nodes.length, 'featured products');
-      enrichProductsWithSupabaseImages(productsData.products.nodes as Product[])
-        .then(enriched => {
-          console.log('[FeaturedProductsSlider] ✅ Enrichment complete');
-          setEnrichedProducts(enriched);
-        })
-        .catch(error => {
-          console.error('[FeaturedProductsSlider] ❌ Enrichment error:', error);
-          setEnrichedProducts(productsData.products.nodes as Product[]);
-        });
+      // console.log('[FeaturedProductsSlider] 🎯 Enriching', productsData.products.nodes.length, 'featured products');
+      // enrichProductsWithSupabaseImages(productsData.products.nodes as Product[])
+      //   .then(enriched => {
+      //     console.log('[FeaturedProductsSlider] ✅ Enrichment complete');
+      //     setEnrichedProducts(enriched);
+      //   })
+      //   .catch(error => {
+      //     console.error('[FeaturedProductsSlider] ❌ Enrichment error:', error);
+      //     setEnrichedProducts(productsData.products.nodes as Product[]);
+      //   });
+
+      // UTILISER DIRECTEMENT PRODUITS SANS ENRICHISSEMENT
+      setEnrichedProducts(productsData.products.nodes as Product[]);
     }
   }, [productsData]);
 
