@@ -83,6 +83,7 @@ export default function EditProductPage() {
   const [categories, setCategories] = useState<SupabaseCategory[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -187,29 +188,31 @@ export default function EditProductPage() {
       // CHARGER LES IMAGES DU PRODUIT
       const { data: productImages, error: imagesError } = await supabase
         .from('product_images')
-        .select('image_url, is_primary')
+        .select('image_url, display_order')
         .eq('product_id', productId)
         .order('display_order');
 
       if (imagesError) {
         console.error('[LOAD] ⚠️ Erreur chargement images:', imagesError);
+        throw new Error(`Erreur images: ${imagesError.message}`);
       }
 
-      let mainImageUrl = '';
+      // UTILISER product.image_url COMME IMAGE PRINCIPALE
+      let mainImageUrl = product.image_url || '';
       let galleryImages: GalleryImage[] = [];
 
       if (productImages && productImages.length > 0) {
-        const primaryImage = productImages.find(img => img.is_primary);
-        mainImageUrl = primaryImage?.image_url || productImages[0].image_url;
-        galleryImages = productImages
-          .filter(img => !img.is_primary)
-          .map((img, idx) => ({
-            url: img.image_url,
-            id: idx,
-          }));
-        console.log(`[LOAD] 🖼️ ${productImages.length} images chargées (1 principale + ${galleryImages.length} galerie)`);
+        galleryImages = productImages.map((img, idx) => ({
+          url: img.image_url,
+          id: idx,
+        }));
+        console.log(`[LOAD] 🖼️ ${productImages.length} images galerie chargées`);
+      }
+
+      if (mainImageUrl) {
+        console.log('[LOAD] 🖼️ Image principale:', mainImageUrl);
       } else {
-        console.log('[LOAD] ⚠️ Aucune image trouvée');
+        console.log('[LOAD] ⚠️ Aucune image principale définie');
       }
 
       setFormData({
@@ -233,9 +236,11 @@ export default function EditProductPage() {
       });
 
       console.log('[LOAD] 🎉 Chargement complet réussi');
+      setDataLoaded(true);
     } catch (error) {
       console.error('[LOAD] 💥 ERREUR CRITIQUE:', error);
-      toast.error(error instanceof Error ? error.message : 'Erreur lors du chargement du produit');
+      toast.error(error instanceof Error ? error.message : 'ERREUR: Impossible de charger les données');
+      setDataLoaded(false);
     } finally {
       setLoading(false);
     }
@@ -250,7 +255,7 @@ export default function EditProductPage() {
     try {
       console.log('[SAVE] 🚀 Début sauvegarde produit:', productId);
 
-      // STEP 1: UPDATE PRODUCTS TABLE
+      // STEP 1: UPDATE PRODUCTS TABLE (y compris image_url)
       const { error: productError } = await supabase
         .from('products')
         .update({
@@ -263,6 +268,7 @@ export default function EditProductPage() {
           stock_quantity: formData.stock_quantity,
           stock_status: formData.stock_status,
           featured: formData.featured,
+          image_url: formData.image_url || null,
           is_active: formData.status === 'publish',
           updated_at: new Date().toISOString(),
         })
@@ -272,7 +278,7 @@ export default function EditProductPage() {
         console.error('[SAVE] ❌ Erreur UPDATE products:', productError);
         throw new Error(`Erreur produit: ${productError.message}`);
       }
-      console.log('[SAVE] ✅ Produit mis à jour');
+      console.log('[SAVE] ✅ Produit mis à jour (avec image_url)');
 
       // STEP 2: DELETE + INSERT PRODUCT_CATEGORIES
       const { error: deleteCategoriesError } = await supabase
@@ -341,7 +347,7 @@ export default function EditProductPage() {
         console.log('[SAVE] ℹ️ Aucun attribut à sauvegarder');
       }
 
-      // STEP 4: DELETE + INSERT PRODUCT_IMAGES
+      // STEP 4: DELETE + INSERT PRODUCT_IMAGES (GALERIE UNIQUEMENT)
       const { error: deleteImagesError } = await supabase
         .from('product_images')
         .delete()
@@ -352,16 +358,12 @@ export default function EditProductPage() {
         throw new Error(`Erreur suppression images: ${deleteImagesError.message}`);
       }
 
-      const allImages = formData.image_url
-        ? [{ url: formData.image_url, id: 0 }, ...formData.gallery_images]
-        : formData.gallery_images;
-
-      if (allImages.length > 0) {
-        const imagesToInsert = allImages.map((img, index) => ({
+      // NE SAUVEGARDER QUE LA GALERIE (image principale = product.image_url)
+      if (formData.gallery_images.length > 0) {
+        const imagesToInsert = formData.gallery_images.map((img, index) => ({
           product_id: productId,
           image_url: img.url || img.src || '',
           display_order: index,
-          is_primary: index === 0,
         }));
 
         const { error: insertImagesError } = await supabase
@@ -372,9 +374,9 @@ export default function EditProductPage() {
           console.error('[SAVE] ❌ Erreur INSERT product_images:', insertImagesError);
           throw new Error(`Erreur insertion images: ${insertImagesError.message}`);
         }
-        console.log(`[SAVE] ✅ ${allImages.length} images sauvegardées`);
+        console.log(`[SAVE] ✅ ${formData.gallery_images.length} images galerie sauvegardées`);
       } else {
-        console.log('[SAVE] ℹ️ Aucune image à sauvegarder');
+        console.log('[SAVE] ℹ️ Aucune image galerie à sauvegarder');
       }
 
       console.log('[SAVE] 🎉 Sauvegarde complète réussie');
@@ -760,11 +762,16 @@ export default function EditProductPage() {
               Annuler
             </Button>
           </Link>
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" disabled={saving || !dataLoaded || loadingCategories}>
             {saving ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Enregistrement...
+              </>
+            ) : !dataLoaded ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Chargement des données...
               </>
             ) : (
               <>
