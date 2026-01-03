@@ -33,27 +33,17 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Routes exemptées du mode maintenance (accessibles même en maintenance)
-  const exemptedPaths = [
-    '/maintenance',
-    '/admin',
-    '/api/admin',
-    '/api/auth',
-    '/auth/login',
-    '/auth/register',
-    '/auth/forgot-password',
-    '/auth/reset-password',
-    '/clear-auth',
-    '/force-logout',
-    '/debug-auth'
-  ];
+  const pathname = request.nextUrl.pathname;
 
-  const isExemptedPath = exemptedPaths.some(path =>
-    request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(path + '/')
-  );
+  // EXEMPTION TOTALE : Toutes les routes API et Admin passent sans vérification
+  const isApiRoute = pathname.startsWith('/api/');
+  const isAdminRoute = pathname.startsWith('/admin');
+  const isAuthRoute = pathname.startsWith('/auth/');
+  const isMaintenanceRoute = pathname === '/maintenance';
+  const isUtilityRoute = ['/clear-auth', '/force-logout', '/debug-auth'].includes(pathname);
 
-  // Si la route est exemptée, laisser passer sans vérifier le mode maintenance
-  if (isExemptedPath) {
+  // Si c'est une route exemptée, laisser passer IMMÉDIATEMENT
+  if (isApiRoute || isAdminRoute || isAuthRoute || isMaintenanceRoute || isUtilityRoute) {
     return response;
   }
 
