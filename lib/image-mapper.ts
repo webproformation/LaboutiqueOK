@@ -61,7 +61,12 @@ async function loadMediaLibraryCache(): Promise<void> {
 
   cacheLoadPromise = (async () => {
     try {
-      const supabase = createClient();
+      // Utiliser le client Supabase déjà importé
+      if (!supabase) {
+        console.error('[ImageMapper] No Supabase client available during cache load');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('media_library')
         .select('filename, url, file_path, bucket_name');
