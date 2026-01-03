@@ -58,47 +58,43 @@ export default function AdminCoupons() {
   }, []);
 
   const handleSave = async (coupon: CouponType) => {
+    const payload = {
+      code: coupon.code || '',
+      type: coupon.type || 'discount_amount',
+      value: coupon.value || 0,
+      description: coupon.description || '',
+      valid_until: coupon.valid_until || '2026-12-31 23:59:59+00',
+      is_active: coupon.is_active !== undefined ? coupon.is_active : true,
+    };
+
     if (coupon.id) {
       const { error } = await supabase
         .from('coupon_types')
-        .update({
-          code: coupon.code,
-          type: coupon.type,
-          value: coupon.value,
-          description: coupon.description,
-          valid_until: coupon.valid_until,
-          is_active: coupon.is_active,
-        })
+        .update(payload)
         .eq('id', coupon.id);
 
       if (error) {
-        toast.error('Erreur lors de la mise à jour');
-      } else {
-        toast.success('Coupon mis à jour');
-        setEditingCoupon(null);
-        fetchCoupons();
+        toast.error(`Erreur : ${error.message}`);
+        return;
       }
+
+      toast.success('Coupon mis à jour');
     } else {
       const { error } = await supabase
         .from('coupon_types')
-        .insert({
-          code: coupon.code,
-          type: coupon.type,
-          value: coupon.value,
-          description: coupon.description,
-          valid_until: coupon.valid_until,
-          is_active: coupon.is_active,
-        });
+        .insert(payload);
 
       if (error) {
-        toast.error('Erreur lors de la création');
-      } else {
-        toast.success('Coupon créé');
-        setIsCreating(false);
-        setEditingCoupon(null);
-        fetchCoupons();
+        toast.error(`Erreur : ${error.message}`);
+        return;
       }
+
+      toast.success('Coupon créé');
     }
+
+    setEditingCoupon(null);
+    setIsCreating(false);
+    fetchCoupons();
   };
 
   const handleDelete = async (id: string) => {
@@ -142,7 +138,7 @@ export default function AdminCoupons() {
                 <Input
                   value={editingCoupon?.code || ''}
                   onChange={(e) =>
-                    setEditingCoupon(prev => ({ ...prev!, code: e.target.value }))
+                    setEditingCoupon(prev => prev ? { ...prev, code: e.target.value } : emptyCoupon)
                   }
                   placeholder="EX: PROMO10"
                 />
@@ -150,9 +146,9 @@ export default function AdminCoupons() {
               <div>
                 <Label>Type</Label>
                 <Select
-                  value={editingCoupon?.type}
+                  value={editingCoupon?.type || 'discount_amount'}
                   onValueChange={(value) =>
-                    setEditingCoupon(prev => ({ ...prev!, type: value }))
+                    setEditingCoupon(prev => prev ? { ...prev, type: value } : emptyCoupon)
                   }
                 >
                   <SelectTrigger>
@@ -171,7 +167,7 @@ export default function AdminCoupons() {
                   type="number"
                   value={editingCoupon?.value || 0}
                   onChange={(e) =>
-                    setEditingCoupon(prev => ({ ...prev!, value: parseFloat(e.target.value) }))
+                    setEditingCoupon(prev => prev ? { ...prev, value: parseFloat(e.target.value) || 0 } : emptyCoupon)
                   }
                 />
               </div>
@@ -180,7 +176,7 @@ export default function AdminCoupons() {
                 <Input
                   value={editingCoupon?.description || ''}
                   onChange={(e) =>
-                    setEditingCoupon(prev => ({ ...prev!, description: e.target.value }))
+                    setEditingCoupon(prev => prev ? { ...prev, description: e.target.value } : emptyCoupon)
                   }
                   placeholder="Ex: 10€ de réduction"
                 />
@@ -191,15 +187,15 @@ export default function AdminCoupons() {
                   type="datetime-local"
                   value={editingCoupon?.valid_until?.slice(0, 16) || ''}
                   onChange={(e) =>
-                    setEditingCoupon(prev => ({ ...prev!, valid_until: e.target.value + ':00+00' }))
+                    setEditingCoupon(prev => prev ? { ...prev, valid_until: e.target.value + ':00+00' } : emptyCoupon)
                   }
                 />
               </div>
               <div className="flex items-center space-x-2">
                 <Switch
-                  checked={editingCoupon?.is_active}
+                  checked={editingCoupon?.is_active ?? true}
                   onCheckedChange={(checked) =>
-                    setEditingCoupon(prev => ({ ...prev!, is_active: checked }))
+                    setEditingCoupon(prev => prev ? { ...prev, is_active: checked } : emptyCoupon)
                   }
                 />
                 <Label>Actif</Label>
