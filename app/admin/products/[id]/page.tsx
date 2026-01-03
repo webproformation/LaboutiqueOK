@@ -297,6 +297,10 @@ export default function EditProductPage() {
       console.log('[SAVE] ✅ Produit mis à jour (image_url, manage_stock, stock)');
 
       // STEP 2: DELETE + INSERT PRODUCT_CATEGORIES
+      console.log('[SAVE] 📂 Début sauvegarde catégories pour produit:', productId);
+      console.log('[SAVE] 📂 Catégorie parente:', formData.category_id);
+      console.log('[SAVE] 📂 Sous-catégories:', formData.child_category_ids);
+
       const { error: deleteCategoriesError } = await supabase
         .from('product_categories')
         .delete()
@@ -304,16 +308,31 @@ export default function EditProductPage() {
 
       if (deleteCategoriesError) {
         console.error('[SAVE] ❌ Erreur DELETE product_categories:', deleteCategoriesError);
+        toast.error(`Erreur suppression catégories: ${deleteCategoriesError.message}`);
         throw new Error(`Erreur suppression catégories: ${deleteCategoriesError.message}`);
       }
+      console.log('[SAVE] ✅ Anciennes catégories supprimées');
+
+      // DÉTERMINER QUELLES CATÉGORIES À SAUVEGARDER
+      let categoriesToSave: string[] = [];
 
       if (formData.child_category_ids.length > 0) {
-        const categoriesToInsert = formData.child_category_ids.map((categoryId, index) => ({
+        // Si des sous-catégories sont sélectionnées, on les sauvegarde
+        categoriesToSave = formData.child_category_ids;
+      } else if (formData.category_id) {
+        // Si aucune sous-catégorie mais une catégorie parente, on sauvegarde la parente
+        categoriesToSave = [formData.category_id];
+      }
+
+      if (categoriesToSave.length > 0) {
+        const categoriesToInsert = categoriesToSave.map((categoryId, index) => ({
           product_id: productId,
           category_id: categoryId,
           is_primary: index === 0,
           display_order: index,
         }));
+
+        console.log('[SAVE] 📂 Insertion de', categoriesToInsert.length, 'catégorie(s):', categoriesToInsert);
 
         const { error: insertCategoriesError } = await supabase
           .from('product_categories')
@@ -321,9 +340,11 @@ export default function EditProductPage() {
 
         if (insertCategoriesError) {
           console.error('[SAVE] ❌ Erreur INSERT product_categories:', insertCategoriesError);
+          toast.error(`Erreur insertion catégories: ${insertCategoriesError.message}`);
           throw new Error(`Erreur insertion catégories: ${insertCategoriesError.message}`);
         }
-        console.log(`[SAVE] ✅ ${formData.child_category_ids.length} catégories sauvegardées`);
+        console.log(`[SAVE] ✅ ${categoriesToSave.length} catégorie(s) sauvegardée(s)`);
+        toast.success(`${categoriesToSave.length} catégorie(s) sauvegardée(s)`);
       } else {
         console.log('[SAVE] ℹ️ Aucune catégorie à sauvegarder');
       }

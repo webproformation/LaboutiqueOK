@@ -178,7 +178,8 @@ export default function CategoryPage() {
         .from('products')
         .select('*')
         .in('id', productIds)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
 
       if (productsError) throw productsError;
 
@@ -427,6 +428,8 @@ export default function CategoryPage() {
                 <AlertDescription>
                   {Object.keys(filters).length > 0
                     ? "Aucun produit ne correspond aux filtres sélectionnés."
+                    : products.length === 0
+                    ? "Les produits sont en cours de chargement... Si cette catégorie reste vide, vérifiez que des produits ont bien été assignés à cette catégorie dans l'administration."
                     : "Il n'y a actuellement aucun produit dans cette catégorie."}
                 </AlertDescription>
               </Alert>
