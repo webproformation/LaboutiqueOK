@@ -453,12 +453,18 @@ export default function ProductPage({ params }: { params: Promise<{ slug: string
   };
 
   const inWishlist = isInWishlist(product.slug);
-  const galleryImages = product.galleryImages?.nodes || [];
 
-  // PRIORITÉ ABSOLUE aux images WebP de Supabase Storage
+  // PRIORITÉ ABSOLUE: Supabase uniquement, JAMAIS WordPress
+  const PLACEHOLDER_IMAGE = { sourceUrl: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=600' };
+
   const defaultImages = webpGallery.length > 0
     ? webpGallery
-    : (product.image ? [product.image, ...galleryImages] : galleryImages);
+    : [PLACEHOLDER_IMAGE];
+
+  // Log si on utilise le placeholder
+  if (webpGallery.length === 0 && product.databaseId) {
+    console.log(`[ProductPage] ⚠️  No Supabase gallery for product ${product.databaseId}, using placeholder`);
+  }
   const isVariable = product.__typename === 'VariableProduct';
   const variations = product.variations?.nodes || [];
   const variationAttributes = product.attributes?.nodes?.filter((attr: any) => attr.variation) || [];

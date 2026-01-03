@@ -15,7 +15,22 @@ export default function ProductGallery({ images, productName }: ProductGalleryPr
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
 
-  const allImages = images.length > 0 ? images : [{ sourceUrl: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=1200' }];
+  // INTERDICTION TOTALE des URLs WordPress - uniquement Supabase ou placeholder
+  const PLACEHOLDER_IMAGE = { sourceUrl: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=1200' };
+
+  // Filtrer TOUTES les URLs WordPress
+  const cleanImages = images.filter(img =>
+    img.sourceUrl &&
+    !img.sourceUrl.includes('wp.laboutiquedemorgane.com') &&
+    !img.sourceUrl.includes('wp-content')
+  );
+
+  const allImages = cleanImages.length > 0 ? cleanImages : [PLACEHOLDER_IMAGE];
+
+  // Log si des URLs WordPress ont été filtrées
+  if (cleanImages.length !== images.length) {
+    console.log(`[ProductGallery] 🚫 Blocked ${images.length - cleanImages.length} WordPress URLs for ${productName}`);
+  }
 
   const goToPrevious = () => {
     setCurrentIndex((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));

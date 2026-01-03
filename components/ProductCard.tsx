@@ -77,15 +77,18 @@ export default function ProductCard({ product }: ProductCardProps) {
     fetchSupabaseImages();
   }, [product.databaseId, product.name]);
 
-  // Construire la liste d'images avec priorité TOTALE à Supabase
-  const wordpressImages = [
-    product.image?.sourceUrl,
-    ...(product.galleryImages?.nodes?.map(img => img.sourceUrl) || [])
-  ].filter(Boolean) as string[];
+  // PRIORITÉ ABSOLUE: Supabase uniquement, JAMAIS WordPress
+  // Si pas d'image Supabase → placeholder
+  const PLACEHOLDER_IMAGE = 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=600';
 
-  // Si on a des images Supabase, les utiliser EXCLUSIVEMENT
-  // Sinon fallback vers WordPress
-  const images = supabaseImages.length > 0 ? supabaseImages : wordpressImages;
+  const images = supabaseImages.length > 0
+    ? supabaseImages
+    : [PLACEHOLDER_IMAGE];
+
+  // Log si on utilise le placeholder
+  if (supabaseImages.length === 0 && product.databaseId) {
+    console.log(`[ProductCard] ⚠️  No Supabase image for product ${product.databaseId}, using placeholder`);
+  }
 
   const hasSelectableAttributes = () => {
     const isVariable = product.__typename === 'VariableProduct';
