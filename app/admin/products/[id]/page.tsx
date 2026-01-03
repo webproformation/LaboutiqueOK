@@ -223,7 +223,7 @@ export default function EditProductPage() {
         regular_price: product.regular_price?.toString() || '',
         sale_price: product.sale_price?.toString() || '',
         stock_quantity: product.stock_quantity || null,
-        manage_stock: false,
+        manage_stock: product.manage_stock === true,
         stock_status: product.stock_status || 'instock',
         featured: product.featured === true,
         image_id: 0,
@@ -255,7 +255,18 @@ export default function EditProductPage() {
     try {
       console.log('[SAVE] 🚀 Début sauvegarde produit:', productId);
 
-      // STEP 1: UPDATE PRODUCTS TABLE (y compris image_url)
+      // STEP 1: UPDATE PRODUCTS TABLE (y compris image_url et manage_stock)
+
+      // LOGIQUE DE STOCK: Si manage_stock = true et stock_quantity = 0, forcer outofstock
+      let finalStockStatus = formData.stock_status;
+      if (formData.manage_stock && formData.stock_quantity === 0) {
+        finalStockStatus = 'outofstock';
+        console.log('[SAVE] 📦 Stock géré: quantité = 0 → stock_status = outofstock');
+      } else if (formData.manage_stock && formData.stock_quantity && formData.stock_quantity > 0) {
+        finalStockStatus = 'instock';
+        console.log('[SAVE] 📦 Stock géré: quantité > 0 → stock_status = instock');
+      }
+
       const { error: productError } = await supabase
         .from('products')
         .update({
@@ -265,8 +276,9 @@ export default function EditProductPage() {
           short_description: formData.short_description,
           regular_price: parseFloat(formData.regular_price) || 0,
           sale_price: formData.sale_price ? parseFloat(formData.sale_price) : null,
+          manage_stock: formData.manage_stock,
           stock_quantity: formData.stock_quantity,
-          stock_status: formData.stock_status,
+          stock_status: finalStockStatus,
           featured: formData.featured,
           image_url: formData.image_url || null,
           is_active: formData.status === 'publish',
@@ -278,7 +290,7 @@ export default function EditProductPage() {
         console.error('[SAVE] ❌ Erreur UPDATE products:', productError);
         throw new Error(`Erreur produit: ${productError.message}`);
       }
-      console.log('[SAVE] ✅ Produit mis à jour (avec image_url)');
+      console.log('[SAVE] ✅ Produit mis à jour (image_url, manage_stock, stock)');
 
       // STEP 2: DELETE + INSERT PRODUCT_CATEGORIES
       const { error: deleteCategoriesError } = await supabase
