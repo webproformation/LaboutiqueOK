@@ -29,16 +29,20 @@ export default function VideoShowcase() {
         const { data, error } = await supabase
           .from('live_streams')
           .select('id, title, description, thumbnail_url, replay_url, created_at')
-          .eq('status', 'completed')
+          .eq('status', 'ended')
           .not('replay_url', 'is', null)
           .order('created_at', { ascending: false })
           .limit(4);
 
-        if (!error && data) {
+        if (error) {
+          console.error('❌ [VideoShowcase] Erreur chargement vidéos:', error);
+          setVideos([]);
+        } else if (data) {
           setVideos(data);
         }
       } catch (error) {
-        console.error('Error fetching videos:', error);
+        console.error('❌ [VideoShowcase] Exception chargement vidéos:', error);
+        setVideos([]);
       } finally {
         setLoading(false);
       }

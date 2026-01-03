@@ -35,18 +35,27 @@ export default function LiveStreamsSlider() {
     setLoading(true);
 
     const fetchStreams = async () => {
-      const { data, error } = await supabase
-        .from('live_streams')
-        .select('*')
-        .eq('status', 'ended')
-        .not('replay_url', 'is', null)
-        .order('actual_end', { ascending: false })
-        .limit(6);
+      try {
+        const { data, error } = await supabase
+          .from('live_streams')
+          .select('*')
+          .eq('status', 'ended')
+          .not('replay_url', 'is', null)
+          .order('actual_end', { ascending: false })
+          .limit(6);
 
-      if (!error && data) {
-        setStreams(data);
+        if (error) {
+          console.error('❌ [LiveStreams] Erreur chargement streams:', error);
+          setStreams([]);
+        } else if (data) {
+          setStreams(data);
+        }
+      } catch (error) {
+        console.error('❌ [LiveStreams] Exception chargement streams:', error);
+        setStreams([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchStreams();

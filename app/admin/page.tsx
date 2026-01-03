@@ -20,27 +20,44 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const fetchStats = async () => {
-      const [orders, coupons, customers, liveStreams] = await Promise.all([
-        supabase.from('orders').select('id', { count: 'exact', head: true }),
-        supabase.from('user_coupons').select('id, is_used', { count: 'exact' }),
-        supabase.from('user_profiles').select('id', { count: 'exact', head: true }),
-        supabase.from('live_streams').select('id, status', { count: 'exact' }),
-      ]);
+      try {
+        const [orders, coupons, customers, liveStreams] = await Promise.all([
+          supabase.from('orders').select('id', { count: 'exact', head: true }),
+          supabase.from('user_coupons').select('id, is_used', { count: 'exact' }),
+          supabase.from('user_profiles').select('id', { count: 'exact', head: true }),
+          supabase.from('live_streams').select('id, status', { count: 'exact' }),
+        ]);
 
-      const activeCoupons = coupons.data?.filter(c => !c.is_used).length || 0;
-      const activeLives = liveStreams.data?.filter(s => s.status === 'live').length || 0;
-      const currentLive = liveStreams.data?.find(s => s.status === 'live');
+        if (orders.error) console.error('❌ [AdminDashboard] Erreur orders:', orders.error);
+        if (coupons.error) console.error('❌ [AdminDashboard] Erreur coupons:', coupons.error);
+        if (customers.error) console.error('❌ [AdminDashboard] Erreur customers:', customers.error);
+        if (liveStreams.error) console.error('❌ [AdminDashboard] Erreur liveStreams:', liveStreams.error);
 
-      setStats({
-        totalOrders: orders.count || 0,
-        totalCoupons: coupons.count || 0,
-        activeCoupons,
-        totalCustomers: customers.count || 0,
-        totalLiveStreams: liveStreams.count || 0,
-        activeLiveStreams: activeLives,
-      });
+        const activeCoupons = coupons.data?.filter(c => !c.is_used).length || 0;
+        const activeLives = liveStreams.data?.filter(s => s.status === 'live').length || 0;
+        const currentLive = liveStreams.data?.find(s => s.status === 'live');
 
-      setLiveStream(currentLive);
+        setStats({
+          totalOrders: orders.count || 0,
+          totalCoupons: coupons.count || 0,
+          activeCoupons,
+          totalCustomers: customers.count || 0,
+          totalLiveStreams: liveStreams.count || 0,
+          activeLiveStreams: activeLives,
+        });
+
+        setLiveStream(currentLive);
+      } catch (error) {
+        console.error('❌ [AdminDashboard] Exception chargement stats:', error);
+        setStats({
+          totalOrders: 0,
+          totalCoupons: 0,
+          activeCoupons: 0,
+          totalCustomers: 0,
+          totalLiveStreams: 0,
+          activeLiveStreams: 0,
+        });
+      }
     };
 
     fetchStats();
