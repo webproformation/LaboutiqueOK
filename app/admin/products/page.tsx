@@ -145,20 +145,27 @@ export default function AdminProducts() {
 
       // Transform to expected format
       const transformedProducts = safeProducts.map((p: any) => ({
-        id: p.woocommerce_id || p.id,
-        databaseId: p.woocommerce_id || p.id,
+        id: p.id,
+        woocommerce_id: p.woocommerce_id || p.id,
         name: p.name || '',
         slug: p.slug || '',
         description: p.description || '',
         short_description: p.short_description || '',
-        price: p.price ? parseFloat(p.price) : 0,
-        regularPrice: p.regular_price ? parseFloat(p.regular_price) : 0,
-        salePrice: p.sale_price ? parseFloat(p.sale_price) : null,
-        stockQuantity: p.stock_quantity || null,
-        stockStatus: p.stock_status || 'instock',
-        manageStock: p.manage_stock || false,
-        image: p.image_url ? { sourceUrl: p.image_url } : null,
-        productCategories: { nodes: [] },
+        regular_price: p.regular_price ? parseFloat(p.regular_price) : 0,
+        sale_price: p.sale_price ? parseFloat(p.sale_price) : null,
+        stock_quantity: p.stock_quantity || null,
+        stock_status: p.stock_status || 'instock',
+        manage_stock: p.manage_stock || false,
+        image_url: p.image_url || null,
+        category_id: p.category_id || null,
+        woocommerce_category_id: p.woocommerce_category_id || null,
+        category_name: p.category_name || null,
+        category_slug: p.category_slug || null,
+        is_active: p.status === 'publish',
+        is_featured: p.is_featured || false,
+        is_hidden_diamond: p.is_diamond || false,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
       }));
 
       setProducts(transformedProducts);
