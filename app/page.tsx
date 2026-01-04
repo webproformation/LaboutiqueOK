@@ -1,240 +1,128 @@
-"use client";
+'use client';
 
-import dynamic from 'next/dynamic';
-import HeroSlider from '@/components/HeroSlider';
-import HomeCategories from '@/components/HomeCategories';
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabase-client';
-import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { supabase, ProductCategory, HomeCategory } from '@/lib/supabase';
+import { ShoppingBag } from 'lucide-react';
 
-const ScratchCardGame = dynamic(() => import('@/components/ScratchCardGame'), { ssr: false });
-const WheelGame = dynamic(() => import('@/components/WheelGame'), { ssr: false });
-const FeaturedProductsSlider = dynamic(() => import('@/components/FeaturedProductsSlider'), { ssr: false });
-const VideoShowcase = dynamic(() => import('@/components/VideoShowcase'), { ssr: false });
-const GuestbookSlider = dynamic(() => import('@/components/GuestbookSlider'), { ssr: false });
-const GuestbookCounters = dynamic(() => import('@/components/GuestbookCounters'), { ssr: false });
-const GeneralReviewForm = dynamic(() => import('@/components/GeneralReviewForm'), { ssr: false });
-
-interface ScratchGameSettings {
-  is_enabled: boolean;
-  popup_delay_seconds: number;
-  win_probability: number;
-  max_plays_per_user: number;
-  max_plays_per_day: number;
-}
-
-interface WheelGameSettings {
-  is_enabled: boolean;
-  popup_delay_seconds: number;
-  max_plays_per_day: number;
-  max_plays_per_user: number;
-  require_authentication: boolean;
-}
-
-type ActiveGame = 'scratch' | 'wheel' | null;
+type HomeCategoryWithDetails = HomeCategory & {
+  category: ProductCategory;
+};
 
 export default function Home() {
-  const { user } = useAuth();
-  const pathname = usePathname();
-  const [showScratchGame, setShowScratchGame] = useState(false);
-  const [showWheelGame, setShowWheelGame] = useState(false);
-  const [scratchSettings, setScratchSettings] = useState<ScratchGameSettings | null>(null);
-  const [wheelSettings, setWheelSettings] = useState<WheelGameSettings | null>(null);
-  const [activeGame, setActiveGame] = useState<ActiveGame>(null);
-  const [canPlay, setCanPlay] = useState(false);
-  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random()}`);
+  const [categories, setCategories] = useState<HomeCategoryWithDetails[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchGameSettings = async () => {
-      try {
-        const [scratchRes, wheelRes] = await Promise.all([
-          supabase.from('scratch_game_settings').select('*').limit(1).maybeSingle(),
-          supabase.from('wheel_game_settings').select('*').limit(1).maybeSingle()
-        ]);
-
-        if (scratchRes.error) {
-          console.error('Error loading scratch settings:', scratchRes.error);
-        } else if (scratchRes.data?.is_enabled) {
-          setScratchSettings(scratchRes.data);
-          setActiveGame('scratch');
-        }
-
-        if (wheelRes.error) {
-          console.error('Error loading wheel settings:', wheelRes.error);
-        } else if (!scratchRes.data?.is_enabled && wheelRes.data?.is_enabled) {
-          setWheelSettings(wheelRes.data);
-          setActiveGame('wheel');
-        }
-      } catch (error) {
-        console.error('Error fetching game settings:', error);
-      }
-    };
-
-    fetchGameSettings();
+    loadCategories();
   }, []);
 
-  useEffect(() => {
-    if (activeGame === 'scratch' && scratchSettings) {
-      let timer: NodeJS.Timeout | null = null;
+  async function loadCategories() {
+    try {
+      const { data: homeCategories, error: homeCatError } = await supabase
+        .from('home_categories')
+        .select('*')
+        .order('display_order');
 
-      const checkCanPlayAndShowGame = async () => {
-        if (!user) {
-          setCanPlay(true);
-          timer = setTimeout(() => {
-            setShowScratchGame(true);
-          }, scratchSettings.popup_delay_seconds * 1000);
-          return;
-        }
+      if (homeCatError) throw homeCatError;
 
-        let canPlayNow = true;
+      const categoriesWithDetails = await Promise.all(
+        (homeCategories || []).map(async (hc) => {
+          const { data: category } = await supabase
+            .from('product_categories')
+            .select('*')
+            .eq('id', hc.category_id)
+            .maybeSingle();
 
-        if (scratchSettings.max_plays_per_day > 0) {
-          const { data: playsToday, error: rpcError } = await supabase
-            .rpc('get_user_plays_today', { user_uuid: user.id });
+          return {
+            ...hc,
+            category: category!
+          };
+        })
+      );
 
-          if (rpcError) {
-            console.error('Error loading plays today:', rpcError);
-          } else {
-            const todayCount = playsToday || 0;
-            if (todayCount >= scratchSettings.max_plays_per_day) {
-              canPlayNow = false;
-            }
-          }
-        }
-
-        if (canPlayNow && scratchSettings.max_plays_per_user > 0) {
-          const { data: plays, error: playsError } = await supabase
-            .from('scratch_game_plays')
-            .select('id')
-            .eq('user_id', user.id);
-
-          if (playsError) {
-            console.error('Error loading user plays:', playsError);
-          } else {
-            const playCount = plays?.length || 0;
-            if (playCount >= scratchSettings.max_plays_per_user) {
-              canPlayNow = false;
-            }
-          }
-        }
-
-        setCanPlay(canPlayNow);
-
-        if (canPlayNow) {
-          timer = setTimeout(() => {
-            setShowScratchGame(true);
-          }, scratchSettings.popup_delay_seconds * 1000);
-        }
-      };
-
-      checkCanPlayAndShowGame();
-
-      return () => {
-        if (timer) {
-          clearTimeout(timer);
-        }
-      };
+      setCategories(categoriesWithDetails);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [user, scratchSettings, activeGame]);
+  }
 
-  useEffect(() => {
-    if (activeGame === 'wheel' && wheelSettings) {
-      let timer: NodeJS.Timeout | null = null;
-
-      const checkCanPlayAndShowGame = async () => {
-        if (!user && wheelSettings.require_authentication) {
-          return;
-        }
-
-        let canPlayNow = true;
-
-        if (user) {
-          if (wheelSettings.max_plays_per_user > 0) {
-            const { count: totalPlays, error: countError } = await supabase
-              .from('wheel_game_plays')
-              .select('*', { count: 'exact' })
-              .eq('user_id', user.id);
-
-            if (countError) {
-              console.error('Error loading wheel plays count:', countError);
-            } else if (totalPlays && totalPlays >= wheelSettings.max_plays_per_user) {
-              canPlayNow = false;
-            }
-          }
-
-          if (canPlayNow && wheelSettings.max_plays_per_day > 0) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            const { count, error: todayError } = await supabase
-              .from('wheel_game_plays')
-              .select('*', { count: 'exact' })
-              .eq('user_id', user.id)
-              .gte('created_at', today.toISOString());
-
-            if (todayError) {
-              console.error('Error loading today plays:', todayError);
-            } else if (count && count >= wheelSettings.max_plays_per_day) {
-              canPlayNow = false;
-            }
-          }
-        } else {
-          if (wheelSettings.max_plays_per_day > 0) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            const { count, error: sessionError } = await supabase
-              .from('wheel_game_plays')
-              .select('*', { count: 'exact' })
-              .eq('session_id', sessionId)
-              .gte('created_at', today.toISOString());
-
-            if (sessionError) {
-              console.error('Error loading session plays:', sessionError);
-            } else if (count && count >= wheelSettings.max_plays_per_day) {
-              canPlayNow = false;
-            }
-          }
-        }
-
-        setCanPlay(canPlayNow);
-
-        if (canPlayNow) {
-          timer = setTimeout(() => {
-            setShowWheelGame(true);
-          }, wheelSettings.popup_delay_seconds * 1000);
-        }
-      };
-
-      checkCanPlayAndShowGame();
-
-      return () => {
-        if (timer) {
-          clearTimeout(timer);
-        }
-      };
-    }
-  }, [user, wheelSettings, activeGame, sessionId]);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-slate-600">Chargement...</div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      {showScratchGame && scratchSettings && activeGame === 'scratch' && (
-        <ScratchCardGame
-          onClose={() => setShowScratchGame(false)}
-          winProbability={scratchSettings.win_probability}
-        />
-      )}
-      {showWheelGame && activeGame === 'wheel' && (
-        <WheelGame onClose={() => setShowWheelGame(false)} />
-      )}
-      <HeroSlider />
-      <HomeCategories />
-      <FeaturedProductsSlider />
-      <VideoShowcase />
-      <GuestbookSlider />
-      <GuestbookCounters />
-      <GeneralReviewForm />
-    </>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <header className="bg-white shadow-sm border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <ShoppingBag className="w-8 h-8 text-slate-800" />
+              <h1 className="text-3xl font-bold text-slate-900">La Boutique de Morgane</h1>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-bold text-slate-900 mb-4">
+            Bienvenue dans notre boutique
+          </h2>
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+            Découvrez notre sélection de produits tendance et de qualité
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {categories.map((homeCategory) => {
+            const category = homeCategory.category;
+            return (
+              <Link
+                key={homeCategory.id}
+                href={`/categorie/${category.slug}`}
+                className="group relative overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+              >
+                <div className="aspect-[4/3] relative">
+                  <img
+                    src={category.image_url}
+                    alt={category.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+                  {homeCategory.is_featured && (
+                    <div className="absolute top-4 right-4 bg-amber-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
+                      Nouveau
+                    </div>
+                  )}
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-6">
+                  <h3 className="text-2xl font-bold text-white mb-2 group-hover:translate-x-1 transition-transform duration-300">
+                    {category.name}
+                  </h3>
+                  <p className="text-white/90 text-sm line-clamp-2">
+                    {category.description}
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </main>
+
+      <footer className="bg-white border-t border-slate-200 mt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <p className="text-center text-slate-600">
+            © 2026 La Boutique de Morgane. Tous droits réservés.
+          </p>
+        </div>
+      </footer>
+    </div>
   );
 }
