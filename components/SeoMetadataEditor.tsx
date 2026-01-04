@@ -107,27 +107,28 @@ export default function SeoMetadataEditor({
       const dataToSave = {
         entity_type: entityType,
         entity_identifier: entityIdentifier,
-        ...metadata,
+        seo_title: metadata.seo_title || null,
+        meta_description: metadata.meta_description || null,
+        meta_keywords: metadata.meta_keywords || null,
+        og_title: metadata.og_title || null,
+        og_description: metadata.og_description || null,
+        og_image: metadata.og_image || null,
+        canonical_url: metadata.canonical_url || null,
+        robots_meta: metadata.robots_meta || 'index, follow',
+        is_active: metadata.is_active ?? true,
       };
 
-      if (hasExistingData) {
-        const { error } = await supabase
-          .from('seo_metadata')
-          .update(dataToSave)
-          .eq('entity_type', entityType)
-          .eq('entity_identifier', entityIdentifier);
+      const { error } = await supabase
+        .from('seo_metadata')
+        .upsert(dataToSave, {
+          onConflict: 'entity_type,entity_identifier',
+        });
 
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('seo_metadata')
-          .insert([dataToSave]);
+      if (error) throw error;
 
-        if (error) throw error;
-        setHasExistingData(true);
-      }
-
+      setHasExistingData(true);
       toast.success('Métadonnées SEO enregistrées');
+
       if (onSave) {
         onSave(metadata);
       }
