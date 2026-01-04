@@ -272,7 +272,7 @@ export default function EditProductPage() {
 
       if (productError) throw productError;
 
-      // STEP 2: PREPARE CATEGORIES JSONB
+      // STEP 2: SAVE CATEGORIES TO product_category_mapping
       let categoriesToSave: string[] = [];
       if (formData.child_category_ids.length > 0) {
         categoriesToSave = formData.child_category_ids;
@@ -280,7 +280,29 @@ export default function EditProductPage() {
         categoriesToSave = [formData.category_id];
       }
 
-      // Mettre à jour la colonne categories (JSONB) avec le tableau d'IDs
+      // Delete old category mappings
+      const { error: deleteCategoriesError } = await supabase
+        .from('product_category_mapping')
+        .delete()
+        .eq('product_id', productId);
+
+      if (deleteCategoriesError) throw deleteCategoriesError;
+
+      // Insert new category mappings
+      if (categoriesToSave.length > 0) {
+        const categoryMappings = categoriesToSave.map(catId => ({
+          product_id: productId,
+          category_id: catId
+        }));
+
+        const { error: insertCategoriesError } = await supabase
+          .from('product_category_mapping')
+          .insert(categoryMappings);
+
+        if (insertCategoriesError) throw insertCategoriesError;
+      }
+
+      // Also update JSONB column for backwards compatibility
       const { error: updateCategoriesError } = await supabase
         .from('products')
         .update({
