@@ -1,5 +1,7 @@
 "use client";
 
+export const revalidate = 0;
+
 import { useQuery } from '@apollo/client/react';
 import { GET_PRODUCT_BY_SLUG } from '@/lib/queries';
 import { useCart } from '@/context/CartContext';

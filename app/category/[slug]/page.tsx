@@ -1,5 +1,7 @@
 'use client';
 
+export const revalidate = 0;
+
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import ProductCard from '@/components/ProductCard';
 import ProductFilters from '@/components/ProductFilters';
@@ -159,22 +161,32 @@ export default function CategoryPage() {
 
       const categoryIds = [categoryData.id, ...(subCategoriesData || []).map((c: SupabaseCategory) => c.id)];
 
-      // Use direct contains query on JSONB categories column
+      // Use product_category_mapping table (not JSONB which may be empty)
+      const { data: productCategoriesData, error: productCategoriesError } = await supabase
+        .from('product_category_mapping')
+        .select('product_id')
+        .in('category_id', categoryIds);
+
+      if (productCategoriesError) throw productCategoriesError;
+
+      const productIds = (productCategoriesData || []).map((pc: any) => pc.product_id);
+
+      if (productIds.length === 0) {
+        setProducts([]);
+        setLoading(false);
+        return;
+      }
+
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
+        .in('id', productIds)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (productsError) throw productsError;
 
-      // Filter products that contain any of the category IDs
-      const filteredProducts = (productsData || []).filter((product: any) => {
-        const productCategories = product.categories || [];
-        return categoryIds.some(catId => productCategories.includes(catId));
-      });
-
-      const mappedProducts = filteredProducts.map(mapSupabaseProductToProduct);
+      const mappedProducts = (productsData || []).map(mapSupabaseProductToProduct);
       setProducts(mappedProducts);
 
     } catch (err: any) {
