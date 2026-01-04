@@ -1,33 +1,219 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Image, Plus } from "lucide-react";
+'use client';
 
-export const revalidate = 0;
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import MediaLibrary from '@/components/MediaLibrary';
+import { RefreshCw, Database, HardDrive, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
-export default function MediaPage() {
+interface BucketStats {
+  totalFiles: number;
+  totalSize: number;
+  usedFiles: number;
+  orphanFiles: number;
+}
+
+export default function MediaAdminPage() {
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<Record<string, BucketStats>>({
+    'product-images': { totalFiles: 0, totalSize: 0, usedFiles: 0, orphanFiles: 0 },
+    'category-images': { totalFiles: 0, totalSize: 0, usedFiles: 0, orphanFiles: 0 },
+  });
+  const [selectedBucket, setSelectedBucket] = useState<'product-images' | 'category-images'>('product-images');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('media_library')
+        .select('bucket_name, file_size, is_orphan, usage_count');
+
+      if (error) throw error;
+
+      const calculatedStats: Record<string, BucketStats> = {
+        'product-images': { totalFiles: 0, totalSize: 0, usedFiles: 0, orphanFiles: 0 },
+        'category-images': { totalFiles: 0, totalSize: 0, usedFiles: 0, orphanFiles: 0 },
+      };
+
+      data?.forEach((file: any) => {
+        const bucketName = file.bucket_name as string;
+        if (calculatedStats[bucketName]) {
+          calculatedStats[bucketName].totalFiles++;
+          calculatedStats[bucketName].totalSize += file.file_size || 0;
+          if (file.usage_count && file.usage_count > 0) {
+            calculatedStats[bucketName].usedFiles++;
+          }
+          if (file.is_orphan) {
+            calculatedStats[bucketName].orphanFiles++;
+          }
+        }
+      });
+
+      setStats(calculatedStats);
+    } catch (error) {
+      console.error('Error loading stats:', error);
+      toast.error('Erreur lors du chargement des statistiques');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
+  const handleRefresh = () => {
+    loadStats();
+    setRefreshKey(prev => prev + 1);
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Médiathèque
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Gérez vos images et médias
-          </p>
+          <h1 className="text-3xl font-bold">Médiathèque</h1>
+          <p className="text-gray-600">Gérez vos images et médias</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700">
-          <Plus className="h-4 w-4 mr-2" />
-          Uploader
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleRefresh} variant="outline" className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Actualiser
+          </Button>
+        </div>
       </div>
 
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-[#b8933d]" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Images Produits</CardTitle>
+              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats['product-images'].totalFiles}</div>
+              <p className="text-xs text-muted-foreground">
+                {formatSize(stats['product-images'].totalSize)}
+              </p>
+              <div className="mt-2 text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-green-600">Utilisées:</span>
+                  <span className="font-medium">{stats['product-images'].usedFiles}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-orange-600">Orphelines:</span>
+                  <span className="font-medium">{stats['product-images'].orphanFiles}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Images Catégories</CardTitle>
+              <Database className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats['category-images'].totalFiles}</div>
+              <p className="text-xs text-muted-foreground">
+                {formatSize(stats['category-images'].totalSize)}
+              </p>
+              <div className="mt-2 text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-green-600">Utilisées:</span>
+                  <span className="font-medium">{stats['category-images'].usedFiles}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-orange-600">Orphelines:</span>
+                  <span className="font-medium">{stats['category-images'].orphanFiles}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Stockage Total</CardTitle>
+              <HardDrive className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {stats['product-images'].totalFiles + stats['category-images'].totalFiles}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {formatSize(stats['product-images'].totalSize + stats['category-images'].totalSize)}
+              </p>
+              <div className="mt-2 text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <span>Taux utilisation:</span>
+                  <span className="font-medium">
+                    {stats['product-images'].totalFiles + stats['category-images'].totalFiles > 0
+                      ? Math.round(((stats['product-images'].usedFiles + stats['category-images'].usedFiles) /
+                          (stats['product-images'].totalFiles + stats['category-images'].totalFiles)) * 100)
+                      : 0}%
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Card>
-        <CardContent className="py-12">
-          <div className="text-center text-gray-500">
-            <Image className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-            <p>Fonctionnalité à venir</p>
-          </div>
+        <CardHeader>
+          <CardTitle>Bibliothèque de médias</CardTitle>
+          <CardDescription>Parcourez et gérez vos images par catégorie</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={selectedBucket} onValueChange={(v) => setSelectedBucket(v as any)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="product-images">
+                Images Produits ({stats['product-images'].totalFiles})
+              </TabsTrigger>
+              <TabsTrigger value="category-images">
+                Images Catégories ({stats['category-images'].totalFiles})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="product-images" className="mt-4">
+              <MediaLibrary
+                key={`products-${refreshKey}`}
+                bucket="product-images"
+                onSelect={(url) => console.log('Selected:', url)}
+                onUploadSuccess={() => {
+                  loadStats();
+                  setRefreshKey(prev => prev + 1);
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="category-images" className="mt-4">
+              <MediaLibrary
+                key={`categories-${refreshKey}`}
+                bucket="category-images"
+                onSelect={(url) => console.log('Selected:', url)}
+                onUploadSuccess={() => {
+                  loadStats();
+                  setRefreshKey(prev => prev + 1);
+                }}
+              />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
