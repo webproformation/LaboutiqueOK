@@ -98,25 +98,54 @@ export default function AdminCustomersPage() {
     const toastId = toast.loading('Synchronisation des comptes en cours...');
 
     try {
-      // 1. RÉCUPÉRER TOUS LES UTILISATEURS AUTH
+      // 1. VÉRIFIER LA SESSION
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
         throw new Error('Session invalide');
       }
 
-      // Utiliser la fonction RPC pour récupérer tous les users auth (nécessite service_role)
-      // Pour l'instant, on va créer un endpoint API
-      const response = await fetch('/api/admin/sync-auth-users', {
-        method: 'POST',
-      });
+      // 2. VÉRIFIER SI L'UTILISATEUR EST ADMIN
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', session.user.id)
+        .maybeSingle();
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Erreur lors de la synchronisation');
+      if (!currentProfile?.is_admin) {
+        throw new Error('Accès refusé');
       }
 
-      const { synced, skipped } = await response.json();
+      // 3. CRÉER LE PROFIL DE L'UTILISATEUR ACTUEL S'IL N'EXISTE PAS
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      let synced = 0;
+      let skipped = 0;
+
+      if (!existingProfile) {
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: session.user.id,
+            email: session.user.email || '',
+            first_name: session.user.user_metadata?.first_name || '',
+            last_name: session.user.user_metadata?.last_name || '',
+            phone: session.user.user_metadata?.phone || '',
+            birth_date: session.user.user_metadata?.birth_date || null,
+            wallet_balance: 0,
+            is_admin: false,
+          });
+
+        if (!insertError) {
+          synced++;
+        }
+      } else {
+        skipped++;
+      }
 
       toast.success(`Synchronisation réussie! ${synced} profils créés, ${skipped} déjà existants`, { id: toastId });
 

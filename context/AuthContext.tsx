@@ -13,18 +13,21 @@ interface Profile {
   phone: string;
   avatar_url: string;
   birth_date: string | null;
-  wordpress_user_id: number | null;
+  wallet_balance: number;
+  is_admin: boolean;
   blocked: boolean;
   blocked_reason: string | null;
   blocked_at: string | null;
   cancelled_orders_count: number;
+  created_at: string;
+  updated_at: string;
 }
 
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, firstName: string, lastName: string, birthDate?: string | null, referralCode?: string) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string, firstName: string, lastName: string, phone?: string, birthDate?: string | null, referralCode?: string) => Promise<{ error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<Profile>) => Promise<{ error: any }>;
@@ -104,14 +107,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
 
-    if (data) {
-      setProfile(data);
+      if (error) {
+        console.error('Load profile error:', error);
+        return;
+      }
+
+      if (data) {
+        setProfile(data);
+      }
+    } catch (error) {
+      console.error('Exception loading profile:', error);
     }
   };
 
@@ -160,123 +172,82 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, firstName: string, lastName: string, birthDate?: string | null, referralCode?: string) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    firstName: string,
+    lastName: string,
+    phone?: string,
+    birthDate?: string | null,
+    referralCode?: string
+  ) => {
     try {
-      // Step 1: Create Supabase auth user
-      const { data, error } = await supabase.auth.signUp({
-        email,
+      // 1. CRÉER COMPTE SUPABASE AUTH
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email.trim(),
         password,
         options: {
           data: {
-            first_name: firstName,
-            last_name: lastName,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            phone: phone?.trim() || '',
             birth_date: birthDate || null,
           },
         },
       });
 
-      if (error) {
-        return { error };
-      }
+      if (authError) return { error: authError };
+      if (!authData.user) return { error: { message: 'User creation failed' } as AuthError };
 
-      if (!data.user) {
-        return { error: { message: 'User creation failed' } as AuthError };
-      }
-
-      // Step 2: Set user in context immediately
-      setUser(data.user);
-
-      // Step 3: Wait a moment for auth to settle
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Step 4: Explicitly create user profile using our robust function
-      try {
-        const { data: profileResult, error: profileError } = await supabase.rpc(
-          'create_user_profile_manually',
-          {
-            p_user_id: data.user.id,
-            p_email: email,
-            p_first_name: firstName,
-            p_last_name: lastName,
-            p_birth_date: birthDate || null,
-            p_wordpress_user_id: null,
-          }
-        );
-
-        if (profileError) {
-          console.error('Error creating profile:', profileError);
-        } else if (profileResult && !profileResult.success) {
-          console.error('Profile creation failed:', profileResult.error);
-        } else {
-          // Load the newly created profile into context
-          await loadProfile(data.user.id);
-        }
-      } catch (profileErr) {
-        console.error('Exception creating profile:', profileErr);
-      }
-
-      // Step 5: Create WordPress user (non-blocking)
-      let wordpressUserId = null;
-      try {
-        const wpUserResponse = await fetch('/api/wordpress/create-user', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: email,
-            firstName: firstName,
-            lastName: lastName,
-            password: password,
-          }),
+      // 2. CRÉER PROFIL DIRECT DANS PROFILES
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          email: email.trim(),
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          phone: phone?.trim() || '',
+          birth_date: birthDate || null,
+          wallet_balance: 0,
+          is_admin: false,
         });
 
-        const wpUserResult = await wpUserResponse.json();
-
-        if (wpUserResult.success && wpUserResult.userId) {
-          wordpressUserId = wpUserResult.userId;
-
-          // Update profile with WordPress user ID
-          await supabase.from('user_profiles').update({
-            wordpress_user_id: wordpressUserId,
-          }).eq('id', data.user.id);
-
-          // Reload profile to get the updated wordpress_user_id
-          await loadProfile(data.user.id);
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        // Ne pas bloquer si le profil existe déjà
+        if (!profileError.message.includes('duplicate')) {
+          return { error: { message: 'Profile creation failed' } as AuthError };
         }
-      } catch (wpError) {
-        console.error('Error creating WordPress user:', wpError);
       }
 
-      // Step 6: Sync with WooCommerce (non-blocking)
-      try {
-        await fetch('/api/woocommerce/sync-customer', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: email,
-            first_name: firstName,
-            last_name: lastName,
-          }),
-        });
-      } catch (syncError) {
-        console.error('Error syncing with WooCommerce:', syncError);
-      }
+      // 3. CHARGER LE PROFIL
+      setUser(authData.user);
+      await loadProfile(authData.user.id);
 
-      // Step 7: Process pending prize
-      await claimPendingPrize(data.user.id);
+      // 4. GÉRER LE PRIX EN ATTENTE
+      await claimPendingPrize(authData.user.id);
 
-      // Step 8: Process referral code
+      // 5. TRAITER LE CODE PARRAINAGE
       if (referralCode && referralCode.trim()) {
         try {
-          await supabase.rpc('process_referral', {
-            p_referral_code: referralCode.trim(),
-            p_referred_id: data.user.id
-          });
+          const { data: referrer } = await supabase
+            .from('profiles')
+            .select('id, first_name')
+            .eq('id', referralCode.trim())
+            .maybeSingle();
+
+          if (referrer) {
+            await supabase
+              .from('referrals')
+              .insert({
+                referrer_id: referrer.id,
+                referred_id: authData.user.id,
+                status: 'pending',
+              });
+          }
         } catch (referralError) {
-          console.error('Error processing referral:', referralError);
+          console.error('Referral error:', referralError);
         }
       }
 
@@ -288,46 +259,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      // 1. CONNEXION SUPABASE AUTH
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
-    if (!error && data.user) {
-      await claimPendingPrize(data.user.id);
+      if (authError) return { error: authError };
+      if (!authData.user) return { error: { message: 'Sign in failed' } as AuthError };
 
-      const { data: userProfile } = await supabase
-        .from('user_profiles')
-        .select('first_name, last_name, phone')
-        .eq('id', data.user.id)
+      // 2. CHARGER LE PROFIL
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
         .maybeSingle();
 
-      if (userProfile?.phone && userProfile.phone.trim() !== '') {
-        try {
-          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-          const { data: { session } } = await supabase.auth.getSession();
+      // 3. CRÉER PROFIL SI MANQUANT (MIGRATION AUTO)
+      if (!profileData) {
+        const { error: createProfileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            email: authData.user.email || email.trim(),
+            first_name: authData.user.user_metadata?.first_name || '',
+            last_name: authData.user.user_metadata?.last_name || '',
+            phone: authData.user.user_metadata?.phone || '',
+            birth_date: authData.user.user_metadata?.birth_date || null,
+            wallet_balance: 0,
+            is_admin: false,
+          });
 
-          if (session?.access_token) {
-            await fetch(`${supabaseUrl}/functions/v1/send-login-sms`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                phoneNumber: userProfile.phone,
-                firstName: userProfile.first_name || 'Client',
-                lastName: userProfile.last_name || '',
-              }),
-            });
-          }
-        } catch (smsError) {
-          console.error('Erreur lors de l\'envoi du SMS de connexion:', smsError);
+        if (!createProfileError) {
+          await loadProfile(authData.user.id);
         }
-      }
-    }
+      } else {
+        // 4. VÉRIFIER SI BLOQUÉ
+        if (profileData.blocked) {
+          await supabase.auth.signOut();
+          return { error: { message: 'Votre compte a été suspendu. Contactez le service client.' } as AuthError };
+        }
 
-    return { error };
+        setProfile(profileData);
+      }
+
+      // 5. GÉRER LE PRIX EN ATTENTE
+      await claimPendingPrize(authData.user.id);
+
+      setUser(authData.user);
+
+      return { error: null };
+    } catch (err) {
+      console.error('Sign in error:', err);
+      return { error: { message: 'An unexpected error occurred' } as AuthError };
+    }
   };
 
   const signOut = async () => {
@@ -339,35 +325,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateProfile = async (data: Partial<Profile>) => {
     if (!user) return { error: new Error('No user logged in') };
 
-    const { error } = await supabase
-      .from('user_profiles')
-      .update({ ...data, updated_at: new Date().toISOString() })
-      .eq('id', user.id);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          ...data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
 
-    if (!error) {
+      if (error) return { error };
+
+      // Recharger le profil
       await loadProfile(user.id);
 
-      if (profile?.wordpress_user_id) {
-        try {
-          await fetch('/api/wordpress/update-user', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              wordpressUserId: profile.wordpress_user_id,
-              firstName: data.first_name,
-              lastName: data.last_name,
-              phone: data.phone,
-            }),
-          });
-        } catch (wpError) {
-          console.error('Error updating WordPress user:', wpError);
-        }
-      }
+      return { error: null };
+    } catch (err) {
+      console.error('Update profile error:', err);
+      return { error: err };
     }
-
-    return { error };
   };
 
   const resetPassword = async (email: string) => {
