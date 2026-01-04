@@ -128,34 +128,40 @@ export default function AdminProducts() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      let response;
-      try {
-        response = await fetch('/api/admin/products', {
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
-          console.error('[Admin Products Page] API timeout after 10 seconds');
-          throw new Error('La requête a dépassé le délai de 10 secondes');
-        }
-        throw fetchError;
+      // Load products directly from Supabase
+      const { data: productsData, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('[Admin Products Page] Supabase error:', error);
+        throw new Error(error.message || 'Failed to load products');
       }
 
-      const result = await response.json();
-      console.log('[Admin Products Page] Raw response:', result);
-
-      if (!response.ok || result?.success === false) {
-        console.error('[Admin Products Page] API error:', result);
-        throw new Error(result.error || 'Failed to load products');
-      }
-
-      const productsData = result?.data || [];
-      console.log('[Admin Products Page] Extracted products:', productsData.length);
+      console.log('[Admin Products Page] Loaded products:', productsData?.length || 0);
 
       const safeProducts = Array.isArray(productsData) ? productsData : [];
-      setProducts(safeProducts);
+
+      // Transform to expected format
+      const transformedProducts = safeProducts.map((p: any) => ({
+        id: p.woocommerce_id || p.id,
+        databaseId: p.woocommerce_id || p.id,
+        name: p.name || '',
+        slug: p.slug || '',
+        description: p.description || '',
+        short_description: p.short_description || '',
+        price: p.price ? parseFloat(p.price) : 0,
+        regularPrice: p.regular_price ? parseFloat(p.regular_price) : 0,
+        salePrice: p.sale_price ? parseFloat(p.sale_price) : null,
+        stockQuantity: p.stock_quantity || null,
+        stockStatus: p.stock_status || 'instock',
+        manageStock: p.manage_stock || false,
+        image: p.image_url ? { sourceUrl: p.image_url } : null,
+        productCategories: { nodes: [] },
+      }));
+
+      setProducts(transformedProducts);
     } catch (error: any) {
       console.error('[Admin Products Page] Error loading products:', error);
       toast.error(error?.message || 'Erreur lors du chargement des produits');

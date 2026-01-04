@@ -14,26 +14,56 @@ export function useDailyConnectionBonus() {
 
     const checkAndAwardBonus = async () => {
       try {
-        const response = await fetch(
-          `/api/loyalty/award-bonus`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ user_id: user.id })
-          }
-        );
+        // Check if user already has a daily connection bonus today
+        const today = new Date().toISOString().split('T')[0];
 
-        if (!response.ok) throw new Error('Failed to check daily bonus');
+        const { data: existingBonus, error: checkError } = await supabase
+          .from('loyalty_transactions')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('type', 'daily_connection')
+          .gte('created_at', `${today}T00:00:00`)
+          .maybeSingle();
 
-        const data = await response.json();
+        if (checkError) throw checkError;
 
-        if (data.success) {
-          toast.success(data.message, {
-            duration: 5000
-          });
+        if (existingBonus) {
+          console.log('Daily bonus already awarded today');
+          hasCheckedRef.current = true;
+          return;
         }
+
+        // Award daily connection bonus (5 euros)
+        const bonusAmount = 5.0;
+
+        const { error: insertError } = await supabase
+          .from('loyalty_transactions')
+          .insert({
+            user_id: user.id,
+            amount: bonusAmount,
+            type: 'daily_connection',
+            description: 'Bonus de connexion quotidien',
+          });
+
+        if (insertError) throw insertError;
+
+        // Update user wallet balance
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('wallet_balance')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        const currentBalance = profile?.wallet_balance || 0;
+
+        await supabase
+          .from('profiles')
+          .update({ wallet_balance: currentBalance + bonusAmount })
+          .eq('id', user.id);
+
+        toast.success(`+${bonusAmount.toFixed(2)} € ajoutés à votre cagnotte fidélité !`, {
+          duration: 5000
+        });
 
         hasCheckedRef.current = true;
       } catch (error) {

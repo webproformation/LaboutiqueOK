@@ -31,16 +31,25 @@ export function DeliveryBatchBanner() {
     if (!user) return;
 
     const fetchActiveBatch = async () => {
-      const response = await fetch(
-        `/api/delivery-batches/get?user_id=${user.id}&status=pending`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        if (data && data.length > 0) {
-          setActiveBatch(data[0]);
-        } else {
-          setActiveBatch(null);
-        }
+      const { data, error } = await supabase
+        .from('delivery_batches')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching delivery batch:', error);
+        setActiveBatch(null);
+        return;
+      }
+
+      if (data) {
+        setActiveBatch(data);
+      } else {
+        setActiveBatch(null);
       }
     };
 
