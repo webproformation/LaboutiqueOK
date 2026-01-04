@@ -142,14 +142,17 @@ export default function EditProductPage() {
       if (productError) throw productError;
       if (!product) throw new Error('Produit introuvable');
 
-      // CHARGER LES CATÉGORIES DU PRODUIT
-      const { data: productCategories } = await supabase
-        .from('product_categories')
-        .select('category_id')
-        .eq('product_id', productId)
-        .order('display_order');
+      // CHARGER LES CATÉGORIES DU PRODUIT (JSONB)
+      const categoriesJsonb = product.categories as any;
+      let childCategoryIds: string[] = [];
 
-      const childCategoryIds = productCategories?.map(pc => pc.category_id) || [];
+      if (Array.isArray(categoriesJsonb)) {
+        childCategoryIds = categoriesJsonb.map(cat => {
+          if (typeof cat === 'string') return cat;
+          if (cat && cat.id) return cat.id;
+          return null;
+        }).filter(Boolean) as string[];
+      }
 
       // CHARGER LES ATTRIBUTS DU PRODUIT
       const { data: productAttributeValues } = await supabase
@@ -269,15 +272,7 @@ export default function EditProductPage() {
 
       if (productError) throw productError;
 
-      // STEP 2: DELETE OLD CATEGORIES
-      const { error: deleteCategoriesError } = await supabase
-        .from('product_categories')
-        .delete()
-        .eq('product_id', productId);
-
-      if (deleteCategoriesError) throw deleteCategoriesError;
-
-      // STEP 3: INSERT NEW CATEGORIES
+      // STEP 2: PREPARE CATEGORIES JSONB
       let categoriesToSave: string[] = [];
       if (formData.child_category_ids.length > 0) {
         categoriesToSave = formData.child_category_ids;
@@ -285,20 +280,15 @@ export default function EditProductPage() {
         categoriesToSave = [formData.category_id];
       }
 
-      if (categoriesToSave.length > 0) {
-        const categoriesToInsert = categoriesToSave.map((categoryId, index) => ({
-          product_id: productId,
-          category_id: categoryId,
-          is_primary: index === 0,
-          display_order: index,
-        }));
+      // Mettre à jour la colonne categories (JSONB) avec le tableau d'IDs
+      const { error: updateCategoriesError } = await supabase
+        .from('products')
+        .update({
+          categories: categoriesToSave.length > 0 ? categoriesToSave : null
+        })
+        .eq('id', productId);
 
-        const { error: insertCategoriesError } = await supabase
-          .from('product_categories')
-          .insert(categoriesToInsert);
-
-        if (insertCategoriesError) throw insertCategoriesError;
-      }
+      if (updateCategoriesError) throw updateCategoriesError;
 
       // STEP 4: DELETE OLD ATTRIBUTES
       const { error: deleteAttributesError } = await supabase

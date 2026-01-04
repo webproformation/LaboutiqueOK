@@ -29,7 +29,8 @@ export default function AnalyticsTracker() {
           .upsert({
             session_id: sessionId!,
             user_id: user?.id || null,
-            last_activity: new Date().toISOString(),
+            started_at: new Date().toISOString(),
+            last_activity_at: new Date().toISOString(),
           }, {
             onConflict: 'session_id',
           });
