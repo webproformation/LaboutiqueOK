@@ -29,15 +29,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!user?.id) return [];
 
     try {
-      const response = await fetch(
-        `/api/cart/get-items?user_id=${user.id}`
-      );
-      if (!response.ok) {
-        console.error('Error loading cart from API');
+      const { data, error } = await supabase
+        .from('cart_items')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error loading cart from Supabase:', error);
         return [];
       }
-
-      const data = await response.json();
 
       if (!data || data.length === 0) {
         return [];
@@ -75,12 +75,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     setIsSyncing(true);
     try {
-      const response = await fetch(
-        `/api/cart/get-items?user_id=${user.id}`
-      );
-      if (!response.ok) throw new Error('Failed to fetch existing items');
+      // Get existing cart items
+      const { data: existingItems, error: fetchError } = await supabase
+        .from('cart_items')
+        .select('*')
+        .eq('user_id', user.id);
 
-      const existingItems = await response.json();
+      if (fetchError) throw fetchError;
 
       const existingKeys = new Set<string>(
         (existingItems || []).map((item: any) =>
@@ -94,29 +95,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
         )
       );
 
+      // Delete removed items
       const keysToDelete = Array.from(existingKeys).filter((key: string) => !currentKeys.has(key));
 
       if (keysToDelete.length > 0) {
         for (const key of keysToDelete) {
-          const existingItem = existingItems.find((item: any) =>
+          const existingItem = existingItems?.find((item: any) =>
             `${item.product_id}_${item.variation_id || ''}` === key
           );
 
           if (existingItem) {
-            await fetch(
-              `/api/cart/get-items`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ action: 'delete', id: existingItem.id })
-              }
-            );
+            await supabase
+              .from('cart_items')
+              .delete()
+              .eq('id', existingItem.id);
           }
         }
       }
 
+      // Upsert current items
       if (cartItems.length > 0) {
         const itemsToUpsert = cartItems.map((item) => {
           if (!item?.id || !item?.name || !item?.slug || !(item?.price || item?.variationPrice)) {
@@ -143,18 +140,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }).filter(item => item !== null);
 
         if (itemsToUpsert.length > 0) {
-          for (const item of itemsToUpsert) {
-            await fetch(
-              `/api/cart/get-items`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ action: 'add', ...item })
-              }
-            );
-          }
+          const { error: upsertError } = await supabase
+            .from('cart_items')
+            .upsert(itemsToUpsert, {
+              onConflict: 'user_id,product_id,variation_id',
+            });
+
+          if (upsertError) throw upsertError;
         }
       }
     } catch (error) {

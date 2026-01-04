@@ -3,11 +3,11 @@
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase-client';
 
 export default function AnalyticsTracker() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const visitIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const startTimeRef = useRef<number>(Date.now());
   const lastActivityRef = useRef<number>(Date.now());
@@ -24,17 +24,15 @@ export default function AnalyticsTracker() {
 
     const createOrUpdateSession = async () => {
       try {
-        await fetch('/api/analytics', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'upsert_session',
+        await supabase
+          .from('user_sessions')
+          .upsert({
             session_id: sessionId!,
+            user_id: user?.id || null,
             last_activity: new Date().toISOString(),
-          }),
-        });
+          }, {
+            onConflict: 'session_id',
+          });
       } catch (error) {
         console.error('Error managing session:', error);
       }
@@ -51,17 +49,14 @@ export default function AnalyticsTracker() {
       lastActivityRef.current = Date.now();
 
       try {
-        await fetch('/api/analytics', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'track_page_visit',
-            path: pathname,
+        await supabase
+          .from('page_visits')
+          .insert({
             session_id: sessionIdRef.current!,
-          }),
-        });
+            user_id: user?.id || null,
+            page_path: pathname,
+            visited_at: new Date().toISOString(),
+          });
       } catch (error) {
         console.error('Error tracking page visit:', error);
       }

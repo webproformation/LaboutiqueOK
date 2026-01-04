@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Product } from '@/types';
+import { supabase } from '@/lib/supabase-client';
 
 interface WishlistItem {
   id: string;
@@ -46,21 +47,18 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     if (!sessionId) return;
 
     try {
-      const response = await fetch(`/api/wishlist?sessionId=${sessionId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const { data, error } = await supabase
+        .from('wishlist')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: false });
 
-      if (!response.ok) {
-        throw new Error('Failed to load wishlist');
-      }
+      if (error) throw error;
 
-      const { items } = await response.json();
-      setWishlistItems(items || []);
+      setWishlistItems(data || []);
     } catch (error) {
       console.error('Error loading wishlist:', error);
+      setWishlistItems([]);
     } finally {
       setLoading(false);
     }
@@ -76,32 +74,36 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     if (!sessionId) return;
 
     try {
-      const response = await fetch('/api/wishlist', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'add',
+      // Check if already exists
+      const { data: existing } = await supabase
+        .from('wishlist')
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('product_slug', product.slug)
+        .maybeSingle();
+
+      if (existing) {
+        console.log('Product already in wishlist');
+        return;
+      }
+
+      // Insert new item
+      const { data: newItem, error } = await supabase
+        .from('wishlist')
+        .insert({
+          session_id: sessionId,
           product_slug: product.slug,
           product_name: product.name,
           product_image: product.image?.sourceUrl || null,
           product_price: product.price || '',
-          session_id: sessionId,
-        }),
-      });
+        })
+        .select()
+        .single();
 
-      if (!response.ok) {
-        const { error } = await response.json();
-        if (error?.includes('already in wishlist') || response.status === 409) {
-          return;
-        }
-        throw new Error(error);
-      }
+      if (error) throw error;
 
-      const { item } = await response.json();
-      if (item) {
-        setWishlistItems(prev => [item, ...prev]);
+      if (newItem) {
+        setWishlistItems(prev => [newItem, ...prev]);
       }
     } catch (error) {
       console.error('Error adding to wishlist:', error);
@@ -113,21 +115,13 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     if (!sessionId) return;
 
     try {
-      const response = await fetch('/api/wishlist', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'remove',
-          product_slug: productSlug,
-          session_id: sessionId,
-        }),
-      });
+      const { error } = await supabase
+        .from('wishlist')
+        .delete()
+        .eq('session_id', sessionId)
+        .eq('product_slug', productSlug);
 
-      if (!response.ok) {
-        throw new Error('Failed to remove from wishlist');
-      }
+      if (error) throw error;
 
       setWishlistItems(prev => prev.filter(item => item.product_slug !== productSlug));
     } catch (error) {

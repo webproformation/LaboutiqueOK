@@ -71,35 +71,35 @@ export function LoyaltyProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const response = await fetch(`/api/loyalty/points-get?user_id=${user.id}`);
+      // Try to fetch existing loyalty points
+      const { data, error } = await supabase
+        .from('loyalty_points')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (!response.ok) {
-        console.error('Error fetching loyalty points:', response.status, response.statusText);
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Error details:', errorData);
+      if (error) throw error;
 
-        // Set default loyalty points on error to prevent UI breaking
-        setLoyaltyPoints({
-          id: 'default',
-          user_id: user.id,
-          page_visit_points: 0,
-          live_participation_count: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-        return;
+      if (data) {
+        setLoyaltyPoints(data);
+      } else {
+        // Create default loyalty points if none exist
+        const { data: newData, error: insertError } = await supabase
+          .from('loyalty_points')
+          .insert({
+            user_id: user.id,
+            page_visit_points: 0,
+            live_participation_count: 0,
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        setLoyaltyPoints(newData);
       }
-
-      const data = await response.json();
-
-      // API now creates the record automatically if it doesn't exist
-      setLoyaltyPoints(data);
     } catch (error: any) {
-      console.error('Error in fetchLoyaltyPoints:', {
-        error,
-        message: error?.message,
-        stack: error?.stack,
-      });
+      console.error('Error in fetchLoyaltyPoints:', error);
       // Set default loyalty points on any error
       setLoyaltyPoints({
         id: 'default',
@@ -123,21 +123,15 @@ export function LoyaltyProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const newPoints = loyaltyPoints.page_visit_points + POINTS_PER_VISIT;
-      const response = await fetch('/api/loyalty/points-get', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'update',
-          userId: user.id,
-          loyaltyData: {
-            page_visit_points: newPoints,
-          }
-        })
-      });
 
-      if (!response.ok) {
-        throw new Error('Failed to update loyalty points');
-      }
+      const { error } = await supabase
+        .from('loyalty_points')
+        .update({
+          page_visit_points: newPoints,
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
 
       await fetchLoyaltyPoints();
     } catch (error) {
