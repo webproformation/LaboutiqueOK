@@ -63,45 +63,30 @@ export default function EuroLoyaltyProgressBar() {
 
       const currentBalance = profile?.wallet_balance || 0;
 
-      // Get loyalty tiers
-      const { data: tiers, error: tiersError } = await supabase
-        .from('loyalty_tiers')
-        .select('*')
-        .order('tier_number', { ascending: true });
+      // Simple tier system based on wallet balance
+      let tier = 1;
+      let multiplier = 1;
+      let tierName = 'Palier 1';
+      let nextThreshold = 100;
 
-      if (tiersError) throw tiersError;
-
-      if (!tiers || tiers.length === 0) {
-        // Default tier if none configured
-        setTierInfo({
-          tier: 1,
-          multiplier: 1,
-          tier_name: 'Palier 1',
-          current_balance: currentBalance,
-          next_tier_threshold: 100,
-        });
-        return;
+      if (currentBalance >= 200) {
+        tier = 3;
+        multiplier = 3;
+        tierName = 'Palier 3';
+        nextThreshold = currentBalance;
+      } else if (currentBalance >= 100) {
+        tier = 2;
+        multiplier = 2;
+        tierName = 'Palier 2';
+        nextThreshold = 200;
       }
-
-      // Determine current tier based on balance
-      let currentTier = tiers[0];
-      for (const tier of tiers) {
-        if (currentBalance >= tier.min_spent) {
-          currentTier = tier;
-        }
-      }
-
-      // Find next tier
-      const nextTier = tiers.find(
-        (t) => t.tier_number > currentTier.tier_number
-      );
 
       setTierInfo({
-        tier: currentTier.tier_number,
-        multiplier: currentTier.multiplier,
-        tier_name: currentTier.tier_name,
+        tier,
+        multiplier,
+        tier_name: tierName,
         current_balance: currentBalance,
-        next_tier_threshold: nextTier?.min_spent || currentBalance,
+        next_tier_threshold: nextThreshold,
       });
     } catch (error) {
       console.error('Error loading tier info:', error);
