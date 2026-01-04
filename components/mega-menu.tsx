@@ -43,10 +43,11 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
         .maybeSingle();
 
       if (parentCategory) {
+        const parent = parentCategory as { id: string };
         const { data } = await supabase
           .from('categories')
           .select('*')
-          .eq('parent_id', parentCategory.id)
+          .eq('parent_id', parent.id)
           .order('display_order', { ascending: true });
 
         setCategories(data || []);
