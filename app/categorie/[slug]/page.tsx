@@ -26,7 +26,7 @@ export default function CategoryPage() {
   async function loadCategoryAndProducts() {
     try {
       const { data: categoryData, error: categoryError } = await supabase
-        .from('product_categories')
+        .from('categories')
         .select('*')
         .eq('slug', slug)
         .maybeSingle();
@@ -41,19 +41,19 @@ export default function CategoryPage() {
       setCategory(categoryData);
 
       const { data: mappingData, error: mappingError } = await supabase
-        .from('product_category_mapping')
+        .from('product_categories')
         .select('product_id')
         .eq('category_id', categoryData.id);
 
       if (mappingError) throw mappingError;
 
-      const productIds = mappingData.map(m => m.product_id);
+      const productIds = mappingData?.map(m => m.product_id) || [];
 
       if (productIds.length > 0) {
         const { data: productsData, error: productsError } = await supabase
           .from('products')
           .select('*')
-          .in('product_id', productIds)
+          .in('id', productIds)
           .eq('is_active', true);
 
         if (productsError) throw productsError;
@@ -114,48 +114,65 @@ export default function CategoryPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {products.map((product) => (
-              <div
-                key={product.product_id}
-                className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-              >
-                <div className="aspect-square relative overflow-hidden bg-slate-100">
-                  <img
-                    src={product.image_url}
-                    alt={product.name}
-                    className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
-                  />
-                  {product.stock < 5 && product.stock > 0 && (
-                    <div className="absolute top-4 right-4 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
-                      Stock limité
-                    </div>
-                  )}
-                  {product.stock === 0 && (
-                    <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
-                      Épuisé
-                    </div>
-                  )}
-                </div>
-                <div className="p-5">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2 line-clamp-2">
-                    {product.name}
-                  </h3>
-                  <p className="text-sm text-slate-600 mb-4 line-clamp-2">
-                    {product.description}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xl font-bold text-slate-900">
-                      {product.price.toFixed(2)} €
-                    </span>
-                    {product.stock > 0 && (
-                      <button className="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium">
-                        Ajouter
-                      </button>
+            {products.map((product) => {
+              const displayPrice = product.sale_price || product.regular_price;
+              const hasDiscount = product.sale_price && product.sale_price < product.regular_price;
+
+              return (
+                <div
+                  key={product.id}
+                  className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                >
+                  <div className="aspect-square relative overflow-hidden bg-slate-100">
+                    <img
+                      src={product.image_url}
+                      alt={product.name}
+                      className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+                    />
+                    {product.stock_quantity < 5 && product.stock_quantity > 0 && (
+                      <div className="absolute top-4 right-4 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                        Stock limité
+                      </div>
+                    )}
+                    {product.stock_status === 'outofstock' && (
+                      <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                        Épuisé
+                      </div>
+                    )}
+                    {hasDiscount && (
+                      <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                        Promo
+                      </div>
                     )}
                   </div>
+                  <div className="p-5">
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2 line-clamp-2">
+                      {product.name}
+                    </h3>
+                    <p className="text-sm text-slate-600 mb-4 line-clamp-2">
+                      {product.short_description || product.description}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        {hasDiscount && (
+                          <span className="text-sm text-slate-400 line-through">
+                            {product.regular_price.toFixed(2)} €
+                          </span>
+                        )}
+                        <span className="text-2xl font-bold text-slate-900">
+                          {displayPrice.toFixed(2)} €
+                        </span>
+                      </div>
+                      {product.stock_status === 'instock' && (
+                        <button className="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium">
+                          Ajouter
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

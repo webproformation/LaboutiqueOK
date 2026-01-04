@@ -29,7 +29,7 @@ export default function Home() {
       const categoriesWithDetails = await Promise.all(
         (homeCategories || []).map(async (hc) => {
           const { data: category } = await supabase
-            .from('product_categories')
+            .from('categories')
             .select('*')
             .eq('id', hc.category_id)
             .maybeSingle();
@@ -91,7 +91,7 @@ export default function Home() {
               >
                 <div className="aspect-[4/3] relative">
                   <img
-                    src={category.image_url}
+                    src={category.image_url || 'https://images.pexels.com/photos/1005638/pexels-photo-1005638.jpeg?auto=compress&cs=tinysrgb&w=600'}
                     alt={category.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
