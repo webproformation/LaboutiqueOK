@@ -146,7 +146,7 @@ export default function EditProductPage() {
       const { data: categoryMappings, error: categoryError } = await supabase
         .from('product_category_mapping')
         .select('category_id')
-        .eq('product_id', parseInt(productId));
+        .eq('product_id', productId);
 
       if (categoryError) {
         console.error('Erreur chargement catégories:', categoryError);
@@ -284,14 +284,14 @@ export default function EditProductPage() {
       const { error: deleteCategoriesError } = await supabase
         .from('product_category_mapping')
         .delete()
-        .eq('product_id', parseInt(productId));
+        .eq('product_id', productId);
 
       if (deleteCategoriesError) throw deleteCategoriesError;
 
       // Insert new category mappings
       if (categoriesToSave.length > 0) {
         const categoryMappings = categoriesToSave.map(catId => ({
-          product_id: parseInt(productId),
+          product_id: productId,
           category_id: catId
         }));
 
