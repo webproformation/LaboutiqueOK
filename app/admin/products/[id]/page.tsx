@@ -142,17 +142,17 @@ export default function EditProductPage() {
       if (productError) throw productError;
       if (!product) throw new Error('Produit introuvable');
 
-      // CHARGER LES CATÉGORIES DU PRODUIT (JSONB)
-      const categoriesJsonb = product.categories as any;
-      let childCategoryIds: string[] = [];
+      // CHARGER LES CATÉGORIES DU PRODUIT depuis product_category_mapping
+      const { data: categoryMappings, error: categoryError } = await supabase
+        .from('product_category_mapping')
+        .select('category_id')
+        .eq('product_id', parseInt(productId));
 
-      if (Array.isArray(categoriesJsonb)) {
-        childCategoryIds = categoriesJsonb.map(cat => {
-          if (typeof cat === 'string') return cat;
-          if (cat && cat.id) return cat.id;
-          return null;
-        }).filter(Boolean) as string[];
+      if (categoryError) {
+        console.error('Erreur chargement catégories:', categoryError);
       }
+
+      const childCategoryIds: string[] = categoryMappings?.map(m => m.category_id) || [];
 
       // CHARGER LES ATTRIBUTS DU PRODUIT
       const { data: productAttributeValues } = await supabase
@@ -284,14 +284,14 @@ export default function EditProductPage() {
       const { error: deleteCategoriesError } = await supabase
         .from('product_category_mapping')
         .delete()
-        .eq('product_id', productId);
+        .eq('product_id', parseInt(productId));
 
       if (deleteCategoriesError) throw deleteCategoriesError;
 
       // Insert new category mappings
       if (categoriesToSave.length > 0) {
         const categoryMappings = categoriesToSave.map(catId => ({
-          product_id: productId,
+          product_id: parseInt(productId),
           category_id: catId
         }));
 

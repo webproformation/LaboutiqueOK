@@ -160,7 +160,7 @@ export default function CategoryPage() {
       const categoryIds = [categoryData.id, ...(subCategoriesData || []).map((c: SupabaseCategory) => c.id)];
 
       const { data: productCategoriesData, error: productCategoriesError } = await supabase
-        .from('product_categories')
+        .from('product_category_mapping')
         .select('product_id')
         .in('category_id', categoryIds);
 
