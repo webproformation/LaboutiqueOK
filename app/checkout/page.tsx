@@ -289,45 +289,79 @@ export default function CheckoutPage() {
 
   const loadCheckoutOptions = async () => {
     try {
-      // Ne plus utiliser le cache - toujours charger depuis l'API
-      console.log('Loading checkout options from API...');
-      const response = await fetch('/api/woocommerce/checkout-options');
+      console.log('Loading checkout options from Supabase...');
 
-      console.log('Checkout options API response:', response.status, response.statusText);
+      // Load shipping methods from Supabase
+      const { data: shippingData, error: shippingError } = await supabase
+        .from('shipping_methods')
+        .select('*')
+        .eq('enabled', true)
+        .order('sort_order', { ascending: true });
 
-      if (response.ok) {
-        const data = await response.json();
+      if (shippingError) {
+        console.error('Error loading shipping methods:', shippingError);
+      }
 
-        console.log('Checkout options data received:', {
-          shippingMethodsCount: data.shippingMethods?.length || 0,
-          paymentGatewaysCount: data.paymentGateways?.length || 0,
-          taxRatesCount: data.taxRates?.length || 0,
-        });
+      const shippingMethodsData = (shippingData || []).map((method: any) => ({
+        id: method.id,
+        zone_id: 0,
+        zone_name: 'France',
+        instance_id: parseInt(method.id),
+        method_id: method.method_id || 'flat_rate',
+        title: method.method_title,
+        cost: method.cost?.toString() || '0',
+        description: method.method_description || '',
+        is_relay: method.is_relay_point,
+      }));
 
-        setShippingMethods(data.shippingMethods || []);
-        setPaymentGateways(data.paymentGateways || []);
-        setTaxRates(data.taxRates || []);
+      // Default payment gateways (hardcoded for now)
+      const paymentGatewaysData = [
+        {
+          id: 'stripe',
+          title: 'Carte bancaire (Stripe)',
+          description: 'Paiement sécurisé par carte bancaire',
+          order: 1,
+        },
+        {
+          id: 'paypal',
+          title: 'PayPal',
+          description: 'Payer avec votre compte PayPal',
+          order: 2,
+        },
+      ];
 
-        console.log('Shipping methods set:', data.shippingMethods?.length || 0);
+      // Default tax rates
+      const taxRatesData = [
+        {
+          id: 1,
+          country: 'FR',
+          state: '',
+          rate: '20',
+          name: 'TVA FR',
+          shipping: true,
+        },
+      ];
 
-        if (data.shippingMethods && data.shippingMethods.length > 0) {
-          const availableMethods = data.shippingMethods.filter((m: ShippingMethod) => m.method_id !== 'free_shipping');
-          console.log('Available shipping methods:', availableMethods.length);
-          if (availableMethods.length > 0) {
-            setSelectedShippingMethod(availableMethods[0].id);
-            console.log('Selected shipping method:', availableMethods[0].id);
-          }
-        } else {
-          console.warn('No shipping methods received from API!');
+      console.log('Checkout options loaded:', {
+        shippingMethodsCount: shippingMethodsData.length,
+        paymentGatewaysCount: paymentGatewaysData.length,
+        taxRatesCount: taxRatesData.length,
+      });
+
+      setShippingMethods(shippingMethodsData);
+      setPaymentGateways(paymentGatewaysData);
+      setTaxRates(taxRatesData);
+
+      if (shippingMethodsData.length > 0) {
+        const availableMethods = shippingMethodsData.filter((m: ShippingMethod) => m.method_id !== 'free_shipping');
+        if (availableMethods.length > 0) {
+          setSelectedShippingMethod(availableMethods[0].id);
+          console.log('Selected shipping method:', availableMethods[0].id);
         }
+      }
 
-        if (data.paymentGateways && data.paymentGateways.length > 0) {
-          setSelectedPaymentMethod(data.paymentGateways[0].id);
-        }
-      } else {
-        console.error('Failed to fetch checkout options:', response.status, response.statusText);
-        const errorText = await response.text();
-        console.error('Error response:', errorText);
+      if (paymentGatewaysData.length > 0) {
+        setSelectedPaymentMethod(paymentGatewaysData[0].id);
       }
     } catch (error) {
       console.error('Error loading checkout options:', error);
@@ -582,36 +616,22 @@ export default function CheckoutPage() {
           ],
         };
 
-        const wooResponse = await fetch('/api/woocommerce/create-order', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              orderData: wooOrderData,
-              localOrderId: null,
-            }),
-          }
-        );
-
-        if (!wooResponse.ok) {
-          const errorText = await wooResponse.text();
-          console.error('WooCommerce order creation failed:', errorText);
-          throw new Error('Erreur lors de la création de la commande WooCommerce');
-        }
-
-        const wooResult = await wooResponse.json();
-
-        // Mettre à jour le batch avec l'ID WooCommerce
-        const { error: updateError } = await supabase
-          .from('delivery_batches')
-          .update({
-            woocommerce_order_id: wooResult.woocommerceOrderId?.toString(),
-          })
-          .eq('id', batchId);
-
-        if (updateError) {
-          console.error('Failed to update batch with WooCommerce order ID:', updateError);
+        // WooCommerce order creation (optional - disabled for now)
+        try {
+          console.log('WooCommerce order creation disabled temporarily');
+          // const wooResponse = await fetch('/api/woocommerce/create-order', {
+          //   method: 'POST',
+          //   headers: { 'Content-Type': 'application/json' },
+          //   body: JSON.stringify({ orderData: wooOrderData, localOrderId: null }),
+          // });
+          // if (wooResponse.ok) {
+          //   const wooResult = await wooResponse.json();
+          //   await supabase.from('delivery_batches')
+          //     .update({ woocommerce_order_id: wooResult.woocommerceOrderId?.toString() })
+          //     .eq('id', batchId);
+          // }
+        } catch (error) {
+          console.log('WooCommerce sync skipped:', error);
         }
 
       } else {
@@ -717,22 +737,11 @@ export default function CheckoutPage() {
           ],
         };
 
-        const wooResponse = await fetch('/api/woocommerce/create-order', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              orderData: wooOrderData,
-              localOrderId: null,
-            }),
-          }
-        );
-
-        if (!wooResponse.ok) {
-          const errorText = await wooResponse.text();
-          console.error('WooCommerce order creation failed:', errorText);
-          throw new Error('Erreur lors de la création de la commande WooCommerce');
+        // WooCommerce order creation (optional - disabled for now)
+        try {
+          console.log('WooCommerce order creation disabled temporarily');
+        } catch (error) {
+          console.log('WooCommerce sync skipped:', error);
         }
       }
 
@@ -930,16 +939,11 @@ export default function CheckoutPage() {
         ],
       };
 
-      const wooResponse = await fetch('/api/woocommerce/create-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(wooOrderData),
-      });
-
-      if (!wooResponse.ok) {
-        console.error('WooCommerce order creation failed');
+      // WooCommerce order creation (optional - disabled for now)
+      try {
+        console.log('WooCommerce order creation disabled temporarily');
+      } catch (error) {
+        console.log('WooCommerce sync skipped:', error);
       }
 
       clearCart();
@@ -1266,18 +1270,11 @@ export default function CheckoutPage() {
         ],
       };
 
-      const wooResponse = await fetch('/api/woocommerce/create-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(wooOrderData),
-      });
-
-      if (!wooResponse.ok) {
-        const errorText = await wooResponse.text();
-        console.error('WooCommerce order creation failed:', errorText);
-        throw new Error('Erreur lors de la création de la commande WooCommerce');
+      // WooCommerce order creation (optional - disabled for now)
+      try {
+        console.log('WooCommerce order creation disabled temporarily');
+      } catch (error) {
+        console.log('WooCommerce sync skipped:', error);
       }
 
       clearCart();

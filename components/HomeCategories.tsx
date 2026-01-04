@@ -49,26 +49,8 @@ export default function HomeCategories() {
 
       if (error) throw error;
 
-      // Fetch product counts from WooCommerce
-      try {
-        const response = await fetch('/api/woocommerce/categories-with-count');
-        if (response.ok) {
-          const wooCats = await response.json();
-          const categoriesWithCount = (data || []).map(cat => {
-            const wooCat = wooCats.find((wc: any) => wc.slug === cat.category_slug);
-            return {
-              ...cat,
-              product_count: wooCat?.count || 0,
-            };
-          });
-          setCategories(categoriesWithCount);
-        } else {
-          setCategories(data || []);
-        }
-      } catch (err) {
-        console.error('Error fetching product counts:', err);
-        setCategories(data || []);
-      }
+      // Product counts disabled temporarily (WooCommerce API not available)
+      setCategories(data || []);
     } catch (error) {
       console.error('Error loading home categories:', error);
     } finally {

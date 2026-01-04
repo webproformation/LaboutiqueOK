@@ -52,24 +52,57 @@ export default function EuroLoyaltyProgressBar() {
     if (!user) return;
 
     try {
-      const response = await fetch(
-        `/api/loyalty/get-tier`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ user_id: user.id })
+      // Get user profile with wallet balance
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('wallet_balance')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileError) throw profileError;
+
+      const currentBalance = profile?.wallet_balance || 0;
+
+      // Get loyalty tiers
+      const { data: tiers, error: tiersError } = await supabase
+        .from('loyalty_tiers')
+        .select('*')
+        .order('tier_number', { ascending: true });
+
+      if (tiersError) throw tiersError;
+
+      if (!tiers || tiers.length === 0) {
+        // Default tier if none configured
+        setTierInfo({
+          tier: 1,
+          multiplier: 1,
+          tier_name: 'Palier 1',
+          current_balance: currentBalance,
+          next_tier_threshold: 100,
+        });
+        return;
+      }
+
+      // Determine current tier based on balance
+      let currentTier = tiers[0];
+      for (const tier of tiers) {
+        if (currentBalance >= tier.min_spent) {
+          currentTier = tier;
         }
+      }
+
+      // Find next tier
+      const nextTier = tiers.find(
+        (t) => t.tier_number > currentTier.tier_number
       );
 
-      if (!response.ok) throw new Error('Failed to fetch tier info');
-
-      const data = await response.json();
-
-      if (data && data.length > 0) {
-        setTierInfo(data[0]);
-      }
+      setTierInfo({
+        tier: currentTier.tier_number,
+        multiplier: currentTier.multiplier,
+        tier_name: currentTier.tier_name,
+        current_balance: currentBalance,
+        next_tier_threshold: nextTier?.min_spent || currentBalance,
+      });
     } catch (error) {
       console.error('Error loading tier info:', error);
     } finally {
