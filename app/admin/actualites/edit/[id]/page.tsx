@@ -1,0 +1,471 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import RichTextEditor from '@/components/RichTextEditor';
+import MediaLibrary from '@/components/MediaLibrary';
+import { ArrowLeft, Save, Eye } from 'lucide-react';
+import { toast } from 'sonner';
+
+interface NewsCategory {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export default function NewsEditorPage() {
+  const params = useParams();
+  const router = useRouter();
+  const postId = params.id === 'new' ? null : (params.id as string);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState<NewsCategory[]>([]);
+  const [showMediaLibrary, setShowMediaLibrary] = useState(false);
+
+  const [formData, setFormData] = useState({
+    title: '',
+    slug: '',
+    content: '',
+    excerpt: '',
+    featured_image_url: '',
+    status: 'draft' as 'draft' | 'publish' | 'pending',
+    published_at: '',
+    category_ids: [] as string[],
+    seo_title: '',
+    meta_description: '',
+  });
+
+  useEffect(() => {
+    loadCategories();
+    if (postId) {
+      loadPost();
+    } else {
+      setLoading(false);
+    }
+  }, [postId]);
+
+  const loadCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('news_categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (error) throw error;
+      setCategories(data || []);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
+
+  const loadPost = async () => {
+    if (!postId) return;
+
+    try {
+      const { data: postData, error: postError } = await supabase
+        .from('news_posts')
+        .select(`
+          *,
+          news_post_categories (
+            category_id
+          )
+        `)
+        .eq('id', postId)
+        .maybeSingle();
+
+      if (postError) throw postError;
+
+      if (!postData) {
+        toast.error('Article introuvable');
+        router.push('/admin/actualites');
+        return;
+      }
+
+      setFormData({
+        title: postData.title,
+        slug: postData.slug,
+        content: postData.content || '',
+        excerpt: postData.excerpt || '',
+        featured_image_url: postData.featured_image_url || '',
+        status: postData.status,
+        published_at: postData.published_at ? new Date(postData.published_at).toISOString().split('T')[0] : '',
+        category_ids: postData.news_post_categories.map((pc: any) => pc.category_id),
+        seo_title: postData.seo_title || '',
+        meta_description: postData.meta_description || '',
+      });
+    } catch (error) {
+      console.error('Error loading post:', error);
+      toast.error('Erreur lors du chargement');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateSlug = (title: string) => {
+    return title
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+  };
+
+  const handleTitleChange = (title: string) => {
+    setFormData({
+      ...formData,
+      title,
+      slug: postId ? formData.slug : generateSlug(title),
+    });
+  };
+
+  const handleCategoryToggle = (categoryId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      category_ids: prev.category_ids.includes(categoryId)
+        ? prev.category_ids.filter(id => id !== categoryId)
+        : [...prev.category_ids, categoryId]
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.title || !formData.slug) {
+      toast.error('Le titre est requis');
+      return;
+    }
+
+    if (formData.category_ids.length === 0) {
+      toast.error('Veuillez sélectionner au moins une catégorie');
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const postData = {
+        title: formData.title,
+        slug: formData.slug,
+        content: formData.content,
+        excerpt: formData.excerpt,
+        featured_image_url: formData.featured_image_url || null,
+        status: formData.status,
+        published_at: formData.published_at || (formData.status === 'publish' ? new Date().toISOString() : null),
+        seo_title: formData.seo_title || null,
+        meta_description: formData.meta_description || null,
+      };
+
+      let savedPostId = postId;
+
+      if (postId) {
+        const { error } = await supabase
+          .from('news_posts')
+          .update(postData)
+          .eq('id', postId);
+
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from('news_posts')
+          .insert([postData])
+          .select()
+          .single();
+
+        if (error) throw error;
+        savedPostId = data.id;
+      }
+
+      await supabase
+        .from('news_post_categories')
+        .delete()
+        .eq('post_id', savedPostId);
+
+      const categoryMappings = formData.category_ids.map(catId => ({
+        post_id: savedPostId,
+        category_id: catId
+      }));
+
+      await supabase
+        .from('news_post_categories')
+        .insert(categoryMappings);
+
+      toast.success(postId ? 'Article modifié' : 'Article créé');
+
+      if (!postId) {
+        router.push(`/admin/actualites/edit/${savedPostId}`);
+      }
+    } catch (error: any) {
+      console.error('Error saving post:', error);
+      if (error.code === '23505') {
+        toast.error('Ce slug existe déjà');
+      } else {
+        toast.error('Erreur lors de la sauvegarde');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-gray-600">Chargement...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <Link href="/admin/actualites" className="inline-flex items-center text-gray-600 hover:text-[#C6A15B]">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour aux actualités
+        </Link>
+        <div className="flex items-center gap-3">
+          {postId && formData.status === 'publish' && (
+            <Link href={`/actualites/${formData.slug}`} target="_blank">
+              <Button variant="outline">
+                <Eye className="h-4 w-4 mr-2" />
+                Voir l'article
+              </Button>
+            </Link>
+          )}
+          <Button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="bg-[#C6A15B] hover:bg-[#b8933d]"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? 'Enregistrement...' : (postId ? 'Enregistrer' : 'Créer')}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Contenu de l'article</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <Label htmlFor="title">Titre *</Label>
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  placeholder="Titre de l'article"
+                  className="text-lg font-semibold"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="excerpt">Extrait</Label>
+                <Textarea
+                  id="excerpt"
+                  value={formData.excerpt}
+                  onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
+                  placeholder="Court résumé de l'article (150-200 caractères recommandés)"
+                  rows={3}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {formData.excerpt.length} / 200 caractères
+                </p>
+              </div>
+
+              <div>
+                <Label>Contenu *</Label>
+                <RichTextEditor
+                  value={formData.content}
+                  onChange={(content) => setFormData({ ...formData, content })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>SEO</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="seo_title">Titre SEO</Label>
+                <Input
+                  id="seo_title"
+                  value={formData.seo_title}
+                  onChange={(e) => setFormData({ ...formData, seo_title: e.target.value })}
+                  placeholder={formData.title || 'Titre pour les moteurs de recherche'}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="meta_description">Meta Description</Label>
+                <Textarea
+                  id="meta_description"
+                  value={formData.meta_description}
+                  onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
+                  placeholder="Description pour les moteurs de recherche"
+                  rows={3}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Publication</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="status">Statut</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value: 'draft' | 'publish' | 'pending') =>
+                    setFormData({ ...formData, status: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Brouillon</SelectItem>
+                    <SelectItem value="pending">En attente</SelectItem>
+                    <SelectItem value="publish">Publié</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="published_at">Date de publication</Label>
+                <Input
+                  id="published_at"
+                  type="date"
+                  value={formData.published_at}
+                  onChange={(e) => setFormData({ ...formData, published_at: e.target.value })}
+                />
+              </div>
+
+              <Separator />
+
+              <div>
+                <Label htmlFor="slug">URL (slug)</Label>
+                <Input
+                  id="slug"
+                  value={formData.slug}
+                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                  placeholder="url-de-larticle"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  /actualites/{formData.slug || 'url-de-larticle'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Catégories *</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {categories.map((category) => (
+                  <div key={category.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`category-${category.id}`}
+                      checked={formData.category_ids.includes(category.id)}
+                      onCheckedChange={() => handleCategoryToggle(category.id)}
+                    />
+                    <Label
+                      htmlFor={`category-${category.id}`}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: category.color }}
+                      />
+                      {category.name}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Image à la une</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {formData.featured_image_url ? (
+                <div className="space-y-3">
+                  <img
+                    src={formData.featured_image_url}
+                    alt="Image à la une"
+                    className="w-full h-auto rounded-lg"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowMediaLibrary(true)}
+                      className="flex-1"
+                    >
+                      Changer
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFormData({ ...formData, featured_image_url: '' })}
+                      className="flex-1"
+                    >
+                      Supprimer
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowMediaLibrary(true)}
+                  className="w-full"
+                >
+                  Sélectionner une image
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {showMediaLibrary && (
+        <MediaLibrary
+          onSelect={(url) => {
+            setFormData({ ...formData, featured_image_url: url });
+            setShowMediaLibrary(false);
+          }}
+          onClose={() => setShowMediaLibrary(false)}
+        />
+      )}
+    </div>
+  );
+}
