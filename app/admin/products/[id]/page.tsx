@@ -209,7 +209,7 @@ export default function EditProductPage() {
         gallery_images: galleryImages,
         category_id: product.category_id || null,
         child_category_ids: childCategoryIds,
-        status: product.is_active === true ? 'publish' : 'draft',
+        status: product.status || 'publish',
         attributes: attributes,
         seo_title: seoData?.seo_title || '',
         meta_description: seoData?.meta_description || '',
@@ -262,7 +262,7 @@ export default function EditProductPage() {
           is_featured: formData.is_featured,
           is_diamond: formData.is_diamond,
           image_url: formData.image_url || null,
-          is_active: formData.status === 'publish',
+          status: formData.status,
           updated_at: new Date().toISOString(),
         })
         .eq('id', productId);
