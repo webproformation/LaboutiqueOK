@@ -4,11 +4,18 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase, Product, ProductCategory } from '@/lib/supabase';
-import { ArrowLeft, ShoppingBag } from 'lucide-react';
-
-type ProductWithCategories = Product & {
-  categories?: ProductCategory[];
-};
+import { Header } from '@/components/header';
+import { LoyaltyBar } from '@/components/loyalty-bar';
+import { ArrowLeft, SlidersHorizontal } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 
 export default function CategoryPage() {
   const params = useParams();
@@ -16,22 +23,45 @@ export default function CategoryPage() {
   const slug = params.slug as string;
 
   const [category, setCategory] = useState<ProductCategory | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 200]);
+  const [maxPrice, setMaxPrice] = useState(200);
 
   useEffect(() => {
     loadCategoryAndProducts();
   }, [slug]);
 
+  useEffect(() => {
+    applyFilters();
+  }, [priceRange, allProducts]);
+
   async function loadCategoryAndProducts() {
     try {
-      const { data: categoryData, error: categoryError } = await supabase
-        .from('categories')
+      if (slug === 'tous') {
+        const { data: productsData } = await supabase
+          .from('products')
+          .select('*')
+          .eq('status', 'publish')
+          .order('created_at', { ascending: false });
+
+        if (productsData) {
+          setAllProducts(productsData);
+          const prices = productsData.map(p => p.regular_price || 0).filter(p => p > 0);
+          const max = Math.max(...prices, 200);
+          setMaxPrice(max);
+          setPriceRange([0, max]);
+        }
+        setLoading(false);
+        return;
+      }
+
+      const { data: categoryData } = await supabase
+        .from('product_categories')
         .select('*')
         .eq('slug', slug)
         .maybeSingle();
-
-      if (categoryError) throw categoryError;
 
       if (!categoryData) {
         router.push('/');
@@ -40,24 +70,27 @@ export default function CategoryPage() {
 
       setCategory(categoryData);
 
-      const { data: mappingData, error: mappingError } = await supabase
-        .from('product_categories')
+      const { data: mappingData } = await supabase
+        .from('product_category_mapping')
         .select('product_id')
         .eq('category_id', categoryData.id);
-
-      if (mappingError) throw mappingError;
 
       const productIds = mappingData?.map(m => m.product_id) || [];
 
       if (productIds.length > 0) {
-        const { data: productsData, error: productsError } = await supabase
+        const { data: productsData } = await supabase
           .from('products')
           .select('*')
           .in('id', productIds)
-          .eq('is_active', true);
+          .eq('status', 'publish');
 
-        if (productsError) throw productsError;
-        setProducts(productsData || []);
+        if (productsData) {
+          setAllProducts(productsData);
+          const prices = productsData.map(p => p.regular_price || 0).filter(p => p > 0);
+          const max = Math.max(...prices, 200);
+          setMaxPrice(max);
+          setPriceRange([0, max]);
+        }
       }
     } catch (error) {
       console.error('Error loading category:', error);
@@ -66,124 +99,149 @@ export default function CategoryPage() {
     }
   }
 
+  function applyFilters() {
+    let filtered = [...allProducts];
+
+    filtered = filtered.filter(product => {
+      const price = product.sale_price || product.regular_price || 0;
+      return price >= priceRange[0] && price <= priceRange[1];
+    });
+
+    setFilteredProducts(filtered);
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <div className="text-slate-600">Chargement...</div>
+      <div className="min-h-screen bg-white">
+        <Header />
+        <LoyaltyBar />
+        <div className="flex items-center justify-center py-20">
+          <div className="text-gray-600">Chargement...</div>
+        </div>
       </div>
     );
   }
 
-  if (!category) {
-    return null;
-  }
+  const displayProducts = filteredProducts.length > 0 ? filteredProducts : allProducts;
+  const categoryName = slug === 'tous' ? 'Tous les Produits' : category?.name || '';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <header className="bg-white shadow-sm border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
-              <ShoppingBag className="w-8 h-8 text-slate-800" />
-              <h1 className="text-3xl font-bold text-slate-900">La Boutique de Morgane</h1>
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-white">
+      <Header />
+      <LoyaltyBar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="container mx-auto px-4 py-8">
         <Link
           href="/"
-          className="inline-flex items-center text-slate-600 hover:text-slate-900 mb-8 transition-colors"
+          className="inline-flex items-center text-gray-600 hover:text-[#D4AF37] mb-8 transition-smooth"
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
           Retour à l'accueil
         </Link>
 
-        <div className="mb-12">
-          <h2 className="text-4xl font-bold text-slate-900 mb-4">{category.name}</h2>
-          <p className="text-lg text-slate-600">{category.description}</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">{categoryName}</h1>
+            {category?.description && (
+              <p className="text-gray-600">{category.description}</p>
+            )}
+            <p className="text-sm text-gray-500 mt-2">
+              {displayProducts.length} produit{displayProducts.length > 1 ? 's' : ''}
+            </p>
+          </div>
+
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="rounded-xl">
+                <SlidersHorizontal className="h-4 w-4 mr-2" />
+                Filtres
+              </Button>
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>Filtres</SheetTitle>
+              </SheetHeader>
+              <div className="py-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-4 block">
+                      Prix: {priceRange[0]}€ - {priceRange[1]}€
+                    </label>
+                    <Slider
+                      value={priceRange}
+                      onValueChange={(value) => setPriceRange(value as [number, number])}
+                      max={maxPrice}
+                      step={1}
+                      className="mt-2"
+                    />
+                  </div>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
 
-        {products.length === 0 ? (
+        {displayProducts.length === 0 ? (
           <div className="text-center py-20">
-            <div className="text-slate-400 mb-4">
-              <ShoppingBag className="w-16 h-16 mx-auto" />
-            </div>
-            <p className="text-xl text-slate-600">Aucun produit disponible dans cette catégorie</p>
+            <p className="text-xl text-gray-600">Aucun produit trouvé</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {products.map((product) => {
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {displayProducts.map((product) => {
               const displayPrice = product.sale_price || product.regular_price;
-              const hasDiscount = product.sale_price && product.sale_price < product.regular_price;
+              const hasDiscount = product.sale_price && product.sale_price < (product.regular_price || 0);
 
               return (
-                <div
+                <Link
                   key={product.id}
-                  className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                  href={`/product/${product.slug}`}
+                  className="bg-white rounded-xl shadow-soft overflow-hidden hover:shadow-xl transition-smooth transform hover:-translate-y-1"
                 >
-                  <div className="aspect-square relative overflow-hidden bg-slate-100">
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
-                    />
-                    {product.stock_quantity < 5 && product.stock_quantity > 0 && (
-                      <div className="absolute top-4 right-4 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
-                        Stock limité
-                      </div>
-                    )}
-                    {product.stock_status === 'outofstock' && (
-                      <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
-                        Épuisé
+                  <div className="aspect-square relative overflow-hidden bg-gray-100">
+                    {product.image_url ? (
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        className="w-full h-full object-cover hover:scale-110 transition-smooth"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        Pas d'image
                       </div>
                     )}
                     {hasDiscount && (
-                      <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                      <div className="absolute top-3 left-3 bg-[#F8B4C1] text-white px-3 py-1 rounded-full text-xs font-semibold">
                         Promo
                       </div>
                     )}
                   </div>
-                  <div className="p-5">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2 line-clamp-2">
+                  <div className="p-4">
+                    <h3 className="font-medium text-sm mb-2 line-clamp-2">
                       {product.name}
                     </h3>
-                    <p className="text-sm text-slate-600 mb-4 line-clamp-2">
-                      {product.short_description || product.description}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-col">
-                        {hasDiscount && (
-                          <span className="text-sm text-slate-400 line-through">
-                            {product.regular_price.toFixed(2)} €
+                    <div className="flex items-center gap-2">
+                      {hasDiscount ? (
+                        <>
+                          <span className="text-[#D4AF37] font-bold">
+                            {displayPrice?.toFixed(2)}€
                           </span>
-                        )}
-                        <span className="text-2xl font-bold text-slate-900">
-                          {displayPrice.toFixed(2)} €
+                          <span className="text-gray-400 line-through text-sm">
+                            {product.regular_price?.toFixed(2)}€
+                          </span>
+                        </>
+                      ) : (
+                        <span className="font-bold">
+                          {displayPrice?.toFixed(2)}€
                         </span>
-                      </div>
-                      {product.stock_status === 'instock' && (
-                        <button className="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium">
-                          Ajouter
-                        </button>
                       )}
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
         )}
       </main>
-
-      <footer className="bg-white border-t border-slate-200 mt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <p className="text-center text-slate-600">
-            © 2026 La Boutique de Morgane. Tous droits réservés.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

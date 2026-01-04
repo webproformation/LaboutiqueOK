@@ -55,7 +55,7 @@ export default function ProductPage() {
   }
 
   const displayPrice = product.sale_price || product.regular_price;
-  const hasDiscount = product.sale_price && product.sale_price < product.regular_price;
+  const hasDiscount = product.sale_price && product.regular_price && product.sale_price < product.regular_price;
   const allImages = product.images && product.images.length > 0
     ? product.images
     : [{ src: product.image_url, alt: product.name }];
@@ -90,7 +90,7 @@ export default function ProductPage() {
                 alt={allImages[selectedImage]?.alt || product.name}
                 className="w-full h-full object-cover"
               />
-              {product.stock_status === 'outofstock' && (
+              {product.stock_quantity === 0 && (
                 <div className="absolute top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
                   Épuisé
                 </div>
@@ -104,7 +104,7 @@ export default function ProductPage() {
 
             {allImages.length > 1 && (
               <div className="grid grid-cols-4 gap-4">
-                {allImages.map((img, idx) => (
+                {allImages.map((img: any, idx: number) => (
                   <button
                     key={idx}
                     onClick={() => setSelectedImage(idx)}
@@ -132,19 +132,19 @@ export default function ProductPage() {
               </h1>
 
               <div className="flex items-baseline gap-4 mb-6">
-                {hasDiscount && (
+                {hasDiscount && product.regular_price && (
                   <span className="text-2xl text-slate-400 line-through">
                     {product.regular_price.toFixed(2)} €
                   </span>
                 )}
                 <span className="text-5xl font-bold text-slate-900">
-                  {displayPrice.toFixed(2)} €
+                  {displayPrice?.toFixed(2)} €
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-4 py-4 border-y border-slate-200">
-              {product.stock_status === 'instock' ? (
+              {product.stock_quantity && product.stock_quantity > 0 ? (
                 <div className="flex items-center text-green-600">
                   <Check className="w-5 h-5 mr-2" />
                   <span className="font-semibold">En stock</span>
@@ -156,22 +156,22 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {product.stock_quantity > 0 && product.stock_quantity < 5 && (
+              {product.stock_quantity && product.stock_quantity > 0 && product.stock_quantity < 5 && (
                 <span className="text-orange-600 font-medium">
                   Plus que {product.stock_quantity} en stock
                 </span>
               )}
             </div>
 
-            {product.short_description && (
+            {product.description && (
               <div className="bg-slate-50 rounded-lg p-6">
                 <p className="text-slate-700 leading-relaxed">
-                  {product.short_description}
+                  {product.description}
                 </p>
               </div>
             )}
 
-            {product.stock_status === 'instock' && (
+            {product.stock_quantity && product.stock_quantity > 0 && (
               <button className="w-full bg-slate-900 text-white py-4 px-8 rounded-lg hover:bg-slate-800 transition-colors text-lg font-semibold shadow-lg">
                 Ajouter au panier
               </button>
@@ -186,22 +186,6 @@ export default function ProductPage() {
                   className="prose prose-slate max-w-none"
                   dangerouslySetInnerHTML={{ __html: product.description }}
                 />
-              </div>
-            )}
-
-            {product.attributes && product.attributes.length > 0 && (
-              <div className="pt-6 border-t border-slate-200">
-                <h2 className="text-2xl font-bold text-slate-900 mb-4">
-                  Caractéristiques
-                </h2>
-                <dl className="space-y-2">
-                  {product.attributes.map((attr: any, idx: number) => (
-                    <div key={idx} className="flex justify-between py-2 border-b border-slate-100">
-                      <dt className="font-semibold text-slate-700">{attr.name}</dt>
-                      <dd className="text-slate-600">{attr.option || attr.options?.join(', ')}</dd>
-                    </div>
-                  ))}
-                </dl>
               </div>
             )}
           </div>

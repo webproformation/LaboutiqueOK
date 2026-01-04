@@ -1,140 +1,108 @@
-'use client';
-
-import { useEffect, useState } from 'react';
+import { Header } from '@/components/header';
+import { LoyaltyBar } from '@/components/loyalty-bar';
+import { HeroSlider } from '@/components/hero-slider';
+import { FeaturedProducts } from '@/components/featured-products';
 import Link from 'next/link';
-import { supabase, Product } from '@/lib/supabase';
-import { ShoppingBag } from 'lucide-react';
+import { Sparkles, Gift, Truck } from 'lucide-react';
+
+export const revalidate = 0;
 
 export default function Home() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadProducts();
-  }, []);
-
-  async function loadProducts() {
-    try {
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (productsError) throw productsError;
-
-      setProducts(productsData || []);
-    } catch (error) {
-      console.error('Error loading products:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <div className="text-slate-600">Chargement...</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <header className="bg-white shadow-sm border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <ShoppingBag className="w-8 h-8 text-slate-800" />
-              <h1 className="text-3xl font-bold text-slate-900">La Boutique de Morgane</h1>
+    <div className="min-h-screen bg-white">
+      <Header />
+      <LoyaltyBar />
+
+      <main>
+        <section className="container mx-auto px-4 py-8">
+          <HeroSlider />
+        </section>
+
+        <section className="bg-gradient-to-r from-[#F8B4C1]/20 to-[#D4AF37]/20 py-12">
+          <div className="container mx-auto px-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="flex items-center gap-4 bg-white rounded-xl p-6 shadow-soft">
+                <Truck className="h-12 w-12 text-[#D4AF37]" />
+                <div>
+                  <h3 className="font-bold text-lg">Livraison Rapide</h3>
+                  <p className="text-sm text-gray-600">Colissimo & Mondial Relay</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 bg-white rounded-xl p-6 shadow-soft">
+                <Gift className="h-12 w-12 text-[#F8B4C1]" />
+                <div>
+                  <h3 className="font-bold text-lg">Cadeaux Offerts</h3>
+                  <p className="text-sm text-gray-600">À partir de 50€ d'achat</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 bg-white rounded-xl p-6 shadow-soft">
+                <Sparkles className="h-12 w-12 text-[#D4AF37]" />
+                <div>
+                  <h3 className="font-bold text-lg">Programme Fidélité</h3>
+                  <p className="text-sm text-gray-600">Gagnez des euros à chaque achat</p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </section>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-slate-900 mb-4">
-            Tous nos produits
-          </h2>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            {products.length} produits disponibles
-          </p>
-        </div>
+        <FeaturedProducts />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {products.map((product) => {
-            const displayPrice = product.sale_price || product.regular_price;
-            const hasDiscount = product.sale_price && product.sale_price < product.regular_price;
-
-            return (
-              <Link
-                key={product.id}
-                href={`/product/${product.slug}`}
-                className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-              >
-                <div className="aspect-square relative overflow-hidden bg-slate-100">
-                  <img
-                    src={product.image_url}
-                    alt={product.name}
-                    className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
-                  />
-                  {product.stock_quantity < 5 && product.stock_quantity > 0 && (
-                    <div className="absolute top-4 right-4 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
-                      Stock limité
-                    </div>
-                  )}
-                  {product.stock_status === 'outofstock' && (
-                    <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
-                      Épuisé
-                    </div>
-                  )}
-                  {hasDiscount && (
-                    <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
-                      Promo
-                    </div>
-                  )}
-                  {product.is_featured && (
-                    <div className="absolute bottom-4 left-4 bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
-                      Coup de coeur
-                    </div>
-                  )}
-                </div>
-                <div className="p-5">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2 line-clamp-2">
-                    {product.name}
-                  </h3>
-                  <p className="text-sm text-slate-600 mb-4 line-clamp-2">
-                    {product.short_description || product.description}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-col">
-                      {hasDiscount && (
-                        <span className="text-sm text-slate-400 line-through">
-                          {product.regular_price.toFixed(2)} €
-                        </span>
-                      )}
-                      <span className="text-2xl font-bold text-slate-900">
-                        {displayPrice.toFixed(2)} €
-                      </span>
-                    </div>
-                    {product.stock_status === 'instock' && (
-                      <button className="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium">
-                        Voir
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+        <section className="py-16 bg-gray-50">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-4xl font-bold mb-4">Découvrez Tous Nos Produits</h2>
+            <p className="text-gray-600 mb-8">121 produits disponibles</p>
+            <Link
+              href="/categorie/tous"
+              className="inline-block bg-black text-white px-8 py-4 rounded-xl hover:bg-[#D4AF37] transition-smooth shadow-soft"
+            >
+              Voir le Catalogue
+            </Link>
+          </div>
+        </section>
       </main>
 
-      <footer className="bg-white border-t border-slate-200 mt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <p className="text-center text-slate-600">
-            © 2026 La Boutique de Morgane. Tous droits réservés.
-          </p>
+      <footer className="bg-black text-white py-12">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <h3 className="text-xl font-bold mb-4 text-[#D4AF37]">La Boutique</h3>
+              <ul className="space-y-2 text-sm">
+                <li><Link href="/nouveautes" className="hover:text-[#D4AF37] transition-smooth">Nouveautés</Link></li>
+                <li><Link href="/live" className="hover:text-[#D4AF37] transition-smooth">Live Shopping</Link></li>
+                <li><Link href="/carte-cadeau" className="hover:text-[#D4AF37] transition-smooth">Carte Cadeau</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-bold mb-4 text-[#D4AF37]">Catégories</h3>
+              <ul className="space-y-2 text-sm">
+                <li><Link href="/categorie/mode" className="hover:text-[#D4AF37] transition-smooth">Mode</Link></li>
+                <li><Link href="/categorie/beaute" className="hover:text-[#D4AF37] transition-smooth">Beauté</Link></li>
+                <li><Link href="/categorie/maison" className="hover:text-[#D4AF37] transition-smooth">Maison</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-bold mb-4 text-[#D4AF37]">Aide</h3>
+              <ul className="space-y-2 text-sm">
+                <li><Link href="/contact" className="hover:text-[#D4AF37] transition-smooth">Contact</Link></li>
+                <li><Link href="/livraison" className="hover:text-[#D4AF37] transition-smooth">Livraison</Link></li>
+                <li><Link href="/retours" className="hover:text-[#D4AF37] transition-smooth">Retours</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-bold mb-4 text-[#D4AF37]">Suivez-nous</h3>
+              <p className="text-sm mb-4">Rejoignez notre communauté</p>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-800 pt-8 text-center text-sm">
+            <p>© 2026 La Boutique de Morgane. Tous droits réservés.</p>
+          </div>
         </div>
       </footer>
     </div>
