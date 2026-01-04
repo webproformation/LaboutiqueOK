@@ -1,257 +1,390 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Loader2, Mail, Phone, User, ShoppingCart, Users, Eye } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import {
+  Search,
+  Loader2,
+  Mail,
+  Phone,
+  User,
+  ShieldCheck,
+  RefreshCw,
+  Calendar,
+  Ban,
+  CheckCircle,
+  PiggyBank
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase-client';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
-interface Customer {
+interface Profile {
   id: string;
   email: string;
-  first_name?: string;
-  last_name?: string;
-  phone?: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  birth_date: string | null;
+  avatar_url: string;
+  wallet_balance: number;
+  is_admin: boolean;
+  blocked: boolean;
+  blocked_reason: string | null;
   created_at: string;
-  source?: 'supabase' | 'woocommerce' | 'wordpress';
-  username?: string;
-  roles?: string[];
 }
 
-export default function AdminCustomers() {
-  const router = useRouter();
-  const [allCustomers, setAllCustomers] = useState<Customer[]>([]);
+export default function AdminCustomersPage() {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [error, setError] = useState<string | null>(null);
-  const perPage = 10;
+  const [updatingAdmin, setUpdatingAdmin] = useState<string | null>(null);
 
-  const fetchCustomers = async () => {
+  useEffect(() => {
+    loadProfiles();
+  }, []);
+
+  useEffect(() => {
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();
+      setFilteredProfiles(
+        profiles.filter(p =>
+          p.email.toLowerCase().includes(searchLower) ||
+          p.first_name.toLowerCase().includes(searchLower) ||
+          p.last_name.toLowerCase().includes(searchLower) ||
+          p.phone.includes(search)
+        )
+      );
+    } else {
+      setFilteredProfiles(profiles);
+    }
+  }, [search, profiles]);
+
+  const loadProfiles = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const [supabaseResponse, woocommerceResponse] = await Promise.all([
-        fetch('/api/supabase/users'),
-        fetch('/api/woocommerce/customers?action=list&per_page=100')
-      ]);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      const supabaseUsers = supabaseResponse.ok
-        ? (await supabaseResponse.json()).users || []
-        : [];
+      if (error) throw error;
 
-      const woocommerceCustomers = woocommerceResponse.ok
-        ? (await woocommerceResponse.json()).customers || []
-        : [];
-
-      const emailMap = new Map<string, Customer>();
-
-      woocommerceCustomers.forEach((c: any) => {
-        const email = (c.email || '').toLowerCase();
-        if (email) {
-          emailMap.set(email, {
-            id: `woo-${c.id}`,
-            email: c.email || '',
-            first_name: c.first_name || '',
-            last_name: c.last_name || '',
-            phone: c.billing?.phone || '',
-            created_at: c.date_created || new Date().toISOString(),
-            source: 'woocommerce'
-          });
-        }
-      });
-
-      supabaseUsers.forEach((u: Customer) => {
-        const email = (u.email || '').toLowerCase();
-        if (email && !emailMap.has(email)) {
-          emailMap.set(email, {
-            ...u,
-            source: 'supabase'
-          });
-        }
-      });
-
-      const allCustomers = Array.from(emailMap.values());
-
-      setAllCustomers(allCustomers);
+      setProfiles(data || []);
+      setFilteredProfiles(data || []);
     } catch (error: any) {
-      const errorMsg = error.message || 'Erreur lors du chargement des clients';
-      setError(errorMsg);
-      toast.error(errorMsg);
-      console.error('Error fetching customers:', error);
+      console.error('Load profiles error:', error);
+      toast.error('Erreur lors du chargement des clients');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
+  const syncAuthUsers = async () => {
+    setSyncing(true);
+    const toastId = toast.loading('Synchronisation des comptes en cours...');
 
-  const filteredCustomers = useMemo(() => {
-    if (!search.trim()) return allCustomers;
+    try {
+      // 1. RÉCUPÉRER TOUS LES UTILISATEURS AUTH
+      const { data: { session } } = await supabase.auth.getSession();
 
-    const searchLower = search.toLowerCase();
-    return allCustomers.filter(c =>
-      c.email.toLowerCase().includes(searchLower) ||
-      (c.first_name?.toLowerCase() || '').includes(searchLower) ||
-      (c.last_name?.toLowerCase() || '').includes(searchLower)
-    );
-  }, [allCustomers, search]);
+      if (!session) {
+        throw new Error('Session invalide');
+      }
 
-  const paginatedCustomers = useMemo(() => {
-    const start = (page - 1) * perPage;
-    const end = start + perPage;
-    return filteredCustomers.slice(start, end);
-  }, [filteredCustomers, page, perPage]);
+      // Utiliser la fonction RPC pour récupérer tous les users auth (nécessite service_role)
+      // Pour l'instant, on va créer un endpoint API
+      const response = await fetch('/api/admin/sync-auth-users', {
+        method: 'POST',
+      });
 
-  const totalPages = Math.ceil(filteredCustomers.length / perPage);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Erreur lors de la synchronisation');
+      }
 
-  useEffect(() => {
-    setPage(1);
-  }, [search]);
+      const { synced, skipped } = await response.json();
 
-  return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold">Gestion des Clients</h1>
-        <div className="text-sm text-gray-500">
-          {filteredCustomers.length} clients au total
+      toast.success(`Synchronisation réussie! ${synced} profils créés, ${skipped} déjà existants`, { id: toastId });
+
+      await loadProfiles();
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      toast.error(error.message || 'Erreur lors de la synchronisation', { id: toastId });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const toggleAdmin = async (profileId: string, currentValue: boolean) => {
+    setUpdatingAdmin(profileId);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_admin: !currentValue })
+        .eq('id', profileId);
+
+      if (error) throw error;
+
+      setProfiles(profiles.map(p =>
+        p.id === profileId ? { ...p, is_admin: !currentValue } : p
+      ));
+
+      toast.success(!currentValue ? 'Administrateur activé' : 'Administrateur désactivé');
+    } catch (error: any) {
+      console.error('Toggle admin error:', error);
+      toast.error('Erreur lors de la modification');
+    } finally {
+      setUpdatingAdmin(null);
+    }
+  };
+
+  const stats = {
+    total: profiles.length,
+    admins: profiles.filter(p => p.is_admin).length,
+    blocked: profiles.filter(p => p.blocked).length,
+    totalWallet: profiles.reduce((sum, p) => sum + Number(p.wallet_balance || 0), 0),
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-pink-600 mx-auto mb-4" />
+          <p className="text-gray-600">Chargement des clients...</p>
         </div>
       </div>
+    );
+  }
 
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <Input
-              placeholder="Rechercher un client..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Gestion des Clients</h1>
+          <p className="text-gray-600 mt-1">
+            Liste complète des comptes clients depuis Supabase
+          </p>
         </div>
-      ) : error ? (
+        <Button
+          onClick={syncAuthUsers}
+          disabled={syncing}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          {syncing ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Synchronisation...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Synchroniser auth.users
+            </>
+          )}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-12 text-center">
-            <div className="max-w-2xl mx-auto">
-              <h3 className="text-xl font-bold text-red-600 mb-4">
-                Erreur de chargement
-              </h3>
-              <p className="text-gray-600 mb-6">{error}</p>
-              <Button onClick={fetchCustomers} className="mt-6">
-                Réessayer
-              </Button>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Total Clients</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+              </div>
+              <User className="w-12 h-12 text-blue-500 opacity-50" />
             </div>
           </CardContent>
         </Card>
-      ) : paginatedCustomers.length === 0 ? (
+
         <Card>
-          <CardContent className="p-12 text-center">
-            <p className="text-gray-500">
-              {search ? 'Aucun client trouvé pour cette recherche' : 'Aucun client'}
-            </p>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Administrateurs</p>
+                <p className="text-3xl font-bold text-pink-600">{stats.admins}</p>
+              </div>
+              <ShieldCheck className="w-12 h-12 text-pink-500 opacity-50" />
+            </div>
           </CardContent>
         </Card>
-      ) : (
-        <>
-          <div className="space-y-4 mb-6">
-            {paginatedCustomers.map((customer) => (
-              <Card key={customer.id}>
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <h3 className="font-bold text-lg">
-                          {customer.first_name && customer.last_name
-                            ? `${customer.first_name} ${customer.last_name}`
-                            : 'Utilisateur'}
-                        </h3>
-                        {customer.source === 'woocommerce' ? (
-                          <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800 flex items-center gap-1">
-                            <ShoppingCart className="w-3 h-3" />
-                            WooCommerce
-                          </span>
-                        ) : customer.source === 'wordpress' ? (
-                          <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-800 flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            WordPress
-                          </span>
-                        ) : (
-                          <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800 flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            Supabase
-                          </span>
-                        )}
-                      </div>
-                      <div className="space-y-1 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-4 h-4" />
-                          <span>{customer.email}</span>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Comptes bloqués</p>
+                <p className="text-3xl font-bold text-red-600">{stats.blocked}</p>
+              </div>
+              <Ban className="w-12 h-12 text-red-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Total Porte-monnaie</p>
+                <p className="text-3xl font-bold text-green-600">{stats.totalWallet.toFixed(2)}€</p>
+              </div>
+              <PiggyBank className="w-12 h-12 text-green-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>Liste des Clients</CardTitle>
+              <CardDescription>
+                {filteredProfiles.length} client{filteredProfiles.length > 1 ? 's' : ''}
+                {search && ` (filtré${filteredProfiles.length > 1 ? 's' : ''})`}
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Input
+                placeholder="Rechercher par nom, email ou téléphone..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Porte-monnaie</TableHead>
+                  <TableHead>Date d'inscription</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead className="text-center">Administrateur</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredProfiles.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                      {search ? 'Aucun client trouvé' : 'Aucun client'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredProfiles.map((profile) => (
+                    <TableRow key={profile.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          {profile.avatar_url ? (
+                            <img
+                              src={profile.avatar_url}
+                              alt={`${profile.first_name} ${profile.last_name}`}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-semibold">
+                              {profile.first_name?.[0]?.toUpperCase() || profile.email[0].toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {profile.first_name} {profile.last_name}
+                            </p>
+                            <p className="text-sm text-gray-500 flex items-center gap-1">
+                              <Mail className="w-3 h-3" />
+                              {profile.email}
+                            </p>
+                          </div>
                         </div>
-                        {customer.phone && (
-                          <div className="flex items-center gap-2">
-                            <Phone className="w-4 h-4" />
-                            <span>{customer.phone}</span>
+                      </TableCell>
+                      <TableCell>
+                        {profile.phone ? (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Phone className="w-3 h-3 text-gray-400" />
+                            {profile.phone}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
+                        {profile.birth_date && (
+                          <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                            <Calendar className="w-3 h-3" />
+                            {new Date(profile.birth_date).toLocaleDateString('fr-FR')}
                           </div>
                         )}
-                      </div>
-                    </div>
-                    <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-4">
-                      <div className="text-left sm:text-right">
-                        <p className="text-sm text-gray-500">Inscrit le</p>
-                        <p className="text-sm font-medium">
-                          {new Date(customer.created_at).toLocaleDateString('fr-FR')}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => router.push(`/admin/customers/${customer.id}`)}
-                        className="flex items-center gap-2"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Détails
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-semibold text-green-600">
+                          {Number(profile.wallet_balance || 0).toFixed(2)}€
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-gray-600">
+                          {new Date(profile.created_at).toLocaleDateString('fr-FR')}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {profile.blocked ? (
+                          <Badge variant="destructive" className="gap-1">
+                            <Ban className="w-3 h-3" />
+                            Bloqué
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="gap-1 border-green-200 text-green-700">
+                            <CheckCircle className="w-3 h-3" />
+                            Actif
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-2">
+                          <Switch
+                            checked={profile.is_admin}
+                            onCheckedChange={() => toggleAdmin(profile.id, profile.is_admin)}
+                            disabled={updatingAdmin === profile.id}
+                          />
+                          {profile.is_admin && (
+                            <ShieldCheck className="w-4 h-4 text-pink-600" />
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex justify-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
-                Précédent
-              </Button>
-              <span className="px-4 py-2">
-                Page {page} sur {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-              >
-                Suivant
-              </Button>
+          {filteredProfiles.length > 0 && (
+            <div className="mt-4 text-sm text-gray-500 text-center">
+              Affichage de {filteredProfiles.length} client{filteredProfiles.length > 1 ? 's' : ''}
             </div>
           )}
-        </>
-      )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

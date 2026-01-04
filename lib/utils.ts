@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatPrice(price: string | undefined | null): string {
+export function formatPrice(price: string | undefined | null, addTTC: boolean = true): string {
   if (!price) return '';
 
   let decoded = price
@@ -23,11 +23,18 @@ export function formatPrice(price: string | undefined | null): string {
   if (decoded.includes(' - ') || decoded.includes('-')) {
     const parts = decoded.split(/\s*-\s*/);
     if (parts.length === 2 && parts[0].includes('€') && parts[1].includes('€')) {
-      return `de ${parts[0].trim()} à ${parts[1].trim()}`;
+      return `de ${parts[0].trim()} à ${parts[1].trim()}${addTTC ? ' TTC' : ''}`;
     }
   }
 
-  return decoded;
+  if (!decoded.includes('€')) {
+    const numPrice = parseFloat(decoded.replace(',', '.'));
+    if (!isNaN(numPrice)) {
+      decoded = `${numPrice.toFixed(2)}€`;
+    }
+  }
+
+  return addTTC ? `${decoded} TTC` : decoded;
 }
 
 export function decodeHtmlEntities(text: string | undefined | null): string {

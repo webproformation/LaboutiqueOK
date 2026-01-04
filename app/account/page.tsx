@@ -1,34 +1,36 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { User, Mail, Phone, Loader2, Calendar, PiggyBank, TrendingDown, Package } from 'lucide-react';
-import Image from 'next/image';
+import { User, Mail, Phone, Loader2, Calendar, PiggyBank, Save, LogOut, ShieldCheck } from 'lucide-react';
 import ProfilePictureUpload from '@/components/ProfilePictureUpload';
-import { useAdmin } from '@/hooks/use-admin';
 import Link from 'next/link';
 
-interface SavingsData {
-  totalSavings: number;
-  monthlySavings: number;
-  openBatches: number;
+interface Profile {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  birth_date: string | null;
+  avatar_url: string;
+  wallet_balance: number;
+  is_admin: boolean;
+  blocked: boolean;
+  created_at: string;
 }
 
 export default function AccountPage() {
-  const { profile, updateProfile, user } = useAuth();
-  const { isAdmin } = useAdmin();
-  const [loading, setLoading] = useState(false);
-  const [savingsData, setSavingsData] = useState<SavingsData>({
-    totalSavings: 0,
-    monthlySavings: 0,
-    openBatches: 0,
-  });
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -38,276 +40,338 @@ export default function AccountPage() {
   });
 
   useEffect(() => {
-    if (profile) {
-      setFormData({
-        first_name: profile.first_name || '',
-        last_name: profile.last_name || '',
-        phone: profile.phone || '',
-        birth_date: profile.birth_date || '',
-        avatar_url: profile.avatar_url || '',
-      });
-    }
-    if (user) {
-      fetchSavingsData();
-    }
-  }, [profile, user]);
+    checkAuth();
+  }, []);
 
-  const fetchSavingsData = async () => {
-    if (!user?.id) {
-      console.warn('No user ID available for fetching savings data');
-      return;
-    }
-
+  const checkAuth = async () => {
     try {
-      const firstDayOfMonth = new Date();
-      firstDayOfMonth.setDate(1);
-      firstDayOfMonth.setHours(0, 0, 0, 0);
+      const { data: { session } } = await supabase.auth.getSession();
 
-      const { data: batches, error } = await supabase
-        .from('delivery_batches')
-        .select('id, status, created_at, shipping_cost')
-        .eq('user_id', user.id)
-        .eq('status', 'pending');
-
-      if (error) {
-        console.error('Error fetching batches:', error);
+      if (!session) {
+        router.push('/auth/login?redirect=/account');
         return;
       }
 
-      const estimatedShippingCostPerBatch = 5.90;
-      const openBatches = batches?.length || 0;
-      const totalSavings = openBatches > 1 ? (openBatches - 1) * estimatedShippingCostPerBatch : 0;
-
-      const batchesThisMonth = batches?.filter(batch =>
-        new Date(batch.created_at) >= firstDayOfMonth
-      ) || [];
-      const monthlySavings = batchesThisMonth.length > 1 ? (batchesThisMonth.length - 1) * estimatedShippingCostPerBatch : 0;
-
-      setSavingsData({
-        totalSavings: Math.round(totalSavings * 100) / 100,
-        monthlySavings: Math.round(monthlySavings * 100) / 100,
-        openBatches,
-      });
+      await loadProfile(session.user.id);
     } catch (error) {
-      console.error('Erreur lors du chargement des économies:', error);
+      console.error('Auth check error:', error);
+      router.push('/auth/login');
     }
   };
 
-  const handleAvatarUpdate = async (newAvatarUrl: string) => {
-    const { error } = await updateProfile({ avatar_url: newAvatarUrl });
-    if (error) {
-      toast.error('Erreur lors de la mise à jour de la photo');
-    } else {
-      setFormData({ ...formData, avatar_url: newAvatarUrl });
+  const loadProfile = async (userId: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data) {
+        toast.error('Profil introuvable');
+        router.push('/auth/login');
+        return;
+      }
+
+      if (data.blocked) {
+        toast.error('Votre compte a été suspendu');
+        await supabase.auth.signOut();
+        router.push('/auth/login');
+        return;
+      }
+
+      setProfile(data);
+      setFormData({
+        first_name: data.first_name || '',
+        last_name: data.last_name || '',
+        phone: data.phone || '',
+        birth_date: data.birth_date || '',
+        avatar_url: data.avatar_url || '',
+      });
+    } catch (error: any) {
+      console.error('Load profile error:', error);
+      toast.error('Erreur lors du chargement du profil');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
 
-    const { error } = await updateProfile(formData);
+    if (!profile) return;
 
-    if (error) {
-      toast.error('Erreur lors de la mise à jour du profil');
-    } else {
-      toast.success('Profil mis à jour avec succès !');
+    if (!formData.first_name.trim() || !formData.last_name.trim()) {
+      toast.error('Le nom et le prénom sont obligatoires');
+      return;
     }
 
-    setLoading(false);
+    setSaving(true);
+    const toastId = toast.loading('Enregistrement...');
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          first_name: formData.first_name.trim(),
+          last_name: formData.last_name.trim(),
+          phone: formData.phone.trim(),
+          birth_date: formData.birth_date || null,
+          avatar_url: formData.avatar_url,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', profile.id);
+
+      if (error) throw error;
+
+      await loadProfile(profile.id);
+
+      toast.success('Profil mis à jour avec succès!', { id: toastId });
+    } catch (error: any) {
+      console.error('Update profile error:', error);
+      toast.error(error.message || 'Erreur lors de la mise à jour', { id: toastId });
+    } finally {
+      setSaving(false);
+    }
   };
 
+  const handleLogout = async () => {
+    const toastId = toast.loading('Déconnexion...');
+    try {
+      await supabase.auth.signOut();
+      toast.success('Déconnexion réussie', { id: toastId });
+      router.push('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Erreur lors de la déconnexion', { id: toastId });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-pink-600 mx-auto mb-4" />
+          <p className="text-gray-600">Chargement de votre profil...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return null;
+  }
+
   return (
-    <div className="space-y-6">
-      {savingsData.openBatches > 0 && (
-        <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-                  <PiggyBank className="h-8 w-8 text-green-600" />
-                </div>
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Mon Compte</h1>
+            <p className="text-gray-600 mt-1">
+              Gérez vos informations personnelles
+            </p>
+          </div>
+          <div className="flex gap-3">
+            {profile.is_admin && (
+              <Link href="/admin">
+                <Button variant="outline" size="sm">
+                  <ShieldCheck className="w-4 h-4 mr-2" />
+                  Administration
+                </Button>
+              </Link>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Déconnexion
+            </Button>
+          </div>
+        </div>
+
+        {profile.is_admin && (
+          <Card className="border-pink-200 bg-pink-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="w-8 h-8 text-pink-600" />
                 <div>
-                  <h3 className="text-2xl font-bold text-green-900">
-                    {savingsData.totalSavings.toFixed(2)}€ économisés
-                  </h3>
-                  <p className="text-sm text-green-700 mt-1">
-                    En cumulant votre panier ({savingsData.openBatches} commande{savingsData.openBatches > 1 ? 's' : ''} ouverte{savingsData.openBatches > 1 ? 's' : ''})
+                  <h3 className="font-semibold text-pink-900">Compte Administrateur</h3>
+                  <p className="text-sm text-pink-700">
+                    Vous avez accès aux fonctionnalités d'administration
                   </p>
                 </div>
               </div>
-              <div className="hidden md:flex items-center gap-6">
-                <div className="text-center">
-                  <div className="flex items-center gap-2 justify-center">
-                    <TrendingDown className="h-5 w-5 text-green-600" />
-                    <p className="text-3xl font-bold text-green-900">
-                      {savingsData.monthlySavings.toFixed(2)}€
-                    </p>
-                  </div>
-                  <p className="text-xs text-green-700 mt-1">Ce mois-ci</p>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <PiggyBank className="w-8 h-8 text-green-600" />
+                <div>
+                  <h3 className="font-semibold text-green-900">Solde du Porte-monnaie</h3>
+                  <p className="text-sm text-green-700">
+                    Utilisable sur vos prochaines commandes
+                  </p>
                 </div>
-                <div className="text-center">
-                  <div className="flex items-center gap-2 justify-center">
-                    <Package className="h-5 w-5 text-green-600" />
-                    <p className="text-3xl font-bold text-green-900">
-                      {savingsData.openBatches}
-                    </p>
-                  </div>
-                  <p className="text-xs text-green-700 mt-1">Colis ouverts</p>
-                </div>
+              </div>
+              <div className="text-3xl font-bold text-green-900">
+                {(profile.wallet_balance || 0).toFixed(2)}€
               </div>
             </div>
           </CardContent>
         </Card>
-      )}
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            {isAdmin ? (
-              <Link href="/account/invoices-management" title="Gestion des factures (Admin)">
-                <div className="p-3 bg-[#b8933d] rounded-full hover:bg-[#a07c2f] transition-colors cursor-pointer">
-                  <User className="h-6 w-6 text-white" />
+        <form onSubmit={handleSubmit}>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Informations personnelles
+              </CardTitle>
+              <CardDescription>
+                Mettez à jour vos informations de compte
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex justify-center">
+                <ProfilePictureUpload
+                  currentUrl={formData.avatar_url}
+                  onUploadComplete={(url) => setFormData({ ...formData, avatar_url: url })}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="first_name">
+                    Prénom *
+                  </Label>
+                  <Input
+                    id="first_name"
+                    type="text"
+                    value={formData.first_name}
+                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                    required
+                    disabled={saving}
+                    placeholder="Claire"
+                  />
                 </div>
-              </Link>
-            ) : (
-              <div className="p-3 bg-[#b8933d] rounded-full">
-                <User className="h-6 w-6 text-white" />
-              </div>
-            )}
-            <div>
-              <CardTitle>Photo de profil</CardTitle>
-              <CardDescription>
-                Ta photo sera visible lors des lives pour une expérience plus conviviale
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="flex justify-center py-6">
-          <ProfilePictureUpload
-            currentAvatarUrl={formData.avatar_url}
-            firstName={formData.first_name}
-            lastName={formData.last_name}
-            onAvatarUpdate={handleAvatarUpdate}
-          />
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-[#b8933d] rounded-full">
-              <User className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <CardTitle>Informations personnelles</CardTitle>
-              <CardDescription>
-                Gérez vos informations de profil
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="first_name">Prénom</Label>
-                <Input
-                  id="first_name"
-                  type="text"
-                  value={formData.first_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, first_name: e.target.value })
-                  }
-                  disabled={loading}
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="last_name">
+                    Nom *
+                  </Label>
+                  <Input
+                    id="last_name"
+                    type="text"
+                    value={formData.last_name}
+                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                    required
+                    disabled={saving}
+                    placeholder="Dupont"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="last_name">Nom</Label>
-                <Input
-                  id="last_name"
-                  type="text"
-                  value={formData.last_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, last_name: e.target.value })
-                  }
-                  disabled={loading}
-                />
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-gray-500" />
+              <div className="space-y-2">
+                <Label htmlFor="email">
+                  <Mail className="w-4 h-4 inline mr-1" />
+                  Email
+                </Label>
                 <Input
                   id="email"
                   type="email"
-                  value={profile?.email || ''}
+                  value={profile.email}
                   disabled
-                  className="bg-gray-50"
+                  className="bg-gray-100"
                 />
+                <p className="text-xs text-gray-500">
+                  L'email ne peut pas être modifié
+                </p>
               </div>
-              <p className="text-xs text-gray-500">
-                L'email ne peut pas être modifié
-              </p>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone">Téléphone</Label>
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-gray-500" />
+              <div className="space-y-2">
+                <Label htmlFor="phone">
+                  <Phone className="w-4 h-4 inline mr-1" />
+                  Téléphone
+                </Label>
                 <Input
                   id="phone"
                   type="tel"
-                  placeholder="+33 6 12 34 56 78"
                   value={formData.phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
-                  disabled={loading}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  disabled={saving}
+                  placeholder="+33 6 12 34 56 78"
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="birth_date">Date d'anniversaire</Label>
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-gray-500" />
+              <div className="space-y-2">
+                <Label htmlFor="birth_date">
+                  <Calendar className="w-4 h-4 inline mr-1" />
+                  Date de naissance
+                </Label>
                 <Input
                   id="birth_date"
                   type="date"
-                  value={formData.birth_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, birth_date: e.target.value })
-                  }
-                  disabled={loading}
+                  value={formData.birth_date || ''}
+                  onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
+                  disabled={saving}
+                  max={new Date().toISOString().split('T')[0]}
                 />
+                <p className="text-xs text-gray-500">
+                  Recevez un cadeau spécial pour votre anniversaire
+                </p>
               </div>
-              <p className="text-xs text-gray-500">
-                Optionnel - pour recevoir des offres spéciales pour votre anniversaire
-              </p>
-            </div>
 
-            <div className="pt-4">
-              <Button
-                type="submit"
-                className="bg-[#b8933d] hover:bg-[#a07c2f]"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Enregistrement...
-                  </>
-                ) : (
-                  'Enregistrer les modifications'
-                )}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              <div className="pt-4 border-t">
+                <p className="text-sm text-gray-500 mb-4">
+                  Membre depuis le {new Date(profile.created_at).toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end gap-3 mt-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push('/')}
+              disabled={saving}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700"
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Enregistrement...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Enregistrer
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

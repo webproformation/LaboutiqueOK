@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, ArrowLeft, Save, Image as ImageIcon } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { decodeHtmlEntities } from '@/lib/utils';
 import Link from 'next/link';
@@ -15,6 +15,7 @@ import RichTextEditor from '@/components/RichTextEditor';
 import MediaLibrary from '@/components/MediaLibrary';
 import ProductGalleryManager, { GalleryImage } from '@/components/ProductGalleryManager';
 import ProductAttributesManager from '@/components/ProductAttributesManager';
+import ProductVariationsManager from '@/components/ProductVariationsManager';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getWebPImagesForProduct } from '@/lib/webp-storage-mapper';
 import { createClient } from '@/lib/supabase-client';
@@ -52,6 +53,9 @@ interface ProductFormData {
   child_category_ids: string[];
   status: 'publish' | 'draft';
   attributes: ProductAttribute[];
+  seo_title: string;
+  meta_description: string;
+  og_image: string;
 }
 
 
@@ -79,13 +83,18 @@ export default function EditProductPage() {
     child_category_ids: [],
     status: 'publish',
     attributes: [],
+    seo_title: '',
+    meta_description: '',
+    og_image: '',
   });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<SupabaseCategory[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
+  const [seoImageLibraryOpen, setSeoImageLibraryOpen] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [generatingSeo, setGeneratingSeo] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -175,6 +184,14 @@ export default function EditProductPage() {
         id: idx,
       })) || [];
 
+      // CHARGER LES MÉTADONNÉES SEO
+      const { data: seoData } = await supabase
+        .from('seo_metadata')
+        .select('seo_title, meta_description, og_image')
+        .eq('entity_type', 'product')
+        .eq('entity_identifier', productId)
+        .maybeSingle();
+
       setFormData({
         name: product.name || '',
         slug: product.slug || '',
@@ -194,6 +211,9 @@ export default function EditProductPage() {
         child_category_ids: childCategoryIds,
         status: product.is_active === true ? 'publish' : 'draft',
         attributes: attributes,
+        seo_title: seoData?.seo_title || '',
+        meta_description: seoData?.meta_description || '',
+        og_image: seoData?.og_image || '',
       });
 
       setDataLoaded(true);
@@ -328,6 +348,27 @@ export default function EditProductPage() {
           .insert(imagesToInsert);
 
         if (insertImagesError) throw insertImagesError;
+      }
+
+      // STEP 8: UPSERT MÉTADONNÉES SEO
+      if (formData.seo_title || formData.meta_description || formData.og_image) {
+        const { error: seoError } = await supabase
+          .from('seo_metadata')
+          .upsert({
+            entity_type: 'product',
+            entity_identifier: productId,
+            seo_title: formData.seo_title || null,
+            meta_description: formData.meta_description || null,
+            og_image: formData.og_image || null,
+            og_title: formData.seo_title || null,
+            og_description: formData.meta_description || null,
+            is_active: true,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'entity_type,entity_identifier',
+          });
+
+        if (seoError) throw seoError;
       }
 
       toast.success('Produit mis à jour avec succès', { id: toastId });
@@ -663,6 +704,13 @@ export default function EditProductPage() {
           </CardContent>
         </Card>
 
+        {formData.attributes && formData.attributes.length > 0 && (
+          <ProductVariationsManager
+            productId={productId}
+            attributes={formData.attributes}
+          />
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>Statut du produit</CardTitle>
@@ -717,6 +765,130 @@ export default function EditProductPage() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>Référencement SEO</CardTitle>
+                <p className="text-sm text-gray-500 mt-1">
+                  Optimisez votre produit pour les moteurs de recherche et les réseaux sociaux
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setGeneratingSeo(true);
+                  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '').trim();
+                  const shortDesc = stripHtml(formData.short_description || formData.description || '');
+                  const autoTitle = formData.name.substring(0, 60);
+                  const autoDescription = shortDesc.substring(0, 160);
+
+                  setFormData({
+                    ...formData,
+                    seo_title: autoTitle,
+                    meta_description: autoDescription,
+                    og_image: formData.image_url || formData.og_image,
+                  });
+
+                  toast.success('Métadonnées SEO générées automatiquement');
+                  setGeneratingSeo(false);
+                }}
+                disabled={generatingSeo}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Générer automatiquement
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="seo_title">
+                Meta Title
+                <span className="text-xs text-gray-500 ml-2">
+                  ({formData.seo_title.length}/60 caractères recommandés)
+                </span>
+              </Label>
+              <Input
+                id="seo_title"
+                value={formData.seo_title}
+                onChange={(e) => setFormData({ ...formData, seo_title: e.target.value })}
+                placeholder="Titre optimisé pour Google (50-60 caractères)"
+                maxLength={70}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Le titre qui apparaît dans les résultats de recherche Google
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="meta_description">
+                Meta Description
+                <span className="text-xs text-gray-500 ml-2">
+                  ({formData.meta_description.length}/160 caractères recommandés)
+                </span>
+              </Label>
+              <textarea
+                id="meta_description"
+                value={formData.meta_description}
+                onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
+                placeholder="Description optimisée pour Google (150-160 caractères)"
+                maxLength={200}
+                rows={3}
+                className="w-full border rounded px-3 py-2"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                La description qui apparaît sous le titre dans les résultats Google
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="og_image">Image Open Graph (Réseaux sociaux)</Label>
+              {formData.og_image ? (
+                <div className="relative inline-block mt-2">
+                  <img
+                    src={formData.og_image}
+                    alt="OG Image"
+                    className="w-48 h-48 object-cover rounded border"
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSeoImageLibraryOpen(true)}
+                    >
+                      Changer l'image
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setFormData({ ...formData, og_image: '' })}
+                    >
+                      Retirer
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setSeoImageLibraryOpen(true)}
+                  >
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    Choisir une image
+                  </Button>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Image affichée lors du partage sur Facebook, Twitter, etc. (1200×630px recommandé)
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="flex justify-end gap-4">
           <Link href="/admin/products">
@@ -745,7 +917,7 @@ export default function EditProductPage() {
         </div>
       </form>
 
-      {/* Dialog pour la médiathèque */}
+      {/* Dialog pour la médiathèque - Image principale */}
       <Dialog open={mediaLibraryOpen} onOpenChange={setMediaLibraryOpen}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
@@ -761,6 +933,27 @@ export default function EditProductPage() {
               setFormData({ ...formData, image_url: url, image_id: 0 });
               setMediaLibraryOpen(false);
               toast.success('Image sélectionnée');
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog pour la médiathèque - Image SEO OG */}
+      <Dialog open={seoImageLibraryOpen} onOpenChange={setSeoImageLibraryOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Médiathèque - Image Open Graph</DialogTitle>
+            <DialogDescription>
+              Sélectionnez l'image qui apparaîtra lors du partage sur les réseaux sociaux
+            </DialogDescription>
+          </DialogHeader>
+          <MediaLibrary
+            bucket="product-images"
+            selectedUrl={formData.og_image || undefined}
+            onSelect={(url) => {
+              setFormData({ ...formData, og_image: url });
+              setSeoImageLibraryOpen(false);
+              toast.success('Image OG sélectionnée');
             }}
           />
         </DialogContent>
