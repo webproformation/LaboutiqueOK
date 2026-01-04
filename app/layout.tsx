@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Pangolin } from 'next/font/google';
+import { LayoutWrapper } from '@/components/layout-wrapper';
 
 const pangolin = Pangolin({ weight: '400', subsets: ['latin'] });
 
@@ -16,7 +17,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body className={pangolin.className}>{children}</body>
+      <body className={pangolin.className}>
+        <LayoutWrapper>{children}</LayoutWrapper>
+      </body>
     </html>
   );
 }

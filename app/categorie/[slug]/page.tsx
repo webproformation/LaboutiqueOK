@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase, Product, ProductCategory } from '@/lib/supabase';
-import { Header } from '@/components/header';
-import { LoyaltyBar } from '@/components/loyalty-bar';
 import { ArrowLeft, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -113,8 +111,6 @@ export default function CategoryPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white">
-        <Header />
-        <LoyaltyBar />
         <div className="flex items-center justify-center py-20">
           <div className="text-gray-600">Chargement...</div>
         </div>
@@ -127,8 +123,6 @@ export default function CategoryPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header />
-      <LoyaltyBar />
 
       <main className="container mx-auto px-4 py-8">
         <Link

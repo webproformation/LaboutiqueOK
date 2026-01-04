@@ -1,5 +1,3 @@
-import { Header } from '@/components/header';
-import { LoyaltyBar } from '@/components/loyalty-bar';
 import { HeroSlider } from '@/components/hero-slider';
 import { FeaturedProducts } from '@/components/featured-products';
 import Link from 'next/link';
@@ -10,8 +8,6 @@ export const revalidate = 0;
 export default function Home() {
   return (
     <div className="min-h-screen bg-white">
-      <Header />
-      <LoyaltyBar />
 
       <main>
         <section className="container mx-auto px-4 py-8">
@@ -63,48 +59,6 @@ export default function Home() {
           </div>
         </section>
       </main>
-
-      <footer className="bg-black text-white py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <h3 className="text-xl font-bold mb-4 text-[#D4AF37]">La Boutique</h3>
-              <ul className="space-y-2 text-sm">
-                <li><Link href="/nouveautes" className="hover:text-[#D4AF37] transition-smooth">Nouveautés</Link></li>
-                <li><Link href="/live" className="hover:text-[#D4AF37] transition-smooth">Live Shopping</Link></li>
-                <li><Link href="/carte-cadeau" className="hover:text-[#D4AF37] transition-smooth">Carte Cadeau</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="text-xl font-bold mb-4 text-[#D4AF37]">Catégories</h3>
-              <ul className="space-y-2 text-sm">
-                <li><Link href="/categorie/mode" className="hover:text-[#D4AF37] transition-smooth">Mode</Link></li>
-                <li><Link href="/categorie/beaute" className="hover:text-[#D4AF37] transition-smooth">Beauté</Link></li>
-                <li><Link href="/categorie/maison" className="hover:text-[#D4AF37] transition-smooth">Maison</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="text-xl font-bold mb-4 text-[#D4AF37]">Aide</h3>
-              <ul className="space-y-2 text-sm">
-                <li><Link href="/contact" className="hover:text-[#D4AF37] transition-smooth">Contact</Link></li>
-                <li><Link href="/livraison" className="hover:text-[#D4AF37] transition-smooth">Livraison</Link></li>
-                <li><Link href="/retours" className="hover:text-[#D4AF37] transition-smooth">Retours</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="text-xl font-bold mb-4 text-[#D4AF37]">Suivez-nous</h3>
-              <p className="text-sm mb-4">Rejoignez notre communauté</p>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-800 pt-8 text-center text-sm">
-            <p>© 2026 La Boutique de Morgane. Tous droits réservés.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
