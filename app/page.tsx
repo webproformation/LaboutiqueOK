@@ -2,48 +2,29 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { supabase, ProductCategory, HomeCategory } from '@/lib/supabase';
+import { supabase, Product } from '@/lib/supabase';
 import { ShoppingBag } from 'lucide-react';
 
-type HomeCategoryWithDetails = HomeCategory & {
-  category: ProductCategory;
-};
-
 export default function Home() {
-  const [categories, setCategories] = useState<HomeCategoryWithDetails[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadCategories();
+    loadProducts();
   }, []);
 
-  async function loadCategories() {
+  async function loadProducts() {
     try {
-      const { data: homeCategories, error: homeCatError } = await supabase
-        .from('home_categories')
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
         .select('*')
-        .order('display_order');
+        .order('created_at', { ascending: false });
 
-      if (homeCatError) throw homeCatError;
+      if (productsError) throw productsError;
 
-      const categoriesWithDetails = await Promise.all(
-        (homeCategories || []).map(async (hc) => {
-          const { data: category } = await supabase
-            .from('categories')
-            .select('*')
-            .eq('id', hc.category_id)
-            .maybeSingle();
-
-          return {
-            ...hc,
-            category: category!
-          };
-        })
-      );
-
-      setCategories(categoriesWithDetails);
+      setProducts(productsData || []);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      console.error('Error loading products:', error);
     } finally {
       setLoading(false);
     }
@@ -73,42 +54,75 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-slate-900 mb-4">
-            Bienvenue dans notre boutique
+            Tous nos produits
           </h2>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Découvrez notre sélection de produits tendance et de qualité
+            {products.length} produits disponibles
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {categories.map((homeCategory) => {
-            const category = homeCategory.category;
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {products.map((product) => {
+            const displayPrice = product.sale_price || product.regular_price;
+            const hasDiscount = product.sale_price && product.sale_price < product.regular_price;
+
             return (
               <Link
-                key={homeCategory.id}
-                href={`/categorie/${category.slug}`}
-                className="group relative overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                key={product.id}
+                href={`/product/${product.slug}`}
+                className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
               >
-                <div className="aspect-[4/3] relative">
+                <div className="aspect-square relative overflow-hidden bg-slate-100">
                   <img
-                    src={category.image_url || 'https://images.pexels.com/photos/1005638/pexels-photo-1005638.jpeg?auto=compress&cs=tinysrgb&w=600'}
-                    alt={category.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    src={product.image_url}
+                    alt={product.name}
+                    className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
-                  {homeCategory.is_featured && (
-                    <div className="absolute top-4 right-4 bg-amber-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
-                      Nouveau
+                  {product.stock_quantity < 5 && product.stock_quantity > 0 && (
+                    <div className="absolute top-4 right-4 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                      Stock limité
+                    </div>
+                  )}
+                  {product.stock_status === 'outofstock' && (
+                    <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                      Épuisé
+                    </div>
+                  )}
+                  {hasDiscount && (
+                    <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                      Promo
+                    </div>
+                  )}
+                  {product.is_featured && (
+                    <div className="absolute bottom-4 left-4 bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                      Coup de coeur
                     </div>
                   )}
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 p-6">
-                  <h3 className="text-2xl font-bold text-white mb-2 group-hover:translate-x-1 transition-transform duration-300">
-                    {category.name}
+                <div className="p-5">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2 line-clamp-2">
+                    {product.name}
                   </h3>
-                  <p className="text-white/90 text-sm line-clamp-2">
-                    {category.description}
+                  <p className="text-sm text-slate-600 mb-4 line-clamp-2">
+                    {product.short_description || product.description}
                   </p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      {hasDiscount && (
+                        <span className="text-sm text-slate-400 line-through">
+                          {product.regular_price.toFixed(2)} €
+                        </span>
+                      )}
+                      <span className="text-2xl font-bold text-slate-900">
+                        {displayPrice.toFixed(2)} €
+                      </span>
+                    </div>
+                    {product.stock_status === 'instock' && (
+                      <button className="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium">
+                        Voir
+                      </button>
+                    )}
+                  </div>
                 </div>
               </Link>
             );
