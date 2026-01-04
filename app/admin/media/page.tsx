@@ -33,7 +33,7 @@ export default function MediaAdminPage() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('media_library')
+        .from('media')
         .select('bucket_name, file_size, is_orphan, usage_count');
 
       if (error) throw error;

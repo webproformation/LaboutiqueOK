@@ -59,7 +59,7 @@ export default function CategoryPage() {
       }
 
       const { data: categoryData } = await supabase
-        .from('product_categories')
+        .from('categories')
         .select('*')
         .eq('slug', slug)
         .maybeSingle();

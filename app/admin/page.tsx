@@ -15,7 +15,7 @@ async function getDashboardStats() {
 
   const [productsResult, categoriesResult, ordersResult] = await Promise.all([
     supabase.from("products").select("*", { count: "exact" }),
-    supabase.from("product_categories").select("*", { count: "exact" }),
+    supabase.from("categories").select("*", { count: "exact" }),
     supabase.from("orders").select("*", { count: "exact" }),
   ]);
 

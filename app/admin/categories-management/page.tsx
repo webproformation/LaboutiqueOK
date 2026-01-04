@@ -10,7 +10,7 @@ async function getCategories() {
   const supabase = createClient();
 
   const { data: categories, error } = await supabase
-    .from("product_categories")
+    .from("categories")
     .select("*")
     .order("display_order", { ascending: true });
 

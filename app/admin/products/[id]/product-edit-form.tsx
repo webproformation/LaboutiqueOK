@@ -38,6 +38,8 @@ interface Category {
   id: string;
   name: string;
   slug: string;
+  parent_id: string | null;
+  display_order: number | null;
 }
 
 interface ProductEditFormProps {
@@ -130,6 +132,20 @@ export default function ProductEditForm({
         : [...prev, categoryId]
     );
   };
+
+  const buildCategoryTree = () => {
+    const parentCategories = allCategories.filter((cat) => !cat.parent_id);
+    const childCategories = allCategories.filter((cat) => cat.parent_id);
+
+    return parentCategories.map((parent) => ({
+      ...parent,
+      children: childCategories
+        .filter((child) => child.parent_id === parent.id)
+        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0)),
+    })).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+  };
+
+  const categoryTree = buildCategoryTree();
 
   return (
     <form onSubmit={handleSubmit}>
@@ -257,23 +273,44 @@ export default function ProductEditForm({
                   Aucune catégorie disponible
                 </p>
               ) : (
-                <div className="space-y-3">
-                  {allCategories.map((category) => (
-                    <div
-                      key={category.id}
-                      className="flex items-center space-x-2"
-                    >
-                      <Checkbox
-                        id={`cat-${category.id}`}
-                        checked={categories.includes(category.id)}
-                        onCheckedChange={() => toggleCategory(category.id)}
-                      />
-                      <Label
-                        htmlFor={`cat-${category.id}`}
-                        className="cursor-pointer"
-                      >
-                        {category.name}
-                      </Label>
+                <div className="space-y-2">
+                  {categoryTree.map((parent) => (
+                    <div key={parent.id} className="space-y-2">
+                      <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg">
+                        <Checkbox
+                          id={`cat-${parent.id}`}
+                          checked={categories.includes(parent.id)}
+                          onCheckedChange={() => toggleCategory(parent.id)}
+                        />
+                        <Label
+                          htmlFor={`cat-${parent.id}`}
+                          className="cursor-pointer font-semibold text-base"
+                        >
+                          {parent.name}
+                        </Label>
+                      </div>
+                      {parent.children && parent.children.length > 0 && (
+                        <div className="ml-8 space-y-2 border-l-2 border-gray-200 pl-4">
+                          {parent.children.map((child) => (
+                            <div
+                              key={child.id}
+                              className="flex items-center space-x-2"
+                            >
+                              <Checkbox
+                                id={`cat-${child.id}`}
+                                checked={categories.includes(child.id)}
+                                onCheckedChange={() => toggleCategory(child.id)}
+                              />
+                              <Label
+                                htmlFor={`cat-${child.id}`}
+                                className="cursor-pointer text-sm"
+                              >
+                                {child.name}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

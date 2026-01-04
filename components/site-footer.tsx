@@ -112,11 +112,11 @@ export function SiteFooter() {
                 className="group block"
               >
                 <div className="bg-white rounded-lg overflow-hidden transition-transform duration-300 hover:scale-105">
-                  <div className="aspect-video overflow-hidden">
+                  <div className="h-32 overflow-hidden flex items-center justify-center">
                     <img
                       src={block.image}
                       alt={block.title}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                      className="h-24 w-auto object-contain transition-transform duration-300 group-hover:scale-110"
                     />
                   </div>
                   <div className="p-6">

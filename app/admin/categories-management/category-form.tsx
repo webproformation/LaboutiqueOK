@@ -1,0 +1,368 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+import { ArrowLeft, Save, Image as ImageIcon } from "lucide-react";
+import Link from "next/link";
+import MediaLibrary from "@/components/MediaLibrary";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  image_url: string | null;
+  parent_id: string | null;
+  display_order: number;
+  meta_title: string | null;
+  meta_description: string | null;
+  seo_keywords: string | null;
+}
+
+interface CategoryFormProps {
+  category?: Category | null;
+  categories: Category[];
+}
+
+export default function CategoryForm({ category, categories }: CategoryFormProps) {
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: category?.name || "",
+    slug: category?.slug || "",
+    description: category?.description || "",
+    image_url: category?.image_url || "",
+    parent_id: category?.parent_id || "",
+    display_order: category?.display_order || 0,
+    meta_title: category?.meta_title || "",
+    meta_description: category?.meta_description || "",
+    seo_keywords: category?.seo_keywords || "",
+  });
+
+  const generateSlug = (name: string) => {
+    return name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+  };
+
+  const handleNameChange = (name: string) => {
+    setFormData(prev => ({
+      ...prev,
+      name,
+      slug: category ? prev.slug : generateSlug(name),
+    }));
+  };
+
+  const handleMediaSelect = (url: string) => {
+    setFormData(prev => ({ ...prev, image_url: url }));
+    setMediaLibraryOpen(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.name || !formData.slug) {
+      toast.error("Le nom et le slug sont requis");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const dataToSave = {
+        name: formData.name,
+        slug: formData.slug,
+        description: formData.description || null,
+        image_url: formData.image_url || null,
+        parent_id: formData.parent_id || null,
+        display_order: formData.display_order,
+        meta_title: formData.meta_title || null,
+        meta_description: formData.meta_description || null,
+        seo_keywords: formData.seo_keywords || null,
+      };
+
+      if (category) {
+        const { error } = await supabase
+          .from("categories")
+          .update(dataToSave)
+          .eq("id", category.id);
+
+        if (error) throw error;
+        toast.success("Catégorie mise à jour avec succès");
+      } else {
+        const newId = generateSlug(formData.name);
+        const { error } = await supabase
+          .from("categories")
+          .insert([{ id: newId, ...dataToSave }]);
+
+        if (error) {
+          if (error.code === "23505") {
+            toast.error("Une catégorie avec cet ID existe déjà");
+          } else {
+            throw error;
+          }
+          return;
+        }
+        toast.success("Catégorie créée avec succès");
+      }
+
+      router.push("/admin/categories-management");
+      router.refresh();
+    } catch (error) {
+      console.error("Error saving category:", error);
+      toast.error("Erreur lors de l'enregistrement");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const availableParentCategories = categories.filter(
+    c => !category || c.id !== category.id
+  );
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/admin/categories-management">
+            <Button type="button" variant="ghost" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {category ? "Modifier la catégorie" : "Nouvelle catégorie"}
+            </h1>
+            <p className="text-gray-500 mt-1">
+              {category ? `Modification de "${category.name}"` : "Créer une nouvelle catégorie de produits"}
+            </p>
+          </div>
+        </div>
+        <Button type="submit" disabled={isSubmitting}>
+          <Save className="h-4 w-4 mr-2" />
+          {isSubmitting ? "Enregistrement..." : "Enregistrer"}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Informations générales</CardTitle>
+              <CardDescription>
+                Informations de base de la catégorie
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="name">Nom de la catégorie *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => handleNameChange(e.target.value)}
+                  placeholder="Nouveautés, Mode, Maison..."
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="slug">Slug *</Label>
+                <Input
+                  id="slug"
+                  value={formData.slug}
+                  onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+                  placeholder="nouveautes, mode, maison..."
+                  required
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Utilisé dans l'URL : /categorie/{formData.slug || "slug"}
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Description de la catégorie..."
+                  rows={4}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>SEO</CardTitle>
+              <CardDescription>
+                Optimisation pour les moteurs de recherche
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="meta_title">Titre SEO</Label>
+                <Input
+                  id="meta_title"
+                  value={formData.meta_title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, meta_title: e.target.value }))}
+                  placeholder="Titre pour les moteurs de recherche"
+                  maxLength={60}
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  {formData.meta_title.length}/60 caractères
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="meta_description">Description SEO</Label>
+                <Textarea
+                  id="meta_description"
+                  value={formData.meta_description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, meta_description: e.target.value }))}
+                  placeholder="Description pour les moteurs de recherche"
+                  rows={3}
+                  maxLength={160}
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  {formData.meta_description.length}/160 caractères
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="seo_keywords">Mots-clés SEO</Label>
+                <Input
+                  id="seo_keywords"
+                  value={formData.seo_keywords}
+                  onChange={(e) => setFormData(prev => ({ ...prev, seo_keywords: e.target.value }))}
+                  placeholder="mode, vêtements, accessoires"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Séparez les mots-clés par des virgules
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Image</CardTitle>
+              <CardDescription>
+                Image représentative de la catégorie
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {formData.image_url ? (
+                <div className="relative group">
+                  <img
+                    src={formData.image_url}
+                    alt="Aperçu"
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setFormData(prev => ({ ...prev, image_url: "" }))}
+                    >
+                      Supprimer
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <ImageIcon className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-500">Aucune image</p>
+                </div>
+              )}
+
+              <Dialog open={mediaLibraryOpen} onOpenChange={setMediaLibraryOpen}>
+                <DialogTrigger asChild>
+                  <Button type="button" variant="outline" className="w-full">
+                    <ImageIcon className="h-4 w-4 mr-2" />
+                    {formData.image_url ? "Changer l'image" : "Sélectionner une image"}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <MediaLibrary onSelect={handleMediaSelect} />
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Organisation</CardTitle>
+              <CardDescription>
+                Hiérarchie et ordre d'affichage
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="parent_id">Catégorie parente</Label>
+                <Select
+                  value={formData.parent_id}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, parent_id: value }))}
+                >
+                  <SelectTrigger id="parent_id">
+                    <SelectValue placeholder="Aucune (catégorie principale)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Aucune (catégorie principale)</SelectItem>
+                    {availableParentCategories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="display_order">Ordre d'affichage</Label>
+                <Input
+                  id="display_order"
+                  type="number"
+                  value={formData.display_order}
+                  onChange={(e) => setFormData(prev => ({ ...prev, display_order: parseInt(e.target.value) || 0 }))}
+                  min="0"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Plus le nombre est bas, plus la catégorie apparaît en premier
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </form>
+  );
+}

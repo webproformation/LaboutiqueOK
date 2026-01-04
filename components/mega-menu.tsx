@@ -37,14 +37,14 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
       };
 
       const { data: parentCategory } = await supabase
-        .from('product_categories')
+        .from('categories')
         .select('id')
         .eq('slug', parentSlugs[type])
         .maybeSingle();
 
       if (parentCategory) {
         const { data } = await supabase
-          .from('product_categories')
+          .from('categories')
           .select('*')
           .eq('parent_id', parentCategory.id)
           .order('display_order', { ascending: true });

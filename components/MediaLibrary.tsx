@@ -107,7 +107,7 @@ export default function MediaLibrary({
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('media_library')
+        .from('media')
         .select('*')
         .eq('bucket_name', bucket)
         .order('created_at', { ascending: false });
@@ -218,7 +218,7 @@ export default function MediaLibrary({
       if (storageError) throw storageError;
 
       const { error: dbError } = await supabase
-        .from('media_library')
+        .from('media')
         .delete()
         .eq('id', fileId);
 

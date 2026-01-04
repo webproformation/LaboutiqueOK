@@ -31,14 +31,14 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   async function loadCategories() {
     try {
       const { data: modeParent } = await supabase
-        .from('product_categories')
+        .from('categories')
         .select('id')
         .eq('slug', 'mode')
         .maybeSingle();
 
       if (modeParent) {
         const { data } = await supabase
-          .from('product_categories')
+          .from('categories')
           .select('*')
           .eq('parent_id', modeParent.id)
           .order('display_order');
@@ -46,14 +46,14 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       }
 
       const { data: maisonParent } = await supabase
-        .from('product_categories')
+        .from('categories')
         .select('id')
         .eq('slug', 'maison')
         .maybeSingle();
 
       if (maisonParent) {
         const { data } = await supabase
-          .from('product_categories')
+          .from('categories')
           .select('*')
           .eq('parent_id', maisonParent.id)
           .order('display_order');
@@ -61,14 +61,14 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       }
 
       const { data: beauteParent } = await supabase
-        .from('product_categories')
+        .from('categories')
         .select('id')
         .eq('slug', 'beaute-senteurs')
         .maybeSingle();
 
       if (beauteParent) {
         const { data } = await supabase
-          .from('product_categories')
+          .from('categories')
           .select('*')
           .eq('parent_id', beauteParent.id)
           .order('display_order');

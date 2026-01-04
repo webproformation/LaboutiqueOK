@@ -16,6 +16,7 @@ import {
   Wallet,
   Users,
   LogOut,
+  Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -34,7 +35,7 @@ const navItems = [
 
 export function AccountNav() {
   const pathname = usePathname();
-  const { signOut } = useAuth();
+  const { signOut, profile } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
@@ -42,6 +43,21 @@ export function AccountNav() {
 
   return (
     <nav className="space-y-2">
+      {profile?.is_admin && (
+        <Link
+          href="/admin"
+          className={cn(
+            'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
+            pathname.startsWith('/admin')
+              ? 'bg-blue-600 text-white'
+              : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+          )}
+        >
+          <Shield className="h-5 w-5" />
+          <span className="font-semibold">Administration</span>
+        </Link>
+      )}
+
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = pathname === item.href;

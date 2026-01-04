@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       .getPublicUrl(fileName);
 
     const { error: dbError } = await supabase
-      .from('media_library')
+      .from('media')
       .insert({
         filename: file.name,
         file_path: fileName,
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (dbError) {
-      console.warn('Warning: Could not save to media_library:', dbError.message);
+      console.warn('Warning: Could not save to media table:', dbError.message);
     }
 
     return NextResponse.json({

@@ -151,7 +151,7 @@ export default function CategoriesTable({
     setDeletingId(categoryId);
     try {
       const { error } = await supabase
-        .from('product_categories')
+        .from('categories')
         .delete()
         .eq('id', categoryId);
 
