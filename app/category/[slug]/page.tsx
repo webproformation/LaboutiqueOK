@@ -159,31 +159,22 @@ export default function CategoryPage() {
 
       const categoryIds = [categoryData.id, ...(subCategoriesData || []).map((c: SupabaseCategory) => c.id)];
 
-      const { data: productCategoriesData, error: productCategoriesError } = await supabase
-        .from('product_category_mapping')
-        .select('product_id')
-        .in('category_id', categoryIds);
-
-      if (productCategoriesError) throw productCategoriesError;
-
-      const productIds = (productCategoriesData || []).map((pc: any) => pc.product_id);
-
-      if (productIds.length === 0) {
-        setProducts([]);
-        setLoading(false);
-        return;
-      }
-
+      // Use direct contains query on JSONB categories column
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
-        .in('id', productIds)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (productsError) throw productsError;
 
-      const mappedProducts = (productsData || []).map(mapSupabaseProductToProduct);
+      // Filter products that contain any of the category IDs
+      const filteredProducts = (productsData || []).filter((product: any) => {
+        const productCategories = product.categories || [];
+        return categoryIds.some(catId => productCategories.includes(catId));
+      });
+
+      const mappedProducts = filteredProducts.map(mapSupabaseProductToProduct);
       setProducts(mappedProducts);
 
     } catch (err: any) {

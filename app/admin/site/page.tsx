@@ -26,21 +26,15 @@ export default function SiteAdminPage() {
   const loadMaintenanceSettings = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/maintenance');
-      if (response.ok) {
-        const result = await response.json();
-        if (result.data) {
-          setMaintenanceData({
-            is_maintenance_mode: result.data.is_maintenance_mode || false,
-            maintenance_message: result.data.maintenance_message || '',
-            maintenance_start: result.data.maintenance_start ? new Date(result.data.maintenance_start).toISOString().slice(0, 16) : '',
-            maintenance_end: result.data.maintenance_end ? new Date(result.data.maintenance_end).toISOString().slice(0, 16) : '',
-          });
-        }
-      }
+      // Maintenance settings disabled - use Supabase site_settings table if needed
+      setMaintenanceData({
+        is_maintenance_mode: false,
+        maintenance_message: '',
+        maintenance_start: '',
+        maintenance_end: '',
+      });
     } catch (error) {
       console.error('Error loading maintenance settings:', error);
-      toast.error('Erreur lors du chargement des paramètres');
     } finally {
       setLoading(false);
     }
@@ -49,26 +43,11 @@ export default function SiteAdminPage() {
   const saveMaintenanceSettings = async () => {
     setSaving(true);
     try {
-      const response = await fetch('/api/admin/maintenance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          is_maintenance_mode: maintenanceData.is_maintenance_mode,
-          maintenance_message: maintenanceData.maintenance_message,
-          maintenance_start: maintenanceData.maintenance_start || null,
-          maintenance_end: maintenanceData.maintenance_end || null,
-        }),
-      });
-
-      if (response.ok) {
-        toast.success('Paramètres de maintenance enregistrés');
-        setMaintenanceOpen(false);
-      } else {
-        throw new Error('Erreur lors de la sauvegarde');
-      }
+      // Maintenance settings disabled - implement with Supabase if needed
+      toast.info('Fonctionnalité de maintenance désactivée');
+      setMaintenanceOpen(false);
     } catch (error) {
       console.error('Error saving maintenance settings:', error);
-      toast.error('Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
     }
