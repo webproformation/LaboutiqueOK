@@ -7,38 +7,24 @@ function getSupabaseClient() {
     return supabaseInstance;
   }
 
-  // PRIORITE 1: Variables BYPASS_ (nouveau projet qcqbtmv)
-  // PRIORITE 2: Variables NEXT_PUBLIC_ (ancien projet - fallback)
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  const supabaseAnonKey =
-    process.env.NEXT_PUBLIC_BYPASS_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // UTILISATION EXCLUSIVE DES VARIABLES BYPASS (projet qcqbtmvbvipsxwjlgjvk)
+  const supabaseUrl = process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_BYPASS_SUPABASE_ANON_KEY;
 
   // Ne pas lancer d'erreur pendant le build Next.js
   const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || typeof window === 'undefined' && process.env.NODE_ENV === 'test';
 
   if (!supabaseUrl || !supabaseAnonKey) {
     if (!isBuildTime) {
-      console.error('❌ Missing Supabase environment variables!');
-      console.error('NEXT_PUBLIC_BYPASS_SUPABASE_URL:', process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL ? '✅ Set' : '❌ Missing');
-      console.error('NEXT_PUBLIC_BYPASS_SUPABASE_ANON_KEY:', process.env.NEXT_PUBLIC_BYPASS_SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing');
-      console.error('NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? '✅ Set (fallback)' : '❌ Missing');
-      console.error('NEXT_PUBLIC_SUPABASE_ANON_KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✅ Set (fallback)' : '❌ Missing');
-      throw new Error('Supabase environment variables are required');
+      console.error('❌ SUPABASE CONFIGURATION ERROR - MISSING BYPASS VARIABLES');
+      console.error('NEXT_PUBLIC_BYPASS_SUPABASE_URL:', supabaseUrl || 'MISSING');
+      console.error('NEXT_PUBLIC_BYPASS_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'SET' : 'MISSING');
+      throw new Error('BYPASS Supabase variables are required for project qcqbtmvbvipsxwjlgjvk');
     }
   }
 
-  const usingBypass = !!process.env.NEXT_PUBLIC_BYPASS_SUPABASE_URL;
   if (!isBuildTime) {
-    console.log(
-      usingBypass
-        ? '✅ Supabase client initialized with BYPASS variables (project: qcqbtmvbvipsxwjlgjvk)'
-        : '⚠️  Supabase client initialized with NEXT_PUBLIC variables (deprecated project hondlefoprhtrpxnumyj)'
-    );
-    console.log('📍 Project ID:', supabaseUrl?.includes('qcqbtmv') ? 'qcqbtmvbvipsxwjlgjvk ✅' : 'WRONG PROJECT ❌');
+    console.log('✅ SUPABASE CLIENT: qcqbtmvbvipsxwjlgjvk.supabase.co');
     console.log('📍 URL:', supabaseUrl);
   }
 
