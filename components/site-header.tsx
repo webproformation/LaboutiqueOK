@@ -82,7 +82,7 @@ export function SiteHeader() {
 
               <Link href="/" className="flex-shrink-0">
                 <img
-                  src="/image copy.png"
+                  src="/lbdm-logoboutique.png"
                   alt="La Boutique De Morgane"
                   className="h-12 md:h-16 w-auto"
                 />

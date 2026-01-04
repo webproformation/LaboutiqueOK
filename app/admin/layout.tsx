@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Menu,
   X,
+  ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -121,6 +122,16 @@ export default function AdminLayout({
         )}
       >
         <div className="p-6 border-b border-blue-800">
+          <div className="flex items-center justify-between mb-4">
+            <Link
+              href="/"
+              className="flex items-center gap-2 text-blue-200 hover:text-white transition-colors"
+              title="Retour à l'accueil"
+            >
+              <ArrowLeft size={20} />
+              <span className="text-sm">Accueil du site</span>
+            </Link>
+          </div>
           <h1 className="text-xl font-bold">La Boutique de Morgane</h1>
           <p className="text-sm text-blue-200 mt-1">Administration</p>
         </div>
