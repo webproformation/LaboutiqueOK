@@ -14,12 +14,17 @@ export type Product = {
   name: string;
   slug: string;
   description: string | null;
+  short_description: string | null;
   regular_price: number | null;
   sale_price: number | null;
   stock_quantity: number | null;
+  stock_status: string;
   status: string;
+  type: string;
   image_url: string | null;
   images: any;
+  attributes: any;
+  variations: any;
   created_at: string;
   updated_at: string;
   is_featured?: boolean;
