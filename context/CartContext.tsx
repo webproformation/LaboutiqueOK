@@ -138,7 +138,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const supabaseCart = await loadCartFromSupabase();
         const localCart = loadCartFromLocalStorage();
 
-        const mergedCart = [...supabaseCart];
+        const mergedCart: CartItem[] = [...supabaseCart];
         localCart.forEach(localItem => {
           const existingIndex = mergedCart.findIndex(
             item => item.id === localItem.id && item.variationId === localItem.variationId
@@ -146,7 +146,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           if (existingIndex >= 0) {
             mergedCart[existingIndex].quantity += localItem.quantity;
           } else {
-            mergedCart.push(localItem);
+            mergedCart.push(localItem as CartItem);
           }
         });
 
