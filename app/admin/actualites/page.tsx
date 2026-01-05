@@ -146,13 +146,13 @@ export default function ActualitesAdminPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'publish':
-        return <Badge className="bg-green-50 text-green-700 border-green-200">Publié</Badge>;
+        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Publié</Badge>;
       case 'draft':
-        return <Badge variant="outline" className="bg-gray-50 text-gray-700">Brouillon</Badge>;
+        return <Badge variant="outline" className="bg-gray-500/20 text-gray-400 border-gray-500/30">Brouillon</Badge>;
       case 'pending':
-        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">En attente</Badge>;
+        return <Badge variant="outline" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">En attente</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline" className="border-[#d4af37]/30 text-gray-400">{status}</Badge>;
     }
   };
 
@@ -168,20 +168,20 @@ export default function ActualitesAdminPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Le Carnet de Morgane</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-3xl font-bold text-[#d4af37]">Le Carnet de Morgane</h1>
+          <p className="text-gray-400 mt-2">
             Gérez vos articles et actualités
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/admin/actualites/categories">
-            <Button variant="outline">
+            <Button variant="outline" className="border-[#d4af37]/30 text-[#d4af37] hover:bg-[#d4af37]/10">
               <TagIcon className="h-4 w-4 mr-2" />
               Catégories
             </Button>
           </Link>
           <Link href="/admin/actualites/new">
-            <Button className="bg-gradient-to-r from-[#C6A15B] to-[#b8933d] hover:from-[#b8933d] hover:to-[#a88230] text-white shadow-lg">
+            <Button className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white">
               <Plus className="h-4 w-4 mr-2" />
               Nouvel article
             </Button>
@@ -190,66 +190,66 @@ export default function ActualitesAdminPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="bg-black border-[#d4af37]/30 border-l-4 border-l-[#d4af37]">
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-600 mb-1">Total</div>
-            <div className="text-3xl font-bold">{stats.total}</div>
+            <div className="text-sm text-gray-400 mb-1">Total</div>
+            <div className="text-3xl font-bold text-[#d4af37]">{stats.total}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-green-500">
+        <Card className="bg-black border-[#d4af37]/30 border-l-4 border-l-green-500">
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-600 mb-1">Publiés</div>
-            <div className="text-3xl font-bold text-green-600">{stats.published}</div>
+            <div className="text-sm text-gray-400 mb-1">Publiés</div>
+            <div className="text-3xl font-bold text-green-400">{stats.published}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-gray-500">
+        <Card className="bg-black border-[#d4af37]/30 border-l-4 border-l-gray-500">
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-600 mb-1">Brouillons</div>
-            <div className="text-3xl font-bold text-gray-600">{stats.draft}</div>
+            <div className="text-sm text-gray-400 mb-1">Brouillons</div>
+            <div className="text-3xl font-bold text-gray-400">{stats.draft}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-yellow-500">
+        <Card className="bg-black border-[#d4af37]/30 border-l-4 border-l-yellow-500">
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-600 mb-1">En attente</div>
-            <div className="text-3xl font-bold text-yellow-600">{stats.pending}</div>
+            <div className="text-sm text-gray-400 mb-1">En attente</div>
+            <div className="text-3xl font-bold text-yellow-400">{stats.pending}</div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
+      <Card className="bg-black border-[#d4af37]/30">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4 mb-6">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#d4af37] h-4 w-4" />
               <Input
                 placeholder="Rechercher un article..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500"
               />
             </div>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-48">
+              <SelectTrigger className="w-full md:w-48 bg-black border-[#d4af37]/30 text-white">
                 <SelectValue placeholder="Statut" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
-                <SelectItem value="publish">Publiés</SelectItem>
-                <SelectItem value="draft">Brouillons</SelectItem>
-                <SelectItem value="pending">En attente</SelectItem>
+              <SelectContent className="bg-black border-[#d4af37]/30">
+                <SelectItem value="all" className="text-white hover:bg-[#d4af37]/20">Tous les statuts</SelectItem>
+                <SelectItem value="publish" className="text-white hover:bg-[#d4af37]/20">Publiés</SelectItem>
+                <SelectItem value="draft" className="text-white hover:bg-[#d4af37]/20">Brouillons</SelectItem>
+                <SelectItem value="pending" className="text-white hover:bg-[#d4af37]/20">En attente</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {filteredPosts.length === 0 ? (
             <div className="text-center py-16">
-              <Calendar className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-              <p className="text-gray-500 text-lg">Aucun article trouvé</p>
-              <p className="text-gray-400 text-sm mt-1">
+              <Calendar className="h-16 w-16 mx-auto mb-4 text-[#d4af37]/50" />
+              <p className="text-gray-400 text-lg">Aucun article trouvé</p>
+              <p className="text-gray-500 text-sm mt-1">
                 {searchTerm || statusFilter !== 'all'
                   ? 'Essayez de modifier vos filtres'
                   : 'Créez votre premier article'}
@@ -259,19 +259,19 @@ export default function ActualitesAdminPage() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="font-semibold">Titre</TableHead>
-                    <TableHead className="font-semibold">Catégories</TableHead>
-                    <TableHead className="font-semibold">Date</TableHead>
-                    <TableHead className="font-semibold">Statut</TableHead>
-                    <TableHead className="text-right font-semibold">Actions</TableHead>
+                  <TableRow className="border-b border-[#d4af37]/30">
+                    <TableHead className="font-semibold text-[#d4af37]">Titre</TableHead>
+                    <TableHead className="font-semibold text-[#d4af37]">Catégories</TableHead>
+                    <TableHead className="font-semibold text-[#d4af37]">Date</TableHead>
+                    <TableHead className="font-semibold text-[#d4af37]">Statut</TableHead>
+                    <TableHead className="text-right font-semibold text-[#d4af37]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPosts.map((post) => (
-                    <TableRow key={post.id} className="hover:bg-gray-50">
+                    <TableRow key={post.id} className="border-b border-[#d4af37]/10 hover:bg-[#d4af37]/5">
                       <TableCell>
-                        <div className="font-semibold text-gray-900">{post.title}</div>
+                        <div className="font-semibold text-white">{post.title}</div>
                         <code className="text-xs text-gray-500">/actualites/{post.slug}</code>
                       </TableCell>
                       <TableCell>
@@ -286,14 +286,14 @@ export default function ActualitesAdminPage() {
                             </Badge>
                           ))}
                           {post.news_post_categories.length > 2 && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-xs border-[#d4af37]/30 text-gray-400">
                               +{post.news_post_categories.length - 2}
                             </Badge>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2 text-sm text-gray-400">
                           <Calendar className="h-4 w-4" />
                           {post.published_at
                             ? format(new Date(post.published_at), 'dd/MM/yyyy', { locale: fr })
@@ -308,7 +308,7 @@ export default function ActualitesAdminPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="hover:bg-gray-100"
+                                className="hover:bg-[#d4af37]/20 hover:text-[#d4af37] text-gray-400"
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
@@ -318,7 +318,7 @@ export default function ActualitesAdminPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="hover:bg-blue-50 hover:text-blue-600"
+                              className="hover:bg-[#d4af37]/20 hover:text-[#d4af37] text-gray-400"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -328,21 +328,21 @@ export default function ActualitesAdminPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="hover:bg-red-50 hover:text-red-600"
+                                className="hover:bg-red-600/20 hover:text-red-400 text-gray-400"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent>
+                            <AlertDialogContent className="bg-black border-[#d4af37]/30">
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Supprimer l'article</AlertDialogTitle>
-                                <AlertDialogDescription>
+                                <AlertDialogTitle className="text-[#d4af37]">Supprimer l'article</AlertDialogTitle>
+                                <AlertDialogDescription className="text-gray-400">
                                   Voulez-vous vraiment supprimer l'article "{post.title}" ?
                                   Cette action est irréversible.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                <AlertDialogCancel className="border-[#d4af37]/30 text-white hover:bg-[#d4af37]/10">Annuler</AlertDialogCancel>
                                 <AlertDialogAction
                                   onClick={() => handleDelete(post.id, post.title)}
                                   className="bg-red-600 hover:bg-red-700"

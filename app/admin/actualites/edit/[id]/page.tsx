@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import RichTextEditor from '@/components/RichTextEditor';
 import MediaLibrary from '@/components/MediaLibrary';
 import { ArrowLeft, Save, Eye } from 'lucide-react';
@@ -235,14 +236,14 @@ export default function NewsEditorPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <Link href="/admin/actualites" className="inline-flex items-center text-gray-600 hover:text-[#C6A15B]">
+        <Link href="/admin/actualites" className="inline-flex items-center text-gray-400 hover:text-[#d4af37]">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour aux actualités
         </Link>
         <div className="flex items-center gap-3">
           {postId && formData.status === 'publish' && (
             <Link href={`/actualites/${formData.slug}`} target="_blank">
-              <Button variant="outline">
+              <Button variant="outline" className="border-[#d4af37]/30 text-[#d4af37] hover:bg-[#d4af37]/10">
                 <Eye className="h-4 w-4 mr-2" />
                 Voir l'article
               </Button>
@@ -251,7 +252,7 @@ export default function NewsEditorPage() {
           <Button
             onClick={handleSubmit}
             disabled={saving}
-            className="bg-[#C6A15B] hover:bg-[#b8933d]"
+            className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
           >
             <Save className="h-4 w-4 mr-2" />
             {saving ? 'Enregistrement...' : (postId ? 'Enregistrer' : 'Créer')}
@@ -261,31 +262,32 @@ export default function NewsEditorPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <Card>
+          <Card className="bg-black border-[#d4af37]/30">
             <CardHeader>
-              <CardTitle>Contenu de l'article</CardTitle>
+              <CardTitle className="text-[#d4af37]">Contenu de l'article</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <Label htmlFor="title">Titre *</Label>
+                <Label htmlFor="title" className="text-gray-400">Titre *</Label>
                 <Input
                   id="title"
                   value={formData.title}
                   onChange={(e) => handleTitleChange(e.target.value)}
                   placeholder="Titre de l'article"
-                  className="text-lg font-semibold"
+                  className="text-lg font-semibold bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500"
                   required
                 />
               </div>
 
               <div>
-                <Label htmlFor="excerpt">Extrait</Label>
+                <Label htmlFor="excerpt" className="text-gray-400">Extrait</Label>
                 <Textarea
                   id="excerpt"
                   value={formData.excerpt}
                   onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
                   placeholder="Court résumé de l'article (150-200 caractères recommandés)"
                   rows={3}
+                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   {formData.excerpt.length} / 200 caractères
@@ -293,7 +295,7 @@ export default function NewsEditorPage() {
               </div>
 
               <div>
-                <Label>Contenu *</Label>
+                <Label className="text-gray-400">Contenu *</Label>
                 <RichTextEditor
                   value={formData.content}
                   onChange={(content) => setFormData({ ...formData, content })}
@@ -302,29 +304,31 @@ export default function NewsEditorPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-black border-[#d4af37]/30">
             <CardHeader>
-              <CardTitle>SEO</CardTitle>
+              <CardTitle className="text-[#d4af37]">SEO</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="seo_title">Titre SEO</Label>
+                <Label htmlFor="seo_title" className="text-gray-400">Titre SEO</Label>
                 <Input
                   id="seo_title"
                   value={formData.seo_title}
                   onChange={(e) => setFormData({ ...formData, seo_title: e.target.value })}
                   placeholder={formData.title || 'Titre pour les moteurs de recherche'}
+                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500"
                 />
               </div>
 
               <div>
-                <Label htmlFor="meta_description">Meta Description</Label>
+                <Label htmlFor="meta_description" className="text-gray-400">Meta Description</Label>
                 <Textarea
                   id="meta_description"
                   value={formData.meta_description}
                   onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
                   placeholder="Description pour les moteurs de recherche"
                   rows={3}
+                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500"
                 />
               </div>
             </CardContent>
@@ -332,49 +336,51 @@ export default function NewsEditorPage() {
         </div>
 
         <div className="space-y-6">
-          <Card>
+          <Card className="bg-black border-[#d4af37]/30">
             <CardHeader>
-              <CardTitle>Publication</CardTitle>
+              <CardTitle className="text-[#d4af37]">Publication</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="status">Statut</Label>
+                <Label htmlFor="status" className="text-gray-400">Statut</Label>
                 <Select
                   value={formData.status}
                   onValueChange={(value: 'draft' | 'publish' | 'pending') =>
                     setFormData({ ...formData, status: value })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-black border-[#d4af37]/30 text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Brouillon</SelectItem>
-                    <SelectItem value="pending">En attente</SelectItem>
-                    <SelectItem value="publish">Publié</SelectItem>
+                  <SelectContent className="bg-black border-[#d4af37]/30">
+                    <SelectItem value="draft" className="text-white hover:bg-[#d4af37]/20">Brouillon</SelectItem>
+                    <SelectItem value="pending" className="text-white hover:bg-[#d4af37]/20">En attente</SelectItem>
+                    <SelectItem value="publish" className="text-white hover:bg-[#d4af37]/20">Publié</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="published_at">Date de publication</Label>
+                <Label htmlFor="published_at" className="text-gray-400">Date de publication</Label>
                 <Input
                   id="published_at"
                   type="date"
                   value={formData.published_at}
                   onChange={(e) => setFormData({ ...formData, published_at: e.target.value })}
+                  className="bg-black border-[#d4af37]/30 text-white"
                 />
               </div>
 
-              <Separator />
+              <Separator className="bg-[#d4af37]/30" />
 
               <div>
-                <Label htmlFor="slug">URL (slug)</Label>
+                <Label htmlFor="slug" className="text-gray-400">URL (slug)</Label>
                 <Input
                   id="slug"
                   value={formData.slug}
                   onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                   placeholder="url-de-larticle"
+                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   /actualites/{formData.slug || 'url-de-larticle'}
@@ -383,9 +389,9 @@ export default function NewsEditorPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-black border-[#d4af37]/30">
             <CardHeader>
-              <CardTitle>Catégories *</CardTitle>
+              <CardTitle className="text-[#d4af37]">Catégories *</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -395,10 +401,11 @@ export default function NewsEditorPage() {
                       id={`category-${category.id}`}
                       checked={formData.category_ids.includes(category.id)}
                       onCheckedChange={() => handleCategoryToggle(category.id)}
+                      className="border-[#d4af37]/50 data-[state=checked]:bg-[#d4af37] data-[state=checked]:border-[#d4af37]"
                     />
                     <Label
                       htmlFor={`category-${category.id}`}
-                      className="flex items-center gap-2 cursor-pointer"
+                      className="flex items-center gap-2 cursor-pointer text-white"
                     >
                       <div
                         className="w-3 h-3 rounded-full"
@@ -412,9 +419,9 @@ export default function NewsEditorPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-black border-[#d4af37]/30">
             <CardHeader>
-              <CardTitle>Image à la une</CardTitle>
+              <CardTitle className="text-[#d4af37]">Image à la une</CardTitle>
             </CardHeader>
             <CardContent>
               {formData.featured_image_url ? (
@@ -422,14 +429,14 @@ export default function NewsEditorPage() {
                   <img
                     src={formData.featured_image_url}
                     alt="Image à la une"
-                    className="w-full h-auto rounded-lg"
+                    className="w-full h-auto rounded-lg border border-[#d4af37]/30"
                   />
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setShowMediaLibrary(true)}
-                      className="flex-1"
+                      className="flex-1 border-[#d4af37]/30 text-[#d4af37] hover:bg-[#d4af37]/10"
                     >
                       Changer
                     </Button>
@@ -437,7 +444,7 @@ export default function NewsEditorPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setFormData({ ...formData, featured_image_url: '' })}
-                      className="flex-1"
+                      className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
                     >
                       Supprimer
                     </Button>
@@ -447,7 +454,7 @@ export default function NewsEditorPage() {
                 <Button
                   variant="outline"
                   onClick={() => setShowMediaLibrary(true)}
-                  className="w-full"
+                  className="w-full border-[#d4af37]/30 text-[#d4af37] hover:bg-[#d4af37]/10"
                 >
                   Sélectionner une image
                 </Button>
@@ -457,15 +464,21 @@ export default function NewsEditorPage() {
         </div>
       </div>
 
-      {showMediaLibrary && (
-        <MediaLibrary
-          onSelect={(url) => {
-            setFormData({ ...formData, featured_image_url: url });
-            setShowMediaLibrary(false);
-          }}
-          onClose={() => setShowMediaLibrary(false)}
-        />
-      )}
+      <Dialog open={showMediaLibrary} onOpenChange={setShowMediaLibrary}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Sélectionner une image</DialogTitle>
+          </DialogHeader>
+          <MediaLibrary
+            bucket="product-images"
+            onSelect={(url) => {
+              setFormData({ ...formData, featured_image_url: url });
+              setShowMediaLibrary(false);
+            }}
+            onClose={() => setShowMediaLibrary(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

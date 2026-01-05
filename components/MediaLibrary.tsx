@@ -21,6 +21,7 @@ interface MediaFile {
   usage_count?: number;
   is_orphan?: boolean;
   created_at?: string;
+  fromStorage?: boolean;
 }
 
 interface MediaLibraryProps {
@@ -108,24 +109,61 @@ export default function MediaLibrary({
     try {
       console.log('Loading media files from bucket:', bucket);
 
-      const { data, error } = await supabase
+      const { data: dbMedia, error: dbError } = await supabase
         .from('media')
         .select('*')
         .eq('bucket_name', bucket)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Supabase error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
-        throw error;
+      if (dbError) {
+        console.error('Database error:', dbError);
       }
 
-      console.log(`Loaded ${data?.length || 0} media files`);
-      setMediaFiles(data || []);
+      const { data: storageFiles, error: storageError } = await supabase.storage
+        .from(bucket)
+        .list('', {
+          limit: 1000,
+          sortBy: { column: 'created_at', order: 'desc' },
+        });
+
+      if (storageError) {
+        console.error('Storage error:', storageError);
+      }
+
+      const dbMediaMap = new Map(
+        (dbMedia || []).map(file => [file.filename, file])
+      );
+
+      const combinedFiles: MediaFile[] = [];
+
+      (dbMedia || []).forEach(file => {
+        combinedFiles.push(file);
+      });
+
+      if (storageFiles) {
+        for (const storageFile of storageFiles) {
+          if (!dbMediaMap.has(storageFile.name)) {
+            const { data: publicUrlData } = supabase.storage
+              .from(bucket)
+              .getPublicUrl(storageFile.name);
+
+            combinedFiles.push({
+              id: storageFile.id || `storage-${storageFile.name}`,
+              filename: storageFile.name,
+              url: publicUrlData.publicUrl,
+              bucket_name: bucket,
+              file_size: storageFile.metadata?.size,
+              mime_type: storageFile.metadata?.mimetype,
+              created_at: storageFile.created_at,
+              fromStorage: true,
+              usage_count: 0,
+            });
+          }
+        }
+      }
+
+      console.log(`Loaded ${combinedFiles.length} total media files`);
+      setMediaFiles(combinedFiles);
     } catch (error: any) {
       console.error('Error loading media files:', error);
       toast.error(`Erreur lors du chargement: ${error.message || 'Erreur inconnue'}`);
@@ -218,22 +256,30 @@ export default function MediaLibrary({
     }
   };
 
-  const handleDelete = async (fileId: string, filePath: string) => {
+  const handleDelete = async (fileId: string, filePath: string, fromStorage?: boolean) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce fichier ?')) return;
 
     try {
+      const pathToDelete = filePath.split('/').slice(-1)[0];
+
       const { error: storageError } = await supabase.storage
         .from(bucket)
-        .remove([filePath]);
+        .remove([pathToDelete]);
 
-      if (storageError) throw storageError;
+      if (storageError) {
+        console.error('Storage delete error:', storageError);
+      }
 
-      const { error: dbError } = await supabase
-        .from('media')
-        .delete()
-        .eq('id', fileId);
+      if (!fromStorage) {
+        const { error: dbError } = await supabase
+          .from('media')
+          .delete()
+          .eq('id', fileId);
 
-      if (dbError) throw dbError;
+        if (dbError) {
+          console.error('Database delete error:', dbError);
+        }
+      }
 
       toast.success('Fichier supprimé avec succès');
       await loadMediaFiles();
@@ -262,12 +308,12 @@ export default function MediaLibrary({
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#d4af37]" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Rechercher par nom de fichier..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500 focus:border-[#d4af37]"
+            className="pl-10"
           />
         </div>
         <input
@@ -297,14 +343,14 @@ export default function MediaLibrary({
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-        <TabsList className="grid w-full grid-cols-3 bg-black border border-[#d4af37]/30">
-          <TabsTrigger value="all" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-black text-gray-400">
+        <TabsList className="grid w-full grid-cols-3 bg-white border border-gray-200">
+          <TabsTrigger value="all" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-white">
             Toutes ({mediaFiles.length})
           </TabsTrigger>
-          <TabsTrigger value="used" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-black text-gray-400">
+          <TabsTrigger value="used" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-white">
             Utilisées ({mediaFiles.filter((f) => f.usage_count && f.usage_count > 0).length})
           </TabsTrigger>
-          <TabsTrigger value="unused" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-black text-gray-400">
+          <TabsTrigger value="unused" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-white">
             Non utilisées ({mediaFiles.filter((f) => !f.usage_count || f.usage_count === 0).length})
           </TabsTrigger>
         </TabsList>
@@ -315,7 +361,7 @@ export default function MediaLibrary({
               <Loader2 className="h-8 w-8 animate-spin text-[#d4af37]" />
             </div>
           ) : filteredFiles.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-gray-500">
               <p>Aucun fichier trouvé</p>
             </div>
           ) : (
@@ -323,21 +369,21 @@ export default function MediaLibrary({
               {filteredFiles.map((file) => (
                 <Card
                   key={file.id}
-                  className={`relative group cursor-pointer overflow-hidden transition-all bg-black border-[#d4af37]/30 ${
+                  className={`relative group cursor-pointer overflow-hidden transition-all bg-white ${
                     selectedFile === file.url
-                      ? 'ring-2 ring-[#d4af37] ring-offset-2 ring-offset-black'
-                      : 'hover:border-[#d4af37]'
+                      ? 'ring-2 ring-[#d4af37] ring-offset-2'
+                      : 'hover:shadow-lg hover:border-[#d4af37]'
                   }`}
                   onClick={() => handleSelectFile(file.url)}
                 >
-                  <div className="aspect-square relative">
+                  <div className="aspect-square relative bg-gray-100">
                     <img
                       src={file.url}
                       alt={file.filename}
                       className="w-full h-full object-cover"
                     />
                     {selectedFile === file.url && (
-                      <div className="absolute top-2 right-2 bg-[#d4af37] text-black rounded-full p-1">
+                      <div className="absolute top-2 right-2 bg-[#d4af37] text-white rounded-full p-1">
                         <Check className="h-4 w-4" />
                       </div>
                     )}
@@ -347,7 +393,7 @@ export default function MediaLibrary({
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDelete(file.id, file.url.split('/').slice(-2).join('/'));
+                          handleDelete(file.id, file.url, file.fromStorage);
                         }}
                         className="gap-2 bg-red-600 hover:bg-red-700"
                       >
@@ -356,11 +402,11 @@ export default function MediaLibrary({
                       </Button>
                     </div>
                   </div>
-                  <div className="p-2 space-y-1">
-                    <p className="text-xs font-medium truncate text-white" title={file.filename}>
+                  <div className="p-2 space-y-1 bg-white">
+                    <p className="text-xs font-medium truncate text-gray-900" title={file.filename}>
                       {file.filename}
                     </p>
-                    <div className="flex items-center justify-between text-xs text-gray-400">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
                       <span>{formatFileSize(file.file_size)}</span>
                       {file.usage_count !== undefined && (
                         <span className="text-[#d4af37]">Utilisé: {file.usage_count}×</span>

@@ -158,7 +158,7 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
             <h1 className="text-3xl font-bold text-[#d4af37]">
               {category ? "Modifier la catégorie" : "Nouvelle catégorie"}
             </h1>
-            <p className="text-gray-400 mt-1">
+            <p className="text-gray-600 mt-1">
               {category ? `Modification de "${category.name}"` : "Créer une nouvelle catégorie de produits"}
             </p>
           </div>
@@ -171,10 +171,10 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <Card className="bg-black border-[#d4af37]/30">
+          <Card>
             <CardHeader>
               <CardTitle className="text-[#d4af37]">Informations générales</CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription>
                 Informations de base de la catégorie
               </CardDescription>
             </CardHeader>
@@ -187,7 +187,6 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                   onChange={(e) => handleNameChange(e.target.value)}
                   placeholder="Nouveautés, Mode, Maison..."
                   required
-                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500 focus:border-[#d4af37]"
                 />
               </div>
 
@@ -199,7 +198,6 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                   onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
                   placeholder="nouveautes, mode, maison..."
                   required
-                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500 focus:border-[#d4af37]"
                 />
                 <p className="text-sm text-gray-500 mt-1">
                   Utilisé dans l'URL : /categorie/{formData.slug || "slug"}
@@ -214,16 +212,15 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Description de la catégorie..."
                   rows={4}
-                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500 focus:border-[#d4af37]"
                 />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-black border-[#d4af37]/30">
+          <Card>
             <CardHeader>
               <CardTitle className="text-[#d4af37]">SEO</CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription>
                 Optimisation pour les moteurs de recherche
               </CardDescription>
             </CardHeader>
@@ -236,7 +233,6 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                   onChange={(e) => setFormData(prev => ({ ...prev, meta_title: e.target.value }))}
                   placeholder="Titre pour les moteurs de recherche"
                   maxLength={60}
-                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500 focus:border-[#d4af37]"
                 />
                 <p className="text-sm text-gray-500 mt-1">
                   {formData.meta_title.length}/60 caractères
@@ -252,7 +248,6 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                   placeholder="Description pour les moteurs de recherche"
                   rows={3}
                   maxLength={160}
-                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500 focus:border-[#d4af37]"
                 />
                 <p className="text-sm text-gray-500 mt-1">
                   {formData.meta_description.length}/160 caractères
@@ -266,7 +261,6 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                   value={formData.seo_keywords}
                   onChange={(e) => setFormData(prev => ({ ...prev, seo_keywords: e.target.value }))}
                   placeholder="mode, vêtements, accessoires"
-                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500 focus:border-[#d4af37]"
                 />
                 <p className="text-sm text-gray-500 mt-1">
                   Séparez les mots-clés par des virgules
@@ -277,10 +271,10 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
         </div>
 
         <div className="space-y-6">
-          <Card className="bg-black border-[#d4af37]/30">
+          <Card>
             <CardHeader>
               <CardTitle className="text-[#d4af37]">Image</CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription>
                 Image représentative de la catégorie
               </CardDescription>
             </CardHeader>
@@ -290,7 +284,7 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                   <img
                     src={formData.image_url}
                     alt="Aperçu"
-                    className="w-full h-48 object-cover rounded-lg border border-[#d4af37]/30"
+                    className="w-full h-48 object-cover rounded-lg border-2 border-gray-200"
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                     <Button
@@ -305,30 +299,34 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                   </div>
                 </div>
               ) : (
-                <div className="border-2 border-dashed border-[#d4af37]/30 rounded-lg p-8 text-center">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
                   <ImageIcon className="h-12 w-12 mx-auto text-[#d4af37] mb-2" />
-                  <p className="text-sm text-gray-400">Aucune image</p>
+                  <p className="text-sm text-gray-500">Aucune image</p>
                 </div>
               )}
 
               <Dialog open={mediaLibraryOpen} onOpenChange={setMediaLibraryOpen}>
                 <DialogTrigger asChild>
-                  <Button type="button" variant="outline" className="w-full border-[#d4af37]/30 text-[#d4af37] hover:bg-[#d4af37]/10">
+                  <Button type="button" variant="outline" className="w-full border-[#d4af37] text-[#d4af37] hover:bg-[#d4af37]/10">
                     <ImageIcon className="h-4 w-4 mr-2" />
                     {formData.image_url ? "Changer l'image" : "Sélectionner une image"}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-black border-[#d4af37]/30">
-                  <MediaLibrary onSelect={handleMediaSelect} />
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                  <MediaLibrary
+                    bucket="category-images"
+                    selectedUrl={formData.image_url}
+                    onSelect={handleMediaSelect}
+                  />
                 </DialogContent>
               </Dialog>
             </CardContent>
           </Card>
 
-          <Card className="bg-black border-[#d4af37]/30">
+          <Card>
             <CardHeader>
               <CardTitle className="text-[#d4af37]">Organisation</CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription>
                 Hiérarchie et ordre d'affichage
               </CardDescription>
             </CardHeader>
@@ -339,13 +337,13 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                   value={formData.parent_id || "none"}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, parent_id: value === "none" ? null : value }))}
                 >
-                  <SelectTrigger id="parent_id" className="border-[#d4af37]/30 focus:border-[#d4af37] bg-black text-white">
+                  <SelectTrigger id="parent_id">
                     <SelectValue placeholder="Aucune (catégorie principale)" />
                   </SelectTrigger>
-                  <SelectContent className="bg-black border-[#d4af37]/30">
-                    <SelectItem value="none" className="text-white hover:bg-[#d4af37]/20">Aucune (catégorie principale)</SelectItem>
+                  <SelectContent>
+                    <SelectItem value="none">Aucune (catégorie principale)</SelectItem>
                     {availableParentCategories && availableParentCategories.length > 0 && availableParentCategories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id} className="text-white hover:bg-[#d4af37]/20">
+                      <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
                       </SelectItem>
                     ))}
@@ -361,7 +359,6 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                   value={formData.display_order}
                   onChange={(e) => setFormData(prev => ({ ...prev, display_order: parseInt(e.target.value) || 0 }))}
                   min="0"
-                  className="bg-black border-[#d4af37]/30 text-white focus:border-[#d4af37]"
                 />
                 <p className="text-sm text-gray-500 mt-1">
                   Plus le nombre est bas, plus la catégorie apparaît en premier
