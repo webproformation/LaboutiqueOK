@@ -146,15 +146,15 @@ export default function AccountPage() {
       </div>
 
       {profile.is_admin && (
-        <Card className="bg-pink-50 border-pink-200">
+        <Card className="bg-gradient-to-r from-black to-gray-900 border-[#b8933d]">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-pink-100 flex items-center justify-center">
-                <ShieldCheck className="h-6 w-6 text-pink-600" />
+              <div className="h-12 w-12 rounded-full bg-[#b8933d]/20 flex items-center justify-center">
+                <ShieldCheck className="h-6 w-6 text-[#b8933d]" />
               </div>
               <div>
-                <h3 className="font-semibold text-pink-900">Compte Administrateur</h3>
-                <p className="text-sm text-pink-700">
+                <h3 className="font-semibold text-[#b8933d]">Compte Administrateur</h3>
+                <p className="text-sm text-gray-300">
                   Vous avez accès aux fonctionnalités d'administration
                 </p>
               </div>
@@ -163,20 +163,20 @@ export default function AccountPage() {
         </Card>
       )}
 
-      <Card className="bg-green-50 border-green-200">
+      <Card className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] border-[#b8933d]">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-                <PiggyBank className="h-6 w-6 text-green-600" />
+              <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center">
+                <PiggyBank className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h3 className="font-semibold text-green-900">Solde du Porte-monnaie</h3>
-                <p className="text-sm text-green-700">Utilisable sur vos prochaines commandes</p>
+                <h3 className="font-semibold text-white">Solde du Porte-monnaie</h3>
+                <p className="text-sm text-white/90">Utilisable sur vos prochaines commandes</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold text-green-900">
+              <p className="text-3xl font-bold text-white">
                 {profile.wallet_balance.toFixed(2)}€
               </p>
             </div>
@@ -301,7 +301,7 @@ export default function AccountPage() {
               <Button
                 type="submit"
                 disabled={isUpdating}
-                className="flex-1 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 gap-2"
+                className="flex-1 bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white gap-2"
               >
                 {isUpdating ? (
                   <>
