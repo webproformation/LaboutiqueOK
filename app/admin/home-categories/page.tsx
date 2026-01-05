@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface WooCategory {
+interface CategoryOption {
   id: number;
   name: string;
   slug: string;
@@ -49,7 +49,7 @@ const decodeHtmlEntities = (text: string): string => {
 };
 
 export default function HomeCategoriesPage() {
-  const [availableCategories, setAvailableCategories] = useState<WooCategory[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<CategoryOption[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<HomeCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -62,7 +62,7 @@ export default function HomeCategoriesPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      await Promise.all([loadWooCategories(), loadSelectedCategories()]);
+      await Promise.all([loadCategories(), loadSelectedCategories()]);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Erreur lors du chargement des données');
@@ -71,7 +71,7 @@ export default function HomeCategoriesPage() {
     }
   };
 
-  const loadWooCategories = async () => {
+  const loadCategories = async () => {
     try {
       const { data: categories } = await supabase
         .from('categories')
@@ -79,17 +79,17 @@ export default function HomeCategoriesPage() {
         .order('name');
 
       if (categories) {
-        const wooCategories: WooCategory[] = categories.map(cat => ({
+        const categoryOptions: CategoryOption[] = categories.map(cat => ({
           id: parseInt(cat.id) || 0,
           name: cat.name,
           slug: cat.slug,
           count: 0,
           image: cat.image_url ? { src: cat.image_url } : undefined
         }));
-        setAvailableCategories(wooCategories);
+        setAvailableCategories(categoryOptions);
       }
     } catch (error) {
-      console.error('Error loading WooCommerce categories:', error);
+      console.error('Error loading categories:', error);
     }
   };
 
@@ -107,14 +107,14 @@ export default function HomeCategoriesPage() {
     }
   };
 
-  const refreshWooCategories = async () => {
+  const refreshCategories = async () => {
     setRefreshing(true);
-    await loadWooCategories();
-    toast.success('Catégories WordPress synchronisées');
+    await loadCategories();
+    toast.success('Catégories actualisées');
     setRefreshing(false);
   };
 
-  const addCategory = async (wooCat: WooCategory) => {
+  const addCategory = async (wooCat: CategoryOption) => {
     try {
       setSaving(true);
 
@@ -257,7 +257,7 @@ export default function HomeCategoriesPage() {
             </p>
           </div>
           <Button
-            onClick={refreshWooCategories}
+            onClick={refreshCategories}
             disabled={refreshing}
             variant="outline"
             className="gap-2"

@@ -23,22 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, Edit, Eye, Package } from "lucide-react";
 import { decodeHtmlEntities } from "@/lib/utils";
-
-interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  regular_price: number;
-  sale_price: number | null;
-  stock_quantity: number;
-  status: string;
-  image_url: string | null;
-}
-
-interface Category {
-  id: string;
-  name: string;
-}
+import type { Product, Category } from "@/types/product";
 
 interface ProductsTableProps {
   products: Product[];
