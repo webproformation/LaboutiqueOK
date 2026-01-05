@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import MediaLibrary from '@/components/MediaLibrary';
+import { ImageUploader } from '@/components/image-uploader';
 import { RefreshCw, Database, HardDrive, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -78,14 +79,23 @@ export default function MediaAdminPage() {
 
   const loadProductImages = async () => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('image_url')
-        .not('image_url', 'is', null);
+      const [productsResult, mediaResult] = await Promise.all([
+        supabase
+          .from('products')
+          .select('image_url')
+          .not('image_url', 'is', null),
+        supabase
+          .from('media')
+          .select('url')
+          .order('created_at', { ascending: false })
+      ]);
 
-      if (error) throw error;
+      const productUrls = productsResult.data?.map(p => p.image_url).filter(Boolean) || [];
+      const mediaUrls = mediaResult.data?.map(m => m.url).filter(Boolean) || [];
 
-      const uniqueUrls = Array.from(new Set(data.map(p => p.image_url).filter(Boolean)));
+      const allUrls = [...mediaUrls, ...productUrls];
+      const uniqueUrls = Array.from(new Set(allUrls));
+
       setProductImages(uniqueUrls as string[]);
     } catch (error) {
       console.error('Error loading product images:', error);
@@ -214,8 +224,19 @@ export default function MediaAdminPage() {
 
             <TabsContent value="all-product-images" className="mt-4">
               <div className="space-y-4">
-                <div className="text-sm text-gray-600">
-                  Images utilisées dans les produits ({productImages.length} images)
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    Images utilisées dans les produits ({productImages.length} images)
+                  </div>
+                </div>
+
+                <div className="border-b pb-4">
+                  <ImageUploader
+                    onUploadSuccess={(url) => {
+                      toast.success('Image ajoutée à la médiathèque');
+                      loadProductImages();
+                    }}
+                  />
                 </div>
                 {productImages.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">

@@ -67,14 +67,23 @@ export function MediaSelector({ currentImageUrl, onSelect, label = "Image" }: Me
 
   const loadProductImages = async () => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('image_url')
-        .not('image_url', 'is', null);
+      const [productsResult, mediaResult] = await Promise.all([
+        supabase
+          .from('products')
+          .select('image_url')
+          .not('image_url', 'is', null),
+        supabase
+          .from('media')
+          .select('url')
+          .order('created_at', { ascending: false })
+      ]);
 
-      if (error) throw error;
+      const productUrls = productsResult.data?.map(p => p.image_url).filter(Boolean) || [];
+      const mediaUrls = mediaResult.data?.map(m => m.url).filter(Boolean) || [];
 
-      const uniqueUrls = Array.from(new Set(data.map(p => p.image_url).filter(Boolean)));
+      const allUrls = [...mediaUrls, ...productUrls];
+      const uniqueUrls = Array.from(new Set(allUrls));
+
       setProductImages(uniqueUrls as string[]);
     } catch (error) {
       console.error('Error loading product images:', error);

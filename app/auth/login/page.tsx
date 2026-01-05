@@ -8,13 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { LogIn, Eye, EyeOff, Loader2, Mail, Gift } from 'lucide-react';
+import { LogIn, Eye, EyeOff, Loader2, Mail, Gift, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, user } = useAuth();
+  const { signIn, user, profile } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -166,6 +166,18 @@ function LoginForm() {
               </Link>
             </div>
           </form>
+
+          <div className="mt-6 pt-6 border-t">
+            <Link href="/admin">
+              <Button
+                variant="outline"
+                className="w-full border-pink-200 hover:bg-pink-50 text-pink-700"
+              >
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                Accès administration
+              </Button>
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
