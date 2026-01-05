@@ -36,6 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { decodeHtmlEntities } from "@/lib/utils";
 
 export default function ProductPage() {
   const params = useParams();
@@ -149,12 +150,12 @@ export default function ProductPage() {
             Accueil
           </Link>
           <ChevronRight className="h-4 w-4" />
-          <span className="text-gray-900 font-medium">{product.name}</span>
+          <span className="text-gray-900 font-medium">{decodeHtmlEntities(product.name)}</span>
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
           <div className="relative">
-            <ProductGallery images={galleryImages} productName={product.name} />
+            <ProductGallery images={galleryImages} productName={decodeHtmlEntities(product.name)} />
             {product.is_diamond && (
               <div className="mt-4">
                 <HiddenDiamond productId={product.id} position="image" />
@@ -169,7 +170,7 @@ export default function ProductPage() {
 
             <div>
               <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
-                {product.name}
+                {decodeHtmlEntities(product.name)}
               </h1>
 
               <div className="flex items-baseline gap-4 mb-4">

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// ⚠️ VERROUILLAGE ANTI-REVERT - NE PAS UTILISER process.env
+// Projet: qcqbtmvbvipsxwjlgjvk.supabase.co
+const LOCKED_SUPABASE_URL = 'https://qcqbtmvbvipsxwjlgjvk.supabase.co';
+const LOCKED_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjcWJ0bXZidmlwc3h3amxnanZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU5MTMwODcsImV4cCI6MjA1MTQ4OTA4N30.QIpQiK3r_IQ2c3yPSaKNzmrDyIxdIhp56b9PjgGbIUo';
+
+const supabase = createClient(LOCKED_SUPABASE_URL, LOCKED_SUPABASE_ANON_KEY);
 
 export async function POST(request: NextRequest) {
   try {

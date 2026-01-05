@@ -5,6 +5,7 @@ import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/context/AuthContext';
+import { CartProvider } from '@/context/CartContext';
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,10 +17,12 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthProvider>
-      {showHeaderFooter && <SiteHeader />}
-      {children}
-      {showHeaderFooter && <SiteFooter />}
-      <Toaster position="top-right" richColors />
+      <CartProvider>
+        {showHeaderFooter && <SiteHeader />}
+        {children}
+        {showHeaderFooter && <SiteFooter />}
+        <Toaster position="top-right" richColors />
+      </CartProvider>
     </AuthProvider>
   );
 }

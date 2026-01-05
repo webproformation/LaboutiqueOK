@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase, ProductCategory } from '@/lib/supabase';
+import { decodeHtmlEntities } from '@/lib/utils';
 
 interface MegaMenuProps {
   isOpen: boolean;
@@ -127,7 +128,7 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
                   onClick={onClose}
                 >
                   <h3 className="font-bold text-base text-gray-900 group-hover:text-[#D4AF37] transition-colors mb-3 border-b border-gray-300 pb-2">
-                    {category.name}
+                    {decodeHtmlEntities(category.name)}
                   </h3>
                 </Link>
                 {category.children && category.children.length > 0 && (
@@ -139,7 +140,7 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
                           className="block text-sm text-gray-700 hover:text-[#D4AF37] hover:translate-x-1 transition-all duration-200"
                           onClick={onClose}
                         >
-                          {child.name}
+                          {decodeHtmlEntities(child.name)}
                         </Link>
                       </li>
                     ))}

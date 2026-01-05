@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { decodeHtmlEntities } from '@/lib/utils';
 
 interface Product {
   id: string;
@@ -113,9 +114,9 @@ export default function CategoryPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">{category.name}</h1>
+        <h1 className="text-4xl font-bold mb-2">{decodeHtmlEntities(category.name)}</h1>
         {category.description && (
-          <p className="text-gray-600">{category.description}</p>
+          <p className="text-gray-600">{decodeHtmlEntities(category.description)}</p>
         )}
       </div>
 
@@ -146,7 +147,7 @@ export default function CategoryPage() {
                 </div>
                 <CardContent className="p-4">
                   <h3 className="font-semibold text-lg mb-2 line-clamp-2">
-                    {product.name}
+                    {decodeHtmlEntities(product.name)}
                   </h3>
                   <div className="flex items-center gap-2">
                     {product.sale_price ? (

@@ -37,6 +37,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { decodeHtmlEntities } from "@/lib/utils";
 
 interface Category {
   id: string;
@@ -196,7 +197,7 @@ export default function CategoriesTable({
               {node.image_url ? (
                 <img
                   src={node.image_url}
-                  alt={node.name}
+                  alt={decodeHtmlEntities(node.name)}
                   className="w-10 h-10 object-cover rounded-lg shadow-sm"
                 />
               ) : (
@@ -206,7 +207,7 @@ export default function CategoriesTable({
               )}
               <div className="flex-1">
                 <div className="font-semibold text-gray-900 flex items-center gap-2">
-                  {node.name}
+                  {decodeHtmlEntities(node.name)}
                   {level > 0 && (
                     <Badge variant="outline" className="text-xs">
                       Sous-catégorie
@@ -215,7 +216,7 @@ export default function CategoriesTable({
                 </div>
                 {node.description && (
                   <div className="text-xs text-gray-500 truncate max-w-md mt-0.5">
-                    {node.description}
+                    {decodeHtmlEntities(node.description)}
                   </div>
                 )}
               </div>

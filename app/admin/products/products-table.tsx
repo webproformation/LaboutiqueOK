@@ -22,6 +22,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Search, Edit, Eye, Package } from "lucide-react";
+import { decodeHtmlEntities } from "@/lib/utils";
 
 interface Product {
   id: string;
@@ -145,7 +146,7 @@ export default function ProductsTable({
                         {product.image_url ? (
                           <img
                             src={product.image_url}
-                            alt={product.name}
+                            alt={decodeHtmlEntities(product.name)}
                             className="w-12 h-12 object-cover rounded"
                           />
                         ) : (
@@ -159,7 +160,7 @@ export default function ProductsTable({
                       </TableCell>
                       <TableCell>
                         <div className="font-medium text-gray-900">
-                          {product.name}
+                          {decodeHtmlEntities(product.name)}
                         </div>
                         <div className="text-sm text-gray-500">
                           {product.slug}

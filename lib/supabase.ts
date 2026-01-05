@@ -3,7 +3,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 // ⚠️ VERROUILLAGE ANTI-REVERT - NE PAS MODIFIER
 // Projet: qcqbtmvbvipsxwjlgjvk.supabase.co
 // Les IDs produits sont en TEXT (format WordPress: "571", "102", etc.)
-// INTERDICTION de revenir à mcstv ou d'utiliser process.env sans failsafe
+// INTERDICTION de revenir à un autre projet ou d'utiliser process.env sans failsafe
 const LOCKED_SUPABASE_URL = 'https://qcqbtmvbvipsxwjlgjvk.supabase.co';
 const LOCKED_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjcWJ0bXZidmlwc3h3amxnanZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU5MTMwODcsImV4cCI6MjA1MTQ4OTA4N30.QIpQiK3r_IQ2c3yPSaKNzmrDyIxdIhp56b9PjgGbIUo';
 

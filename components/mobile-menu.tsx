@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { User, LogOut, Shield } from 'lucide-react';
 import { supabase, ProductCategory } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { decodeHtmlEntities } from '@/lib/utils';
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -230,7 +231,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                       className="block py-1 text-sm font-semibold hover:text-[#D4AF37] transition-colors"
                       onClick={onClose}
                     >
-                      {cat.name}
+                      {decodeHtmlEntities(cat.name)}
                     </Link>
                     {cat.children && cat.children.length > 0 && (
                       <div className="pl-3 space-y-1">
@@ -241,7 +242,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                             className="block py-1 text-xs text-gray-300 hover:text-[#D4AF37] transition-colors"
                             onClick={onClose}
                           >
-                            • {child.name}
+                            • {decodeHtmlEntities(child.name)}
                           </Link>
                         ))}
                       </div>
@@ -281,7 +282,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                       className="block py-1 text-sm font-semibold hover:text-[#D4AF37] transition-colors"
                       onClick={onClose}
                     >
-                      {cat.name}
+                      {decodeHtmlEntities(cat.name)}
                     </Link>
                     {cat.children && cat.children.length > 0 && (
                       <div className="pl-3 space-y-1">
@@ -292,7 +293,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                             className="block py-1 text-xs text-gray-300 hover:text-[#D4AF37] transition-colors"
                             onClick={onClose}
                           >
-                            • {child.name}
+                            • {decodeHtmlEntities(child.name)}
                           </Link>
                         ))}
                       </div>
@@ -314,7 +315,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                       className="block py-1 text-sm font-semibold hover:text-[#D4AF37] transition-colors"
                       onClick={onClose}
                     >
-                      {cat.name}
+                      {decodeHtmlEntities(cat.name)}
                     </Link>
                     {cat.children && cat.children.length > 0 && (
                       <div className="pl-3 space-y-1">
@@ -325,7 +326,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                             className="block py-1 text-xs text-gray-300 hover:text-[#D4AF37] transition-colors"
                             onClick={onClose}
                           >
-                            • {child.name}
+                            • {decodeHtmlEntities(child.name)}
                           </Link>
                         ))}
                       </div>
