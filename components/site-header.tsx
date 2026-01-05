@@ -27,7 +27,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { MegaMenu } from '@/components/mega-menu';
 import { MobileMenu } from '@/components/mobile-menu';
+import { SearchModal } from '@/components/search-modal';
 import { useAuth } from '@/context/AuthContext';
+import { useWishlist } from '@/context/WishlistContext';
+import { useCart } from '@/context/CartContext';
 
 const navigation = [
   { name: 'Nouveautés', href: '/category/nouveautes', hasMegaMenu: false },
@@ -45,10 +48,11 @@ export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, profile, signOut } = useAuth();
+  const { wishlistCount } = useWishlist();
+  const { cartItemCount } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [openMegaMenu, setOpenMegaMenu] = useState<'mode' | 'morgane' | 'maison' | 'beaute' | null>(null);
-  const [wishlistCount, setWishlistCount] = useState(0);
-  const [cartCount, setCartCount] = useState(0);
 
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -121,6 +125,7 @@ export function SiteHeader() {
               <Button
                 variant="ghost"
                 size="icon"
+                onClick={() => setSearchModalOpen(true)}
                 className="hidden md:flex text-white hover:text-[#D4AF37] hover:bg-transparent"
               >
                 <Search className="h-5 w-5" />
@@ -245,9 +250,9 @@ export function SiteHeader() {
                   className="relative text-white hover:text-[#D4AF37] hover:bg-transparent"
                 >
                   <ShoppingCart className="h-5 w-5" />
-                  {cartCount > 0 && (
+                  {cartItemCount > 0 && (
                     <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 bg-[#D4AF37] text-black text-xs">
-                      {cartCount}
+                      {cartItemCount}
                     </Badge>
                   )}
                 </Button>
@@ -276,6 +281,7 @@ export function SiteHeader() {
       </header>
 
       <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+      <SearchModal isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)} />
     </>
   );
 }

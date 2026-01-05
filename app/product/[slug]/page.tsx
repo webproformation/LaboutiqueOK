@@ -17,6 +17,7 @@ import { ProductGallery } from "@/components/ProductGallery";
 import { ProductVariationSelector } from "@/components/ProductVariationSelector";
 import { HiddenDiamond } from "@/components/HiddenDiamond";
 import { ShareButtons } from "@/components/ShareButtons";
+import { WishlistButton } from "@/components/wishlist-button";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -47,7 +48,6 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariation, setSelectedVariation] = useState<any>(null);
-  const [isInWishlist, setIsInWishlist] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState("");
   const [showNotifyDialog, setShowNotifyDialog] = useState(false);
 
@@ -89,11 +89,6 @@ export default function ProductPage() {
     }
 
     toast.success("Produit ajouté au panier !");
-  };
-
-  const toggleWishlist = () => {
-    setIsInWishlist(!isInWishlist);
-    toast.success(isInWishlist ? "Retiré de la wishlist" : "Ajouté à la wishlist");
   };
 
   const handleNotifyMe = async () => {
@@ -274,16 +269,12 @@ export default function ProductPage() {
                   </Button>
                 )}
 
-                <Button
-                  variant="outline"
+                <WishlistButton
+                  productId={product.id}
+                  variant="icon"
                   size="icon"
-                  onClick={toggleWishlist}
-                  className={isInWishlist ? "bg-[#DF30CF] border-[#DF30CF]" : ""}
-                >
-                  <Heart
-                    className={`h-5 w-5 ${isInWishlist ? "fill-white text-white" : ""}`}
-                  />
-                </Button>
+                  className="border border-gray-300"
+                />
               </div>
 
               <ShareButtons

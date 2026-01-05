@@ -6,6 +6,7 @@ import { SiteFooter } from '@/components/site-footer';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
+import { WishlistProvider } from '@/context/WishlistContext';
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -17,12 +18,14 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthProvider>
-      <CartProvider>
-        {showHeaderFooter && <SiteHeader />}
-        {children}
-        {showHeaderFooter && <SiteFooter />}
-        <Toaster position="top-right" richColors />
-      </CartProvider>
+      <WishlistProvider>
+        <CartProvider>
+          {showHeaderFooter && <SiteHeader />}
+          {children}
+          {showHeaderFooter && <SiteFooter />}
+          <Toaster position="top-right" richColors />
+        </CartProvider>
+      </WishlistProvider>
     </AuthProvider>
   );
 }

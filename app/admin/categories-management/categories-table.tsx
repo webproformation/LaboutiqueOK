@@ -103,10 +103,13 @@ export default function CategoriesTable({
 
     rootCategories.forEach(calculateDescendantCount);
 
+    const sortAlphabetically = (node: CategoryNode) => {
+      node.children.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+      node.children.forEach(sortAlphabetically);
+    };
+
     rootCategories.sort((a, b) => a.display_order - b.display_order);
-    rootCategories.forEach(node => {
-      node.children.sort((a, b) => a.display_order - b.display_order);
-    });
+    rootCategories.forEach(sortAlphabetically);
 
     return rootCategories;
   }, [categories, productCounts]);
