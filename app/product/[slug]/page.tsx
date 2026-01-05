@@ -38,11 +38,13 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { decodeHtmlEntities } from "@/lib/utils";
+import { useCart } from "@/context/CartContext";
 
 export default function ProductPage() {
   const params = useParams();
   const router = useRouter();
   const slug = params.slug as string;
+  const { addToCart } = useCart();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,12 +85,26 @@ export default function ProductPage() {
   };
 
   const handleAddToCart = () => {
+    if (!product) return;
+
     if (product?.type === "VARIABLE" && !selectedVariation) {
       toast.error("Veuillez sélectionner toutes les options");
       return;
     }
 
-    toast.success("Produit ajouté au panier !");
+    const productToAdd = {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      price: selectedVariation?.sale_price || selectedVariation?.price || product.sale_price || product.regular_price || 0,
+      image: product.image_url ? { sourceUrl: product.image_url } : undefined,
+      variationId: selectedVariation?.id || null,
+      variationPrice: selectedVariation?.sale_price || selectedVariation?.price || null,
+      variationImage: selectedVariation?.image || null,
+      selectedAttributes: selectedVariation?.attributes || {},
+    };
+
+    addToCart(productToAdd, quantity);
   };
 
   const handleNotifyMe = async () => {
