@@ -11,6 +11,12 @@ export default function Home() {
     <div className="min-h-screen bg-white">
 
       <main>
+        <div className="container mx-auto px-4 py-8 text-center">
+          <h1 className="text-9xl font-black text-[#D4AF37]" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.3)' }}>
+            TEST
+          </h1>
+        </div>
+
         <section className="container mx-auto px-4 py-8">
           <HeroSlider />
         </section>
