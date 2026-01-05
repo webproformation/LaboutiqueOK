@@ -119,9 +119,11 @@ export default function MediaLibrary({
         console.error('Database error:', dbError);
       }
 
+      // List files from the appropriate folder
+      const folder = bucket === 'product-images' ? 'products' : 'categories';
       const { data: storageFiles, error: storageError } = await supabase.storage
         .from(bucket)
-        .list('', {
+        .list(folder, {
           limit: 1000,
           sortBy: { column: 'created_at', order: 'desc' },
         });
@@ -131,7 +133,7 @@ export default function MediaLibrary({
       }
 
       const dbMediaMap = new Map(
-        (dbMedia || []).map(file => [file.filename, file])
+        (dbMedia || []).map(file => [file.file_path, file])
       );
 
       const combinedFiles: MediaFile[] = [];
@@ -142,10 +144,11 @@ export default function MediaLibrary({
 
       if (storageFiles) {
         for (const storageFile of storageFiles) {
-          if (!dbMediaMap.has(storageFile.name)) {
+          const filePath = `${folder}/${storageFile.name}`;
+          if (!dbMediaMap.has(filePath)) {
             const { data: publicUrlData } = supabase.storage
               .from(bucket)
-              .getPublicUrl(storageFile.name);
+              .getPublicUrl(filePath);
 
             combinedFiles.push({
               id: storageFile.id || `storage-${storageFile.name}`,
@@ -260,7 +263,11 @@ export default function MediaLibrary({
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce fichier ?')) return;
 
     try {
-      const pathToDelete = filePath.split('/').slice(-1)[0];
+      // Extract the path relative to the bucket
+      // filePath is a full URL, we need to extract the path after the bucket name
+      const folder = bucket === 'product-images' ? 'products' : 'categories';
+      const filename = filePath.split('/').slice(-1)[0];
+      const pathToDelete = `${folder}/${filename}`;
 
       const { error: storageError } = await supabase.storage
         .from(bucket)

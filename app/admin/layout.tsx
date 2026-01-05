@@ -59,6 +59,15 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    title: "Actualités",
+    icon: FileText,
+    items: [
+      { href: "/admin/actualites", label: "Articles" },
+      { href: "/admin/actualites/new", label: "Nouvel article" },
+      { href: "/admin/actualites/categories", label: "Catégories" },
+    ],
+  },
+  {
     title: "Fidélité & Jeux",
     icon: Gift,
     items: [

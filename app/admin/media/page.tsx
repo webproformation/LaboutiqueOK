@@ -79,21 +79,42 @@ export default function MediaAdminPage() {
 
   const loadProductImages = async () => {
     try {
-      const [productsResult, mediaResult] = await Promise.all([
-        supabase
-          .from('products')
-          .select('image_url')
-          .not('image_url', 'is', null),
-        supabase
-          .from('media')
-          .select('url')
-          .order('created_at', { ascending: false })
-      ]);
+      // Load from products table
+      const productsResult = await supabase
+        .from('products')
+        .select('image_url')
+        .not('image_url', 'is', null);
+
+      // Load from media table
+      const mediaResult = await supabase
+        .from('media')
+        .select('url')
+        .order('created_at', { ascending: false });
+
+      // Load from Storage bucket
+      const { data: storageFiles, error: storageError } = await supabase.storage
+        .from('product-images')
+        .list('products', {
+          limit: 1000,
+          sortBy: { column: 'created_at', order: 'desc' },
+        });
+
+      if (storageError) {
+        console.error('Storage error:', storageError);
+      }
 
       const productUrls = productsResult.data?.map(p => p.image_url).filter(Boolean) || [];
       const mediaUrls = mediaResult.data?.map(m => m.url).filter(Boolean) || [];
 
-      const allUrls = [...mediaUrls, ...productUrls];
+      // Get public URLs for storage files
+      const storageUrls = (storageFiles || []).map(file => {
+        const { data } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(`products/${file.name}`);
+        return data.publicUrl;
+      });
+
+      const allUrls = [...storageUrls, ...mediaUrls, ...productUrls];
       const uniqueUrls = Array.from(new Set(allUrls));
 
       setProductImages(uniqueUrls as string[]);
@@ -235,6 +256,7 @@ export default function MediaAdminPage() {
                     onUploadSuccess={(url) => {
                       toast.success('Image ajoutée à la médiathèque');
                       loadProductImages();
+                      loadStats();
                     }}
                   />
                 </div>
