@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ShoppingCart, User, Menu, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 
 const navigationLinks = [
   { name: 'Nouveautés', href: '/nouveautes' },
@@ -30,6 +30,7 @@ export function Header() {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-80">
+              <SheetTitle className="sr-only">Menu de navigation</SheetTitle>
               <nav className="flex flex-col gap-4 mt-8">
                 {navigationLinks.map((link) => (
                   <Link

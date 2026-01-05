@@ -1,82 +1,86 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useWishlist } from '@/context/WishlistContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, Trash2, ShoppingCart } from 'lucide-react';
+import { Heart, Trash2, ShoppingCart, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
-interface WishlistItem {
+interface Product {
   id: string;
-  product_id: string;
   name: string;
   slug: string;
   price: number;
   sale_price: number | null;
-  image_url: string | null;
+  main_image_url: string | null;
+  stock: number;
 }
 
 export default function WishlistPage() {
-  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
+  const { user } = useAuth();
+  const { wishlistItems, toggleWishlist } = useWishlist();
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadWishlist();
-  }, []);
+    loadWishlistProducts();
+  }, [wishlistItems]);
 
-  const loadWishlist = () => {
+  const loadWishlistProducts = async () => {
+    if (wishlistItems.length === 0) {
+      setProducts([]);
+      setLoading(false);
+      return;
+    }
+
     try {
-      const savedWishlist = localStorage.getItem('wishlist');
-      if (savedWishlist) {
-        const items = JSON.parse(savedWishlist);
-        setWishlistItems(items);
-      }
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, slug, price, sale_price, main_image_url, stock')
+        .in('id', wishlistItems);
+
+      if (error) throw error;
+
+      setProducts(data || []);
     } catch (error) {
-      console.error('Error loading wishlist:', error);
+      console.error('Error loading wishlist products:', error);
+      toast.error('Erreur lors du chargement des produits');
     } finally {
       setLoading(false);
     }
   };
 
-  const saveWishlist = (items: WishlistItem[]) => {
-    localStorage.setItem('wishlist', JSON.stringify(items));
-    setWishlistItems(items);
+  const removeItem = async (productId: string) => {
+    await toggleWishlist(productId);
   };
 
-  const removeItem = (productId: string) => {
-    const updatedWishlist = wishlistItems.filter((item) => item.product_id !== productId);
-    saveWishlist(updatedWishlist);
-    toast.success('Article retiré des favoris');
-  };
-
-  const clearWishlist = () => {
-    saveWishlist([]);
-    toast.success('Liste de favoris vidée');
-  };
-
-  const addToCart = (item: WishlistItem) => {
+  const addToCart = (product: Product) => {
     try {
       const savedCart = localStorage.getItem('cart');
       const cart = savedCart ? JSON.parse(savedCart) : [];
 
-      const existingItem = cart.find((cartItem: any) => cartItem.product_id === item.product_id);
+      const existingItem = cart.find((cartItem: any) => cartItem.product_id === product.id);
 
       if (existingItem) {
         existingItem.quantity += 1;
       } else {
         cart.push({
-          id: item.id,
-          product_id: item.product_id,
-          name: item.name,
-          slug: item.slug,
-          price: item.sale_price || item.price,
-          image_url: item.image_url,
+          id: product.id,
+          product_id: product.id,
+          name: product.name,
+          slug: product.slug,
+          price: product.sale_price || product.price,
+          image_url: product.main_image_url,
           quantity: 1,
         });
       }
 
       localStorage.setItem('cart', JSON.stringify(cart));
+      window.dispatchEvent(new Event('cartUpdated'));
       toast.success('Article ajouté au panier');
     } catch (error) {
       console.error('Error adding to cart:', error);
@@ -87,12 +91,14 @@ export default function WishlistPage() {
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-12">
-        <div className="text-center">Chargement...</div>
+        <div className="flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
+        </div>
       </div>
     );
   }
 
-  if (wishlistItems.length === 0) {
+  if (products.length === 0) {
     return (
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-2xl mx-auto text-center">
@@ -103,7 +109,7 @@ export default function WishlistPage() {
           <p className="text-gray-600 mb-8">
             Ajoutez des produits à vos favoris pour les retrouver facilement plus tard
           </p>
-          <Button asChild size="lg" className="bg-[#C6A15B] hover:bg-[#B8934D] text-white">
+          <Button asChild size="lg" className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white">
             <Link href="/">
               Découvrir nos produits
             </Link>
@@ -119,30 +125,26 @@ export default function WishlistPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold mb-2">Mes favoris</h1>
-            <p className="text-gray-600">{wishlistItems.length} article{wishlistItems.length > 1 ? 's' : ''}</p>
+            <p className="text-gray-600">{products.length} article{products.length > 1 ? 's' : ''}</p>
           </div>
-          <Button variant="ghost" onClick={clearWishlist} className="text-red-600 hover:text-red-700">
-            <Trash2 className="h-4 w-4 mr-2" />
-            Tout supprimer
-          </Button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {wishlistItems.map((item) => (
-            <Card key={item.id} className="group overflow-hidden relative border-gray-200 hover:border-[#C6A15B] transition-colors">
+          {products.map((product) => (
+            <Card key={product.id} className="group overflow-hidden relative border-gray-200 hover:border-[#D4AF37] transition-colors">
               <button
-                onClick={() => removeItem(item.product_id)}
+                onClick={() => removeItem(product.id)}
                 className="absolute top-3 right-3 z-10 bg-white/90 hover:bg-white rounded-full p-2 shadow-sm transition-all"
               >
                 <Heart className="h-5 w-5 fill-red-500 text-red-500" />
               </button>
 
-              <Link href={`/product/${item.slug}`}>
+              <Link href={`/product/${product.slug}`}>
                 <div className="aspect-square overflow-hidden bg-gray-100">
-                  {item.image_url ? (
+                  {product.main_image_url ? (
                     <img
-                      src={item.image_url}
-                      alt={item.name}
+                      src={product.main_image_url}
+                      alt={product.name}
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   ) : (
@@ -154,37 +156,48 @@ export default function WishlistPage() {
               </Link>
 
               <CardContent className="p-4">
-                <Link href={`/product/${item.slug}`}>
-                  <h3 className="font-semibold text-lg mb-2 line-clamp-2 hover:text-[#C6A15B] transition-colors">
-                    {item.name}
+                <Link href={`/product/${product.slug}`}>
+                  <h3 className="font-semibold text-lg mb-2 line-clamp-2 hover:text-[#D4AF37] transition-colors">
+                    {product.name}
                   </h3>
                 </Link>
 
                 <div className="flex items-center gap-2 mb-4">
-                  {item.sale_price ? (
+                  {product.sale_price ? (
                     <>
-                      <span className="text-lg font-bold text-[#C6A15B]">
-                        {item.sale_price.toFixed(2)} €
+                      <span className="text-lg font-bold text-[#D4AF37]">
+                        {product.sale_price.toFixed(2)} €
                       </span>
                       <span className="text-sm text-gray-500 line-through">
-                        {item.price.toFixed(2)} €
+                        {product.price.toFixed(2)} €
                       </span>
                     </>
                   ) : (
                     <span className="text-lg font-bold">
-                      {item.price.toFixed(2)} €
+                      {product.price.toFixed(2)} €
                     </span>
                   )}
                 </div>
 
-                <Button
-                  onClick={() => addToCart(item)}
-                  className="w-full bg-[#C6A15B] hover:bg-[#B8934D] text-white"
-                  size="sm"
-                >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Ajouter au panier
-                </Button>
+                {product.stock > 0 ? (
+                  <Button
+                    onClick={() => addToCart(product)}
+                    className="w-full bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
+                    size="sm"
+                  >
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    Ajouter au panier
+                  </Button>
+                ) : (
+                  <Button
+                    disabled
+                    className="w-full"
+                    size="sm"
+                    variant="outline"
+                  >
+                    Rupture de stock
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}

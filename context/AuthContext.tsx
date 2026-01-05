@@ -33,8 +33,7 @@ interface AuthContextType {
     firstName: string,
     lastName: string,
     phone?: string,
-    birthDate?: string | null,
-    referralCode?: string
+    birthDate?: string | null
   ) => Promise<{ error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
@@ -64,7 +63,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(profileData);
 
         if (profileData.blocked) {
-          toast.error('Votre compte a été suspendu. Contactez le service client.');
+          let message = 'Votre compte a été suspendu.';
+          if (profileData.blocked_reason) {
+            message += ` Raison: ${profileData.blocked_reason}`;
+          }
+          message += ' Contactez le service client.';
+          toast.error(message);
           await signOut();
           return;
         }
@@ -108,8 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     firstName: string,
     lastName: string,
     phone?: string,
-    birthDate?: string | null,
-    referralCode?: string
+    birthDate?: string | null
   ): Promise<{ error: AuthError | null }> => {
     try {
       if (!email || !password || !firstName || !lastName) {
@@ -151,35 +154,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (profileError) {
         console.error('Error creating profile:', profileError);
-      }
-
-      if (referralCode) {
-        try {
-          await supabase.from('referrals').insert({
-            referrer_id: referralCode,
-            referred_id: authData.user.id,
-            status: 'pending',
-          });
-        } catch (error) {
-          console.error('Error creating referral:', error);
-        }
-      }
-
-      const pendingPrize = localStorage.getItem('pending_prize');
-      if (pendingPrize) {
-        try {
-          const prize = JSON.parse(pendingPrize);
-          await supabase.from('user_coupons').insert({
-            user_id: authData.user.id,
-            code: prize.code,
-            discount_type: prize.type,
-            discount_value: prize.value,
-            valid_until: prize.valid_until,
-          });
-          localStorage.removeItem('pending_prize');
-        } catch (error) {
-          console.error('Error claiming prize:', error);
-        }
       }
 
       await loadProfile(authData.user.id);
@@ -242,23 +216,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           toast.error(message);
           await signOut();
           return { error: { message } as AuthError };
-        }
-      }
-
-      const pendingPrize = localStorage.getItem('pending_prize');
-      if (pendingPrize) {
-        try {
-          const prize = JSON.parse(pendingPrize);
-          await supabase.from('user_coupons').insert({
-            user_id: authData.user.id,
-            code: prize.code,
-            discount_type: prize.type,
-            discount_value: prize.value,
-            valid_until: prize.valid_until,
-          });
-          localStorage.removeItem('pending_prize');
-        } catch (error) {
-          console.error('Error claiming prize:', error);
         }
       }
 

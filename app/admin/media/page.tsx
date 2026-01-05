@@ -62,7 +62,6 @@ export default function MediaAdminPage() {
 
       setStats(calculatedStats);
     } catch (error) {
-      console.error('Error loading stats:', error);
       toast.error('Erreur lors du chargement des statistiques');
     } finally {
       setLoading(false);

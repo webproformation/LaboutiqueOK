@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { User, LogOut, Shield } from 'lucide-react';
@@ -131,13 +131,14 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         }
       }
     } catch (error) {
-      console.error('Error loading categories:', error);
+      // Silently handle category loading errors
     }
   }
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent side="left" className="w-80 bg-black text-white overflow-y-auto">
+        <SheetTitle className="sr-only">Menu de navigation</SheetTitle>
         <div className="py-6">
           {user && profile ? (
             <div className="mb-6 pb-6 border-b border-gray-700">

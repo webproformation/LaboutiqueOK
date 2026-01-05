@@ -1,32 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProfilePictureUpload } from '@/components/profile-picture-upload';
-import {
-  User,
-  Mail,
-  Phone,
-  Calendar,
-  Save,
-  LogOut,
-  ShieldCheck,
-  PiggyBank,
-  Loader2,
-} from 'lucide-react';
+import { User, Mail, Phone, Calendar, Save, Loader2, PiggyBank } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export default function AccountPage() {
-  const router = useRouter();
-  const { user, profile, loading, updateProfile, signOut } = useAuth();
+  const { profile, updateProfile } = useAuth();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -36,38 +23,14 @@ export default function AccountPage() {
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/auth/login?redirect=/account');
-    }
-  }, [user, loading, router]);
-
-  useEffect(() => {
     if (profile) {
-      if (profile.blocked) {
-        toast.error('Votre compte a été suspendu. Contactez le service client.');
-        signOut();
-        return;
-      }
-
       setFirstName(profile.first_name || '');
       setLastName(profile.last_name || '');
       setPhone(profile.phone || '');
       setBirthDate(profile.birth_date || '');
       setAvatarUrl(profile.avatar_url || '');
     }
-  }, [profile, signOut]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-[#b8933d]" />
-      </div>
-    );
-  }
-
-  if (!user || !profile) {
-    return null;
-  }
+  }, [profile]);
 
   const getTodayDate = () => {
     const today = new Date();
@@ -93,76 +56,34 @@ export default function AccountPage() {
     setIsUpdating(true);
     const toastId = toast.loading('Enregistrement en cours...');
 
-    try {
-      const { error } = await updateProfile({
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        phone: phone.trim(),
-        birth_date: birthDate || null,
-        avatar_url: avatarUrl,
-      });
+    const { error } = await updateProfile({
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      phone: phone.trim(),
+      birth_date: birthDate || null,
+      avatar_url: avatarUrl,
+    });
 
-      if (error) {
-        toast.error('Erreur lors de la mise à jour', { id: toastId });
-        setIsUpdating(false);
-        return;
-      }
-
-      toast.success('Profil mis à jour avec succès!', { id: toastId });
+    if (error) {
+      toast.error('Erreur lors de la mise à jour', { id: toastId });
       setIsUpdating(false);
-    } catch (error) {
-      console.error('Update error:', error);
-      toast.error('Une erreur est survenue', { id: toastId });
-      setIsUpdating(false);
+      return;
     }
+
+    toast.success('Profil mis à jour avec succès!', { id: toastId });
+    setIsUpdating(false);
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.push('/');
-  };
+  if (!profile) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold">Mon Compte</h2>
-          <p className="text-gray-600">Gérez vos informations personnelles</p>
-        </div>
-        <div className="flex gap-2">
-          {profile.is_admin && (
-            <Link href="/admin">
-              <Button variant="outline" className="gap-2">
-                <ShieldCheck className="h-4 w-4" />
-                Administration
-              </Button>
-            </Link>
-          )}
-          <Button variant="outline" onClick={handleSignOut} className="gap-2">
-            <LogOut className="h-4 w-4" />
-            Déconnexion
-          </Button>
-        </div>
-      </div>
-
-      {profile.is_admin && (
-        <Card className="bg-gradient-to-r from-black to-gray-900 border-[#b8933d]">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-[#b8933d]/20 flex items-center justify-center">
-                <ShieldCheck className="h-6 w-6 text-[#b8933d]" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-[#b8933d]">Compte Administrateur</h3>
-                <p className="text-sm text-gray-300">
-                  Vous avez accès aux fonctionnalités d'administration
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <Card className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] border-[#b8933d]">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
@@ -187,7 +108,7 @@ export default function AccountPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <User className="h-5 w-5 text-[#b8933d]" />
+            <User className="h-5 w-5 text-[#D4AF37]" />
             <CardTitle>Informations personnelles</CardTitle>
           </div>
           <CardDescription>Mettez à jour vos informations de compte</CardDescription>
@@ -289,33 +210,23 @@ export default function AccountPage() {
               </p>
             </div>
 
-            <div className="flex gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push('/')}
-                className="flex-1"
-              >
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                disabled={isUpdating}
-                className="flex-1 bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white gap-2"
-              >
-                {isUpdating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Enregistrement...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    Enregistrer
-                  </>
-                )}
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              disabled={isUpdating}
+              className="w-full bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white gap-2"
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Enregistrement...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Enregistrer
+                </>
+              )}
+            </Button>
           </form>
         </CardContent>
       </Card>
