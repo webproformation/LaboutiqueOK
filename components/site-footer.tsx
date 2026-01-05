@@ -119,7 +119,7 @@ export function SiteFooter() {
                       className="h-24 w-auto object-contain transition-transform duration-300 group-hover:scale-110"
                     />
                   </div>
-                  <div className="p-6">
+                  <div className="p-6 text-center">
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">
                       {block.title}
                     </h3>
