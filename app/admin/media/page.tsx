@@ -83,11 +83,11 @@ export default function MediaAdminPage() {
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Médiathèque</h1>
-          <p className="text-gray-600">Gérez vos images et médias</p>
+          <h1 className="text-3xl font-bold text-[#d4af37]">Médiathèque</h1>
+          <p className="text-gray-400">Gérez vos images et médias</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleRefresh} variant="outline" className="gap-2">
+          <Button onClick={handleRefresh} variant="outline" className="gap-2 border-[#d4af37]/30 text-[#d4af37] hover:bg-[#d4af37]/10">
             <RefreshCw className="h-4 w-4" />
             Actualiser
           </Button>
@@ -100,68 +100,68 @@ export default function MediaAdminPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
+          <Card className="bg-black border-[#d4af37]/30">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Images Produits</CardTitle>
-              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-[#d4af37]">Images Produits</CardTitle>
+              <ImageIcon className="h-4 w-4 text-[#d4af37]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats['product-images'].totalFiles}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-white">{stats['product-images'].totalFiles}</div>
+              <p className="text-xs text-gray-400">
                 {formatSize(stats['product-images'].totalSize)}
               </p>
               <div className="mt-2 text-xs space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-green-600">Utilisées:</span>
-                  <span className="font-medium">{stats['product-images'].usedFiles}</span>
+                  <span className="text-green-400">Utilisées:</span>
+                  <span className="font-medium text-white">{stats['product-images'].usedFiles}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-orange-600">Orphelines:</span>
-                  <span className="font-medium">{stats['product-images'].orphanFiles}</span>
+                  <span className="text-orange-400">Orphelines:</span>
+                  <span className="font-medium text-white">{stats['product-images'].orphanFiles}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-black border-[#d4af37]/30">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Images Catégories</CardTitle>
-              <Database className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-[#d4af37]">Images Catégories</CardTitle>
+              <Database className="h-4 w-4 text-[#d4af37]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats['category-images'].totalFiles}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-white">{stats['category-images'].totalFiles}</div>
+              <p className="text-xs text-gray-400">
                 {formatSize(stats['category-images'].totalSize)}
               </p>
               <div className="mt-2 text-xs space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-green-600">Utilisées:</span>
-                  <span className="font-medium">{stats['category-images'].usedFiles}</span>
+                  <span className="text-green-400">Utilisées:</span>
+                  <span className="font-medium text-white">{stats['category-images'].usedFiles}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-orange-600">Orphelines:</span>
-                  <span className="font-medium">{stats['category-images'].orphanFiles}</span>
+                  <span className="text-orange-400">Orphelines:</span>
+                  <span className="font-medium text-white">{stats['category-images'].orphanFiles}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-black border-[#d4af37]/30">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Stockage Total</CardTitle>
-              <HardDrive className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-[#d4af37]">Stockage Total</CardTitle>
+              <HardDrive className="h-4 w-4 text-[#d4af37]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold text-white">
                 {stats['product-images'].totalFiles + stats['category-images'].totalFiles}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-gray-400">
                 {formatSize(stats['product-images'].totalSize + stats['category-images'].totalSize)}
               </p>
               <div className="mt-2 text-xs space-y-1">
                 <div className="flex items-center justify-between">
-                  <span>Taux utilisation:</span>
-                  <span className="font-medium">
+                  <span className="text-gray-400">Taux utilisation:</span>
+                  <span className="font-medium text-[#d4af37]">
                     {stats['product-images'].totalFiles + stats['category-images'].totalFiles > 0
                       ? Math.round(((stats['product-images'].usedFiles + stats['category-images'].usedFiles) /
                           (stats['product-images'].totalFiles + stats['category-images'].totalFiles)) * 100)
@@ -174,18 +174,18 @@ export default function MediaAdminPage() {
         </div>
       )}
 
-      <Card>
+      <Card className="bg-black border-[#d4af37]/30">
         <CardHeader>
-          <CardTitle>Bibliothèque de médias</CardTitle>
-          <CardDescription>Parcourez et gérez vos images par catégorie</CardDescription>
+          <CardTitle className="text-[#d4af37]">Bibliothèque de médias</CardTitle>
+          <CardDescription className="text-gray-400">Parcourez et gérez vos images par catégorie</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs value={selectedBucket} onValueChange={(v) => setSelectedBucket(v as any)}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="product-images">
+            <TabsList className="grid w-full grid-cols-2 bg-black border border-[#d4af37]/30">
+              <TabsTrigger value="product-images" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-black text-gray-400">
                 Images Produits ({stats['product-images'].totalFiles})
               </TabsTrigger>
-              <TabsTrigger value="category-images">
+              <TabsTrigger value="category-images" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-black text-gray-400">
                 Images Catégories ({stats['category-images'].totalFiles})
               </TabsTrigger>
             </TabsList>

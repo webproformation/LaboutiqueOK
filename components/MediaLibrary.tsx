@@ -106,18 +106,29 @@ export default function MediaLibrary({
   const loadMediaFiles = async () => {
     setLoading(true);
     try {
+      console.log('Loading media files from bucket:', bucket);
+
       const { data, error } = await supabase
         .from('media')
         .select('*')
         .eq('bucket_name', bucket)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        throw error;
+      }
 
+      console.log(`Loaded ${data?.length || 0} media files`);
       setMediaFiles(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading media files:', error);
-      toast.error('Erreur lors du chargement des médias');
+      toast.error(`Erreur lors du chargement: ${error.message || 'Erreur inconnue'}`);
     } finally {
       setLoading(false);
     }
@@ -251,12 +262,12 @@ export default function MediaLibrary({
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#d4af37]" />
           <Input
             placeholder="Rechercher par nom de fichier..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500 focus:border-[#d4af37]"
           />
         </div>
         <input
@@ -269,7 +280,7 @@ export default function MediaLibrary({
         <Button
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="gap-2"
+          className="gap-2 bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
         >
           {uploading ? (
             <>
@@ -286,12 +297,14 @@ export default function MediaLibrary({
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">Toutes ({mediaFiles.length})</TabsTrigger>
-          <TabsTrigger value="used">
+        <TabsList className="grid w-full grid-cols-3 bg-black border border-[#d4af37]/30">
+          <TabsTrigger value="all" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-black text-gray-400">
+            Toutes ({mediaFiles.length})
+          </TabsTrigger>
+          <TabsTrigger value="used" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-black text-gray-400">
             Utilisées ({mediaFiles.filter((f) => f.usage_count && f.usage_count > 0).length})
           </TabsTrigger>
-          <TabsTrigger value="unused">
+          <TabsTrigger value="unused" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-black text-gray-400">
             Non utilisées ({mediaFiles.filter((f) => !f.usage_count || f.usage_count === 0).length})
           </TabsTrigger>
         </TabsList>
@@ -299,10 +312,10 @@ export default function MediaLibrary({
         <TabsContent value={activeTab} className="mt-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-[#b8933d]" />
+              <Loader2 className="h-8 w-8 animate-spin text-[#d4af37]" />
             </div>
           ) : filteredFiles.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-gray-400">
               <p>Aucun fichier trouvé</p>
             </div>
           ) : (
@@ -310,10 +323,10 @@ export default function MediaLibrary({
               {filteredFiles.map((file) => (
                 <Card
                   key={file.id}
-                  className={`relative group cursor-pointer overflow-hidden transition-all ${
+                  className={`relative group cursor-pointer overflow-hidden transition-all bg-black border-[#d4af37]/30 ${
                     selectedFile === file.url
-                      ? 'ring-2 ring-[#b8933d] ring-offset-2'
-                      : 'hover:shadow-lg'
+                      ? 'ring-2 ring-[#d4af37] ring-offset-2 ring-offset-black'
+                      : 'hover:border-[#d4af37]'
                   }`}
                   onClick={() => handleSelectFile(file.url)}
                 >
@@ -324,7 +337,7 @@ export default function MediaLibrary({
                       className="w-full h-full object-cover"
                     />
                     {selectedFile === file.url && (
-                      <div className="absolute top-2 right-2 bg-[#b8933d] text-white rounded-full p-1">
+                      <div className="absolute top-2 right-2 bg-[#d4af37] text-black rounded-full p-1">
                         <Check className="h-4 w-4" />
                       </div>
                     )}
@@ -336,7 +349,7 @@ export default function MediaLibrary({
                           e.stopPropagation();
                           handleDelete(file.id, file.url.split('/').slice(-2).join('/'));
                         }}
-                        className="gap-2"
+                        className="gap-2 bg-red-600 hover:bg-red-700"
                       >
                         <Trash2 className="h-4 w-4" />
                         Supprimer
@@ -344,13 +357,13 @@ export default function MediaLibrary({
                     </div>
                   </div>
                   <div className="p-2 space-y-1">
-                    <p className="text-xs font-medium truncate" title={file.filename}>
+                    <p className="text-xs font-medium truncate text-white" title={file.filename}>
                       {file.filename}
                     </p>
-                    <div className="flex items-center justify-between text-xs text-gray-500">
+                    <div className="flex items-center justify-between text-xs text-gray-400">
                       <span>{formatFileSize(file.file_size)}</span>
                       {file.usage_count !== undefined && (
-                        <span>Utilisé: {file.usage_count}×</span>
+                        <span className="text-[#d4af37]">Utilisé: {file.usage_count}×</span>
                       )}
                     </div>
                   </div>
