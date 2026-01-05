@@ -135,18 +135,67 @@ export default function ProductEditForm({
   };
 
   const buildCategoryTree = () => {
-    const parentCategories = allCategories.filter((cat) => !cat.parent_id);
-    const childCategories = allCategories.filter((cat) => cat.parent_id);
+    const categoryMap = new Map();
 
-    return parentCategories.map((parent) => ({
-      ...parent,
-      children: childCategories
-        .filter((child) => child.parent_id === parent.id)
-        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0)),
-    })).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    allCategories.forEach((cat) => {
+      categoryMap.set(cat.id, { ...cat, children: [] });
+    });
+
+    const rootCategories: any[] = [];
+
+    allCategories.forEach((cat) => {
+      const node = categoryMap.get(cat.id);
+      if (cat.parent_id && categoryMap.has(cat.parent_id)) {
+        const parent = categoryMap.get(cat.parent_id);
+        parent.children.push(node);
+      } else {
+        rootCategories.push(node);
+      }
+    });
+
+    const sortRecursively = (nodes: any[]) => {
+      nodes.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+      nodes.forEach((node) => {
+        if (node.children.length > 0) {
+          sortRecursively(node.children);
+        }
+      });
+    };
+
+    sortRecursively(rootCategories);
+    return rootCategories;
   };
 
   const categoryTree = buildCategoryTree();
+
+  const renderCategoryOption = (category: any, level: number = 0): JSX.Element[] => {
+    const indent = "  ".repeat(level);
+    const result: JSX.Element[] = [
+      <div key={category.id} className="space-y-2">
+        <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg" style={{ marginLeft: `${level * 1.5}rem` }}>
+          <Checkbox
+            id={`cat-${category.id}`}
+            checked={categories.includes(category.id)}
+            onCheckedChange={() => toggleCategory(category.id)}
+          />
+          <Label
+            htmlFor={`cat-${category.id}`}
+            className={`cursor-pointer ${level === 0 ? 'font-semibold text-base' : 'text-sm'}`}
+          >
+            {indent}{category.name}
+          </Label>
+        </div>
+      </div>
+    ];
+
+    if (category.children && category.children.length > 0) {
+      category.children.forEach((child: any) => {
+        result.push(...renderCategoryOption(child, level + 1));
+      });
+    }
+
+    return result;
+  };
 
   return (
     <form onSubmit={handleSubmit}>
@@ -275,45 +324,7 @@ export default function ProductEditForm({
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {categoryTree.map((parent) => (
-                    <div key={parent.id} className="space-y-2">
-                      <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg">
-                        <Checkbox
-                          id={`cat-${parent.id}`}
-                          checked={categories.includes(parent.id)}
-                          onCheckedChange={() => toggleCategory(parent.id)}
-                        />
-                        <Label
-                          htmlFor={`cat-${parent.id}`}
-                          className="cursor-pointer font-semibold text-base"
-                        >
-                          {parent.name}
-                        </Label>
-                      </div>
-                      {parent.children && parent.children.length > 0 && (
-                        <div className="ml-8 space-y-2 border-l-2 border-gray-200 pl-4">
-                          {parent.children.map((child) => (
-                            <div
-                              key={child.id}
-                              className="flex items-center space-x-2"
-                            >
-                              <Checkbox
-                                id={`cat-${child.id}`}
-                                checked={categories.includes(child.id)}
-                                onCheckedChange={() => toggleCategory(child.id)}
-                              />
-                              <Label
-                                htmlFor={`cat-${child.id}`}
-                                className="cursor-pointer text-sm"
-                              >
-                                {child.name}
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  {categoryTree.map((category) => renderCategoryOption(category))}
                 </div>
               )}
             </CardContent>

@@ -179,7 +179,7 @@ export default function CategoriesTable({
     return (
       <div key={node.id}>
         <TableRow className="hover:bg-gray-50 transition-colors">
-          <TableCell style={{ paddingLeft: `${indent + 1}rem` }}>
+          <TableCell className="w-[40%]" style={{ paddingLeft: `${indent + 1}rem` }}>
             <div className="flex items-center gap-2">
               {level > 0 && (
                 <div className="w-4 h-4 border-l-2 border-b-2 border-gray-300 rounded-bl-lg -ml-2" />
@@ -208,7 +208,7 @@ export default function CategoriesTable({
                   <FolderOpen className="h-5 w-5 text-gray-400" />
                 </div>
               )}
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="font-semibold text-gray-900 flex items-center gap-2">
                   {decodeHtmlEntities(node.name)}
                   {level > 0 && (
@@ -225,12 +225,12 @@ export default function CategoriesTable({
               </div>
             </div>
           </TableCell>
-          <TableCell>
-            <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
+          <TableCell className="w-[20%]">
+            <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono break-all">
               {node.slug}
             </code>
           </TableCell>
-          <TableCell>
+          <TableCell className="w-[15%]">
             <div className="flex flex-col gap-1">
               <Badge variant="secondary" className="w-fit">
                 {node.productCount} direct{node.productCount > 1 ? 's' : ''}
@@ -242,13 +242,13 @@ export default function CategoriesTable({
               )}
             </div>
           </TableCell>
-          <TableCell>
+          <TableCell className="w-[10%]">
             <div className="flex items-center gap-1 text-gray-500">
               <GripVertical className="h-4 w-4" />
               <span className="text-sm font-mono">{node.display_order}</span>
             </div>
           </TableCell>
-          <TableCell className="text-right">
+          <TableCell className="text-right w-[15%]">
             <div className="flex items-center justify-end gap-2">
               <Link href={`/admin/categories-management/${node.id}`}>
                 <Button
@@ -362,11 +362,11 @@ export default function CategoriesTable({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50">
-                    <TableHead className="font-semibold">Catégorie</TableHead>
-                    <TableHead className="font-semibold">Slug</TableHead>
-                    <TableHead className="font-semibold">Produits</TableHead>
-                    <TableHead className="font-semibold">Ordre</TableHead>
-                    <TableHead className="text-right font-semibold">Actions</TableHead>
+                    <TableHead className="font-semibold w-[40%]">Catégorie</TableHead>
+                    <TableHead className="font-semibold w-[20%]">Slug</TableHead>
+                    <TableHead className="font-semibold w-[15%]">Produits</TableHead>
+                    <TableHead className="font-semibold w-[10%]">Ordre</TableHead>
+                    <TableHead className="text-right font-semibold w-[15%]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
