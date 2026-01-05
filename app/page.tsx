@@ -1,5 +1,6 @@
 import { HeroSlider } from '@/components/hero-slider';
 import { FeaturedProducts } from '@/components/featured-products';
+import { HomeCategories } from '@/components/home-categories';
 import Link from 'next/link';
 import { Sparkles, Gift, Truck } from 'lucide-react';
 
@@ -13,6 +14,8 @@ export default function Home() {
         <section className="container mx-auto px-4 py-8">
           <HeroSlider />
         </section>
+
+        <HomeCategories />
 
         <section className="bg-gradient-to-r from-[#F8B4C1]/20 to-[#D4AF37]/20 py-12">
           <div className="container mx-auto px-4">

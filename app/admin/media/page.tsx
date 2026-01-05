@@ -22,11 +22,13 @@ export default function MediaAdminPage() {
     'product-images': { totalFiles: 0, totalSize: 0, usedFiles: 0, orphanFiles: 0 },
     'category-images': { totalFiles: 0, totalSize: 0, usedFiles: 0, orphanFiles: 0 },
   });
-  const [selectedBucket, setSelectedBucket] = useState<'product-images' | 'category-images'>('product-images');
+  const [selectedBucket, setSelectedBucket] = useState<'all-product-images' | 'product-images' | 'category-images'>('all-product-images');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [productImages, setProductImages] = useState<string[]>([]);
 
   useEffect(() => {
     loadStats();
+    loadProductImages();
   }, []);
 
   const loadStats = async () => {
@@ -74,8 +76,25 @@ export default function MediaAdminPage() {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   };
 
+  const loadProductImages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('image_url')
+        .not('image_url', 'is', null);
+
+      if (error) throw error;
+
+      const uniqueUrls = Array.from(new Set(data.map(p => p.image_url).filter(Boolean)));
+      setProductImages(uniqueUrls as string[]);
+    } catch (error) {
+      console.error('Error loading product images:', error);
+    }
+  };
+
   const handleRefresh = () => {
     loadStats();
+    loadProductImages();
     setRefreshKey(prev => prev + 1);
   };
 
@@ -181,14 +200,62 @@ export default function MediaAdminPage() {
         </CardHeader>
         <CardContent>
           <Tabs value={selectedBucket} onValueChange={(v) => setSelectedBucket(v as any)}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="all-product-images">
+                Toutes les images ({productImages.length})
+              </TabsTrigger>
               <TabsTrigger value="product-images">
-                Images Produits ({stats['product-images'].totalFiles})
+                Bucket Produits ({stats['product-images'].totalFiles})
               </TabsTrigger>
               <TabsTrigger value="category-images">
-                Images Catégories ({stats['category-images'].totalFiles})
+                Bucket Catégories ({stats['category-images'].totalFiles})
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="all-product-images" className="mt-4">
+              <div className="space-y-4">
+                <div className="text-sm text-gray-600">
+                  Images utilisées dans les produits ({productImages.length} images)
+                </div>
+                {productImages.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <ImageIcon className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p>Aucune image trouvée</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {productImages.map((url, index) => (
+                      <div
+                        key={index}
+                        className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-[#d4af37] transition-all group"
+                      >
+                        <img
+                          src={url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => {
+                              navigator.clipboard.writeText(url);
+                              toast.success('URL copiée');
+                            }}
+                          >
+                            Copier URL
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
 
             <TabsContent value="product-images" className="mt-4">
               <MediaLibrary

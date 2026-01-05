@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Save, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { MediaSelector } from "@/components/media-selector";
 
 interface Product {
   id: string;
@@ -325,32 +326,13 @@ export default function ProductEditForm({
               <CardTitle>Image du produit</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="image_url">URL de l'image</Label>
-                <Input
-                  id="image_url"
-                  type="url"
-                  value={formData.image_url}
-                  onChange={(e) =>
-                    setFormData({ ...formData, image_url: e.target.value })
-                  }
-                  placeholder="https://example.com/image.jpg"
-                />
-              </div>
-
-              {formData.image_url && (
-                <div className="border rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-2">Aperçu :</p>
-                  <img
-                    src={formData.image_url}
-                    alt="Preview"
-                    className="max-w-xs rounded-lg"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                </div>
-              )}
+              <MediaSelector
+                currentImageUrl={formData.image_url}
+                onSelect={(imageUrl) =>
+                  setFormData({ ...formData, image_url: imageUrl })
+                }
+                label="Image principale du produit"
+              />
             </CardContent>
           </Card>
         </TabsContent>
