@@ -44,6 +44,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/admin/products", label: "Produits" },
       { href: "/admin/categories-management", label: "Catégories" },
+      { href: "/admin/products/sync-categories", label: "Sync Catégories" },
       { href: "/admin/orders", label: "Commandes" },
       { href: "/admin/coupons", label: "Coupons" },
       { href: "/admin/reviews", label: "Avis clients" },
