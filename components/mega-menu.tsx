@@ -110,8 +110,6 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
     );
   }
 
-  const gridCols = type === 'mode' ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5' : 'grid-cols-2 md:grid-cols-3';
-
   return (
     <div
       className="absolute left-0 right-0 top-full bg-[#F2F2E8] border-t border-gray-200 shadow-xl z-50"
@@ -121,7 +119,7 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
         {loading ? (
           <div className="text-center py-4">Chargement...</div>
         ) : categories.length > 0 ? (
-          <div className={`grid ${gridCols} gap-8`}>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
             {categories.map((category) => (
               <div key={category.id} className="space-y-3">
                 <Link
