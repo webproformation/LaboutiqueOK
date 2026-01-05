@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Search,
   Heart,
@@ -27,6 +27,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { MegaMenu } from '@/components/mega-menu';
 import { MobileMenu } from '@/components/mobile-menu';
+import { useAuth } from '@/context/AuthContext';
 
 const navigation = [
   { name: 'Nouveautés', href: '/category/nouveautes', hasMegaMenu: false },
@@ -42,14 +43,19 @@ const navigation = [
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, profile, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openMegaMenu, setOpenMegaMenu] = useState<'mode' | 'morgane' | 'maison' | 'beaute' | null>(null);
   const [wishlistCount, setWishlistCount] = useState(0);
   const [cartCount, setCartCount] = useState(0);
-  const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/');
+  };
 
   const handleMouseEnter = (megaType: 'mode' | 'morgane' | 'maison' | 'beaute') => {
     if (closeTimerRef.current) {
@@ -161,20 +167,20 @@ export function SiteHeader() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  {user ? (
+                  {user && profile ? (
                     <>
                       <DropdownMenuLabel>
                         <div className="flex flex-col space-y-1">
                           <p className="text-sm font-medium">
-                            {user.first_name} {user.last_name}
+                            {profile.first_name} {profile.last_name}
                           </p>
-                          <p className="text-xs text-muted-foreground">{user.email}</p>
+                          <p className="text-xs text-muted-foreground">{profile.email}</p>
                         </div>
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      {isAdmin && (
+                      {profile.is_admin && (
                         <DropdownMenuItem asChild>
-                          <Link href="/admin" className="flex items-center bg-blue-50 text-blue-700 font-medium">
+                          <Link href="/admin" className="flex items-center bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white font-medium">
                             <Shield className="mr-2 h-4 w-4" />
                             Administration
                           </Link>
@@ -183,7 +189,7 @@ export function SiteHeader() {
                       <DropdownMenuItem asChild>
                         <Link href="/account" className="flex items-center">
                           <User className="mr-2 h-4 w-4" />
-                          Mon profil
+                          Mon compte
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -199,7 +205,10 @@ export function SiteHeader() {
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-[#DF30CF] focus:text-[#DF30CF]">
+                      <DropdownMenuItem
+                        onClick={handleSignOut}
+                        className="text-[#b8933d] focus:text-[#d4af37] cursor-pointer"
+                      >
                         <LogOut className="mr-2 h-4 w-4" />
                         Déconnexion
                       </DropdownMenuItem>
@@ -207,17 +216,17 @@ export function SiteHeader() {
                   ) : (
                     <>
                       <DropdownMenuItem asChild>
-                        <Link href="/auth/login">Se connecter</Link>
+                        <Link href="/auth/login" className="cursor-pointer">Se connecter</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/auth/register">Créer un compte</Link>
+                        <Link href="/auth/register" className="cursor-pointer">Créer un compte</Link>
                       </DropdownMenuItem>
                     </>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {isAdmin && (
+              {profile?.is_admin && (
                 <Link href="/admin" className="md:hidden">
                   <Button
                     variant="ghost"

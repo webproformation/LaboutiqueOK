@@ -10,6 +10,10 @@ interface MegaMenuProps {
   onClose: () => void;
 }
 
+interface CategoryWithChildren extends ProductCategory {
+  children?: ProductCategory[];
+}
+
 const morganeCategories = [
   { name: "Les coups de cœur de Morgane", slug: "les-coups-de-coeur-de-morgane" },
   { name: "L'ambiance de la semaine", slug: "l-ambiance-de-la-semaine" },
@@ -17,7 +21,7 @@ const morganeCategories = [
 ];
 
 export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
-  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [categories, setCategories] = useState<CategoryWithChildren[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,13 +48,31 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
 
       if (parentCategory) {
         const parent = parentCategory as { id: string };
-        const { data } = await supabase
+
+        const { data: level1Categories } = await supabase
           .from('categories')
           .select('*')
           .eq('parent_id', parent.id)
           .order('display_order', { ascending: true });
 
-        setCategories(data || []);
+        if (level1Categories) {
+          const categoriesWithChildren: CategoryWithChildren[] = await Promise.all(
+            level1Categories.map(async (cat) => {
+              const { data: children } = await supabase
+                .from('categories')
+                .select('*')
+                .eq('parent_id', cat.id)
+                .order('display_order', { ascending: true });
+
+              return {
+                ...cat,
+                children: children || []
+              };
+            })
+          );
+
+          setCategories(categoriesWithChildren);
+        }
       }
     } catch (error) {
       console.error('Error loading categories:', error);
@@ -96,23 +118,34 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
         {loading ? (
           <div className="text-center py-4">Chargement...</div>
         ) : categories.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
             {categories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/category/${category.slug}`}
-                className="block p-4 rounded-lg hover:bg-white/50 transition-colors"
-                onClick={onClose}
-              >
-                <h3 className="font-semibold text-gray-900 hover:text-[#D4AF37] transition-colors">
-                  {category.name}
-                </h3>
-                {category.description && (
-                  <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                    {category.description}
-                  </p>
+              <div key={category.id} className="space-y-3">
+                <Link
+                  href={`/category/${category.slug}`}
+                  className="block group"
+                  onClick={onClose}
+                >
+                  <h3 className="font-bold text-base text-gray-900 group-hover:text-[#D4AF37] transition-colors mb-3 border-b border-gray-300 pb-2">
+                    {category.name}
+                  </h3>
+                </Link>
+                {category.children && category.children.length > 0 && (
+                  <ul className="space-y-2 pl-0">
+                    {category.children.map((child) => (
+                      <li key={child.id}>
+                        <Link
+                          href={`/category/${child.slug}`}
+                          className="block text-sm text-gray-700 hover:text-[#D4AF37] hover:translate-x-1 transition-all duration-200"
+                          onClick={onClose}
+                        >
+                          {child.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 )}
-              </Link>
+              </div>
             ))}
           </div>
         ) : (
