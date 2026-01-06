@@ -22,6 +22,7 @@ import {
   Menu,
   X,
   ArrowLeft,
+  Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ const navSections: NavSection[] = [
       { href: "/admin/orders", label: "Commandes" },
       { href: "/admin/coupons", label: "Coupons" },
       { href: "/admin/reviews", label: "Avis clients" },
+      { href: "/admin/shipping-methods", label: "Méthodes de livraison" },
     ],
   },
   {
@@ -103,11 +105,17 @@ export default function AdminLayout({
   const pathname = usePathname();
 
   const toggleSection = (title: string) => {
-    setExpandedSections((prev) =>
-      prev.includes(title)
-        ? prev.filter((t) => t !== title)
-        : [...prev, title]
-    );
+    setExpandedSections((prev) => {
+      if (prev.includes(title)) {
+        return prev.filter((t) => t !== title);
+      } else {
+        return [title];
+      }
+    });
+  };
+
+  const handleNavClick = (sectionTitle: string) => {
+    setExpandedSections([sectionTitle]);
   };
 
   return (
@@ -177,7 +185,10 @@ export default function AdminLayout({
                         <Link
                           key={item.href}
                           href={item.href}
-                          onClick={() => setSidebarOpen(false)}
+                          onClick={() => {
+                            handleNavClick(section.title);
+                            setSidebarOpen(false);
+                          }}
                           className={cn(
                             "block px-3 py-2 rounded-lg text-sm transition-colors",
                             isActive
