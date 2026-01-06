@@ -104,7 +104,6 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
         meta_title: formData.meta_title || null,
         meta_description: formData.meta_description || null,
         seo_keywords: formData.seo_keywords || null,
-        is_visible: true,
       };
 
       if (category) {

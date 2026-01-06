@@ -184,7 +184,7 @@ export default function CategoriesTable({
     return (
       <div key={node.id}>
         <TableRow className={`hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent transition-all duration-200 ${!isVisible ? 'opacity-60' : ''}`}>
-          <TableCell style={{ width: '35%', paddingLeft: `${indent + 1}rem` }}>
+          <TableCell className="w-[40%]" style={{ paddingLeft: `${indent + 1}rem` }}>
             <div className="flex items-center gap-3">
               {level > 0 && (
                 <div className="w-4 h-4 border-l-2 border-b-2 border-[#d4af37]/30 rounded-bl-lg -ml-2" />
@@ -249,14 +249,14 @@ export default function CategoriesTable({
               </div>
             </div>
           </TableCell>
-          <TableCell style={{ width: '20%' }}>
+          <TableCell className="w-[20%]">
             <div className="flex flex-col gap-1">
               <code className="text-xs bg-gray-100 px-2.5 py-1.5 rounded-lg font-mono break-all border border-gray-200">
                 {node.slug}
               </code>
             </div>
           </TableCell>
-          <TableCell style={{ width: '15%' }}>
+          <TableCell className="w-[15%]">
             <div className="flex flex-col gap-1.5">
               <Badge variant="secondary" className="w-fit bg-[#d4af37]/10 text-[#d4af37] border-[#d4af37]/20 font-semibold">
                 {node.productCount} {node.productCount > 1 ? 'produits' : 'produit'}
@@ -268,13 +268,13 @@ export default function CategoriesTable({
               )}
             </div>
           </TableCell>
-          <TableCell style={{ width: '10%' }}>
+          <TableCell className="w-[10%]">
             <div className="flex items-center gap-2 text-gray-600">
               <GripVertical className="h-4 w-4 text-gray-400" />
               <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded-md">{node.display_order}</span>
             </div>
           </TableCell>
-          <TableCell className="text-right" style={{ width: '20%' }}>
+          <TableCell className="text-right w-[15%]">
             <div className="flex items-center justify-end gap-2">
               <Link href={`/admin/categories-management/${node.id}`}>
                 <Button
@@ -398,24 +398,24 @@ export default function CategoriesTable({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table className="w-full">
+              <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-[#d4af37]/20">
-                    <TableHead className="font-bold text-gray-700 text-sm" style={{ width: '35%' }}>
+                    <TableHead className="font-bold text-gray-700 text-sm w-[40%]">
                       <div className="flex items-center gap-2">
                         <FolderTree className="h-4 w-4 text-[#d4af37]" />
                         Catégorie
                       </div>
                     </TableHead>
-                    <TableHead className="font-bold text-gray-700 text-sm" style={{ width: '20%' }}>Slug</TableHead>
-                    <TableHead className="font-bold text-gray-700 text-sm" style={{ width: '15%' }}>
+                    <TableHead className="font-bold text-gray-700 text-sm w-[20%]">Slug</TableHead>
+                    <TableHead className="font-bold text-gray-700 text-sm w-[15%]">
                       <div className="flex items-center gap-2">
                         <ShoppingBag className="h-4 w-4 text-[#d4af37]" />
                         Produits
                       </div>
                     </TableHead>
-                    <TableHead className="font-bold text-gray-700 text-sm" style={{ width: '10%' }}>Ordre</TableHead>
-                    <TableHead className="text-right font-bold text-gray-700 text-sm" style={{ width: '20%' }}>Actions</TableHead>
+                    <TableHead className="font-bold text-gray-700 text-sm w-[10%]">Ordre</TableHead>
+                    <TableHead className="text-right font-bold text-gray-700 text-sm w-[15%]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
