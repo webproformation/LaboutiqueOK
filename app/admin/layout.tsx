@@ -44,7 +44,6 @@ const navSections: NavSection[] = [
     items: [
       { href: "/admin/products", label: "Produits" },
       { href: "/admin/categories-management", label: "Catégories" },
-      { href: "/admin/products/sync-categories", label: "Sync Catégories" },
       { href: "/admin/orders", label: "Commandes" },
       { href: "/admin/coupons", label: "Coupons" },
       { href: "/admin/reviews", label: "Avis clients" },
@@ -206,7 +205,7 @@ export default function AdminLayout({
 
       {/* Main content */}
       <main className="lg:ml-64 min-h-screen pt-16 lg:pt-0">
-        <div className="p-6">{children}</div>
+        <div className="p-6 max-w-[1800px] mx-auto w-full">{children}</div>
       </main>
     </div>
   );

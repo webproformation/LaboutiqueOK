@@ -53,7 +53,7 @@ export default async function CategoriesManagementPage() {
   const visibleCategories = categories.filter(cat => cat.is_visible !== false);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-[#b8933d] to-[#d4af37] bg-clip-text text-transparent">
