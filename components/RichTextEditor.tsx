@@ -167,10 +167,10 @@ export default function RichTextEditor({
   ];
 
   return (
-    <div className={`border rounded-lg overflow-hidden bg-black transition-colors ${
+    <div className={`border rounded-lg overflow-hidden bg-white transition-colors ${
       isFocused ? 'border-[#d4af37] ring-1 ring-[#d4af37]' : 'border-[#d4af37]/30'
     }`}>
-      <div className="bg-black border-b border-[#d4af37]/30 p-2 flex flex-wrap gap-1">
+      <div className="bg-gray-50 border-b border-[#d4af37]/30 p-2 flex flex-wrap gap-1">
         {toolbarButtons.map((button, index) => {
           if ('separator' in button && button.separator) {
             return (
@@ -191,7 +191,7 @@ export default function RichTextEditor({
               size="sm"
               onClick={button.command}
               title={button.title}
-              className="h-8 w-8 p-0 hover:bg-[#d4af37]/20 hover:text-[#d4af37] text-gray-400"
+              className="h-8 w-8 p-0 hover:bg-[#d4af37]/20 hover:text-[#d4af37] text-gray-600"
             >
               <Icon className="h-4 w-4" />
             </Button>
@@ -205,7 +205,7 @@ export default function RichTextEditor({
         onInput={updateContent}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        className="min-h-[300px] p-4 prose prose-invert max-w-none focus:outline-none text-white"
+        className="min-h-[300px] p-4 prose max-w-none focus:outline-none text-gray-900"
         style={{
           wordWrap: 'break-word',
           overflowWrap: 'break-word',
@@ -244,6 +244,7 @@ export default function RichTextEditor({
 
         [contenteditable] p {
           margin: 1em 0;
+          color: #1f2937;
         }
 
         [contenteditable] ul,
@@ -264,18 +265,18 @@ export default function RichTextEditor({
           border-left: 4px solid #d4af37;
           padding-left: 1em;
           margin: 1em 0;
-          color: #9ca3af;
+          color: #6b7280;
           font-style: italic;
         }
 
         [contenteditable] pre {
-          background: #1f2937;
-          border: 1px solid #374151;
+          background: #f3f4f6;
+          border: 1px solid #d1d5db;
           border-radius: 0.375rem;
           padding: 1em;
           overflow-x: auto;
           font-family: monospace;
-          color: #d4af37;
+          color: #1f2937;
         }
 
         [contenteditable] a {

@@ -77,19 +77,10 @@ export default function NewsCategoriesPage() {
 
       if (error) throw error;
 
-      const categoriesWithCount = await Promise.all(
-        (categoriesData || []).map(async (cat) => {
-          const { count } = await supabase
-            .from('news_post_categories')
-            .select('*', { count: 'exact', head: true })
-            .eq('category_id', cat.id);
-
-          return {
-            ...cat,
-            count: count || 0
-          };
-        })
-      );
+      const categoriesWithCount = (categoriesData || []).map((cat) => ({
+        ...cat,
+        count: cat.count || 0
+      }));
 
       setCategories(categoriesWithCount);
     } catch (error) {
@@ -129,15 +120,23 @@ export default function NewsCategoriesPage() {
       const categoryData = {
         name: formData.name,
         slug: formData.slug,
-        description: formData.description,
+        description: formData.description || '',
         color: formData.color,
         display_order: formData.display_order,
+        count: 0,
+        is_active: true,
       };
 
       if (editingCategory) {
         const { error } = await supabase
           .from('news_categories')
-          .update(categoryData)
+          .update({
+            name: formData.name,
+            slug: formData.slug,
+            description: formData.description || '',
+            color: formData.color,
+            display_order: formData.display_order,
+          })
           .eq('id', editingCategory.id);
 
         if (error) throw error;
@@ -145,7 +144,15 @@ export default function NewsCategoriesPage() {
       } else {
         const { error } = await supabase
           .from('news_categories')
-          .insert([categoryData]);
+          .insert({
+            name: formData.name,
+            slug: formData.slug,
+            description: formData.description || '',
+            color: formData.color,
+            display_order: formData.display_order,
+            count: 0,
+            is_active: true,
+          });
 
         if (error) throw error;
         toast.success('Catégorie créée');
