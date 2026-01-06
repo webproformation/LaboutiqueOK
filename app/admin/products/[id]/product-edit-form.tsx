@@ -213,7 +213,9 @@ export default function ProductEditForm({
 
   const handleSave = async () => {
     if (!product.name || !product.slug) {
-      toast.error("Le nom et le slug sont requis");
+      toast.error("Le nom et le slug sont requis", {
+        position: "bottom-right",
+      });
       return;
     }
 
@@ -366,8 +368,14 @@ export default function ProductEditForm({
 
       console.log("=== SAVE SUCCESSFUL ===");
 
-      toast.success("Produit mis à jour avec succès");
-      router.refresh();
+      toast.success("Produit mis à jour avec succès", {
+        duration: 4000,
+        position: "bottom-right",
+      });
+
+      setTimeout(() => {
+        router.push("/admin/products");
+      }, 1000);
     } catch (error: any) {
       console.error("=== FULL SUPABASE ERROR ===");
       console.error("Error Object:", JSON.stringify(error, null, 2));
