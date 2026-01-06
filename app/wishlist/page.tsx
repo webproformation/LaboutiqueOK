@@ -14,10 +14,10 @@ interface Product {
   id: string;
   name: string;
   slug: string;
-  price: number;
+  regular_price: number;
   sale_price: number | null;
-  main_image_url: string | null;
-  stock: number;
+  image_url: string | null;
+  stock_quantity: number;
 }
 
 export default function WishlistPage() {
@@ -40,7 +40,7 @@ export default function WishlistPage() {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, slug, price, sale_price, main_image_url, stock')
+        .select('id, name, slug, regular_price, sale_price, image_url, stock_quantity')
         .in('id', wishlistItems);
 
       if (error) throw error;
@@ -73,8 +73,8 @@ export default function WishlistPage() {
           product_id: product.id,
           name: product.name,
           slug: product.slug,
-          price: product.sale_price || product.price,
-          image_url: product.main_image_url,
+          price: product.sale_price || product.regular_price,
+          image_url: product.image_url,
           quantity: 1,
         });
       }
@@ -141,9 +141,9 @@ export default function WishlistPage() {
 
               <Link href={`/product/${product.slug}`}>
                 <div className="aspect-square overflow-hidden bg-gray-100">
-                  {product.main_image_url ? (
+                  {product.image_url ? (
                     <img
-                      src={product.main_image_url}
+                      src={product.image_url}
                       alt={product.name}
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
@@ -169,17 +169,17 @@ export default function WishlistPage() {
                         {product.sale_price.toFixed(2)} €
                       </span>
                       <span className="text-sm text-gray-500 line-through">
-                        {product.price.toFixed(2)} €
+                        {product.regular_price.toFixed(2)} €
                       </span>
                     </>
                   ) : (
                     <span className="text-lg font-bold">
-                      {product.price.toFixed(2)} €
+                      {product.regular_price.toFixed(2)} €
                     </span>
                   )}
                 </div>
 
-                {product.stock > 0 ? (
+                {product.stock_quantity > 0 ? (
                   <Button
                     onClick={() => addToCart(product)}
                     className="w-full bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
