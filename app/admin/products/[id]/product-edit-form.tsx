@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { toast } from "sonner";
 import { Save, ArrowLeft, Plus, X, Upload } from "lucide-react";
 import Link from "next/link";
-import { MediaSelector } from "@/components/media-selector";
+import { ProductMediaSelector } from "@/components/product-media-selector";
 import RichTextEditor from "@/components/RichTextEditor";
 
 interface Product {
@@ -463,7 +463,7 @@ export default function ProductEditForm({
             <CardTitle className="text-[#d4af37]">Image principale</CardTitle>
           </CardHeader>
           <CardContent>
-            <MediaSelector
+            <ProductMediaSelector
               currentImageUrl={product.image_url || ""}
               onSelect={(url) => setProduct({ ...product, image_url: url })}
             />
@@ -648,7 +648,7 @@ export default function ProductEditForm({
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label>Image de la variation</Label>
-                          <MediaSelector
+                          <ProductMediaSelector
                             currentImageUrl={variation.image_url || ""}
                             onSelect={(url) => updateVariation(index, "image_url", url)}
                           />
@@ -775,7 +775,7 @@ export default function ProductEditForm({
 
             <div>
               <Label>Image Open Graph</Label>
-              <MediaSelector
+              <ProductMediaSelector
                 currentImageUrl={seoData.og_image || ""}
                 onSelect={(url) => setSeoData({ ...seoData, og_image: url })}
               />

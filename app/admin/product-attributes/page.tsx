@@ -550,8 +550,10 @@ export default function ProductAttributesPage() {
                           {term.color_code && (
                             <div className="flex items-center gap-2">
                               <div
-                                className="w-8 h-8 rounded border-2 border-gray-300"
+                                className="w-10 h-10 rounded-full border-2 border-gray-300 cursor-pointer hover:scale-110 transition-transform"
                                 style={{ backgroundColor: term.color_code }}
+                                title={`Cliquer pour changer la couleur de ${term.name}`}
+                                onClick={() => openEditTerm(term)}
                               />
                               <span className="text-sm text-gray-600">{term.color_code}</span>
                             </div>

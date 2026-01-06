@@ -22,10 +22,9 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
-import MediaLibrary from "@/components/MediaLibrary";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { ProductMediaSelector } from "@/components/product-media-selector";
 
 interface Category {
   id: string;
@@ -48,7 +47,6 @@ interface CategoryFormProps {
 export default function CategoryForm({ category, categories }: CategoryFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     name: category?.name ?? "",
@@ -77,11 +75,6 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
       name,
       slug: category ? prev.slug : generateSlug(name),
     }));
-  };
-
-  const handleMediaSelect = (url: string) => {
-    setFormData(prev => ({ ...prev, image_url: url }));
-    setMediaLibraryOpen(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -279,48 +272,12 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                 Image représentative de la catégorie
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {formData.image_url ? (
-                <div className="relative group">
-                  <img
-                    src={formData.image_url}
-                    alt="Aperçu"
-                    className="w-full h-48 object-cover rounded-lg border-2 border-gray-200"
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setFormData(prev => ({ ...prev, image_url: "" }))}
-                      className="bg-red-600 hover:bg-red-700 text-white"
-                    >
-                      Supprimer
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
-                  <ImageIcon className="h-12 w-12 mx-auto text-[#d4af37] mb-2" />
-                  <p className="text-sm text-gray-500">Aucune image</p>
-                </div>
-              )}
-
-              <Dialog open={mediaLibraryOpen} onOpenChange={setMediaLibraryOpen}>
-                <DialogTrigger asChild>
-                  <Button type="button" variant="outline" className="w-full border-[#d4af37] text-[#d4af37] hover:bg-[#d4af37]/10">
-                    <ImageIcon className="h-4 w-4 mr-2" />
-                    {formData.image_url ? "Changer l'image" : "Sélectionner une image"}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                  <MediaLibrary
-                    bucket="category-images"
-                    selectedUrl={formData.image_url}
-                    onSelect={handleMediaSelect}
-                  />
-                </DialogContent>
-              </Dialog>
+            <CardContent>
+              <ProductMediaSelector
+                currentImageUrl={formData.image_url}
+                onSelect={(url) => setFormData(prev => ({ ...prev, image_url: url }))}
+                label="Image de la catégorie"
+              />
             </CardContent>
           </Card>
 
