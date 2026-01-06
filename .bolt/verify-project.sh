@@ -3,15 +3,13 @@
 echo "🔍 VÉRIFICATION DU PROJET..."
 echo ""
 
-# Couleurs
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 ERROR=0
 
-# Vérification 1 : .env contient qcqbtmv
 echo "📄 Vérification du fichier .env..."
 if grep -q "qcqbtmvbvipsxwjlgjvk" .env; then
     echo -e "${GREEN}✓${NC} .env contient qcqbtmvbvipsxwjlgjvk"
@@ -27,7 +25,6 @@ fi
 
 echo ""
 
-# Vérification 2 : lib/supabase.ts est hardcodé
 echo "📄 Vérification du fichier lib/supabase.ts..."
 if grep -q "LOCKED_SUPABASE_URL = 'https://qcqbtmvbvipsxwjlgjvk.supabase.co'" lib/supabase.ts; then
     echo -e "${GREEN}✓${NC} lib/supabase.ts contient les credentials hardcodés corrects"
@@ -42,7 +39,6 @@ fi
 
 echo ""
 
-# Vérification 3 : PROJECT-LOCK.json existe
 echo "📄 Vérification du fichier .bolt/PROJECT-LOCK.json..."
 if [ -f ".bolt/PROJECT-LOCK.json" ]; then
     if grep -q "qcqbtmvbvipsxwjlgjvk" .bolt/PROJECT-LOCK.json; then
