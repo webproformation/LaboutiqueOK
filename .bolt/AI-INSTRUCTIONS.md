@@ -1,279 +1,110 @@
-# 🤖 INSTRUCTIONS POUR L'IA
+# 🛡️ INSTRUCTIONS OBLIGATOIRES POUR L'IA
 
-## ⚠️ RÈGLES ABSOLUES - À LIRE AVANT TOUTE MODIFICATION
+## ⚠️ VERROUILLAGE ANTI-REVERT
 
-### 🔒 PROJET VERROUILLÉ
-
-**Projet actif** : `qcqbtmvbvipsxwjlgjvk.supabase.co`
-**Projet interdit** : `mcstvpdcfvhsgnhdfeee` (ne JAMAIS revenir dessus)
+Ce projet a subi **des centaines de retours en arrière destructifs**. Il est désormais **VERROUILLÉ** sur le projet Supabase `qcqbtmvbvipsxwjlgjvk`.
 
 ---
 
-## 📋 AVANT TOUTE ACTION
+## 🔒 RÈGLES ABSOLUES
 
-1. **Exécuter le script de vérification** :
-   ```bash
-   ./.bolt/verify-project.sh
-   ```
+### 1. INTERDICTION FORMELLE
 
-2. **Lire le verrou** :
-   - Fichier : `.bolt/PROJECT-LOCK.json`
-   - Confirmer : `project_id = qcqbtmvbvipsxwjlgjvk`
+- ❌ **NE JAMAIS** revenir au projet `mcstv`
+- ❌ **NE JAMAIS** modifier `.env` pour pointer vers un autre projet
+- ❌ **NE JAMAIS** modifier `lib/supabase.ts` pour utiliser `process.env` sans failsafe
+- ❌ **NE JAMAIS** suggérer de changer de projet Supabase
 
-3. **Ne JAMAIS modifier** :
-   - `lib/supabase.ts` (credentials hardcodés)
-   - `.env` (projet qcqbtmv)
+### 2. AVANT TOUTE MODIFICATION DE .env OU lib/supabase.ts
 
----
-
-## 🏗️ ARCHITECTURE AUTHENTIFICATION
-
-### Système actif : ZUSTAND STORE
-
-**Store principal** : `stores/auth-store.ts`
-
-```typescript
-interface AuthState {
-  user: User | null;
-  profile: Profile | null;
-  isAdmin: boolean;
-  isLoading: boolean;
-  initialize: () => Promise<void>;
-  signOut: () => Promise<void>;
-}
-```
-
-### ⚠️ ATTENTION : DEUX SYSTÈMES EN PARALLÈLE
-
-1. **AuthContext** (`context/AuthContext.tsx`)
-   - ❌ Ancien système
-   - ✅ Encore utilisé par Cart et Wishlist
-   - ⚠️ Ne pas supprimer sans migration
-
-2. **useAuthStore** (`stores/auth-store.ts`)
-   - ✅ Nouveau système
-   - ✅ Utilisé par Header et Admin
-   - ✅ Synchronisé avec Supabase Auth
-
-### Header utilisé : `components/site-header.tsx`
-
-**IMPORTANT** : Il existe deux fichiers header :
-- `components/header.tsx` - ❌ NON utilisé
-- `components/site-header.tsx` - ✅ UTILISÉ par layout-wrapper
-
-**Le SiteHeader DOIT utiliser `useAuthStore`** :
-
-```typescript
-import { useAuthStore } from '@/stores/auth-store';
-
-export function SiteHeader() {
-  const { user, profile, signOut } = useAuthStore();
-  // ...
-}
-```
-
----
-
-## 🗄️ BASE DE DONNÉES
-
-### Structure de la table `profiles`
-
-```sql
-CREATE TABLE profiles (
-  id uuid PRIMARY KEY REFERENCES auth.users(id),
-  email text NOT NULL,
-  first_name text DEFAULT '',
-  last_name text DEFAULT '',
-  phone text DEFAULT '',
-  avatar_url text DEFAULT '',
-  birth_date date,
-  wallet_balance numeric(10,2) DEFAULT 0,
-  is_admin boolean DEFAULT false,    -- ⚠️ Détermine le rôle
-  blocked boolean DEFAULT false,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-```
-
-**Points importants** :
-- `first_name` et `last_name` (PAS `full_name`)
-- `is_admin` détermine l'accès à `/admin`
-- Types en TypeScript doivent correspondre
-
----
-
-## 🎨 CONVENTIONS DE CODE
-
-### Types Profile
-
-```typescript
-interface Profile {
-  id: string;
-  email: string | null;
-  first_name: string | null;    // ⚠️ PAS full_name
-  last_name: string | null;      // ⚠️ PAS full_name
-  wallet_balance: number;
-  created_at: string;
-  is_admin?: boolean;
-}
-```
-
-### Affichage du nom complet
-
-```typescript
-const displayName = profile?.first_name || profile?.last_name
-  ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
-  : user.email;
-```
-
----
-
-## 🔧 MODIFICATIONS COURANTES
-
-### Ajouter un accès Admin à un composant
-
-```typescript
-import { useAuthStore } from '@/stores/auth-store';
-
-function MyComponent() {
-  const { isAdmin } = useAuthStore();
-
-  if (!isAdmin) {
-    return <div>Accès refusé</div>;
-  }
-
-  return <AdminContent />;
-}
-```
-
-### Créer un compte Admin
-
-```sql
--- Étape 1 : Utilisateur s'inscrit via /auth/register
--- Étape 2 : Mettre à jour son profil
-UPDATE profiles
-SET is_admin = true
-WHERE email = 'email@example.com';
-```
-
-### Debug de l'authentification
-
-Logs déjà présents dans `site-header.tsx` :
-
-```typescript
-useEffect(() => {
-  console.log("🔍 SiteHeader - État Auth:", {
-    user: user?.email,
-    profile: profile ? {
-      first_name: profile.first_name,
-      last_name: profile.last_name,
-      is_admin: profile.is_admin
-    } : null
-  });
-}, [user, profile]);
-```
-
----
-
-## 📁 FICHIERS CRITIQUES
-
-| Fichier | Rôle | Modifier ? |
-|---------|------|-----------|
-| `lib/supabase.ts` | Credentials hardcodés | ❌ NON |
-| `.env` | Variables d'environnement | ❌ NON |
-| `stores/auth-store.ts` | Store authentification | ✅ OUI (avec précaution) |
-| `components/site-header.tsx` | Header principal | ✅ OUI |
-| `components/layout-wrapper.tsx` | Initialisation | ✅ OUI |
-| `.bolt/PROJECT-LOCK.json` | Verrou projet | ❌ NON |
-
----
-
-## 🚨 ERREURS COURANTES À ÉVITER
-
-### ❌ Erreur 1 : Modifier le mauvais header
-```typescript
-// ❌ MAUVAIS - Ce fichier n'est pas utilisé
-components/header.tsx
-
-// ✅ BON - Ce fichier est utilisé
-components/site-header.tsx
-```
-
-### ❌ Erreur 2 : Utiliser full_name
-```typescript
-// ❌ MAUVAIS
-profile.full_name
-
-// ✅ BON
-`${profile.first_name} ${profile.last_name}`.trim()
-```
-
-### ❌ Erreur 3 : Mélanger les systèmes d'auth
-```typescript
-// ❌ MAUVAIS - Mélange AuthContext et useAuthStore
-const { user } = useAuth();
-const { profile } = useAuthStore();
-
-// ✅ BON - Utiliser un seul système
-const { user, profile } = useAuthStore();
-```
-
-### ❌ Erreur 4 : Oublier l'initialisation
-```typescript
-// ❌ MAUVAIS - Store non initialisé
-// L'authentification ne sera jamais détectée
-
-// ✅ BON - Dans layout-wrapper.tsx
-useEffect(() => {
-  initializeAuth();
-}, [initializeAuth]);
-```
-
----
-
-## 📊 VÉRIFICATIONS POST-MODIFICATION
-
-Après toute modification sur l'authentification :
-
-1. ✅ Build réussi (`npm run build`)
-2. ✅ Aucune erreur TypeScript
-3. ✅ Script de vérification OK (`./.bolt/verify-project.sh`)
-4. ✅ Logs console présents (`🔍 SiteHeader - État Auth:`)
-5. ✅ Menu utilisateur s'affiche correctement
-6. ✅ Lien Admin visible pour les admins
-
----
-
-## 🔍 RESSOURCES
-
-- **Documentation système auth** : `.bolt/AUTHENTICATION-SYSTEM.md`
-- **Guide création admin** : `.bolt/CREATE-ADMIN-ACCOUNT.md`
-- **Diagnostic résolu** : `.bolt/DIAGNOSTIC-RESOLUTION.md`
-- **Verrou projet** : `.bolt/PROJECT-LOCK.json`
-
----
-
-## ✅ CHECKLIST AVANT COMMIT
-
-- [ ] Script de vérification exécuté
-- [ ] Build réussi
-- [ ] Types TypeScript corrects
-- [ ] Console logs ajoutés si debug nécessaire
-- [ ] Documentation mise à jour
-- [ ] Projet toujours sur qcqbtmv
-
----
-
-**⚠️ EN CAS DE DOUTE, TOUJOURS VÉRIFIER LE PROJET ACTIF !**
+**OBLIGATOIRE :** Exécuter ce script de vérification :
 
 ```bash
-./.bolt/verify-project.sh
+bash ./.bolt/verify-qcqbtmv.sh
 ```
 
-Si échec → **NE PAS CONTINUER** et restaurer depuis le dernier état valide.
+Si le script retourne une erreur, **STOPPER IMMÉDIATEMENT**.
+
+### 3. PROJET ACTUEL : qcqbtmvbvipsxwjlgjvk
+
+**URL Supabase :** `https://qcqbtmvbvipsxwjlgjvk.supabase.co`
+
+**Singleton Protégé :** `lib/supabase.ts` lignes 7-8
+
+```typescript
+const LOCKED_SUPABASE_URL = 'https://qcqbtmvbvipsxwjlgjvk.supabase.co';
+const LOCKED_SUPABASE_ANON_KEY = 'eyJhbGc...';
+```
+
+### 4. MODÈLE DE DONNÉES
+
+- **IDs Produits :** TYPE `TEXT` (héritage : `"571"`, `"102"`, etc.)
+- **Ne JAMAIS convertir en INTEGER**
+- **Respecter la structure existante**
 
 ---
 
-**Dernière mise à jour** : 2026-01-06
-**Statut** : ✅ Système opérationnel
-**Projet** : qcqbtmvbvipsxwjlgjvk
+## 📋 PONT AUTH/PROFIL
+
+### Configuration Validée
+
+✅ **AuthContext** (`context/AuthContext.tsx`) :
+- Requêtes vers `public.profiles`
+- Champ `is_admin` correctement récupéré
+
+✅ **Auth Store** (`stores/auth-store.ts`) :
+- Requêtes vers `public.profiles.is_admin`
+- État synchronisé
+
+✅ **Composants** :
+- `components/site-header.tsx` → Utilise `profile?.is_admin`
+- `components/mobile-menu.tsx` → Utilise `profile.is_admin`
+- `app/account/layout.tsx` → Utilise `profile.is_admin`
+- `app/admin/layout.tsx` → Utilise la protection admin
+
+### Utilisateur Admin
+
+**Email :** `contact@webproformation.fr`
+**Statut :** `is_admin = true` dans `public.profiles`
+**Synchronisé :** ✅
+
+---
+
+## 🎨 UI/UX
+
+**Toasts :** Positionnés en **bas à droite** globalement
+
+```typescript
+// components/layout-wrapper.tsx:33
+<Toaster position="bottom-right" richColors />
+```
+
+---
+
+## 🚀 BUILD PRODUCTION
+
+**Dernière vérification :** 2026-01-06
+**Statut :** ✅ SUCCÈS (57 routes générées, 0 erreur)
+
+---
+
+## 📝 HISTORIQUE
+
+| Date | Événement |
+|------|-----------|
+| 2026-01-05 | Migration finale de mcstv vers qcqbtmv |
+| 2026-01-05 | Synchronisation utilisateurs et admin |
+| 2026-01-06 | Audit systémique du pont AUTH/PROFIL |
+| 2026-01-06 | Création script de vérification |
+
+---
+
+## ⚠️ EN CAS DE DOUTE
+
+**TOUJOURS exécuter :** `bash ./.bolt/verify-qcqbtmv.sh`
+
+**Si le script échoue :** STOPPER et alerter l'utilisateur immédiatement.
+
+---
+
+**Ce fichier est SACRÉ. Ne JAMAIS ignorer ces instructions.**

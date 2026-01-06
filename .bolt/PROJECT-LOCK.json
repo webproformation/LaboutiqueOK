@@ -1,26 +1,34 @@
 {
-  "project_id": "qcqbtmvbvipsxwjlgjvk",
-  "project_url": "https://qcqbtmvbvipsxwjlgjvk.supabase.co",
-  "locked_at": "2026-01-06T12:00:00Z",
-  "reason": "Protection contre centaines de retours en arrière vers mcstv",
-  "forbidden_projects": ["mcstvpdcfvhsgnhdfeee"],
-  "data_type": {
-    "products.id": "TEXT",
-    "note": "IDs hérités en format texte ('571', '102', etc.)"
+  "project": {
+    "name": "La Boutique de Morgane",
+    "locked_at": "2026-01-06T00:00:00Z",
+    "supabase": {
+      "project_id": "qcqbtmvbvipsxwjlgjvk",
+      "url": "https://qcqbtmvbvipsxwjlgjvk.supabase.co",
+      "region": "eu-west-1",
+      "locked": true,
+      "reason": "Production finale - Centaines de retours en arrière évités"
+    },
+    "data_model": {
+      "product_ids": "TEXT",
+      "reason": "Héritage : IDs textuels comme '571', '102', etc.",
+      "do_not_change": true
+    },
+    "protection": {
+      "anti_revert": true,
+      "singleton_enforced": true,
+      "env_locked": true,
+      "verification_script": ".bolt/verify-qcqbtmv.sh"
+    }
   },
-  "status": "LOCKED",
-  "verification": {
-    "env_file": ".env",
-    "supabase_file": "lib/supabase.ts",
-    "hardcoded": true,
-    "use_process_env": false
+  "history": {
+    "previous_project": "mcstv (ABANDONNÉ)",
+    "migration_date": "2026-01-05",
+    "reason": "Retours en arrière répétés sur mcstv"
   },
-  "authentication": {
-    "system": "zustand + supabase auth",
-    "store": "stores/auth-store.ts",
-    "header_used": "components/site-header.tsx",
-    "profile_fields": ["first_name", "last_name", "is_admin"],
-    "status": "operational"
-  },
-  "last_verified": "2026-01-06T12:00:00Z"
+  "admin": {
+    "email": "contact@webproformation.fr",
+    "synchronized": true,
+    "is_admin": true
+  }
 }
