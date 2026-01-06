@@ -30,7 +30,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
           {showHeaderFooter && <SiteHeader />}
           {children}
           {showHeaderFooter && <SiteFooter />}
-          <Toaster position="top-right" richColors />
+          <Toaster position="bottom-right" richColors />
         </CartProvider>
       </WishlistProvider>
     </AuthProvider>

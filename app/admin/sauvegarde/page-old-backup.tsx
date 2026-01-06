@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/lib/supabase';
-import { useAuthStore } from '@/stores/auth-store';
 import {
   Database,
   Image,
@@ -18,10 +17,7 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle2,
-  Loader2,
-  RefreshCw,
-  Shield,
-  User
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -35,120 +31,21 @@ interface BackupSchedule {
 
 export default function BackupPage() {
   const [loading, setLoading] = useState(false);
-  const [authDiagnostic, setAuthDiagnostic] = useState<any>(null);
-  const { user, profile, isAdmin, isLoading: authLoading, initialize } = useAuthStore();
-
   const [scheduleForm, setScheduleForm] = useState<BackupSchedule>({
     type: 'all',
     frequency: 'weekly',
     time: '02:00',
   });
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      runAuthDiagnostic();
-    }
-  }, [user, profile, authLoading]);
-
-  const runAuthDiagnostic = async () => {
-    if (!user) return;
-
-    try {
-      // Récupérer la session actuelle
-      const { data: { session } } = await supabase.auth.getSession();
-
-      // Récupérer le profil directement
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      const diagnostic = {
-        userId: user.id,
-        userEmail: user.email,
-        sessionValid: !!session,
-        profileFound: !!profileData,
-        isAdmin: profileData?.is_admin || false,
-        profileData: profileData,
-        timestamp: new Date().toISOString(),
-      };
-
-      console.log('🔍 AUTH DIAGNOSTIC:', diagnostic);
-      setAuthDiagnostic(diagnostic);
-
-      if (!diagnostic.isAdmin) {
-        toast.error('Vous devez être administrateur pour effectuer des sauvegardes');
-      }
-    } catch (error: any) {
-      console.error('Diagnostic error:', error);
-      setAuthDiagnostic({ error: error?.message || 'Unknown error' });
-    }
-  };
-
-  const handleForceSync = async () => {
-    try {
-      toast.info('Synchronisation du profil en cours...');
-
-      // Forcer le rafraîchissement de la session
-      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
-
-      if (sessionError) throw sessionError;
-
-      if (session) {
-        // Réinitialiser le store d'authentification
-        await initialize();
-
-        // Relancer le diagnostic
-        await runAuthDiagnostic();
-
-        toast.success('Profil synchronisé avec succès');
-      } else {
-        throw new Error('Aucune session active');
-      }
-    } catch (error: any) {
-      console.error('Sync error:', error);
-      toast.error(`Erreur de synchronisation: ${error.message}`);
-    }
-  };
-
   const handleBackupDatabase = async () => {
-    if (!user) {
-      toast.error('Vous devez être connecté');
-      return;
-    }
-
-    if (!isAdmin && !authDiagnostic?.isAdmin) {
-      toast.error('Droits administrateur requis');
-      return;
-    }
-
     setLoading(true);
     try {
-      console.log('🚀 Lancement sauvegarde BDD...');
-      console.log('👤 User ID:', user.id);
-      console.log('🔑 Is Admin:', isAdmin);
-      console.log('📊 Profile:', profile);
-
       toast.info('Préparation de l\'export de la base de données...');
 
       const { data, error } = await supabase.rpc('get_database_export');
 
       if (error) {
-        console.error('❌ RPC error:', error);
-
-        // Erreur de droits spécifique
-        if (error.message.includes('Accès refusé') || error.message.includes('administrateur')) {
-          toast.error(
-            <div className="space-y-2">
-              <p className="font-semibold">Erreur de droits administrateur</p>
-              <p className="text-sm">User ID: {user.id}</p>
-              <p className="text-sm">Admin Status: {isAdmin ? 'Oui' : 'Non'}</p>
-            </div>
-          );
-          return;
-        }
-
+        console.error('RPC error:', error);
         throw new Error(`Erreur RPC: ${error.message}`);
       }
 
@@ -163,8 +60,6 @@ export default function BackupPage() {
           date: new Date().toISOString(),
           version: '1.0',
           project: 'qcqbtmvbvipsxwjlgjvk',
-          exported_by: user.email,
-          user_id: user.id,
           tables: Object.keys(data).filter(k => !k.startsWith('_')),
           total_records: Object.values(data).reduce((sum: number, val: any) =>
             sum + (Array.isArray(val) ? val.length : 0), 0
@@ -184,12 +79,11 @@ export default function BackupPage() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      console.log('✅ Sauvegarde créée avec succès');
       toast.success(
         `Sauvegarde créée avec succès ! ${exportData._export_info.total_records} enregistrements exportés.`
       );
     } catch (error: any) {
-      console.error('❌ Backup error:', error);
+      console.error('Backup error:', error);
       toast.error(
         error.message || 'Erreur lors de la sauvegarde. Vérifiez la console pour plus de détails.'
       );
@@ -265,14 +159,6 @@ export default function BackupPage() {
     }
   };
 
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-[#d4af37]" />
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -283,60 +169,6 @@ export default function BackupPage() {
           </p>
         </div>
       </div>
-
-      {/* Diagnostic d'authentification */}
-      {authDiagnostic && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardHeader>
-            <CardTitle className="text-blue-900 flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Diagnostic d'authentification
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-700">User ID:</span>
-              <code className="bg-white px-2 py-1 rounded text-xs">{authDiagnostic.userId}</code>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-700">Email:</span>
-              <span className="font-medium text-gray-900">{authDiagnostic.userEmail}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-700">Session valide:</span>
-              <span className={authDiagnostic.sessionValid ? 'text-green-600 font-semibold' : 'text-red-600'}>
-                {authDiagnostic.sessionValid ? '✓ Oui' : '✗ Non'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-700">Profil trouvé:</span>
-              <span className={authDiagnostic.profileFound ? 'text-green-600 font-semibold' : 'text-red-600'}>
-                {authDiagnostic.profileFound ? '✓ Oui' : '✗ Non'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-700">Statut Admin:</span>
-              <span className={authDiagnostic.isAdmin ? 'text-green-600 font-semibold' : 'text-orange-600'}>
-                {authDiagnostic.isAdmin ? '✓ Administrateur' : '✗ Non admin'}
-              </span>
-            </div>
-
-            {!authDiagnostic.isAdmin && (
-              <div className="pt-4 border-t border-blue-200 mt-4">
-                <Button
-                  onClick={handleForceSync}
-                  variant="outline"
-                  size="sm"
-                  className="w-full border-blue-300 text-blue-700 hover:bg-blue-100"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Forcer la synchronisation du profil
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       <Alert className="border-[#d4af37] bg-[#d4af37]/5">
         <AlertTriangle className="h-4 w-4 text-[#d4af37]" />
@@ -370,7 +202,7 @@ export default function BackupPage() {
             </div>
             <Button
               onClick={handleBackupDatabase}
-              disabled={loading || authLoading || !isAdmin}
+              disabled={loading}
               className="w-full bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d]"
             >
               {loading ? (
@@ -380,11 +212,6 @@ export default function BackupPage() {
               )}
               Sauvegarder la BDD
             </Button>
-            {!isAdmin && (
-              <p className="text-xs text-orange-600 text-center">
-                Droits administrateur requis
-              </p>
-            )}
           </CardContent>
         </Card>
 
@@ -444,7 +271,7 @@ export default function BackupPage() {
             </div>
             <Button
               onClick={handleBackupAll}
-              disabled={loading || !isAdmin}
+              disabled={loading}
               className="w-full bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d]"
             >
               {loading ? (
