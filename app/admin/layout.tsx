@@ -84,6 +84,7 @@ const navSections: NavSection[] = [
       { href: "/admin/ambassador", label: "Ambassadrice" },
       { href: "/admin/diagnostic", label: "Diagnostic" },
       { href: "/admin/media", label: "Médiathèque" },
+      { href: "/admin/sauvegarde", label: "Sauvegardes" },
     ],
   },
 ];
