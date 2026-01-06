@@ -40,24 +40,53 @@ export default function BackupPage() {
   const handleBackupDatabase = async () => {
     setLoading(true);
     try {
+      toast.info('Préparation de l\'export de la base de données...');
+
       const { data, error } = await supabase.rpc('get_database_export');
 
-      if (error) throw error;
+      if (error) {
+        console.error('RPC error:', error);
+        throw new Error(`Erreur RPC: ${error.message}`);
+      }
 
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      if (!data) {
+        throw new Error('Aucune donnée reçue de la base');
+      }
+
+      // Créer le fichier JSON
+      const exportData = {
+        ...data,
+        _export_info: {
+          date: new Date().toISOString(),
+          version: '1.0',
+          project: 'qcqbtmvbvipsxwjlgjvk',
+          tables: Object.keys(data).filter(k => !k.startsWith('_')),
+          total_records: Object.values(data).reduce((sum: number, val: any) =>
+            sum + (Array.isArray(val) ? val.length : 0), 0
+          )
+        }
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json'
+      });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `backup-database-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `backup-lbdm-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      toast.success('Sauvegarde de la base de données créée');
-    } catch (error) {
+      toast.success(
+        `Sauvegarde créée avec succès ! ${exportData._export_info.total_records} enregistrements exportés.`
+      );
+    } catch (error: any) {
       console.error('Backup error:', error);
-      toast.error('Erreur lors de la sauvegarde');
+      toast.error(
+        error.message || 'Erreur lors de la sauvegarde. Vérifiez la console pour plus de détails.'
+      );
     } finally {
       setLoading(false);
     }
