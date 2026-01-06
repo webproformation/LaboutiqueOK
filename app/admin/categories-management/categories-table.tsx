@@ -179,7 +179,7 @@ export default function CategoriesTable({
     return (
       <div key={node.id}>
         <TableRow className="hover:bg-gray-50 transition-colors">
-          <TableCell className="w-[40%]" style={{ paddingLeft: `${indent + 1}rem` }}>
+          <TableCell style={{ width: '40%', paddingLeft: `${indent + 1}rem` }}>
             <div className="flex items-center gap-2">
               {level > 0 && (
                 <div className="w-4 h-4 border-l-2 border-b-2 border-gray-300 rounded-bl-lg -ml-2" />
@@ -225,12 +225,12 @@ export default function CategoriesTable({
               </div>
             </div>
           </TableCell>
-          <TableCell className="w-[20%]">
+          <TableCell style={{ width: '20%' }}>
             <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono break-all">
               {node.slug}
             </code>
           </TableCell>
-          <TableCell className="w-[15%]">
+          <TableCell style={{ width: '15%' }}>
             <div className="flex flex-col gap-1">
               <Badge variant="secondary" className="w-fit">
                 {node.productCount} direct{node.productCount > 1 ? 's' : ''}
@@ -242,13 +242,13 @@ export default function CategoriesTable({
               )}
             </div>
           </TableCell>
-          <TableCell className="w-[10%]">
+          <TableCell style={{ width: '10%' }}>
             <div className="flex items-center gap-1 text-gray-500">
               <GripVertical className="h-4 w-4" />
               <span className="text-sm font-mono">{node.display_order}</span>
             </div>
           </TableCell>
-          <TableCell className="text-right w-[15%]">
+          <TableCell className="text-right" style={{ width: '15%' }}>
             <div className="flex items-center justify-end gap-2">
               <Link href={`/admin/categories-management/${node.id}`}>
                 <Button
@@ -359,14 +359,14 @@ export default function CategoriesTable({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="w-full">
                 <TableHeader>
                   <TableRow className="bg-gray-50">
-                    <TableHead className="font-semibold w-[40%]">Catégorie</TableHead>
-                    <TableHead className="font-semibold w-[20%]">Slug</TableHead>
-                    <TableHead className="font-semibold w-[15%]">Produits</TableHead>
-                    <TableHead className="font-semibold w-[10%]">Ordre</TableHead>
-                    <TableHead className="text-right font-semibold w-[15%]">Actions</TableHead>
+                    <TableHead className="font-semibold" style={{ width: '40%' }}>Catégorie</TableHead>
+                    <TableHead className="font-semibold" style={{ width: '20%' }}>Slug</TableHead>
+                    <TableHead className="font-semibold" style={{ width: '15%' }}>Produits</TableHead>
+                    <TableHead className="font-semibold" style={{ width: '10%' }}>Ordre</TableHead>
+                    <TableHead className="text-right font-semibold" style={{ width: '15%' }}>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

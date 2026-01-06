@@ -115,14 +115,15 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
         if (error) throw error;
         toast.success("Catégorie mise à jour avec succès");
       } else {
-        const newId = generateSlug(formData.name);
+        // Generate unique ID using timestamp + random
+        const newId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
         const { error } = await supabase
           .from("categories")
-          .insert([{ id: newId, ...dataToSave }]);
+          .insert({ id: newId, ...dataToSave });
 
         if (error) {
           if (error.code === "23505") {
-            toast.error("Une catégorie avec cet ID existe déjà");
+            toast.error("Une catégorie avec cet ID ou slug existe déjà");
           } else {
             throw error;
           }
