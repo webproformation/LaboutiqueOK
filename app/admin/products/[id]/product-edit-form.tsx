@@ -373,9 +373,12 @@ export default function ProductEditForm({
         position: "bottom-right",
       });
 
+      // Rafraîchir le cache puis rediriger
+      router.refresh();
+
       setTimeout(() => {
         router.push("/admin/products");
-      }, 1000);
+      }, 500);
     } catch (error: any) {
       console.error("=== FULL SUPABASE ERROR ===");
       console.error("Error Object:", JSON.stringify(error, null, 2));
