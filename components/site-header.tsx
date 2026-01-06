@@ -85,7 +85,7 @@ export function SiteHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 bg-black shadow-lg">
+      <header className="sticky top-0 z-[100] bg-black shadow-lg">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
@@ -195,26 +195,26 @@ export function SiteHeader() {
                       <DropdownMenuSeparator />
                       {profile?.is_admin && (
                         <DropdownMenuItem asChild>
-                          <Link href="/admin" className="flex items-center bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white font-medium">
+                          <Link href="/admin" className="flex items-center w-full cursor-pointer bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white font-medium">
                             <Shield className="mr-2 h-4 w-4" />
                             Administration
                           </Link>
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem asChild>
-                        <Link href="/account" className="flex items-center">
+                        <Link href="/account" className="flex items-center w-full cursor-pointer">
                           <User className="mr-2 h-4 w-4" />
                           Mon compte
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/account/orders" className="flex items-center">
+                        <Link href="/account/orders" className="flex items-center w-full cursor-pointer">
                           <Package className="mr-2 h-4 w-4" />
                           Mes commandes
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/account/addresses" className="flex items-center">
+                        <Link href="/account/addresses" className="flex items-center w-full cursor-pointer">
                           <MapPin className="mr-2 h-4 w-4" />
                           Mes adresses
                         </Link>
@@ -231,10 +231,10 @@ export function SiteHeader() {
                   ) : (
                     <>
                       <DropdownMenuItem asChild>
-                        <Link href="/auth/login" className="cursor-pointer">Se connecter</Link>
+                        <Link href="/auth/login" className="flex items-center w-full cursor-pointer">Se connecter</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href="/auth/register" className="cursor-pointer">Créer un compte</Link>
+                        <Link href="/auth/register" className="flex items-center w-full cursor-pointer">Créer un compte</Link>
                       </DropdownMenuItem>
                     </>
                   )}
