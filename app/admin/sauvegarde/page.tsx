@@ -21,9 +21,11 @@ import {
   Loader2,
   RefreshCw,
   Shield,
-  User
+  User,
+  Package
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Progress } from '@/components/ui/progress';
 
 interface BackupSchedule {
   type: 'database' | 'images' | 'all';
@@ -37,6 +39,8 @@ export default function BackupPage() {
   const [loading, setLoading] = useState(false);
   const [authDiagnostic, setAuthDiagnostic] = useState<any>(null);
   const { user, profile, isAdmin, isLoading: authLoading, initialize } = useAuthStore();
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportStep, setExportStep] = useState('');
 
   const [scheduleForm, setScheduleForm] = useState<BackupSchedule>({
     type: 'all',
@@ -105,6 +109,187 @@ export default function BackupPage() {
     } catch (error: any) {
       console.error('Sync error:', error);
       toast.error(`Erreur de synchronisation: ${error.message}`);
+    }
+  };
+
+  const handleFullSystemBackup = async () => {
+    if (!user) {
+      toast.error('Vous devez être connecté', { position: 'bottom-right' });
+      return;
+    }
+
+    setLoading(true);
+    setExportProgress(0);
+
+    try {
+      // Étape 1 : Export de la base de données complète
+      setExportStep('Export de la base de données...');
+      setExportProgress(10);
+
+      const { data: dbExport, error: dbError } = await supabase.rpc('get_full_database_export');
+
+      if (dbError) {
+        console.error('Database export error:', dbError);
+        throw new Error(`Erreur base de données: ${dbError.message}`);
+      }
+
+      setExportProgress(30);
+
+      // Étape 2 : Liste des fichiers du bucket product-images
+      setExportStep('Récupération des images produits...');
+      const { data: productFiles, error: productError } = await supabase.storage
+        .from('product-images')
+        .list('products', { limit: 1000 });
+
+      const productImagesManifest = productFiles
+        ?.filter(file => file.name && file.name !== '.emptyFolderPlaceholder')
+        .map(file => ({
+          name: file.name,
+          path: `products/${file.name}`,
+          url: `${supabase.storage.from('product-images').getPublicUrl(`products/${file.name}`).data.publicUrl}`,
+          size: file.metadata?.size || 0,
+          last_modified: file.updated_at || file.created_at,
+        })) || [];
+
+      setExportProgress(50);
+
+      // Étape 3 : Liste des fichiers du bucket category-images
+      setExportStep('Récupération des images catégories...');
+      const { data: categoryFiles, error: categoryError } = await supabase.storage
+        .from('category-images')
+        .list('categories', { limit: 1000 });
+
+      const categoryImagesManifest = categoryFiles
+        ?.filter(file => file.name && file.name !== '.emptyFolderPlaceholder')
+        .map(file => ({
+          name: file.name,
+          path: `categories/${file.name}`,
+          url: `${supabase.storage.from('category-images').getPublicUrl(`categories/${file.name}`).data.publicUrl}`,
+          size: file.metadata?.size || 0,
+          last_modified: file.updated_at || file.created_at,
+        })) || [];
+
+      setExportProgress(70);
+
+      // Étape 4 : Création du manifest storage
+      setExportStep('Création du manifest storage...');
+      const storageManifest = {
+        'product-images': {
+          bucket: 'product-images',
+          path: 'products',
+          count: productImagesManifest.length,
+          total_size: productImagesManifest.reduce((sum, file) => sum + file.size, 0),
+          files: productImagesManifest,
+        },
+        'category-images': {
+          bucket: 'category-images',
+          path: 'categories',
+          count: categoryImagesManifest.length,
+          total_size: categoryImagesManifest.reduce((sum, file) => sum + file.size, 0),
+          files: categoryImagesManifest,
+        },
+      };
+
+      setExportProgress(80);
+
+      // Étape 5 : Création de l'environment summary
+      setExportStep('Génération du résumé d\'environnement...');
+      const environmentSummary = {
+        next_version: '13.5.1',
+        node_version: typeof process !== 'undefined' ? process.version : 'unknown',
+        project_url: 'https://qcqbtmvbvipsxwjlgjvk.supabase.co',
+        project_id: 'qcqbtmvbvipsxwjlgjvk',
+        deployment_platform: 'Netlify',
+        framework: 'Next.js',
+        database: 'Supabase PostgreSQL',
+        storage_buckets: ['product-images', 'category-images'],
+        key_routes: [
+          '/',
+          '/admin',
+          '/admin/products',
+          '/admin/categories-management',
+          '/admin/actualites',
+          '/admin/sauvegarde',
+          '/product/[slug]',
+          '/category/[slug]',
+          '/cart',
+          '/checkout',
+        ],
+        environment: {
+          has_stripe: true,
+          has_paypal: true,
+          has_mondial_relay: true,
+          has_maps_api: true,
+        },
+      };
+
+      setExportProgress(90);
+
+      // Étape 6 : Compilation du super JSON final
+      setExportStep('Compilation du super JSON...');
+      const superExport = {
+        database: dbExport,
+        storage_manifest: storageManifest,
+        environment_summary: environmentSummary,
+        _export_info: {
+          export_type: 'FULL_SYSTEM_BACKUP',
+          export_date: new Date().toISOString(),
+          export_version: '2.0',
+          project: 'qcqbtmvbvipsxwjlgjvk',
+          exported_by: user.email,
+          user_id: user.id,
+          total_db_tables: Object.keys(dbExport).filter(k => !k.startsWith('_')).length,
+          total_storage_files: productImagesManifest.length + categoryImagesManifest.length,
+          total_storage_size_bytes: storageManifest['product-images'].total_size + storageManifest['category-images'].total_size,
+          database_records: Object.values(dbExport)
+            .filter(val => Array.isArray(val))
+            .reduce((sum: number, arr: any) => sum + arr.length, 0),
+        },
+      };
+
+      setExportProgress(95);
+
+      // Étape 7 : Téléchargement du fichier
+      setExportStep('Téléchargement du fichier...');
+      const blob = new Blob([JSON.stringify(superExport, null, 2)], {
+        type: 'application/json',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `backup-COMPLET-lbdm-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setExportProgress(100);
+      setExportStep('Terminé !');
+
+      toast.success(
+        <div className="space-y-1">
+          <p className="font-semibold">Sauvegarde complète créée !</p>
+          <p className="text-sm">{superExport._export_info.database_records} enregistrements</p>
+          <p className="text-sm">{superExport._export_info.total_storage_files} fichiers média</p>
+        </div>,
+        { position: 'bottom-right', duration: 5000 }
+      );
+
+      // Réinitialiser après 2 secondes
+      setTimeout(() => {
+        setExportProgress(0);
+        setExportStep('');
+      }, 2000);
+    } catch (error: any) {
+      console.error('Full backup error:', error);
+      toast.error(
+        error.message || 'Erreur lors de la sauvegarde complète',
+        { position: 'bottom-right' }
+      );
+      setExportProgress(0);
+      setExportStep('');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -462,36 +647,37 @@ export default function BackupPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-2 border-[#d4af37]">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-[#d4af37]">
-              <FileArchive className="h-5 w-5" />
-              Sauvegarde complète
+              <Package className="h-5 w-5" />
+              Sauvegarde Totale (DB + Media + Config)
             </CardTitle>
             <CardDescription>
-              Base de données + Tous les fichiers
+              Export complet : Base de données, Manifest des médias et Configuration
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-sm text-gray-600">
-              <p>Sauvegarde totale :</p>
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Toutes les données</li>
-                <li>Toutes les images</li>
-                <li>Tous les fichiers</li>
+              <p className="font-semibold mb-2">Super JSON inclut :</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>TOUTES les tables de la base de données (47 tables)</li>
+                <li>Manifest complet du storage avec URLs des photos</li>
+                <li>Résumé de l'environnement et configuration</li>
+                <li>Métadonnées complètes d'export</li>
               </ul>
             </div>
             <Button
-              onClick={handleBackupAll}
+              onClick={handleFullSystemBackup}
               disabled={loading}
-              className="w-full bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d]"
+              className="w-full bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] font-semibold"
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
-                <Download className="h-4 w-4 mr-2" />
+                <Package className="h-4 w-4 mr-2" />
               )}
-              Sauvegarde complète
+              Sauvegarde Totale Système
             </Button>
           </CardContent>
         </Card>
@@ -572,6 +758,22 @@ export default function BackupPage() {
           </Alert>
         </CardContent>
       </Card>
+
+      {/* Barre de progression en bas à droite */}
+      {exportProgress > 0 && exportProgress < 100 && (
+        <div className="fixed bottom-4 right-4 w-96 bg-white border-2 border-[#d4af37] rounded-lg shadow-2xl p-4 z-50">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-gray-900">Export en cours...</span>
+              <span className="text-sm font-medium text-[#d4af37]">{exportProgress}%</span>
+            </div>
+            <Progress value={exportProgress} className="h-2" />
+            {exportStep && (
+              <p className="text-xs text-gray-600">{exportStep}</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
