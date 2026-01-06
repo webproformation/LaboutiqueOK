@@ -47,6 +47,10 @@ export type Category = {
   image_url: string | null;
   parent_id: string | null;
   display_order: number;
+  meta_title: string | null;
+  meta_description: string | null;
+  seo_keywords: string | null;
+  is_visible: boolean;
   created_at: string;
 };
 

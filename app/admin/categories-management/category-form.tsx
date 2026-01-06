@@ -51,15 +51,15 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: category?.name || "",
-    slug: category?.slug || "",
-    description: category?.description || "",
-    image_url: category?.image_url || "",
-    parent_id: category?.parent_id || null,
-    display_order: category?.display_order || 0,
-    meta_title: category?.meta_title || "",
-    meta_description: category?.meta_description || "",
-    seo_keywords: category?.seo_keywords || "",
+    name: category?.name ?? "",
+    slug: category?.slug ?? "",
+    description: category?.description ?? "",
+    image_url: category?.image_url ?? "",
+    parent_id: category?.parent_id ?? null,
+    display_order: category?.display_order ?? 0,
+    meta_title: category?.meta_title ?? "",
+    meta_description: category?.meta_description ?? "",
+    seo_keywords: category?.seo_keywords ?? "",
   });
 
   const generateSlug = (name: string) => {
@@ -104,6 +104,7 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
         meta_title: formData.meta_title || null,
         meta_description: formData.meta_description || null,
         seo_keywords: formData.seo_keywords || null,
+        is_visible: true,
       };
 
       if (category) {
@@ -343,7 +344,7 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Aucune (catégorie principale)</SelectItem>
-                    {availableParentCategories && availableParentCategories.length > 0 && availableParentCategories.map((cat) => (
+                    {availableParentCategories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
                       </SelectItem>

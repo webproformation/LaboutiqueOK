@@ -21,7 +21,9 @@ import {
   ChevronRight,
   ChevronDown,
   Trash2,
-  GripVertical
+  GripVertical,
+  FolderTree,
+  ShoppingBag
 } from "lucide-react";
 import {
   AlertDialog,
@@ -47,6 +49,8 @@ interface Category {
   image_url: string | null;
   parent_id: string | null;
   display_order: number;
+  meta_title: string | null;
+  is_visible: boolean;
 }
 
 interface CategoriesTableProps {
@@ -175,50 +179,70 @@ export default function CategoriesTable({
     const isExpanded = expandedCategories.has(node.id);
     const hasChildren = node.children.length > 0;
     const indent = level * 2.5;
+    const isVisible = node.is_visible !== false;
 
     return (
       <div key={node.id}>
-        <TableRow className="hover:bg-gray-50 transition-colors">
-          <TableCell style={{ width: '40%', paddingLeft: `${indent + 1}rem` }}>
-            <div className="flex items-center gap-2">
+        <TableRow className={`hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent transition-all duration-200 ${!isVisible ? 'opacity-60' : ''}`}>
+          <TableCell style={{ width: '35%', paddingLeft: `${indent + 1}rem` }}>
+            <div className="flex items-center gap-3">
               {level > 0 && (
-                <div className="w-4 h-4 border-l-2 border-b-2 border-gray-300 rounded-bl-lg -ml-2" />
+                <div className="w-4 h-4 border-l-2 border-b-2 border-[#d4af37]/30 rounded-bl-lg -ml-2" />
               )}
               {hasChildren && (
                 <button
                   onClick={() => toggleExpand(node.id)}
-                  className="p-1 hover:bg-gray-200 rounded transition-colors"
+                  className="p-1.5 hover:bg-[#d4af37]/10 rounded-lg transition-colors"
                 >
                   {isExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-gray-600" />
+                    <ChevronDown className="h-4 w-4 text-[#d4af37]" />
                   ) : (
-                    <ChevronRight className="h-4 w-4 text-gray-600" />
+                    <ChevronRight className="h-4 w-4 text-[#d4af37]" />
                   )}
                 </button>
               )}
-              {!hasChildren && <div className="w-6" />}
+              {!hasChildren && <div className="w-7" />}
               {node.image_url ? (
-                <img
-                  src={node.image_url}
-                  alt={decodeHtmlEntities(node.name)}
-                  className="w-10 h-10 object-cover rounded-lg shadow-sm"
-                />
+                <div className="relative group">
+                  <img
+                    src={node.image_url}
+                    alt={decodeHtmlEntities(node.name)}
+                    className="w-12 h-12 object-cover rounded-xl shadow-md ring-2 ring-[#d4af37]/20 group-hover:ring-[#d4af37]/40 transition-all"
+                  />
+                  {!isVisible && (
+                    <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">Masqué</span>
+                    </div>
+                  )}
+                </div>
               ) : (
-                <div className="w-10 h-10 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center shadow-sm">
-                  <FolderOpen className="h-5 w-5 text-gray-400" />
+                <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center shadow-md">
+                  <FolderOpen className="h-6 w-6 text-gray-400" />
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-gray-900 flex items-center gap-2">
-                  {decodeHtmlEntities(node.name)}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-gray-900 text-base">
+                    {decodeHtmlEntities(node.name)}
+                  </span>
                   {level > 0 && (
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs border-blue-300 text-blue-700 bg-blue-50">
                       Sous-catégorie
+                    </Badge>
+                  )}
+                  {!isVisible && (
+                    <Badge variant="outline" className="text-xs border-red-300 text-red-700 bg-red-50">
+                      Masqué
+                    </Badge>
+                  )}
+                  {node.meta_title && (
+                    <Badge variant="outline" className="text-xs border-green-300 text-green-700 bg-green-50">
+                      SEO
                     </Badge>
                   )}
                 </div>
                 {node.description && (
-                  <div className="text-xs text-gray-500 truncate max-w-md mt-0.5">
+                  <div className="text-xs text-gray-500 truncate max-w-md mt-1 leading-relaxed">
                     {decodeHtmlEntities(node.description)}
                   </div>
                 )}
@@ -226,37 +250,40 @@ export default function CategoriesTable({
             </div>
           </TableCell>
           <TableCell style={{ width: '20%' }}>
-            <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono break-all">
-              {node.slug}
-            </code>
+            <div className="flex flex-col gap-1">
+              <code className="text-xs bg-gray-100 px-2.5 py-1.5 rounded-lg font-mono break-all border border-gray-200">
+                {node.slug}
+              </code>
+            </div>
           </TableCell>
           <TableCell style={{ width: '15%' }}>
-            <div className="flex flex-col gap-1">
-              <Badge variant="secondary" className="w-fit">
-                {node.productCount} direct{node.productCount > 1 ? 's' : ''}
+            <div className="flex flex-col gap-1.5">
+              <Badge variant="secondary" className="w-fit bg-[#d4af37]/10 text-[#d4af37] border-[#d4af37]/20 font-semibold">
+                {node.productCount} {node.productCount > 1 ? 'produits' : 'produit'}
               </Badge>
               {hasChildren && node.descendantProductCount > node.productCount && (
-                <Badge variant="outline" className="w-fit text-xs">
-                  {node.descendantProductCount} total
+                <Badge variant="outline" className="w-fit text-xs text-gray-600">
+                  {node.descendantProductCount} au total
                 </Badge>
               )}
             </div>
           </TableCell>
           <TableCell style={{ width: '10%' }}>
-            <div className="flex items-center gap-1 text-gray-500">
-              <GripVertical className="h-4 w-4" />
-              <span className="text-sm font-mono">{node.display_order}</span>
+            <div className="flex items-center gap-2 text-gray-600">
+              <GripVertical className="h-4 w-4 text-gray-400" />
+              <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded-md">{node.display_order}</span>
             </div>
           </TableCell>
-          <TableCell className="text-right" style={{ width: '15%' }}>
+          <TableCell className="text-right" style={{ width: '20%' }}>
             <div className="flex items-center justify-end gap-2">
               <Link href={`/admin/categories-management/${node.id}`}>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="hover:bg-blue-50 hover:text-blue-600"
+                  className="hover:bg-gradient-to-r hover:from-[#b8933d]/10 hover:to-[#d4af37]/10 hover:text-[#d4af37] transition-all shadow-sm"
                 >
-                  <Edit className="h-4 w-4" />
+                  <Edit className="h-4 w-4 mr-1" />
+                  <span className="text-xs">Modifier</span>
                 </Button>
               </Link>
               <AlertDialog>
@@ -264,26 +291,33 @@ export default function CategoriesTable({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="hover:bg-red-50 hover:text-red-600"
+                    className="hover:bg-red-50 hover:text-red-600 transition-all shadow-sm"
                     disabled={deletingId === node.id}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    <span className="text-xs">Supprimer</span>
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent>
+                <AlertDialogContent className="max-w-md">
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Voulez-vous vraiment supprimer la catégorie "{node.name}" ?
+                    <AlertDialogTitle className="text-xl">Confirmer la suppression</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-3">
+                      <p className="text-base">
+                        Voulez-vous vraiment supprimer la catégorie <span className="font-semibold text-gray-900">"{node.name}"</span> ?
+                      </p>
                       {hasChildren && (
-                        <span className="block mt-2 text-red-600 font-medium">
-                          Attention : Cette catégorie contient {node.children.length} sous-catégorie(s).
-                        </span>
+                        <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded">
+                          <p className="text-red-700 font-medium text-sm">
+                            Attention : Cette catégorie contient {node.children.length} sous-catégorie(s).
+                          </p>
+                        </div>
                       )}
                       {node.productCount > 0 && (
-                        <span className="block mt-2 text-orange-600 font-medium">
-                          {node.productCount} produit(s) sont associés à cette catégorie.
-                        </span>
+                        <div className="bg-orange-50 border-l-4 border-orange-500 p-3 rounded">
+                          <p className="text-orange-700 font-medium text-sm">
+                            {node.productCount} produit(s) sont associés à cette catégorie.
+                          </p>
+                        </div>
                       )}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
@@ -293,7 +327,7 @@ export default function CategoriesTable({
                       onClick={() => handleDelete(node.id, node.name)}
                       className="bg-red-600 hover:bg-red-700"
                     >
-                      Supprimer
+                      Supprimer définitivement
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -310,22 +344,22 @@ export default function CategoriesTable({
   const displayedCount = filteredTree.length;
 
   return (
-    <div className="space-y-4">
-      <Card className="border-gray-200 shadow-sm">
+    <div className="space-y-5">
+      <Card className="border-[#d4af37]/20 shadow-lg">
         <CardContent className="pt-6">
           <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <div className="relative flex-1 max-w-xl">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#d4af37] h-5 w-5" />
               <Input
-                placeholder="Rechercher une catégorie..."
+                placeholder="Rechercher par nom, slug ou description..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-12 py-6 text-base border-[#d4af37]/20 focus:border-[#d4af37] focus:ring-[#d4af37]/20"
               />
             </div>
             <Button
               variant="outline"
-              size="sm"
+              size="lg"
               onClick={() => {
                 if (expandedCategories.size === 0) {
                   const allIds = new Set(categories.map(c => c.id));
@@ -334,6 +368,7 @@ export default function CategoriesTable({
                   setExpandedCategories(new Set());
                 }
               }}
+              className="border-[#d4af37]/30 text-[#d4af37] hover:bg-[#d4af37]/10 hover:border-[#d4af37] transition-all"
             >
               {expandedCategories.size === 0 ? 'Tout déplier' : 'Tout replier'}
             </Button>
@@ -341,32 +376,46 @@ export default function CategoriesTable({
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-between text-sm text-gray-600">
-        <div>
-          {displayedCount} catégorie(s) principale(s) • {totalCategories} total
+      {searchTerm && (
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
+          <p className="text-sm text-blue-700">
+            <span className="font-semibold">{displayedCount}</span> résultat(s) trouvé(s) pour "<span className="font-semibold">{searchTerm}</span>"
+          </p>
         </div>
-      </div>
+      )}
 
-      <Card className="border-gray-200 shadow-sm">
+      <Card className="border-[#d4af37]/20 shadow-lg overflow-hidden">
         <CardContent className="p-0">
           {filteredTree.length === 0 ? (
-            <div className="text-center py-16">
-              <FolderOpen className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-              <p className="text-gray-500 text-lg">Aucune catégorie trouvée</p>
-              <p className="text-gray-400 text-sm mt-1">
-                Essayez de modifier votre recherche
+            <div className="text-center py-20">
+              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+                <FolderOpen className="h-10 w-10 text-gray-400" />
+              </div>
+              <p className="text-gray-700 text-xl font-semibold mb-2">Aucune catégorie trouvée</p>
+              <p className="text-gray-500 text-sm">
+                {searchTerm ? "Essayez de modifier votre recherche" : "Commencez par créer votre première catégorie"}
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table className="w-full">
                 <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="font-semibold" style={{ width: '40%' }}>Catégorie</TableHead>
-                    <TableHead className="font-semibold" style={{ width: '20%' }}>Slug</TableHead>
-                    <TableHead className="font-semibold" style={{ width: '15%' }}>Produits</TableHead>
-                    <TableHead className="font-semibold" style={{ width: '10%' }}>Ordre</TableHead>
-                    <TableHead className="text-right font-semibold" style={{ width: '15%' }}>Actions</TableHead>
+                  <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-[#d4af37]/20">
+                    <TableHead className="font-bold text-gray-700 text-sm" style={{ width: '35%' }}>
+                      <div className="flex items-center gap-2">
+                        <FolderTree className="h-4 w-4 text-[#d4af37]" />
+                        Catégorie
+                      </div>
+                    </TableHead>
+                    <TableHead className="font-bold text-gray-700 text-sm" style={{ width: '20%' }}>Slug</TableHead>
+                    <TableHead className="font-bold text-gray-700 text-sm" style={{ width: '15%' }}>
+                      <div className="flex items-center gap-2">
+                        <ShoppingBag className="h-4 w-4 text-[#d4af37]" />
+                        Produits
+                      </div>
+                    </TableHead>
+                    <TableHead className="font-bold text-gray-700 text-sm" style={{ width: '10%' }}>Ordre</TableHead>
+                    <TableHead className="text-right font-bold text-gray-700 text-sm" style={{ width: '20%' }}>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -377,6 +426,25 @@ export default function CategoriesTable({
           )}
         </CardContent>
       </Card>
+
+      <div className="flex items-center justify-between text-sm text-gray-500 bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
+        <div className="flex items-center gap-2">
+          <FolderTree className="h-4 w-4 text-[#d4af37]" />
+          <span>
+            <span className="font-semibold text-gray-700">{displayedCount}</span> catégorie(s) principale(s) affichée(s) sur <span className="font-semibold text-gray-700">{totalCategories}</span> au total
+          </span>
+        </div>
+        {searchTerm && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSearchTerm("")}
+            className="text-[#d4af37] hover:bg-[#d4af37]/10"
+          >
+            Effacer la recherche
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
