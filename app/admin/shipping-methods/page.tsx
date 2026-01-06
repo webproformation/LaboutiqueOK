@@ -209,6 +209,97 @@ export default function ShippingMethodsPage() {
     }
   };
 
+  const handleInitializeDefaults = async () => {
+    if (!confirm("Voulez-vous initialiser les méthodes de livraison par défaut ?")) {
+      return;
+    }
+
+    setSaving(true);
+
+    const defaultMethods = [
+      {
+        name: "Retrait en boutique",
+        code: "retrait_boutique",
+        description: "Retirez votre commande directement en boutique sous 24/48h. Gratuit et sans frais supplémentaires.",
+        cost: 0,
+        is_relay: false,
+        is_active: true,
+        sort_order: 1,
+        delivery_time: "24/48h",
+        type: "free",
+      },
+      {
+        name: "Chronopost (shop to shop)",
+        code: "chronopost_relay",
+        description: "Livraison en point relais Chronopost sous 24/48h. Le plus rapide des points relais !",
+        cost: 3.90,
+        is_relay: true,
+        is_active: true,
+        sort_order: 2,
+        delivery_time: "24/48h",
+        type: "relay",
+      },
+      {
+        name: "Mondial Relay",
+        code: "mondial_relay",
+        description: "Livraison en point relais Mondial Relay sous 3 à 5 jours ouvrés.",
+        cost: 5.90,
+        is_relay: true,
+        is_active: true,
+        sort_order: 3,
+        delivery_time: "3 à 5 jours ouvrés",
+        type: "relay",
+      },
+      {
+        name: "GLS Point Relais",
+        code: "gls_relay",
+        description: "Livraison en point relais GLS sous 2 à 3 jours ouvrés.",
+        cost: 5.90,
+        is_relay: true,
+        is_active: true,
+        sort_order: 4,
+        delivery_time: "2 à 3 jours ouvrés",
+        type: "relay",
+      },
+      {
+        name: "GLS Domicile",
+        code: "gls_home",
+        description: "Livraison à domicile par GLS sous 2 à 3 jours ouvrés.",
+        cost: 7.90,
+        is_relay: false,
+        is_active: true,
+        sort_order: 5,
+        delivery_time: "2 à 3 jours ouvrés",
+        type: "home",
+      },
+      {
+        name: "Colissimo Domicile",
+        code: "colissimo_home",
+        description: "Livraison à domicile par Colissimo sous 48h.",
+        cost: 8.90,
+        is_relay: false,
+        is_active: true,
+        sort_order: 6,
+        delivery_time: "48h",
+        type: "home",
+      },
+    ];
+
+    try {
+      const { error } = await supabase.from("shipping_methods").insert(defaultMethods);
+
+      if (error) throw error;
+
+      toast.success("Méthodes de livraison initialisées avec succès");
+      await loadMethods();
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de l'initialisation");
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "free":
@@ -263,92 +354,140 @@ export default function ShippingMethodsPage() {
         </Button>
       </div>
 
-      <Card>
-        <CardContent className="p-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">#</TableHead>
-                <TableHead>Nom</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Prix</TableHead>
-                <TableHead>Délai</TableHead>
-                <TableHead>Point Relais</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {methods.map((method) => (
-                <TableRow key={method.id}>
-                  <TableCell className="font-medium">{method.sort_order}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getTypeIcon(method.type)}
-                      <div>
-                        <div className="font-medium">{method.name}</div>
-                        <div className="text-sm text-gray-500">{method.code}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{getTypeBadge(method.type)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Euro className="h-4 w-4 text-gray-500" />
-                      <span className="font-semibold">
-                        {method.cost === 0 ? "Gratuit" : `${method.cost.toFixed(2)} €`}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1 text-sm text-gray-600">
-                      <Clock className="h-4 w-4" />
-                      {method.delivery_time}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {method.is_relay ? (
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                        Oui
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-gray-50 text-gray-600">
-                        Non
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={method.is_active}
-                      onCheckedChange={() => handleToggleActive(method)}
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleOpenDialog(method)}
-                        className="hover:bg-blue-50 hover:text-blue-600"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(method.id)}
-                        className="hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+{methods.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="rounded-full bg-gray-100 p-6">
+                <Truck className="h-12 w-12 text-gray-400" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Aucune méthode de livraison
+                </h3>
+                <p className="text-gray-600 max-w-md">
+                  Votre boutique n'a pas encore de méthodes de livraison configurées.
+                  Initialisez les méthodes par défaut ou créez-en une manuellement.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button
+                  onClick={handleInitializeDefaults}
+                  disabled={saving}
+                  className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white shadow-lg"
+                >
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Initialisation...
+                    </>
+                  ) : (
+                    <>
+                      <Package className="h-4 w-4 mr-2" />
+                      Initialiser les méthodes par défaut
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => handleOpenDialog()}
+                  variant="outline"
+                  className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Créer manuellement
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead>Nom</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Prix</TableHead>
+                  <TableHead>Délai</TableHead>
+                  <TableHead>Point Relais</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {methods.map((method) => (
+                  <TableRow key={method.id}>
+                    <TableCell className="font-medium">{method.sort_order}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {getTypeIcon(method.type)}
+                        <div>
+                          <div className="font-medium">{method.name}</div>
+                          <div className="text-sm text-gray-500">{method.code}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{getTypeBadge(method.type)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Euro className="h-4 w-4 text-gray-500" />
+                        <span className="font-semibold">
+                          {method.cost === 0 ? "Gratuit" : `${method.cost.toFixed(2)} €`}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm text-gray-600">
+                        <Clock className="h-4 w-4" />
+                        {method.delivery_time}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {method.is_relay ? (
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                          Oui
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-gray-50 text-gray-600">
+                          Non
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={method.is_active}
+                        onCheckedChange={() => handleToggleActive(method)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenDialog(method)}
+                          className="hover:bg-blue-50 hover:text-blue-600"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(method.id)}
+                          className="hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
