@@ -126,43 +126,85 @@ export default function CouponsPage() {
       return;
     }
 
+    const discountValue = parseFloat(formData.discount_value);
+    const minPurchase = formData.min_purchase ? parseFloat(formData.min_purchase) : 0;
+    const maxUses = formData.max_uses ? parseInt(formData.max_uses) : null;
+
+    if (isNaN(discountValue) || discountValue <= 0) {
+      toast.error('La valeur de réduction doit être un nombre valide supérieur à 0', { position: 'bottom-right' });
+      return;
+    }
+
+    if (formData.discount_type === 'percentage' && discountValue > 100) {
+      toast.error('Le pourcentage ne peut pas dépasser 100%', { position: 'bottom-right' });
+      return;
+    }
+
+    if (formData.min_purchase && isNaN(minPurchase)) {
+      toast.error('Le montant minimum d\'achat doit être un nombre valide', { position: 'bottom-right' });
+      return;
+    }
+
+    if (formData.max_uses && (maxUses === null || isNaN(maxUses))) {
+      toast.error('Le nombre maximum d\'utilisations doit être un nombre valide', { position: 'bottom-right' });
+      return;
+    }
+
     try {
       const couponData = {
         code: formData.code.toUpperCase().trim(),
         discount_type: formData.discount_type,
-        discount_value: parseFloat(formData.discount_value),
-        min_purchase: formData.min_purchase ? parseFloat(formData.min_purchase) : 0,
-        max_uses: formData.max_uses ? parseInt(formData.max_uses) : null,
+        discount_value: discountValue,
+        min_purchase: minPurchase,
+        max_uses: maxUses,
         valid_from: formData.valid_from || null,
         valid_until: formData.valid_until || null,
         is_active: formData.is_active,
       };
 
+      console.log('=== SAVING COUPON ===');
+      console.log('Coupon Data:', JSON.stringify(couponData, null, 2));
+
       if (editingCoupon) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('coupons')
           .update(couponData)
-          .eq('id', editingCoupon.id);
+          .eq('id', editingCoupon.id)
+          .select()
+          .single();
 
         if (error) throw error;
+        console.log('Coupon updated successfully:', data);
         toast.success('Coupon modifié avec succès', { position: 'bottom-right' });
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('coupons')
-          .insert([couponData]);
+          .insert([couponData])
+          .select()
+          .single();
 
         if (error) throw error;
+        console.log('Coupon created successfully:', data);
         toast.success('Coupon créé avec succès', { position: 'bottom-right' });
       }
 
+      console.log('=== SAVE SUCCESSFUL ===');
       resetForm();
       loadCoupons();
     } catch (error: any) {
-      console.error('Error saving coupon:', error);
+      console.error('=== COUPON SAVE ERROR ===');
+      console.error('Error Object:', JSON.stringify(error, null, 2));
+      console.error('Error Message:', error?.message);
+      console.error('Error Code:', error?.code);
+      console.error('Error Details:', error?.details);
+      console.error('Error Hint:', error?.hint);
+      console.error('========================');
+
       if (error.code === '23505') {
         toast.error('Ce code promo existe déjà', { position: 'bottom-right' });
       } else {
-        toast.error(`Erreur lors de la sauvegarde: ${error.message || 'Erreur inconnue'}`, { position: 'bottom-right' });
+        const errorMessage = error?.message || error?.details || 'Erreur inconnue';
+        toast.error(`Erreur lors de la sauvegarde: ${errorMessage}`, { position: 'bottom-right', duration: 8000 });
       }
     }
   };

@@ -113,59 +113,86 @@ export default function ProductEditForm({
   }, []);
 
   const loadAttributes = async () => {
-    const { data: attrs } = await supabase
-      .from("product_attributes")
-      .select(`
-        *,
-        product_attribute_terms (
-          id,
-          name,
-          slug,
-          value,
-          color_code,
-          order_by,
-          attribute_id
-        )
-      `)
-      .eq("is_visible", true)
-      .order("order_by");
+    try {
+      const { data: attrs, error } = await supabase
+        .from("product_attributes")
+        .select(`
+          *,
+          product_attribute_terms (
+            id,
+            name,
+            slug,
+            value,
+            color_code,
+            order_by,
+            attribute_id
+          )
+        `)
+        .eq("is_visible", true)
+        .order("order_by");
 
-    if (attrs) {
-      const formatted = attrs.map(attr => ({
-        ...attr,
-        terms: attr.product_attribute_terms
-      }));
-      setAttributes(formatted as any);
+      if (error) throw error;
+
+      if (attrs) {
+        const formatted = attrs.map(attr => ({
+          ...attr,
+          terms: attr.product_attribute_terms
+        }));
+        setAttributes(formatted as any);
+      }
+    } catch (error) {
+      console.error("Error loading attributes:", error);
+      toast.error("Erreur lors du chargement des attributs", {
+        position: "bottom-right",
+      });
     }
   };
 
   const loadSeoData = async () => {
-    const { data } = await supabase
-      .from("seo_metadata")
-      .select("*")
-      .eq("product_id", product.id)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from("seo_metadata")
+        .select("*")
+        .eq("product_id", product.id)
+        .maybeSingle();
 
-    if (data) {
-      setSeoData({
-        seo_title: data.seo_title || "",
-        meta_description: data.meta_description || "",
-        og_title: data.og_title || "",
-        og_description: data.og_description || "",
-        og_image: data.og_image || "",
+      if (error) throw error;
+
+      if (data) {
+        setSeoData({
+          seo_title: data.seo_title || "",
+          meta_description: data.meta_description || "",
+          og_title: data.og_title || "",
+          og_description: data.og_description || "",
+          og_image: data.og_image || "",
+        });
+      }
+    } catch (error) {
+      console.error("Error loading SEO data:", error);
+      toast.error("Erreur lors du chargement des données SEO", {
+        position: "bottom-right",
       });
     }
   };
 
   const loadVariations = async () => {
-    const { data } = await supabase
-      .from("product_variations")
-      .select("*")
-      .eq("product_id", product.id)
-      .eq("is_active", true);
+    try {
+      const { data, error } = await supabase
+        .from("product_variations")
+        .select("*")
+        .eq("product_id", product.id)
+        .eq("is_active", true);
 
-    if (data) {
-      setVariations(data);
+      if (error) throw error;
+
+      if (data) {
+        setVariations(data);
+      }
+    } catch (error) {
+      console.error("Error loading variations:", error);
+      toast.error("Erreur lors du chargement des variations", {
+        position: "bottom-right",
+      });
     }
   };
 
@@ -305,28 +332,37 @@ export default function ProductEditForm({
       }
 
       if (variations.length > 0) {
-        const variationsToInsert = variations.map(v => ({
-          product_id: String(product.id),
-          sku: String(v.sku || ""),
-          attributes: v.attributes || {},
-          regular_price: v.regular_price ? parseFloat(String(v.regular_price)) : null,
-          sale_price: v.sale_price ? parseFloat(String(v.sale_price)) : null,
-          stock_quantity: v.stock_quantity ? parseInt(String(v.stock_quantity)) : 0,
-          image_url: v.image_url || null,
-          stock_status: v.stock_status || "instock",
-          is_active: true,
-        }));
+        const variationsToInsert = variations.map(v => {
+          const regularPrice = v.regular_price != null ? parseFloat(String(v.regular_price)) : null;
+          const salePrice = v.sale_price != null ? parseFloat(String(v.sale_price)) : null;
+          const stockQty = v.stock_quantity != null ? parseInt(String(v.stock_quantity)) : 0;
 
-        console.log("Inserting variations:", variationsToInsert);
+          return {
+            product_id: String(product.id),
+            sku: String(v.sku || ""),
+            attributes: v.attributes || {},
+            regular_price: isNaN(regularPrice as any) ? null : regularPrice,
+            sale_price: isNaN(salePrice as any) ? null : salePrice,
+            stock_quantity: isNaN(stockQty) ? 0 : stockQty,
+            image_url: v.image_url || null,
+            stock_status: v.stock_status || "instock",
+            is_active: true,
+          };
+        });
 
-        const { error: insertVarError } = await supabase
+        console.log("Inserting variations:", JSON.stringify(variationsToInsert, null, 2));
+
+        const { data: insertedVariations, error: insertVarError } = await supabase
           .from("product_variations")
-          .insert(variationsToInsert);
+          .insert(variationsToInsert)
+          .select();
 
         if (insertVarError) {
           console.error("Insert Variations Error:", insertVarError);
           throw insertVarError;
         }
+
+        console.log("Variations inserted successfully:", insertedVariations);
       }
 
       // 4. Mettre à jour le SEO
