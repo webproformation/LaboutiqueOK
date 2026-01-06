@@ -21,8 +21,11 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Edit, Eye, Package } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, Edit, Eye, Package, Diamond, Star } from "lucide-react";
 import { decodeHtmlEntities } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 import type { Product, Category } from "@/types/product";
 
 interface ProductsTableProps {
@@ -37,9 +40,50 @@ export default function ProductsTable({
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [stockFilter, setStockFilter] = useState("all");
+  const [localProducts, setLocalProducts] = useState(products);
+
+  const handleToggleDiamond = async (productId: string, currentValue: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({ is_diamond: !currentValue })
+        .eq("id", productId);
+
+      if (error) throw error;
+
+      setLocalProducts(prev =>
+        prev.map(p => p.id === productId ? { ...p, is_diamond: !currentValue } : p)
+      );
+
+      toast.success(!currentValue ? "Produit marqué comme diamant" : "Diamant retiré");
+    } catch (error) {
+      console.error("Error toggling diamond:", error);
+      toast.error("Erreur lors de la mise à jour");
+    }
+  };
+
+  const handleToggleFeatured = async (productId: string, currentValue: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({ is_featured: !currentValue })
+        .eq("id", productId);
+
+      if (error) throw error;
+
+      setLocalProducts(prev =>
+        prev.map(p => p.id === productId ? { ...p, is_featured: !currentValue } : p)
+      );
+
+      toast.success(!currentValue ? "Produit ajouté aux coups de coeur" : "Produit retiré des coups de coeur");
+    } catch (error) {
+      console.error("Error toggling featured:", error);
+      toast.error("Erreur lors de la mise à jour");
+    }
+  };
 
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
+    return localProducts.filter((product) => {
       const matchesSearch =
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.id.toLowerCase().includes(searchTerm.toLowerCase());
@@ -54,7 +98,7 @@ export default function ProductsTable({
 
       return matchesSearch && matchesStatus && matchesStock;
     });
-  }, [products, searchTerm, statusFilter, stockFilter]);
+  }, [localProducts, searchTerm, statusFilter, stockFilter]);
 
   return (
     <div className="space-y-4">
@@ -121,6 +165,12 @@ export default function ProductsTable({
                     <TableHead>Prix</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead>Statut</TableHead>
+                    <TableHead className="text-center w-20">
+                      <Diamond className="h-4 w-4 inline" />
+                    </TableHead>
+                    <TableHead className="text-center w-20">
+                      <Star className="h-4 w-4 inline" />
+                    </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -192,6 +242,18 @@ export default function ProductsTable({
                             ? "Publié"
                             : "Brouillon"}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={product.is_diamond || false}
+                          onCheckedChange={() => handleToggleDiamond(product.id, product.is_diamond || false)}
+                        />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={product.is_featured || false}
+                          onCheckedChange={() => handleToggleFeatured(product.id, product.is_featured || false)}
+                        />
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">

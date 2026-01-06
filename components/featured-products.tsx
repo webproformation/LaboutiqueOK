@@ -23,38 +23,18 @@ export function FeaturedProducts() {
   useEffect(() => {
     const fetchFeaturedProducts = async () => {
       try {
-        // Get featured product IDs
-        const { data: featuredData } = await supabase
-          .from('featured_products')
-          .select('product_id')
-          .eq('is_active', true)
-          .order('display_order');
-
-        if (!featuredData || featuredData.length === 0) {
-          setProducts([]);
-          setLoading(false);
-          return;
-        }
-
-        const productIds = featuredData.map(fp => fp.product_id);
-
-        // Get product details
-        const { data: productsData } = await supabase
+        // Get products marked as featured
+        const { data: productsData, error } = await supabase
           .from('products')
           .select('*')
-          .in('id', productIds)
-          .eq('status', 'publish');
+          .eq('is_featured', true)
+          .eq('status', 'publish')
+          .order('created_at', { ascending: false })
+          .limit(8);
 
-        if (productsData) {
-          // Sort by featured order
-          const sortedProducts = productsData.sort((a, b) => {
-            const aOrder = featuredData.findIndex(fp => fp.product_id === a.id);
-            const bOrder = featuredData.findIndex(fp => fp.product_id === b.id);
-            return aOrder - bOrder;
-          });
+        if (error) throw error;
 
-          setProducts(sortedProducts);
-        }
+        setProducts(productsData || []);
       } catch (error) {
         console.error('Error fetching featured products:', error);
       } finally {
@@ -71,7 +51,7 @@ export function FeaturedProducts() {
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-3 mb-8">
             <Sparkles className="h-8 w-8 text-[#D4AF37]" />
-            <h2 className="text-4xl font-bold">Produits en Vedette</h2>
+            <h2 className="text-4xl font-bold">Les coups de coeur de Morgane</h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, i) => (
@@ -98,7 +78,7 @@ export function FeaturedProducts() {
       <div className="container mx-auto px-4">
         <div className="flex items-center gap-3 mb-8">
           <Sparkles className="h-8 w-8 text-[#D4AF37]" />
-          <h2 className="text-4xl font-bold">Produits en Vedette</h2>
+          <h2 className="text-4xl font-bold">Les coups de coeur de Morgane</h2>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

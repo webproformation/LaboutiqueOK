@@ -12,7 +12,6 @@ async function getCategories() {
   const { data: categories, error } = await supabase
     .from("categories")
     .select("*")
-    .eq("is_visible", true)
     .order("display_order", { ascending: true });
 
   if (error) {

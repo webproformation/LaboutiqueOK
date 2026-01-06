@@ -16,6 +16,8 @@ export interface Product {
   image_url: string | null;
   gallery_images: string[] | null;
   category_ids: string[] | null;
+  is_diamond: boolean;
+  is_featured: boolean;
   created_at: string;
   updated_at: string;
 }
