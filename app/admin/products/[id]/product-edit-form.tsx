@@ -220,96 +220,185 @@ export default function ProductEditForm({
     setSaving(true);
 
     try {
+      console.log("=== SAVING PRODUCT ===");
+      console.log("Product ID (should be string):", product.id, typeof product.id);
+      console.log("Selected Categories:", selectedCategories);
+      console.log("Product Data:", {
+        name: product.name,
+        slug: product.slug,
+        regular_price: product.regular_price,
+        sale_price: product.sale_price,
+        stock_quantity: product.stock_quantity,
+      });
+
       // 1. Mettre à jour le produit
+      const productUpdateData = {
+        name: String(product.name).trim(),
+        slug: String(product.slug).trim(),
+        description: product.description || "",
+        regular_price: parseFloat(String(product.regular_price)) || 0,
+        sale_price: product.sale_price ? parseFloat(String(product.sale_price)) : null,
+        stock_quantity: parseInt(String(product.stock_quantity)) || 0,
+        status: product.status || "draft",
+        image_url: product.image_url || null,
+        is_diamond: Boolean(product.is_diamond),
+        is_featured: Boolean(product.is_featured),
+        is_variable_product: variations.length > 0,
+      };
+
+      console.log("Product Update Data (cleaned):", productUpdateData);
+
       const { error: productError } = await supabase
         .from("products")
-        .update({
-          name: product.name,
-          slug: product.slug,
-          description: product.description,
-          regular_price: product.regular_price,
-          sale_price: product.sale_price,
-          stock_quantity: product.stock_quantity,
-          status: product.status,
-          image_url: product.image_url,
-          is_diamond: product.is_diamond,
-          is_featured: product.is_featured,
-          is_variable_product: variations.length > 0,
-        })
-        .eq("id", product.id);
+        .update(productUpdateData)
+        .eq("id", String(product.id));
 
-      if (productError) throw productError;
+      if (productError) {
+        console.error("Product Update Error:", productError);
+        throw productError;
+      }
 
       // 2. Mettre à jour les catégories
-      await supabase
+      console.log("Deleting old category mappings for product:", product.id);
+      const { error: deleteCatError } = await supabase
         .from("product_category_mapping")
         .delete()
-        .eq("product_id", product.id);
+        .eq("product_id", String(product.id));
+
+      if (deleteCatError) {
+        console.error("Delete Category Mapping Error:", deleteCatError);
+        throw deleteCatError;
+      }
 
       if (selectedCategories.length > 0) {
         const categoryMappings = selectedCategories.map((catId, index) => ({
-          product_id: product.id,
-          category_id: catId,
+          product_id: String(product.id),
+          category_id: String(catId),
           is_primary: index === 0,
           display_order: index,
         }));
 
-        await supabase
+        console.log("Inserting category mappings:", categoryMappings);
+
+        const { error: insertCatError } = await supabase
           .from("product_category_mapping")
           .insert(categoryMappings);
+
+        if (insertCatError) {
+          console.error("Insert Category Mapping Error:", insertCatError);
+          throw insertCatError;
+        }
       }
 
       // 3. Mettre à jour les variations
-      await supabase
+      console.log("Deleting old variations for product:", product.id);
+      const { error: deleteVarError } = await supabase
         .from("product_variations")
         .delete()
-        .eq("product_id", product.id);
+        .eq("product_id", String(product.id));
+
+      if (deleteVarError) {
+        console.error("Delete Variations Error:", deleteVarError);
+        throw deleteVarError;
+      }
 
       if (variations.length > 0) {
         const variationsToInsert = variations.map(v => ({
-          product_id: product.id,
-          sku: v.sku,
-          attributes: v.attributes,
-          regular_price: v.regular_price,
-          sale_price: v.sale_price,
-          stock_quantity: v.stock_quantity,
-          image_url: v.image_url,
+          product_id: String(product.id),
+          sku: String(v.sku || ""),
+          attributes: v.attributes || {},
+          regular_price: v.regular_price ? parseFloat(String(v.regular_price)) : null,
+          sale_price: v.sale_price ? parseFloat(String(v.sale_price)) : null,
+          stock_quantity: v.stock_quantity ? parseInt(String(v.stock_quantity)) : 0,
+          image_url: v.image_url || null,
           stock_status: v.stock_status || "instock",
           is_active: true,
         }));
 
-        await supabase
+        console.log("Inserting variations:", variationsToInsert);
+
+        const { error: insertVarError } = await supabase
           .from("product_variations")
           .insert(variationsToInsert);
+
+        if (insertVarError) {
+          console.error("Insert Variations Error:", insertVarError);
+          throw insertVarError;
+        }
       }
 
       // 4. Mettre à jour le SEO
-      await supabase
+      console.log("Deleting old SEO data for product:", product.id);
+      const { error: deleteSeoError } = await supabase
         .from("seo_metadata")
         .delete()
-        .eq("product_id", product.id);
+        .eq("product_id", String(product.id));
 
-      if (seoData.seo_title || seoData.meta_description) {
-        await supabase
-          .from("seo_metadata")
-          .insert({
-            entity_type: "product",
-            entity_identifier: product.slug,
-            product_id: product.id,
-            seo_title: seoData.seo_title,
-            meta_description: seoData.meta_description,
-            og_title: seoData.og_title,
-            og_description: seoData.og_description,
-            og_image: seoData.og_image,
-            is_active: true,
-          });
+      if (deleteSeoError) {
+        console.error("Delete SEO Error:", deleteSeoError);
+        throw deleteSeoError;
       }
 
-      toast.success("Produit mis à jour");
+      if (seoData.seo_title || seoData.meta_description) {
+        const seoInsertData = {
+          entity_type: "product",
+          entity_identifier: String(product.slug).trim(),
+          product_id: String(product.id),
+          seo_title: String(seoData.seo_title || "").trim(),
+          meta_description: String(seoData.meta_description || "").trim(),
+          og_title: String(seoData.og_title || "").trim(),
+          og_description: String(seoData.og_description || "").trim(),
+          og_image: String(seoData.og_image || "").trim() || null,
+          is_active: true,
+        };
+
+        console.log("Inserting SEO data:", seoInsertData);
+
+        const { error: insertSeoError } = await supabase
+          .from("seo_metadata")
+          .insert(seoInsertData);
+
+        if (insertSeoError) {
+          console.error("Insert SEO Error:", insertSeoError);
+          throw insertSeoError;
+        }
+      }
+
+      console.log("=== SAVE SUCCESSFUL ===");
+
+      toast.success("Produit mis à jour avec succès");
       router.refresh();
     } catch (error: any) {
-      console.error("Error saving product:", error);
-      toast.error(error.message || "Erreur lors de la sauvegarde");
+      console.error("=== FULL SUPABASE ERROR ===");
+      console.error("Error Object:", JSON.stringify(error, null, 2));
+      console.error("Error Message:", error?.message);
+      console.error("Error Details:", error?.details);
+      console.error("Error Hint:", error?.hint);
+      console.error("Error Code:", error?.code);
+      console.error("========================");
+
+      let errorMessage = "Erreur lors de la sauvegarde";
+
+      if (error?.message) {
+        errorMessage = error.message;
+      }
+
+      if (error?.details) {
+        errorMessage += ` - Détails: ${error.details}`;
+      }
+
+      if (error?.hint) {
+        errorMessage += ` - Conseil: ${error.hint}`;
+      }
+
+      if (error?.code) {
+        errorMessage += ` (Code: ${error.code})`;
+      }
+
+      toast.error(errorMessage, {
+        duration: 8000,
+        position: "bottom-right",
+      });
     } finally {
       setSaving(false);
     }
