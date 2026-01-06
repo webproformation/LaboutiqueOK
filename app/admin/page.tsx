@@ -1,11 +1,18 @@
 import { createClient } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import {
   ShoppingBag,
   Package,
   Users,
   TrendingUp,
   Clock,
+  Plus,
+  Eye,
+  FolderTree,
+  FileText,
+  UserCircle,
 } from "lucide-react";
 
 export const revalidate = 0;
@@ -44,6 +51,76 @@ export default async function AdminDashboard() {
           Vue d'ensemble de votre boutique en ligne
         </p>
       </div>
+
+      {/* Quick Actions */}
+      <Card className="border-[#d4af37]/20">
+        <CardHeader>
+          <CardTitle className="text-xl text-gray-900">Actions rapides</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <Link href="/admin/products">
+              <Button
+                variant="outline"
+                className="w-full h-24 flex flex-col items-center justify-center gap-2 hover:bg-[#d4af37]/10 hover:border-[#d4af37]"
+              >
+                <Plus className="h-6 w-6 text-[#d4af37]" />
+                <span className="text-sm font-medium">Créer un produit</span>
+              </Button>
+            </Link>
+
+            <Link href="/admin/products">
+              <Button
+                variant="outline"
+                className="w-full h-24 flex flex-col items-center justify-center gap-2 hover:bg-blue-50 hover:border-blue-500"
+              >
+                <Eye className="h-6 w-6 text-blue-600" />
+                <span className="text-sm font-medium">Voir les produits</span>
+              </Button>
+            </Link>
+
+            <Link href="/admin/categories-management/new">
+              <Button
+                variant="outline"
+                className="w-full h-24 flex flex-col items-center justify-center gap-2 hover:bg-green-50 hover:border-green-500"
+              >
+                <Plus className="h-6 w-6 text-green-600" />
+                <span className="text-sm font-medium">Créer une catégorie</span>
+              </Button>
+            </Link>
+
+            <Link href="/admin/categories-management">
+              <Button
+                variant="outline"
+                className="w-full h-24 flex flex-col items-center justify-center gap-2 hover:bg-green-50 hover:border-green-500"
+              >
+                <FolderTree className="h-6 w-6 text-green-600" />
+                <span className="text-sm font-medium">Voir les catégories</span>
+              </Button>
+            </Link>
+
+            <Link href="/admin/orders">
+              <Button
+                variant="outline"
+                className="w-full h-24 flex flex-col items-center justify-center gap-2 hover:bg-orange-50 hover:border-orange-500"
+              >
+                <FileText className="h-6 w-6 text-orange-600" />
+                <span className="text-sm font-medium">Voir les factures</span>
+              </Button>
+            </Link>
+
+            <Link href="/admin/clients">
+              <Button
+                variant="outline"
+                className="w-full h-24 flex flex-col items-center justify-center gap-2 hover:bg-purple-50 hover:border-purple-500"
+              >
+                <UserCircle className="h-6 w-6 text-purple-600" />
+                <span className="text-sm font-medium">Clients</span>
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

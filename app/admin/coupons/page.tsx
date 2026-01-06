@@ -545,7 +545,7 @@ export default function CouponsPage() {
                             <>
                               <Euro className="h-4 w-4 text-green-600" />
                               <span className="font-semibold text-green-600">
-                                {coupon.discount_value.toFixed(2)}€
+                                {(coupon.discount_value || 0).toFixed(2)}€
                               </span>
                             </>
                           )}
@@ -554,7 +554,7 @@ export default function CouponsPage() {
                       <TableCell>
                         {coupon.min_purchase > 0 && (
                           <div className="text-sm text-gray-600">
-                            Min. {coupon.min_purchase.toFixed(2)}€
+                            Min. {(coupon.min_purchase || 0).toFixed(2)}€
                           </div>
                         )}
                       </TableCell>
