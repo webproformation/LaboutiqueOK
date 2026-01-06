@@ -70,13 +70,28 @@ export default function NewsCategoriesPage() {
 
   const loadCategories = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: categoriesData, error } = await supabase
         .from('news_categories')
         .select('*')
         .order('display_order', { ascending: true });
 
       if (error) throw error;
-      setCategories(data || []);
+
+      const categoriesWithCount = await Promise.all(
+        (categoriesData || []).map(async (cat) => {
+          const { count } = await supabase
+            .from('news_post_categories')
+            .select('*', { count: 'exact', head: true })
+            .eq('category_id', cat.id);
+
+          return {
+            ...cat,
+            count: count || 0
+          };
+        })
+      );
+
+      setCategories(categoriesWithCount);
     } catch (error) {
       console.error('Error loading categories:', error);
       toast.error('Erreur lors du chargement');

@@ -67,7 +67,6 @@ export default function NewsEditorPage() {
       const { data, error } = await supabase
         .from('news_categories')
         .select('*')
-        .eq('is_active', true)
         .order('display_order', { ascending: true });
 
       if (error) throw error;
@@ -262,32 +261,32 @@ export default function NewsEditorPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <Card className="bg-black border-[#d4af37]/30">
+          <Card className="bg-white border-[#d4af37]/30">
             <CardHeader>
               <CardTitle className="text-[#d4af37]">Contenu de l'article</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <Label htmlFor="title" className="text-gray-400">Titre *</Label>
+                <Label htmlFor="title" className="text-gray-700">Titre *</Label>
                 <Input
                   id="title"
                   value={formData.title}
                   onChange={(e) => handleTitleChange(e.target.value)}
                   placeholder="Titre de l'article"
-                  className="text-lg font-semibold bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500"
+                  className="text-lg font-semibold bg-white border-[#d4af37]/30 text-gray-900 placeholder:text-gray-400"
                   required
                 />
               </div>
 
               <div>
-                <Label htmlFor="excerpt" className="text-gray-400">Extrait</Label>
+                <Label htmlFor="excerpt" className="text-gray-700">Extrait</Label>
                 <Textarea
                   id="excerpt"
                   value={formData.excerpt}
                   onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
                   placeholder="Court résumé de l'article (150-200 caractères recommandés)"
                   rows={3}
-                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500"
+                  className="bg-white border-[#d4af37]/30 text-gray-900 placeholder:text-gray-400"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   {formData.excerpt.length} / 200 caractères
@@ -295,7 +294,7 @@ export default function NewsEditorPage() {
               </div>
 
               <div>
-                <Label className="text-gray-400">Contenu *</Label>
+                <Label className="text-gray-700">Contenu *</Label>
                 <RichTextEditor
                   value={formData.content}
                   onChange={(content) => setFormData({ ...formData, content })}
@@ -304,31 +303,31 @@ export default function NewsEditorPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-black border-[#d4af37]/30">
+          <Card className="bg-white border-[#d4af37]/30">
             <CardHeader>
               <CardTitle className="text-[#d4af37]">SEO</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="seo_title" className="text-gray-400">Titre SEO</Label>
+                <Label htmlFor="seo_title" className="text-gray-700">Titre SEO</Label>
                 <Input
                   id="seo_title"
                   value={formData.seo_title}
                   onChange={(e) => setFormData({ ...formData, seo_title: e.target.value })}
                   placeholder={formData.title || 'Titre pour les moteurs de recherche'}
-                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500"
+                  className="bg-white border-[#d4af37]/30 text-gray-900 placeholder:text-gray-400"
                 />
               </div>
 
               <div>
-                <Label htmlFor="meta_description" className="text-gray-400">Meta Description</Label>
+                <Label htmlFor="meta_description" className="text-gray-700">Meta Description</Label>
                 <Textarea
                   id="meta_description"
                   value={formData.meta_description}
                   onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
                   placeholder="Description pour les moteurs de recherche"
                   rows={3}
-                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500"
+                  className="bg-white border-[#d4af37]/30 text-gray-900 placeholder:text-gray-400"
                 />
               </div>
             </CardContent>
@@ -336,51 +335,51 @@ export default function NewsEditorPage() {
         </div>
 
         <div className="space-y-6">
-          <Card className="bg-black border-[#d4af37]/30">
+          <Card className="bg-white border-[#d4af37]/30">
             <CardHeader>
               <CardTitle className="text-[#d4af37]">Publication</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="status" className="text-gray-400">Statut</Label>
+                <Label htmlFor="status" className="text-gray-700">Statut</Label>
                 <Select
                   value={formData.status}
                   onValueChange={(value: 'draft' | 'publish' | 'pending') =>
                     setFormData({ ...formData, status: value })
                   }
                 >
-                  <SelectTrigger className="bg-black border-[#d4af37]/30 text-white">
+                  <SelectTrigger className="bg-white border-[#d4af37]/30 text-gray-900">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-black border-[#d4af37]/30">
-                    <SelectItem value="draft" className="text-white hover:bg-[#d4af37]/20">Brouillon</SelectItem>
-                    <SelectItem value="pending" className="text-white hover:bg-[#d4af37]/20">En attente</SelectItem>
-                    <SelectItem value="publish" className="text-white hover:bg-[#d4af37]/20">Publié</SelectItem>
+                  <SelectContent className="bg-white border-[#d4af37]/30">
+                    <SelectItem value="draft" className="text-gray-900 hover:bg-[#d4af37]/20">Brouillon</SelectItem>
+                    <SelectItem value="pending" className="text-gray-900 hover:bg-[#d4af37]/20">En attente</SelectItem>
+                    <SelectItem value="publish" className="text-gray-900 hover:bg-[#d4af37]/20">Publié</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="published_at" className="text-gray-400">Date de publication</Label>
+                <Label htmlFor="published_at" className="text-gray-700">Date de publication</Label>
                 <Input
                   id="published_at"
                   type="date"
                   value={formData.published_at}
                   onChange={(e) => setFormData({ ...formData, published_at: e.target.value })}
-                  className="bg-black border-[#d4af37]/30 text-white"
+                  className="bg-white border-[#d4af37]/30 text-gray-900"
                 />
               </div>
 
               <Separator className="bg-[#d4af37]/30" />
 
               <div>
-                <Label htmlFor="slug" className="text-gray-400">URL (slug)</Label>
+                <Label htmlFor="slug" className="text-gray-700">URL (slug)</Label>
                 <Input
                   id="slug"
                   value={formData.slug}
                   onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                   placeholder="url-de-larticle"
-                  className="bg-black border-[#d4af37]/30 text-white placeholder:text-gray-500"
+                  className="bg-white border-[#d4af37]/30 text-gray-900 placeholder:text-gray-400"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   /actualites/{formData.slug || 'url-de-larticle'}
@@ -389,7 +388,7 @@ export default function NewsEditorPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-black border-[#d4af37]/30">
+          <Card className="bg-white border-[#d4af37]/30">
             <CardHeader>
               <CardTitle className="text-[#d4af37]">Catégories *</CardTitle>
             </CardHeader>
@@ -405,7 +404,7 @@ export default function NewsEditorPage() {
                     />
                     <Label
                       htmlFor={`category-${category.id}`}
-                      className="flex items-center gap-2 cursor-pointer text-white"
+                      className="flex items-center gap-2 cursor-pointer text-gray-900"
                     >
                       <div
                         className="w-3 h-3 rounded-full"
@@ -419,7 +418,7 @@ export default function NewsEditorPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-black border-[#d4af37]/30">
+          <Card className="bg-white border-[#d4af37]/30">
             <CardHeader>
               <CardTitle className="text-[#d4af37]">Image à la une</CardTitle>
             </CardHeader>
