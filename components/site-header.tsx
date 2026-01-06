@@ -29,6 +29,7 @@ import { MegaMenu } from '@/components/mega-menu';
 import { MobileMenu } from '@/components/mobile-menu';
 import { SearchModal } from '@/components/search-modal';
 import { useAuth } from '@/context/AuthContext';
+import { useAuthStore } from '@/stores/auth-store';
 import { useWishlist } from '@/context/WishlistContext';
 import { useCart } from '@/context/CartContext';
 
@@ -47,7 +48,7 @@ const navigation = [
 export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut: authStoreSignOut } = useAuthStore();
   const { wishlistCount } = useWishlist();
   const { cartItemCount } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -56,8 +57,15 @@ export function SiteHeader() {
 
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  useEffect(() => {
+    console.log("🔍 SiteHeader - État Auth:", {
+      user: user?.email,
+      profile: profile ? { first_name: profile.first_name, last_name: profile.last_name, is_admin: profile.is_admin } : null
+    });
+  }, [user, profile]);
+
   const handleSignOut = async () => {
-    await signOut();
+    await authStoreSignOut();
     router.push('/');
   };
 
@@ -172,18 +180,20 @@ export function SiteHeader() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  {user && profile ? (
+                  {user ? (
                     <>
                       <DropdownMenuLabel>
                         <div className="flex flex-col space-y-1">
                           <p className="text-sm font-medium">
-                            {profile.first_name} {profile.last_name}
+                            {profile?.first_name || profile?.last_name
+                              ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+                              : user.email}
                           </p>
-                          <p className="text-xs text-muted-foreground">{profile.email}</p>
+                          <p className="text-xs text-muted-foreground">{user.email}</p>
                         </div>
                       </DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      {profile.is_admin && (
+                      {profile?.is_admin && (
                         <DropdownMenuItem asChild>
                           <Link href="/admin" className="flex items-center bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white font-medium">
                             <Shield className="mr-2 h-4 w-4" />

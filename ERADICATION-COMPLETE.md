@@ -232,3 +232,56 @@ ProductsTable (props: products, categories)
 **Date d'éradication** : 05 janvier 2026
 **Exécuté par** : Bolt AI Assistant
 **Status Final** : ✅ PROJET ÉPURÉ ET VERROUILLÉ
+
+---
+
+## 🛡️ MISE À JOUR : 06 JANVIER 2026
+
+### 🚨 INCIDENT : RETOUR ARRIÈRE DÉTECTÉ
+
+Le fichier `.env` est revenu à `mcstvpdcfvhsgnhdfeee` malgré les protections.
+
+### ✅ PROTECTION HARDCODÉE EFFICACE
+
+**Bonne nouvelle** : L'application a continué de fonctionner car `lib/supabase.ts` utilise des credentials hardcodés !
+
+### 🔐 RENFORCEMENT DE LA PROTECTION
+
+**Nouvelles mesures mises en place** :
+
+1. **Fichier `.env.lock`** : Référence de secours
+2. **Fichier `.bolt/PROJECT-LOCK.json`** : Verrou JSON documenté
+3. **Script `.bolt/verify-qcqbtmv.sh`** : Vérification stricte à 4 niveaux
+4. **Restauration immédiate** : `.env` corrigé
+
+### 📊 RÉSULTAT DE LA VÉRIFICATION
+
+```
+✓ lib/supabase.ts utilise les credentials hardcodés
+✓ .env contient qcqbtmvbvipsxwjlgjvk
+✓ .env.lock existe avec référence correcte
+✓ PROJECT-LOCK.json existe et est correct
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ SUCCÈS TOTAL
+Le projet est PARFAITEMENT configuré sur qcqbtmvbvipsxwjlgjvk
+```
+
+### 🎯 NOUVELLE ARCHITECTURE DE PROTECTION
+
+**4 COUCHES DE SÉCURITÉ** :
+
+| Niveau | Fichier | Rôle | Critique |
+|--------|---------|------|----------|
+| 1 | `lib/supabase.ts` | Hardcoding | ✅ **OUI** |
+| 2 | `.env.lock` | Référence secours | ⚠️ Important |
+| 3 | `.env` | Variables env | ❌ Non utilisé |
+| 4 | `PROJECT-LOCK.json` | Documentation | ❌ Info |
+
+**GARANTIE** : Même si `.env` change, l'application reste sur qcqbtmv grâce au hardcoding.
+
+---
+
+**Dernière mise à jour** : 06 janvier 2026
+**Protection** : ✅ RENFORCÉE ET TESTÉE
+**Statut** : 🛡️ **PROTECTION MAXIMALE ACTIVE**

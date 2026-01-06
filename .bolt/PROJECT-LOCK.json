@@ -1,7 +1,7 @@
 {
   "project_id": "qcqbtmvbvipsxwjlgjvk",
   "project_url": "https://qcqbtmvbvipsxwjlgjvk.supabase.co",
-  "locked_at": "2026-01-06T00:00:00Z",
+  "locked_at": "2026-01-06T12:00:00Z",
   "reason": "Protection contre centaines de retours en arrière vers mcstv",
   "forbidden_projects": ["mcstvpdcfvhsgnhdfeee"],
   "data_type": {
@@ -14,5 +14,13 @@
     "supabase_file": "lib/supabase.ts",
     "hardcoded": true,
     "use_process_env": false
-  }
+  },
+  "authentication": {
+    "system": "zustand + supabase auth",
+    "store": "stores/auth-store.ts",
+    "header_used": "components/site-header.tsx",
+    "profile_fields": ["first_name", "last_name", "is_admin"],
+    "status": "operational"
+  },
+  "last_verified": "2026-01-06T12:00:00Z"
 }
