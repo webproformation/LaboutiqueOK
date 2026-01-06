@@ -316,15 +316,50 @@ export default function ProductEditForm({
     }
   };
 
-  // Organiser les catégories par niveau
-  const getCategoriesByLevel = () => {
-    const level1 = allCategories.filter(c => !c.parent_id);
-    const level2 = allCategories.filter(c => c.parent_id && level1.some(p => p.id === c.parent_id));
-    const level3 = allCategories.filter(c => c.parent_id && level2.some(p => p.id === c.parent_id));
-    return { level1, level2, level3 };
+  // Organiser les catégories de façon hiérarchique
+  const buildCategoryTree = () => {
+    const rootCategories = allCategories.filter(c => !c.parent_id);
+
+    const buildChildren = (parentId: string): Category[] => {
+      return allCategories
+        .filter(c => c.parent_id === parentId)
+        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    };
+
+    const addChildren = (category: Category): any => {
+      const children = buildChildren(category.id);
+      return {
+        ...category,
+        children: children.map(child => addChildren(child))
+      };
+    };
+
+    return rootCategories.map(root => addChildren(root));
   };
 
-  const { level1, level2, level3 } = getCategoriesByLevel();
+  const categoryTree = buildCategoryTree();
+
+  const renderCategoryCheckbox = (category: any, level: number = 0) => {
+    return (
+      <div key={category.id}>
+        <div className="flex items-center space-x-2" style={{ paddingLeft: `${level * 24}px` }}>
+          <Checkbox
+            id={`cat-${category.id}`}
+            checked={selectedCategories.includes(category.id)}
+            onCheckedChange={() => handleCategoryToggle(category.id)}
+          />
+          <Label htmlFor={`cat-${category.id}`} className="cursor-pointer text-gray-900">
+            {category.name}
+          </Label>
+        </div>
+        {category.children && category.children.length > 0 && (
+          <div className="mt-1">
+            {category.children.map((child: any) => renderCategoryCheckbox(child, level + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -474,78 +509,12 @@ export default function ProductEditForm({
         <Card className="bg-white">
           <CardHeader>
             <CardTitle className="text-[#d4af37]">Catégories</CardTitle>
-            <CardDescription>Sélectionnez les catégories du produit (tous niveaux)</CardDescription>
+            <CardDescription>Sélectionnez les catégories du produit - Hiérarchie complète</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Niveau 1 */}
-            {level1.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-2 text-gray-900">Catégories principales</h4>
-                <div className="space-y-2">
-                  {level1.map((category) => (
-                    <div key={category.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`cat-${category.id}`}
-                        checked={selectedCategories.includes(category.id)}
-                        onCheckedChange={() => handleCategoryToggle(category.id)}
-                      />
-                      <Label htmlFor={`cat-${category.id}`} className="cursor-pointer text-gray-900">
-                        {category.name}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Niveau 2 */}
-            {level2.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-2 text-gray-900">Sous-catégories</h4>
-                <div className="space-y-2 pl-4">
-                  {level2.map((category) => {
-                    const parent = level1.find(p => p.id === category.parent_id);
-                    return (
-                      <div key={category.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`cat-${category.id}`}
-                          checked={selectedCategories.includes(category.id)}
-                          onCheckedChange={() => handleCategoryToggle(category.id)}
-                        />
-                        <Label htmlFor={`cat-${category.id}`} className="cursor-pointer text-gray-900">
-                          {parent?.name} → {category.name}
-                        </Label>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Niveau 3 */}
-            {level3.length > 0 && (
-              <div>
-                <h4 className="font-semibold mb-2 text-gray-900">Sous-sous-catégories</h4>
-                <div className="space-y-2 pl-8">
-                  {level3.map((category) => {
-                    const parent = level2.find(p => p.id === category.parent_id);
-                    const grandparent = parent ? level1.find(gp => gp.id === parent.parent_id) : null;
-                    return (
-                      <div key={category.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`cat-${category.id}`}
-                          checked={selectedCategories.includes(category.id)}
-                          onCheckedChange={() => handleCategoryToggle(category.id)}
-                        />
-                        <Label htmlFor={`cat-${category.id}`} className="cursor-pointer text-gray-900">
-                          {grandparent?.name} → {parent?.name} → {category.name}
-                        </Label>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+          <CardContent>
+            <div className="space-y-1 max-h-96 overflow-y-auto p-1">
+              {categoryTree.map((category: any) => renderCategoryCheckbox(category))}
+            </div>
           </CardContent>
         </Card>
 

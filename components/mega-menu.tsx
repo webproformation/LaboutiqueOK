@@ -12,7 +12,7 @@ interface MegaMenuProps {
 }
 
 interface CategoryWithChildren extends ProductCategory {
-  children?: ProductCategory[];
+  children?: CategoryWithChildren[];
 }
 
 const morganeCategories = [
@@ -59,15 +59,32 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
         if (level1Categories) {
           const categoriesWithChildren: CategoryWithChildren[] = await Promise.all(
             level1Categories.map(async (cat) => {
-              const { data: children } = await supabase
+              const { data: level2Children } = await supabase
                 .from('categories')
                 .select('*')
                 .eq('parent_id', cat.id)
+                .eq('is_visible', true)
                 .order('display_order', { ascending: true });
+
+              const level2WithChildren = level2Children ? await Promise.all(
+                level2Children.map(async (child) => {
+                  const { data: level3Children } = await supabase
+                    .from('categories')
+                    .select('*')
+                    .eq('parent_id', child.id)
+                    .eq('is_visible', true)
+                    .order('display_order', { ascending: true });
+
+                  return {
+                    ...child,
+                    children: level3Children || []
+                  };
+                })
+              ) : [];
 
               return {
                 ...cat,
-                children: children || []
+                children: level2WithChildren
               };
             })
           );
@@ -134,14 +151,29 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
                 {category.children && category.children.length > 0 && (
                   <ul className="space-y-2 pl-0">
                     {category.children.map((child) => (
-                      <li key={child.id}>
+                      <li key={child.id} className="space-y-1">
                         <Link
                           href={`/category/${child.slug}`}
-                          className="block text-sm text-gray-700 hover:text-[#D4AF37] hover:translate-x-1 transition-all duration-200"
+                          className="block text-sm font-medium text-gray-700 hover:text-[#D4AF37] hover:translate-x-1 transition-all duration-200"
                           onClick={onClose}
                         >
                           {decodeHtmlEntities(child.name)}
                         </Link>
+                        {child.children && child.children.length > 0 && (
+                          <ul className="space-y-1 pl-3 mt-1">
+                            {child.children.map((grandchild) => (
+                              <li key={grandchild.id}>
+                                <Link
+                                  href={`/category/${grandchild.slug}`}
+                                  className="block text-xs text-gray-600 hover:text-[#D4AF37] hover:translate-x-1 transition-all duration-200"
+                                  onClick={onClose}
+                                >
+                                  {decodeHtmlEntities(grandchild.name)}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </li>
                     ))}
                   </ul>

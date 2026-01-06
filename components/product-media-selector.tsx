@@ -183,23 +183,14 @@ export function ProductMediaSelector({ currentImageUrl, onSelect, label = "Image
           </DialogTrigger>
           <DialogContent className="max-w-5xl max-h-[80vh] overflow-hidden flex flex-col">
             <DialogHeader>
-              <DialogTitle>Sélectionner une image</DialogTitle>
+              <DialogTitle>Images des produits</DialogTitle>
               <DialogDescription>
-                Choisissez une image existante ou uploadez-en une nouvelle
+                Uploadez une nouvelle image ou sélectionnez-en une existante
               </DialogDescription>
             </DialogHeader>
 
             <div className="flex-1 overflow-hidden flex flex-col space-y-4">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Rechercher..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+              <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-6">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -211,11 +202,22 @@ export function ProductMediaSelector({ currentImageUrl, onSelect, label = "Image
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="bg-[#C6A15B] hover:bg-[#b8933d]"
+                  className="w-full bg-[#C6A15B] hover:bg-[#b8933d]"
+                  size="lg"
                 >
-                  <Upload className="w-4 h-4 mr-2" />
-                  {uploading ? 'Upload...' : 'Uploader'}
+                  <Upload className="w-5 h-5 mr-2" />
+                  {uploading ? 'Upload en cours...' : 'Uploader une nouvelle image'}
                 </Button>
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Rechercher dans les images existantes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
 
               <div className="flex-1 overflow-y-auto">

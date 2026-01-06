@@ -78,6 +78,27 @@ export default function ProductAttributesPage() {
     color_code: '#000000',
   });
 
+  const [editingColorTermId, setEditingColorTermId] = useState<string | null>(null);
+
+  const handleQuickColorChange = async (termId: string, newColor: string) => {
+    try {
+      const { error } = await supabase
+        .from('product_attribute_terms')
+        .update({ color_code: newColor })
+        .eq('id', termId);
+
+      if (error) throw error;
+
+      toast.success('Couleur mise à jour');
+      if (selectedAttribute) {
+        loadTerms(selectedAttribute.id);
+      }
+    } catch (error: any) {
+      console.error('Error updating color:', error);
+      toast.error(error.message || 'Erreur lors de la mise à jour');
+    }
+  };
+
   useEffect(() => {
     loadAttributes();
   }, []);
@@ -547,17 +568,41 @@ export default function ProductAttributesPage() {
                       <TableCell><code className="text-xs bg-gray-100 px-2 py-1 rounded">{term.slug}</code></TableCell>
                       {selectedAttribute.type === 'select' && (
                         <TableCell>
-                          {term.color_code && (
-                            <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-3">
+                            <div className="relative">
                               <div
-                                className="w-10 h-10 rounded-full border-2 border-gray-300 cursor-pointer hover:scale-110 transition-transform"
-                                style={{ backgroundColor: term.color_code }}
-                                title={`Cliquer pour changer la couleur de ${term.name}`}
-                                onClick={() => openEditTerm(term)}
+                                className="w-10 h-10 rounded-full border-2 border-gray-300 shadow-sm cursor-pointer hover:scale-110 transition-all hover:shadow-md"
+                                style={{ backgroundColor: term.color_code || '#gray' }}
+                                title="Cliquer pour changer la couleur"
                               />
-                              <span className="text-sm text-gray-600">{term.color_code}</span>
+                              <input
+                                type="color"
+                                value={term.color_code || '#000000'}
+                                onChange={(e) => handleQuickColorChange(term.id, e.target.value)}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                title="Sélecteur de couleur"
+                              />
                             </div>
-                          )}
+                            <div className="flex flex-col">
+                              <Input
+                                value={term.color_code || '#000000'}
+                                onChange={(e) => {
+                                  const color = e.target.value;
+                                  if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
+                                    handleQuickColorChange(term.id, color);
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  const color = e.target.value;
+                                  if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
+                                    handleQuickColorChange(term.id, color);
+                                  }
+                                }}
+                                className="w-24 h-8 text-xs font-mono"
+                                placeholder="#000000"
+                              />
+                            </div>
+                          </div>
                         </TableCell>
                       )}
                       <TableCell className="text-right">
