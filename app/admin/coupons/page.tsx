@@ -112,7 +112,7 @@ export default function CouponsPage() {
       setCoupons(data || []);
     } catch (error) {
       console.error('Error loading coupons:', error);
-      toast.error('Erreur lors du chargement des coupons');
+      toast.error('Erreur lors du chargement des coupons', { position: 'bottom-right' });
     } finally {
       setLoading(false);
     }
@@ -122,7 +122,7 @@ export default function CouponsPage() {
     e.preventDefault();
 
     if (!formData.code || !formData.discount_value) {
-      toast.error('Le code et la valeur de réduction sont requis');
+      toast.error('Le code et la valeur de réduction sont requis', { position: 'bottom-right' });
       return;
     }
 
@@ -145,14 +145,14 @@ export default function CouponsPage() {
           .eq('id', editingCoupon.id);
 
         if (error) throw error;
-        toast.success('Coupon modifié avec succès');
+        toast.success('Coupon modifié avec succès', { position: 'bottom-right' });
       } else {
         const { error } = await supabase
           .from('coupons')
           .insert([couponData]);
 
         if (error) throw error;
-        toast.success('Coupon créé avec succès');
+        toast.success('Coupon créé avec succès', { position: 'bottom-right' });
       }
 
       resetForm();
@@ -160,9 +160,9 @@ export default function CouponsPage() {
     } catch (error: any) {
       console.error('Error saving coupon:', error);
       if (error.code === '23505') {
-        toast.error('Ce code promo existe déjà');
+        toast.error('Ce code promo existe déjà', { position: 'bottom-right' });
       } else {
-        toast.error('Erreur lors de la sauvegarde');
+        toast.error(`Erreur lors de la sauvegarde: ${error.message || 'Erreur inconnue'}`, { position: 'bottom-right' });
       }
     }
   };
@@ -190,11 +190,11 @@ export default function CouponsPage() {
         .eq('id', id);
 
       if (error) throw error;
-      toast.success(`Coupon "${code}" supprimé`);
+      toast.success(`Coupon "${code}" supprimé`, { position: 'bottom-right' });
       loadCoupons();
     } catch (error) {
       console.error('Error deleting coupon:', error);
-      toast.error('Erreur lors de la suppression');
+      toast.error('Erreur lors de la suppression', { position: 'bottom-right' });
     }
   };
 
@@ -206,11 +206,11 @@ export default function CouponsPage() {
         .eq('id', coupon.id);
 
       if (error) throw error;
-      toast.success(coupon.is_active ? 'Coupon désactivé' : 'Coupon activé');
+      toast.success(coupon.is_active ? 'Coupon désactivé' : 'Coupon activé', { position: 'bottom-right' });
       loadCoupons();
     } catch (error) {
       console.error('Error toggling coupon:', error);
-      toast.error('Erreur lors de la modification');
+      toast.error('Erreur lors de la modification', { position: 'bottom-right' });
     }
   };
 
@@ -232,7 +232,7 @@ export default function CouponsPage() {
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
-    toast.success('Code copié !');
+    toast.success('Code copié !', { position: 'bottom-right' });
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
