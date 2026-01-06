@@ -67,6 +67,50 @@ export function MediaSelector({ currentImageUrl, onSelect, label = "Image" }: Me
 
   const loadProductImages = async () => {
     try {
+      const allUrls: string[] = [];
+
+      const { data: productFiles } = await supabase.storage
+        .from('product-images')
+        .list('products', {
+          limit: 1000,
+          sortBy: { column: 'created_at', order: 'desc' }
+        });
+
+      if (productFiles) {
+        for (const file of productFiles) {
+          if (file.name && file.name !== '.emptyFolderPlaceholder') {
+            const { data } = supabase.storage
+              .from('product-images')
+              .getPublicUrl(`products/${file.name}`);
+
+            if (data?.publicUrl) {
+              allUrls.push(data.publicUrl);
+            }
+          }
+        }
+      }
+
+      const { data: categoryFiles } = await supabase.storage
+        .from('category-images')
+        .list('categories', {
+          limit: 1000,
+          sortBy: { column: 'created_at', order: 'desc' }
+        });
+
+      if (categoryFiles) {
+        for (const file of categoryFiles) {
+          if (file.name && file.name !== '.emptyFolderPlaceholder') {
+            const { data } = supabase.storage
+              .from('category-images')
+              .getPublicUrl(`categories/${file.name}`);
+
+            if (data?.publicUrl) {
+              allUrls.push(data.publicUrl);
+            }
+          }
+        }
+      }
+
       const [productsResult, mediaResult] = await Promise.all([
         supabase
           .from('products')
@@ -81,7 +125,7 @@ export function MediaSelector({ currentImageUrl, onSelect, label = "Image" }: Me
       const productUrls = productsResult.data?.map(p => p.image_url).filter(Boolean) || [];
       const mediaUrls = mediaResult.data?.map(m => m.url).filter(Boolean) || [];
 
-      const allUrls = [...mediaUrls, ...productUrls];
+      allUrls.push(...mediaUrls, ...productUrls);
       const uniqueUrls = Array.from(new Set(allUrls));
 
       setProductImages(uniqueUrls as string[]);

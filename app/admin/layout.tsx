@@ -43,6 +43,7 @@ const navSections: NavSection[] = [
     icon: ShoppingBag,
     items: [
       { href: "/admin/products", label: "Produits" },
+      { href: "/admin/product-attributes", label: "Attributs" },
       { href: "/admin/categories-management", label: "Catégories" },
       { href: "/admin/orders", label: "Commandes" },
       { href: "/admin/coupons", label: "Coupons" },

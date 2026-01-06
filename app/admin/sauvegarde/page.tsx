@@ -76,10 +76,6 @@ export default function BackupPage() {
 
       console.log('🔍 AUTH DIAGNOSTIC:', diagnostic);
       setAuthDiagnostic(diagnostic);
-
-      if (!diagnostic.isAdmin) {
-        toast.error('Vous devez être administrateur pour effectuer des sauvegardes');
-      }
     } catch (error: any) {
       console.error('Diagnostic error:', error);
       setAuthDiagnostic({ error: error?.message || 'Unknown error' });
@@ -115,11 +111,6 @@ export default function BackupPage() {
   const handleBackupDatabase = async () => {
     if (!user) {
       toast.error('Vous devez être connecté');
-      return;
-    }
-
-    if (!isAdmin && !authDiagnostic?.isAdmin) {
-      toast.error('Droits administrateur requis');
       return;
     }
 
@@ -201,42 +192,95 @@ export default function BackupPage() {
   const handleBackupImages = async () => {
     setLoading(true);
     try {
-      const { data: files, error } = await supabase.storage
+      // Dynamiquement importer JSZip
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      let totalFiles = 0;
+
+      // Télécharger les images produits
+      toast.info('Récupération des images produits...');
+      const { data: productFiles, error: productError } = await supabase.storage
         .from('product-images')
         .list('products', {
           limit: 1000,
         });
 
-      if (error) throw error;
+      if (productError) {
+        console.warn('Erreur images produits:', productError);
+      } else if (productFiles) {
+        const productFolder = zip.folder('product-images');
+        for (const file of productFiles) {
+          if (file.name && file.name !== '.emptyFolderPlaceholder') {
+            try {
+              const { data: blob, error: downloadError } = await supabase.storage
+                .from('product-images')
+                .download(`products/${file.name}`);
 
-      toast.success(`${files.length} images trouvées. Téléchargement en cours...`);
-
-      for (const file of files) {
-        const { data: blob, error: downloadError } = await supabase.storage
-          .from('product-images')
-          .download(`products/${file.name}`);
-
-        if (downloadError) {
-          console.error('Download error:', file.name, downloadError);
-          continue;
+              if (!downloadError && blob) {
+                productFolder?.file(file.name, blob);
+                totalFiles++;
+              }
+            } catch (err) {
+              console.error('Download error:', file.name, err);
+            }
+          }
         }
-
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-
-        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      toast.success('Sauvegarde des images terminée');
-    } catch (error) {
+      // Télécharger les images catégories
+      toast.info('Récupération des images catégories...');
+      const { data: categoryFiles, error: categoryError } = await supabase.storage
+        .from('category-images')
+        .list('categories', {
+          limit: 1000,
+        });
+
+      if (categoryError) {
+        console.warn('Erreur images catégories:', categoryError);
+      } else if (categoryFiles) {
+        const categoryFolder = zip.folder('category-images');
+        for (const file of categoryFiles) {
+          if (file.name && file.name !== '.emptyFolderPlaceholder') {
+            try {
+              const { data: blob, error: downloadError } = await supabase.storage
+                .from('category-images')
+                .download(`categories/${file.name}`);
+
+              if (!downloadError && blob) {
+                categoryFolder?.file(file.name, blob);
+                totalFiles++;
+              }
+            } catch (err) {
+              console.error('Download error:', file.name, err);
+            }
+          }
+        }
+      }
+
+      if (totalFiles === 0) {
+        toast.error('Aucune image trouvée');
+        return;
+      }
+
+      // Générer le ZIP
+      toast.info(`Création du fichier ZIP avec ${totalFiles} images...`);
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+      // Télécharger le ZIP
+      const url = window.URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `backup-images-lbdm-${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success(`Sauvegarde terminée : ${totalFiles} images téléchargées`);
+    } catch (error: any) {
       console.error('Images backup error:', error);
-      toast.error('Erreur lors de la sauvegarde des images');
+      toast.error(`Erreur lors de la sauvegarde : ${error.message || 'Erreur inconnue'}`);
     } finally {
       setLoading(false);
     }
@@ -370,7 +414,7 @@ export default function BackupPage() {
             </div>
             <Button
               onClick={handleBackupDatabase}
-              disabled={loading || authLoading || !isAdmin}
+              disabled={loading || authLoading}
               className="w-full bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d]"
             >
               {loading ? (
@@ -380,11 +424,6 @@ export default function BackupPage() {
               )}
               Sauvegarder la BDD
             </Button>
-            {!isAdmin && (
-              <p className="text-xs text-orange-600 text-center">
-                Droits administrateur requis
-              </p>
-            )}
           </CardContent>
         </Card>
 
@@ -444,7 +483,7 @@ export default function BackupPage() {
             </div>
             <Button
               onClick={handleBackupAll}
-              disabled={loading || !isAdmin}
+              disabled={loading}
               className="w-full bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d]"
             >
               {loading ? (
