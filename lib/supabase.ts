@@ -1,4 +1,4 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/supabase-js';
 
 // ⚠️ VERROUILLAGE ANTI-REVERT - NE PAS MODIFIER
 // Projet: qcqbtmvbvipsxwjlgjvk.supabase.co
@@ -7,14 +7,26 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 const LOCKED_SUPABASE_URL = 'https://qcqbtmvbvipsxwjlgjvk.supabase.co';
 const LOCKED_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjcWJ0bXZidmlwc3h3amxnanZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MzIzNjAsImV4cCI6MjA4MjUwODM2MH0.q-4uGaHsuojj3ejo5IG4V-z2fx-ER9grHsRzYNkYn0c';
 
-// Failsafe: utilise TOUJOURS les credentials hardcodés
-const supabaseUrl = LOCKED_SUPABASE_URL;
-const supabaseAnonKey = LOCKED_SUPABASE_ANON_KEY;
+let supabaseInstance: SupabaseClient | null = null;
 
-export const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey);
+function getSupabaseInstance(): SupabaseClient {
+  if (!supabaseInstance) {
+    supabaseInstance = createSupabaseClient(LOCKED_SUPABASE_URL, LOCKED_SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      },
+    });
+  }
+  return supabaseInstance;
+}
+
+export const supabase = getSupabaseInstance();
 
 export function createClient() {
-  return createSupabaseClient(supabaseUrl, supabaseAnonKey);
+  return getSupabaseInstance();
 }
 
 export type Product = {
