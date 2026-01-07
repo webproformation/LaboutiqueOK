@@ -8,14 +8,16 @@ import { toast } from 'sonner';
 
 interface HomeCategory {
   id: string;
-  category_id: string;
-  category_slug: string;
+  name: string;
   category_name: string;
-  description: string | null;
+  slug: string;
+  category_slug: string;
+  image_url: string | null;
+  sort_order: number;
   display_order: number;
   is_active: boolean;
-  image_url: string | null;
-  product_count: number;
+  created_at: string;
+  product_count?: number;
 }
 
 const decodeHtmlEntities = (text: string): string => {
@@ -44,7 +46,7 @@ export function HomeCategories() {
         setCategories(data || []);
 
         if (data && data.length > 0) {
-          toast.success(`${data.length} catégorie${data.length > 1 ? 's' : ''} chargée${data.length > 1 ? 's' : ''}`, {
+          toast.success('Données synchronisées', {
             position: 'bottom-right',
             duration: 2000,
           });

@@ -29,14 +29,16 @@ interface CategoryOption {
 
 interface HomeCategory {
   id: string;
-  category_id: string | null;
-  category_slug: string;
+  name: string;
   category_name: string;
-  description: string | null;
+  slug: string;
+  category_slug: string;
+  image_url: string | null;
+  sort_order: number;
   display_order: number;
   is_active: boolean;
-  image_url: string | null;
-  product_count: number;
+  created_at: string;
+  product_count?: number;
 }
 
 const decodeHtmlEntities = (text: string): string => {
@@ -134,13 +136,14 @@ export default function HomeCategoriesPage() {
       const { data, error } = await supabase
         .from('home_categories')
         .insert({
-          category_id: wooCat.id.toString(),
-          category_slug: wooCat.slug,
+          name: decodeHtmlEntities(wooCat.name),
           category_name: decodeHtmlEntities(wooCat.name),
+          slug: wooCat.slug,
+          category_slug: wooCat.slug,
+          sort_order: maxOrder + 1,
           display_order: maxOrder + 1,
           is_active: true,
-          image_url: wooCat.image?.src || null,
-          product_count: wooCat.count
+          image_url: wooCat.image?.src || null
         })
         .select()
         .single();
