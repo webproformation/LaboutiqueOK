@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 
 interface HomeCategory {
   id: string;
@@ -41,8 +42,18 @@ export function HomeCategories() {
 
         if (error) throw error;
         setCategories(data || []);
+
+        if (data && data.length > 0) {
+          toast.success(`${data.length} catégorie${data.length > 1 ? 's' : ''} chargée${data.length > 1 ? 's' : ''}`, {
+            position: 'bottom-right',
+            duration: 2000,
+          });
+        }
       } catch (error) {
         console.error('Error loading home categories:', error);
+        toast.error('Erreur lors du chargement des catégories', {
+          position: 'bottom-right',
+        });
       } finally {
         setLoading(false);
       }
