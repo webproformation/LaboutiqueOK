@@ -5,9 +5,8 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, SlidersHorizontal, ArrowUpDown } from 'lucide-react';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
+import { Loader2, SlidersHorizontal, DollarSign } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { decodeHtmlEntities } from '@/lib/utils';
@@ -42,36 +41,91 @@ export default function CategoryPage() {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [sortBy, setSortBy] = useState<string>('default');
   const [filterColor, setFilterColor] = useState<string>('all');
   const [filterSize, setFilterSize] = useState<string>('all');
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+  const [minPrice, setMinPrice] = useState<number>(0);
+  const [maxPrice, setMaxPrice] = useState<number>(1000);
 
   const [availableColors, setAvailableColors] = useState<string[]>([]);
   const [availableSizes, setAvailableSizes] = useState<string[]>([]);
 
   const getColorValue = (colorName: string): string => {
+    // Si c'est déjà un code hexadécimal, le retourner directement
+    if (colorName.startsWith('#')) {
+      return colorName;
+    }
+
     const colorMap: Record<string, string> = {
       noir: "#000000",
+      black: "#000000",
       blanc: "#FFFFFF",
+      white: "#FFFFFF",
       rouge: "#DC2626",
+      red: "#DC2626",
       bleu: "#2563EB",
+      "bleu ciel": "#7DD3FC",
+      blue: "#2563EB",
       vert: "#16A34A",
+      green: "#16A34A",
       jaune: "#EAB308",
+      yellow: "#EAB308",
       rose: "#EC4899",
+      pink: "#EC4899",
       violet: "#9333EA",
+      purple: "#9333EA",
       orange: "#F97316",
       gris: "#6B7280",
+      gray: "#6B7280",
       beige: "#D4B896",
       marron: "#92400E",
+      brown: "#92400E",
+      bordeaux: "#8B0E44",
+      burgundy: "#8B0E44",
     };
 
     const lowerName = colorName.toLowerCase();
+
+    // Correspondance exacte d'abord
+    if (colorMap[lowerName]) {
+      return colorMap[lowerName];
+    }
+
+    // Puis recherche par inclusion
     for (const [key, value] of Object.entries(colorMap)) {
       if (lowerName.includes(key)) {
         return value;
       }
     }
+
     return "#9CA3AF";
+  };
+
+  const getColorDisplayName = (colorValue: string): string => {
+    // Si c'est un ID/UUID (contient des tirets et des chiffres), extraire le nom de couleur
+    if (colorValue.includes('-') && colorValue.length > 20) {
+      // Chercher un nom de couleur connu dans la chaîne
+      const colorNames = ['noir', 'blanc', 'rouge', 'bleu', 'vert', 'jaune', 'rose', 'violet', 'orange', 'gris', 'beige', 'marron', 'bordeaux'];
+      const lowerValue = colorValue.toLowerCase();
+      for (const name of colorNames) {
+        if (lowerValue.includes(name)) {
+          return name;
+        }
+      }
+      // Si c'est un code hex à la fin, le retourner
+      const hexMatch = colorValue.match(/#[0-9A-Fa-f]{6}/);
+      if (hexMatch) {
+        return hexMatch[0];
+      }
+      return colorValue.split('-')[0]; // Retourner la première partie seulement
+    }
+
+    // Si c'est un code hex pur, ne pas afficher de texte
+    if (colorValue.startsWith('#')) {
+      return '';
+    }
+
+    return colorValue;
   };
 
   useEffect(() => {
@@ -143,6 +197,15 @@ export default function CategoryPage() {
           }
         }
 
+        // Calculer les prix min et max
+        const prices = prods.map(p => p.sale_price || p.regular_price || 0).filter(p => p > 0);
+        const calculatedMin = prices.length > 0 ? Math.floor(Math.min(...prices)) : 0;
+        const calculatedMax = prices.length > 0 ? Math.ceil(Math.max(...prices)) : 1000;
+
+        setMinPrice(calculatedMin);
+        setMaxPrice(calculatedMax);
+        setPriceRange([calculatedMin, calculatedMax]);
+
         setProducts(prods);
         setAvailableColors(Array.from(colors));
         setAvailableSizes(Array.from(sizes));
@@ -159,6 +222,12 @@ export default function CategoryPage() {
   useEffect(() => {
     const filterProducts = async () => {
       let result = [...products];
+
+      // Filtre par prix
+      result = result.filter(product => {
+        const price = product.sale_price || product.regular_price || 0;
+        return price >= priceRange[0] && price <= priceRange[1];
+      });
 
       if (filterColor !== 'all' || filterSize !== 'all') {
         const filteredIds = new Set<string>();
@@ -202,30 +271,11 @@ export default function CategoryPage() {
         result = result.filter(p => filteredIds.has(p.id));
       }
 
-      switch (sortBy) {
-        case 'price_asc':
-          result.sort((a, b) => {
-            const priceA = a.sale_price || a.regular_price || 0;
-            const priceB = b.sale_price || b.regular_price || 0;
-            return priceA - priceB;
-          });
-          break;
-        case 'price_desc':
-          result.sort((a, b) => {
-            const priceA = a.sale_price || a.regular_price || 0;
-            const priceB = b.sale_price || b.regular_price || 0;
-            return priceB - priceA;
-          });
-          break;
-        default:
-          break;
-      }
-
       setFilteredProducts(result);
     };
 
     filterProducts();
-  }, [products, sortBy, filterColor, filterSize]);
+  }, [products, priceRange, filterColor, filterSize]);
 
   if (loading) {
     return (
@@ -282,24 +332,28 @@ export default function CategoryPage() {
 
                 <div className="space-y-6">
                   <div>
-                    <h4 className="font-medium mb-3 flex items-center gap-2">
-                      <ArrowUpDown className="h-4 w-4" />
-                      Trier par prix
+                    <h4 className="font-medium mb-4 flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Fourchette de prix
                     </h4>
-                    <RadioGroup value={sortBy} onValueChange={setSortBy}>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="default" id="sort-default" />
-                        <Label htmlFor="sort-default" className="cursor-pointer">Par défaut</Label>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-semibold text-[#b8933d]">{priceRange[0]}€</span>
+                        <span className="text-gray-500">à</span>
+                        <span className="font-semibold text-[#b8933d]">{priceRange[1]}€</span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="price_asc" id="sort-asc" />
-                        <Label htmlFor="sort-asc" className="cursor-pointer">Prix croissant</Label>
+                      <Slider
+                        value={priceRange}
+                        onValueChange={(value) => setPriceRange(value as [number, number])}
+                        min={minPrice}
+                        max={maxPrice}
+                        step={1}
+                        className="w-full"
+                      />
+                      <div className="text-xs text-gray-500 text-center">
+                        {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''} dans cette gamme
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="price_desc" id="sort-desc" />
-                        <Label htmlFor="sort-desc" className="cursor-pointer">Prix décroissant</Label>
-                      </div>
-                    </RadioGroup>
+                    </div>
                   </div>
 
                   {availableColors.length > 0 && (
@@ -318,24 +372,37 @@ export default function CategoryPage() {
                           >
                             Toutes
                           </button>
-                          {availableColors.map((color) => (
-                            <button
-                              key={color}
-                              onClick={() => setFilterColor(color)}
-                              className={`flex items-center gap-2 px-3 py-1 text-sm rounded-md border transition-all ${
-                                filterColor === color
-                                  ? 'bg-[#b8933d] text-white border-[#b8933d]'
-                                  : 'bg-white text-gray-700 border-gray-300 hover:border-[#b8933d]'
-                              }`}
-                              title={color}
-                            >
-                              <span
-                                className="w-4 h-4 rounded-full border border-gray-400"
-                                style={{ backgroundColor: getColorValue(color) }}
-                              />
-                              <span className="capitalize">{color}</span>
-                            </button>
-                          ))}
+                          {availableColors.map((color) => {
+                            const displayName = getColorDisplayName(color);
+                            const colorHex = getColorValue(color);
+                            const showText = displayName && displayName.length > 0 && !displayName.startsWith('#');
+
+                            return (
+                              <button
+                                key={color}
+                                onClick={() => setFilterColor(color)}
+                                className={`flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-full border-2 transition-all ${
+                                  filterColor === color
+                                    ? 'border-[#b8933d] shadow-md scale-105'
+                                    : 'border-gray-200 hover:border-[#b8933d] hover:shadow-sm'
+                                }`}
+                                title={color}
+                              >
+                                <span
+                                  className={`w-6 h-6 rounded-full border-2 ${
+                                    colorHex === '#FFFFFF' ? 'border-gray-300' : 'border-gray-400'
+                                  }`}
+                                  style={{
+                                    backgroundColor: colorHex,
+                                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)'
+                                  }}
+                                />
+                                {showText && (
+                                  <span className="capitalize text-gray-700 font-medium">{displayName}</span>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     </>

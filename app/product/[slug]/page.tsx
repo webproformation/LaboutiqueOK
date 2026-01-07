@@ -133,12 +133,14 @@ export default function ProductPage() {
               name,
               option: option as string,
             })),
-            price: v.sale_price || v.regular_price || "0",
-            regular_price: v.regular_price || "0",
-            sale_price: v.sale_price,
+            price: v.sale_price || v.regular_price || productData.sale_price || productData.regular_price || "0",
+            regular_price: v.regular_price || productData.regular_price || "0",
+            sale_price: v.sale_price || (v.regular_price ? null : productData.sale_price),
             stock_status: v.stock_status || "outofstock",
             stock_quantity: v.stock_quantity,
-            image: v.image_url ? { src: v.image_url, alt: productData.name } : undefined,
+            image: v.image_url
+              ? { src: v.image_url, alt: productData.name }
+              : (productData.image_url ? { src: productData.image_url, alt: productData.name } : undefined),
           }));
 
           productData.attributes = attributes;
@@ -172,10 +174,12 @@ export default function ProductPage() {
       name: product.name,
       slug: product.slug,
       price: selectedVariation?.sale_price || selectedVariation?.price || product.sale_price || product.regular_price || 0,
-      image: product.image_url ? { sourceUrl: product.image_url } : undefined,
+      image: selectedVariation?.image?.src
+        ? { sourceUrl: selectedVariation.image.src }
+        : (product.image_url ? { sourceUrl: product.image_url } : undefined),
       variationId: selectedVariation?.id || null,
-      variationPrice: selectedVariation?.sale_price || selectedVariation?.price || null,
-      variationImage: selectedVariation?.image || null,
+      variationPrice: selectedVariation?.sale_price || selectedVariation?.price || product.sale_price || product.regular_price || null,
+      variationImage: selectedVariation?.image || (product.image_url ? { src: product.image_url, alt: product.name } : null),
       selectedAttributes: selectedVariation?.attributes || {},
     };
 
