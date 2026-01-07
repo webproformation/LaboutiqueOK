@@ -1,5 +1,10 @@
 # 🚀 Guide de Déploiement Vercel
 
+## ✅ CORRECTIF APPLIQUÉ (07/01/2026)
+
+Le script de vérification `prebuild` a été rendu optionnel pour permettre le déploiement sur Vercel.
+Le build ne sera plus bloqué par le script de vérification manquant.
+
 ## Configuration des Variables d'Environnement
 
 Votre projet est verrouillé sur la base de données Supabase `qcqbtmvbvipsxwjlgjvk`.
