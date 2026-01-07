@@ -72,7 +72,6 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
                     .from('categories')
                     .select('*')
                     .eq('parent_id', child.id)
-                    .eq('is_visible', true)
                     .order('display_order', { ascending: true });
 
                   return {

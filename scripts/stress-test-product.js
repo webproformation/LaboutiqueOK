@@ -168,9 +168,51 @@ async function testCategoryMapping(categories) {
 async function testSeoMetadata() {
   console.log('🚀 === TEST 3 : MÉTADONNÉES SEO/OG ===\n');
 
-  console.log('⚠️ SKIP : entity_identifier attend UUID mais product.id est TEXT');
-  console.log('→ Le système SEO utilise entity_identifier (UUID) pour la compatibilité legacy');
-  console.log('→ Il faudra utiliser product_id (TEXT) pour les nouveaux produits');
+  const seoData = {
+    entity_type: 'product',
+    entity_identifier: TEST_PRODUCT_ID, // TEXT maintenant (résolution 22P02)
+    product_id: TEST_PRODUCT_ID,        // Colonne dédiée pour les produits
+    seo_title: 'TEST TOTAL SYSTEM - Produit de Stress Test SEO',
+    meta_description: 'Description complète pour tester les métadonnées SEO du produit TEST TOTAL SYSTEM avec tous les champs OG.',
+    og_title: 'TEST TOTAL SYSTEM - Open Graph',
+    og_description: 'Description Open Graph pour TEST TOTAL SYSTEM',
+    og_image: 'https://via.placeholder.com/1200x630?text=OG+IMAGE+TEST',
+    is_active: true
+  };
+
+  console.log('📝 Métadonnées SEO à insérer :');
+  console.log(JSON.stringify(seoData, null, 2));
+  console.log('');
+
+  const { data, error } = await supabase
+    .from('seo_metadata')
+    .insert([seoData])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('❌ ÉCHEC INSERTION SEO METADATA');
+    console.error('Error Code:', error.code);
+    console.error('Error Message:', error.message);
+    console.error('Error Details:', error.details);
+    console.error('Error Hint:', error.hint);
+    console.error('');
+
+    if (error.code === '22P02') {
+      console.log('🔍 ERREUR 22P02 DÉTECTÉE (UUID invalide)');
+      console.log('→ entity_identifier devrait être TEXT, pas UUID');
+      console.log('→ Vérifier la migration pour s\'assurer que la colonne est TEXT');
+      console.log('');
+    }
+
+    return false;
+  }
+
+  console.log('✅ Métadonnées SEO insérées avec succès !');
+  console.log('  - ID:', data.id);
+  console.log('  - Entity:', data.entity_type);
+  console.log('  - SEO Title:', data.seo_title);
+  console.log('  - OG Image:', data.og_image);
   console.log('');
 
   return true;
