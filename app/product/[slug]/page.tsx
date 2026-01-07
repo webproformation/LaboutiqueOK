@@ -12,6 +12,9 @@ import {
   Bell,
   Plus,
   Minus,
+  Edit,
+  Trash2,
+  Shield,
 } from "lucide-react";
 import { ProductGallery } from "@/components/ProductGallery";
 import { ProductVariationSelector } from "@/components/ProductVariationSelector";
@@ -39,6 +42,7 @@ import {
 import { toast } from "sonner";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 
 const diamondPositions: Array<"title" | "image" | "description"> = ["title", "image", "description"];
 
@@ -47,9 +51,11 @@ export default function ProductPage() {
   const router = useRouter();
   const slug = params.slug as string;
   const { addToCart } = useCart();
+  const { user } = useAuth();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariation, setSelectedVariation] = useState<any>(null);
   const [notifyEmail, setNotifyEmail] = useState("");
@@ -60,7 +66,26 @@ export default function ProductPage() {
 
   useEffect(() => {
     loadProduct();
-  }, [slug]);
+    checkAdminStatus();
+  }, [slug, user]);
+
+  async function checkAdminStatus() {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!error && data) {
+        setIsAdmin(data.is_admin || false);
+      }
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
+  }
 
   async function loadProduct() {
     try {
@@ -168,6 +193,36 @@ export default function ProductPage() {
     setNotifyEmail("");
   };
 
+  const handleDeleteProduct = async () => {
+    if (!product || !isAdmin) return;
+
+    const confirmed = confirm(
+      `Êtes-vous sûr de vouloir supprimer le produit "${decodeHtmlEntities(product.name)}" ?\n\nCette action est irréversible.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', product.id);
+
+      if (error) throw error;
+
+      toast.success('Produit supprimé avec succès', {
+        position: 'bottom-right'
+      });
+
+      router.push('/admin/products');
+    } catch (error: any) {
+      console.error('Error deleting product:', error);
+      toast.error(`Erreur lors de la suppression: ${error.message}`, {
+        position: 'bottom-right'
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -213,6 +268,45 @@ export default function ProductPage() {
           <ChevronRight className="h-4 w-4" />
           <span className="text-gray-900 font-medium">{decodeHtmlEntities(product.name)}</span>
         </nav>
+
+        {isAdmin && (
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-8">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900">
+                    Mode Administrateur
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Vous voyez ces boutons car vous êtes connecté en tant qu'administrateur
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link href={`/admin/products/${product.id}`}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Modifier
+                  </Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeleteProduct}
+                  className="border-red-300 text-red-700 hover:bg-red-100"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Supprimer
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
           <div className="relative">

@@ -112,9 +112,14 @@ export default function AddressesPage() {
 
         if (error) throw error;
 
-        toast.success('Adresse mise à jour');
+        toast.success('Adresse mise à jour', {
+          position: 'bottom-right'
+        });
       } else {
+        const newAddressId = `addr_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
         const { error } = await supabase.from('addresses').insert({
+          id: newAddressId,
           user_id: user?.id,
           address_type: addressType,
           street,
@@ -126,7 +131,9 @@ export default function AddressesPage() {
 
         if (error) throw error;
 
-        toast.success('Adresse ajoutée');
+        toast.success('Adresse ajoutée', {
+          position: 'bottom-right'
+        });
       }
 
       setDialogOpen(false);
@@ -150,7 +157,9 @@ export default function AddressesPage() {
 
       if (error) throw error;
 
-      toast.success('Adresse supprimée');
+      toast.success('Adresse supprimée', {
+        position: 'bottom-right'
+      });
       loadAddresses();
     } catch (error) {
       console.error('Error deleting address:', error);

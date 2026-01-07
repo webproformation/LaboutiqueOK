@@ -121,6 +121,7 @@ export default function ProductsTable({
 
       const matchesCategory =
         categoryFilter === "all" ||
+        (categoryFilter === "uncategorized" && (!product.category_ids || product.category_ids.length === 0)) ||
         (product.category_ids && product.category_ids.includes(categoryFilter));
 
       return matchesSearch && matchesStatus && matchesStock && matchesCategory;
@@ -160,6 +161,7 @@ export default function ProductsTable({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Toutes les catégories</SelectItem>
+                <SelectItem value="uncategorized">Non catégorisés</SelectItem>
                 {categories.filter((cat) => !cat.parent_id).map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {decodeHtmlEntities(category.name)}
@@ -240,6 +242,20 @@ export default function ProductsTable({
                         </div>
                         <div className="text-sm text-gray-500">
                           {product.slug}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {product.category_ids && product.category_ids.length > 0 ? (
+                            product.category_ids.map((catId) => {
+                              const category = categories.find(c => c.id === catId);
+                              return category ? (
+                                <Badge key={catId} variant="outline" className="text-xs">
+                                  {decodeHtmlEntities(category.name)}
+                                </Badge>
+                              ) : null;
+                            })
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">Non catégorisé</span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>

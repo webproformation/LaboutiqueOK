@@ -94,12 +94,6 @@ export default function MeasurementsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Non authentifié');
 
-      const { data: existing } = await supabase
-        .from('customer_measurements')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
       const dataToSave = {
         user_id: user.id,
         height: measurements.height,
@@ -112,23 +106,16 @@ export default function MeasurementsPage() {
         notes: measurements.notes
       };
 
-      if (existing) {
-        const { error } = await supabase
-          .from('customer_measurements')
-          .update(dataToSave)
-          .eq('id', existing.id);
+      const { error } = await supabase
+        .from('customer_measurements')
+        .upsert(dataToSave, {
+          onConflict: 'user_id',
+          ignoreDuplicates: false
+        });
 
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('customer_measurements')
-          .insert(dataToSave);
+      if (error) throw error;
 
-        if (error) throw error;
-      }
-
-      toast.success('Mensurations enregistrées !', {
-        description: 'Vos mensurations ont été mises à jour avec succès',
+      toast.success('Mesures mises à jour', {
         position: 'bottom-right'
       });
     } catch (error: any) {
