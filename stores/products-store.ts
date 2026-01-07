@@ -23,14 +23,34 @@ export const useProductsStore = create<ProductsStore>((set, get) => ({
   fetchProducts: async () => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
+      // Récupérer les produits
+      const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (productsError) throw productsError;
 
-      set({ products: data || [], loading: false });
+      // Récupérer les mappings produit-catégorie
+      const { data: mappings, error: mappingsError } = await supabase
+        .from('product_category_mapping')
+        .select('product_id, category_id');
+
+      if (mappingsError) throw mappingsError;
+
+      // Ajouter les category_ids à chaque produit
+      const productsWithCategories = (productsData || []).map((product) => {
+        const categoryIds = (mappings || [])
+          .filter((m) => m.product_id === product.id)
+          .map((m) => m.category_id);
+
+        return {
+          ...product,
+          category_ids: categoryIds
+        };
+      });
+
+      set({ products: productsWithCategories, loading: false });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to fetch products',

@@ -109,6 +109,7 @@ export default function MediaLibrary({
     try {
       console.log('Loading media files from bucket:', bucket);
 
+      // 1. Charger depuis la table media
       const { data: dbMedia, error: dbError } = await supabase
         .from('media')
         .select('*')
@@ -119,7 +120,7 @@ export default function MediaLibrary({
         console.error('Database error:', dbError);
       }
 
-      // List files from the appropriate folder
+      // 2. Lister les fichiers depuis le storage
       const folder = bucket === 'product-images' ? 'products' : 'categories';
       const { data: storageFiles, error: storageError } = await supabase.storage
         .from(bucket)
@@ -132,25 +133,49 @@ export default function MediaLibrary({
         console.error('Storage error:', storageError);
       }
 
-      const dbMediaMap = new Map(
-        (dbMedia || []).map(file => [file.file_path, file])
-      );
+      // 3. Charger les images depuis les produits/catégories
+      let entityImages: string[] = [];
+      if (bucket === 'product-images') {
+        const { data: products } = await supabase
+          .from('products')
+          .select('image_url, gallery_images')
+          .not('image_url', 'is', null);
 
-      const combinedFiles: MediaFile[] = [];
+        products?.forEach(p => {
+          if (p.image_url) entityImages.push(p.image_url);
+          if (p.gallery_images && Array.isArray(p.gallery_images)) {
+            entityImages.push(...p.gallery_images.filter((img: string) => img));
+          }
+        });
+      } else if (bucket === 'category-images') {
+        const { data: categories } = await supabase
+          .from('categories')
+          .select('image_url')
+          .not('image_url', 'is', null);
 
+        categories?.forEach(c => {
+          if (c.image_url) entityImages.push(c.image_url);
+        });
+      }
+
+      // 4. Combiner toutes les sources
+      const urlMap = new Map<string, MediaFile>();
+
+      // Ajouter les fichiers de la table media
       (dbMedia || []).forEach(file => {
-        combinedFiles.push(file);
+        urlMap.set(file.url, file);
       });
 
+      // Ajouter les fichiers du storage
       if (storageFiles) {
         for (const storageFile of storageFiles) {
           const filePath = `${folder}/${storageFile.name}`;
-          if (!dbMediaMap.has(filePath)) {
-            const { data: publicUrlData } = supabase.storage
-              .from(bucket)
-              .getPublicUrl(filePath);
+          const { data: publicUrlData } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(filePath);
 
-            combinedFiles.push({
+          if (!urlMap.has(publicUrlData.publicUrl)) {
+            urlMap.set(publicUrlData.publicUrl, {
               id: storageFile.id || `storage-${storageFile.name}`,
               filename: storageFile.name,
               url: publicUrlData.publicUrl,
@@ -165,6 +190,23 @@ export default function MediaLibrary({
         }
       }
 
+      // Ajouter les images depuis les entités (produits/catégories)
+      entityImages.forEach((url, index) => {
+        if (!urlMap.has(url)) {
+          const filename = url.split('/').pop() || `image-${index}`;
+          urlMap.set(url, {
+            id: `entity-${index}-${Date.now()}`,
+            filename: filename,
+            url: url,
+            bucket_name: bucket,
+            fromStorage: false,
+            usage_count: 1,
+            created_at: new Date().toISOString(),
+          });
+        }
+      });
+
+      const combinedFiles = Array.from(urlMap.values());
       console.log(`Loaded ${combinedFiles.length} total media files`);
       setMediaFiles(combinedFiles);
     } catch (error: any) {

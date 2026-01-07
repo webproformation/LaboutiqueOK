@@ -63,6 +63,7 @@ export default function ShippingMethodsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMethod, setEditingMethod] = useState<ShippingMethod | null>(null);
   const [saving, setSaving] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -77,23 +78,32 @@ export default function ShippingMethodsPage() {
   });
 
   useEffect(() => {
-    loadMethods();
-  }, []);
+    // Éviter le double chargement en mode strict React
+    if (!isInitialized) {
+      loadMethods();
+      setIsInitialized(true);
+    }
+  }, [isInitialized]);
 
   const loadMethods = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("shipping_methods")
-      .select("*")
-      .order("sort_order", { ascending: true });
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("shipping_methods")
+        .select("*")
+        .order("sort_order", { ascending: true });
 
-    if (error) {
-      toast.error("Erreur lors du chargement des méthodes");
-      console.error(error);
-    } else {
+      if (error) throw error;
+
       setMethods(data || []);
+    } catch (error: any) {
+      console.error('Error loading shipping methods:', error);
+      toast.error("Erreur lors du chargement des méthodes", {
+        position: "bottom-right"
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleOpenDialog = (method?: ShippingMethod) => {
