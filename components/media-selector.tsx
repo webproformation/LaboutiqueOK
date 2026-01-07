@@ -67,14 +67,19 @@ export function MediaSelector({ currentImageUrl, onSelect, label = "Image" }: Me
 
   const loadProductImages = async () => {
     try {
+      console.log('[MediaSelector] Loading product images...');
       const allUrls: string[] = [];
 
-      const { data: productFiles } = await supabase.storage
+      const { data: productFiles, error: productStorageError } = await supabase.storage
         .from('product-images')
         .list('products', {
           limit: 1000,
           sortBy: { column: 'created_at', order: 'desc' }
         });
+
+      if (productStorageError) {
+        console.error('[MediaSelector] Product storage error:', productStorageError);
+      }
 
       if (productFiles) {
         for (const file of productFiles) {
@@ -90,12 +95,20 @@ export function MediaSelector({ currentImageUrl, onSelect, label = "Image" }: Me
         }
       }
 
-      const { data: categoryFiles } = await supabase.storage
+      console.log('[MediaSelector] Product storage files:', allUrls.length);
+
+      const { data: categoryFiles, error: categoryStorageError } = await supabase.storage
         .from('category-images')
         .list('categories', {
           limit: 1000,
           sortBy: { column: 'created_at', order: 'desc' }
         });
+
+      if (categoryStorageError) {
+        console.error('[MediaSelector] Category storage error:', categoryStorageError);
+      }
+
+      const categoryCount = allUrls.length;
 
       if (categoryFiles) {
         for (const file of categoryFiles) {
@@ -111,26 +124,49 @@ export function MediaSelector({ currentImageUrl, onSelect, label = "Image" }: Me
         }
       }
 
+      console.log('[MediaSelector] Category storage files:', allUrls.length - categoryCount);
+
       const [productsResult, mediaResult] = await Promise.all([
         supabase
           .from('products')
-          .select('image_url')
-          .not('image_url', 'is', null),
+          .select('image_url, gallery_images'),
         supabase
           .from('media')
           .select('url')
           .order('created_at', { ascending: false })
       ]);
 
-      const productUrls = productsResult.data?.map(p => p.image_url).filter(Boolean) || [];
+      if (productsResult.error) {
+        console.error('[MediaSelector] Products error:', productsResult.error);
+      }
+
+      if (mediaResult.error) {
+        console.error('[MediaSelector] Media error:', mediaResult.error);
+      }
+
+      const productUrls: string[] = [];
+      productsResult.data?.forEach(p => {
+        if (p.image_url) productUrls.push(p.image_url);
+        if (p.gallery_images && Array.isArray(p.gallery_images)) {
+          p.gallery_images.forEach((img: string) => {
+            if (img) productUrls.push(img);
+          });
+        }
+      });
+
       const mediaUrls = mediaResult.data?.map(m => m.url).filter(Boolean) || [];
+
+      console.log('[MediaSelector] Product URLs:', productUrls.length);
+      console.log('[MediaSelector] Media URLs:', mediaUrls.length);
 
       allUrls.push(...mediaUrls, ...productUrls);
       const uniqueUrls = Array.from(new Set(allUrls));
 
+      console.log('[MediaSelector] Total unique URLs:', uniqueUrls.length);
+
       setProductImages(uniqueUrls as string[]);
     } catch (error) {
-      console.error('Error loading product images:', error);
+      console.error('[MediaSelector] Error loading product images:', error);
     }
   };
 

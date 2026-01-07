@@ -107,7 +107,7 @@ export default function MediaLibrary({
   const loadMediaFiles = async () => {
     setLoading(true);
     try {
-      console.log('Loading media files from bucket:', bucket);
+      console.log('[MediaLibrary] Loading media files from bucket:', bucket);
 
       // 1. Charger depuis la table media
       const { data: dbMedia, error: dbError } = await supabase
@@ -117,8 +117,9 @@ export default function MediaLibrary({
         .order('created_at', { ascending: false });
 
       if (dbError) {
-        console.error('Database error:', dbError);
+        console.error('[MediaLibrary] Database error:', dbError);
       }
+      console.log('[MediaLibrary] DB media loaded:', dbMedia?.length || 0);
 
       // 2. Lister les fichiers depuis le storage
       const folder = bucket === 'product-images' ? 'products' : 'categories';
@@ -130,16 +131,20 @@ export default function MediaLibrary({
         });
 
       if (storageError) {
-        console.error('Storage error:', storageError);
+        console.error('[MediaLibrary] Storage error:', storageError);
       }
+      console.log('[MediaLibrary] Storage files loaded:', storageFiles?.length || 0);
 
       // 3. Charger les images depuis les produits/catégories
       let entityImages: string[] = [];
       if (bucket === 'product-images') {
-        const { data: products } = await supabase
+        const { data: products, error: productsError } = await supabase
           .from('products')
-          .select('image_url, gallery_images')
-          .not('image_url', 'is', null);
+          .select('image_url, gallery_images');
+
+        if (productsError) {
+          console.error('[MediaLibrary] Products error:', productsError);
+        }
 
         products?.forEach(p => {
           if (p.image_url) entityImages.push(p.image_url);
@@ -148,15 +153,19 @@ export default function MediaLibrary({
           }
         });
       } else if (bucket === 'category-images') {
-        const { data: categories } = await supabase
+        const { data: categories, error: categoriesError } = await supabase
           .from('categories')
-          .select('image_url')
-          .not('image_url', 'is', null);
+          .select('image_url');
+
+        if (categoriesError) {
+          console.error('[MediaLibrary] Categories error:', categoriesError);
+        }
 
         categories?.forEach(c => {
           if (c.image_url) entityImages.push(c.image_url);
         });
       }
+      console.log('[MediaLibrary] Entity images loaded:', entityImages.length);
 
       // 4. Combiner toutes les sources
       const urlMap = new Map<string, MediaFile>();
@@ -169,6 +178,10 @@ export default function MediaLibrary({
       // Ajouter les fichiers du storage
       if (storageFiles) {
         for (const storageFile of storageFiles) {
+          if (!storageFile.name || storageFile.name === '.emptyFolderPlaceholder') {
+            continue;
+          }
+
           const filePath = `${folder}/${storageFile.name}`;
           const { data: publicUrlData } = supabase.storage
             .from(bucket)
@@ -203,11 +216,16 @@ export default function MediaLibrary({
             usage_count: 1,
             created_at: new Date().toISOString(),
           });
+        } else {
+          const existing = urlMap.get(url);
+          if (existing) {
+            existing.usage_count = (existing.usage_count || 0) + 1;
+          }
         }
       });
 
       const combinedFiles = Array.from(urlMap.values());
-      console.log(`Loaded ${combinedFiles.length} total media files`);
+      console.log(`[MediaLibrary] Loaded ${combinedFiles.length} total media files`);
       setMediaFiles(combinedFiles);
     } catch (error: any) {
       console.error('Error loading media files:', error);

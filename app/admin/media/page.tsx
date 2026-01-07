@@ -45,6 +45,8 @@ export default function MediaAdminPage() {
   const loadProductImages = async () => {
     setLoading(true);
     try {
+      console.log('[MEDIA] Loading images...');
+
       const { data: storageFiles, error: storageError } = await supabase.storage
         .from('product-images')
         .list('products', {
@@ -53,24 +55,31 @@ export default function MediaAdminPage() {
         });
 
       if (storageError) {
-        console.error('Storage error:', storageError);
+        console.error('[MEDIA] Storage error:', storageError);
       }
 
-      const storageImagesData: ImageData[] = (storageFiles || []).map(file => {
-        const { data } = supabase.storage
-          .from('product-images')
-          .getPublicUrl(`products/${file.name}`);
-        return {
-          url: data.publicUrl,
-          size: file.metadata?.size || 0,
-          name: file.name,
-        };
-      });
+      const storageImagesData: ImageData[] = (storageFiles || [])
+        .filter(file => file.name && file.name !== '.emptyFolderPlaceholder')
+        .map(file => {
+          const { data } = supabase.storage
+            .from('product-images')
+            .getPublicUrl(`products/${file.name}`);
+          return {
+            url: data.publicUrl,
+            size: file.metadata?.size || 0,
+            name: file.name,
+          };
+        });
+
+      console.log('[MEDIA] Storage files loaded:', storageImagesData.length);
 
       const productsResult = await supabase
         .from('products')
-        .select('image_url, gallery_images')
-        .not('image_url', 'is', null);
+        .select('image_url, gallery_images');
+
+      if (productsResult.error) {
+        console.error('[MEDIA] Products error:', productsResult.error);
+      }
 
       const productImageUrls: ImageData[] = [];
       productsResult.data?.forEach(p => {
@@ -84,17 +93,25 @@ export default function MediaAdminPage() {
         }
       });
 
+      console.log('[MEDIA] Product URLs loaded:', productImageUrls.length);
+
       const allImages = [...storageImagesData, ...productImageUrls];
       const uniqueImages = Array.from(
         new Map(allImages.map(img => [img.url, img])).values()
       );
 
+      console.log('[MEDIA] Total unique images:', uniqueImages.length);
+
       const calculatedSize = uniqueImages.reduce((acc, img) => acc + (img.size || 0), 0);
 
       setProductImages(uniqueImages);
       setTotalSize(calculatedSize);
+
+      if (uniqueImages.length === 0) {
+        console.warn('[MEDIA] No images loaded! Check console for errors.');
+      }
     } catch (error) {
-      console.error('Error loading product images:', error);
+      console.error('[MEDIA] Error loading product images:', error);
       toast.error('Erreur lors du chargement des images');
     } finally {
       setLoading(false);
