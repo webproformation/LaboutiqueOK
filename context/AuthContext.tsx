@@ -123,11 +123,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: { message: 'Le mot de passe doit contenir au moins 8 caractères' } as AuthError };
       }
 
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
+            full_name: fullName,
             first_name: firstName.trim(),
             last_name: lastName.trim(),
             phone: phone || '',
@@ -139,24 +142,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (authError) return { error: authError };
       if (!authData.user) return { error: { message: 'Erreur lors de la création du compte' } as AuthError };
 
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: authData.user.id,
-        email,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        phone: phone || '',
-        birth_date: birthDate || null,
-        wallet_balance: 0,
-        is_admin: false,
-        blocked: false,
-        cancelled_orders_count: 0,
-      });
-
-      if (profileError) {
-        console.error('Error creating profile:', profileError);
-      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       await loadProfile(authData.user.id);
+
+      toast.success('Bienvenue !', {
+        position: 'bottom-right',
+      });
 
       return { error: null };
     } catch (error) {
@@ -185,26 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error loading profile:', profileError);
       }
 
-      if (!profileData) {
-        const { error: createError } = await supabase.from('profiles').insert({
-          id: authData.user.id,
-          email: authData.user.email || email,
-          first_name: authData.user.user_metadata?.first_name || '',
-          last_name: authData.user.user_metadata?.last_name || '',
-          phone: authData.user.user_metadata?.phone || '',
-          birth_date: authData.user.user_metadata?.birth_date || null,
-          wallet_balance: 0,
-          is_admin: false,
-          blocked: false,
-          cancelled_orders_count: 0,
-        });
-
-        if (createError) {
-          console.error('Error auto-creating profile:', createError);
-        }
-
-        await loadProfile(authData.user.id);
-      } else {
+      if (profileData) {
         setProfile(profileData);
 
         if (profileData.blocked) {
@@ -217,7 +190,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await signOut();
           return { error: { message } as AuthError };
         }
+      } else {
+        await loadProfile(authData.user.id);
       }
+
+      toast.success('Bienvenue !', {
+        position: 'bottom-right',
+      });
 
       return { error: null };
     } catch (error) {
