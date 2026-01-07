@@ -46,7 +46,7 @@ export function HomeCategories() {
         setCategories(data || []);
 
         if (data && data.length > 0) {
-          toast.success('Données synchronisées', {
+          toast.success('Connexion sécurisée établie', {
             position: 'bottom-right',
             duration: 2000,
           });
