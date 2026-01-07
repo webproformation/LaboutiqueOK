@@ -50,6 +50,7 @@ const navSections: NavSection[] = [
       { href: "/admin/coupons", label: "Coupons" },
       { href: "/admin/reviews", label: "Avis clients" },
       { href: "/admin/shipping-methods", label: "Méthodes de livraison" },
+      { href: "/admin/payment-methods", label: "Méthodes de paiement" },
     ],
   },
   {

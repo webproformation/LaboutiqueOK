@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { decodeHtmlEntities } from '@/lib/utils';
+import { ProductCard } from '@/components/ProductCard';
 
 interface Product {
   id: string;
@@ -109,15 +110,10 @@ export default function CategoryPage() {
       const lowerValue = colorValue.toLowerCase();
       for (const name of colorNames) {
         if (lowerValue.includes(name)) {
-          return name;
+          return name.charAt(0).toUpperCase() + name.slice(1);
         }
       }
-      // Si c'est un code hex à la fin, le retourner
-      const hexMatch = colorValue.match(/#[0-9A-Fa-f]{6}/);
-      if (hexMatch) {
-        return hexMatch[0];
-      }
-      return colorValue.split('-')[0]; // Retourner la première partie seulement
+      return colorValue.split('-')[0];
     }
 
     // Si c'est un code hex pur, ne pas afficher de texte
@@ -125,7 +121,8 @@ export default function CategoryPage() {
       return '';
     }
 
-    return colorValue;
+    // Capitaliser la première lettre
+    return colorValue.charAt(0).toUpperCase() + colorValue.slice(1).toLowerCase();
   };
 
   useEffect(() => {
@@ -375,7 +372,6 @@ export default function CategoryPage() {
                           {availableColors.map((color) => {
                             const displayName = getColorDisplayName(color);
                             const colorHex = getColorValue(color);
-                            const showText = displayName && displayName.length > 0 && !displayName.startsWith('#');
 
                             return (
                               <button
@@ -389,7 +385,7 @@ export default function CategoryPage() {
                                 title={color}
                               >
                                 <span
-                                  className={`w-6 h-6 rounded-full border-2 ${
+                                  className={`w-6 h-6 rounded-full border-2 flex-shrink-0 ${
                                     colorHex === '#FFFFFF' ? 'border-gray-300' : 'border-gray-400'
                                   }`}
                                   style={{
@@ -397,9 +393,7 @@ export default function CategoryPage() {
                                     boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)'
                                   }}
                                 />
-                                {showText && (
-                                  <span className="capitalize text-gray-700 font-medium">{displayName}</span>
-                                )}
+                                <span className="text-gray-700 font-medium">{displayName}</span>
                               </button>
                             );
                           })}
@@ -452,45 +446,8 @@ export default function CategoryPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProducts.map((product) => (
-            <Card key={product.id} className="group overflow-hidden">
-              <Link href={`/product/${product.slug}`}>
-                <div className="aspect-square overflow-hidden bg-gray-100">
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      Pas d'image
-                    </div>
-                  )}
-                </div>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-lg mb-2 line-clamp-2">
-                    {decodeHtmlEntities(product.name)}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    {product.sale_price ? (
-                      <>
-                        <span className="text-lg font-bold text-[#C6A15B]">
-                          {product.sale_price.toFixed(2)} €
-                        </span>
-                        <span className="text-sm text-gray-500 line-through">
-                          {product.regular_price?.toFixed(2)} €
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-lg font-bold">
-                        {product.regular_price?.toFixed(2)} €
-                      </span>
-                    )}
-                  </div>
-                </CardContent>
-              </Link>
-            </Card>
-          ))}
+                <ProductCard key={product.id} product={product} showAddToCart={false} />
+              ))}
             </div>
           </div>
         </div>

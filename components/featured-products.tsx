@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent } from '@/components/ui/card';
-import { Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ProductCard } from '@/components/ProductCard';
+import useEmblaCarousel from 'embla-carousel-react';
 
 interface Product {
   id: string;
@@ -13,24 +15,34 @@ interface Product {
   regular_price: number;
   sale_price: number | null;
   image_url: string | null;
+  gallery_images?: string[] | null;
+  is_variable_product?: boolean;
+  stock_quantity?: number | null;
   status: string;
 }
 
 export function FeaturedProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    align: 'start',
+    loop: false,
+    skipSnaps: false,
+    dragFree: true,
+  });
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(false);
 
   useEffect(() => {
     const fetchFeaturedProducts = async () => {
       try {
-        // Get products marked as featured
         const { data: productsData, error } = await supabase
           .from('products')
           .select('*')
           .eq('is_featured', true)
           .eq('status', 'publish')
           .order('created_at', { ascending: false })
-          .limit(8);
+          .limit(12);
 
         if (error) throw error;
 
@@ -44,6 +56,32 @@ export function FeaturedProducts() {
 
     fetchFeaturedProducts();
   }, []);
+
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setCanScrollPrev(emblaApi.canScrollPrev());
+    setCanScrollNext(emblaApi.canScrollNext());
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    onSelect();
+    emblaApi.on('select', onSelect);
+    emblaApi.on('reInit', onSelect);
+
+    return () => {
+      emblaApi.off('select', onSelect);
+      emblaApi.off('reInit', onSelect);
+    };
+  }, [emblaApi, onSelect]);
+
+  const scrollPrev = useCallback(() => {
+    if (emblaApi) emblaApi.scrollPrev();
+  }, [emblaApi]);
+
+  const scrollNext = useCallback(() => {
+    if (emblaApi) emblaApi.scrollNext();
+  }, [emblaApi]);
 
   if (loading) {
     return (
@@ -76,52 +114,45 @@ export function FeaturedProducts() {
   return (
     <section className="py-16 bg-gray-50">
       <div className="container mx-auto px-4">
-        <div className="flex items-center gap-3 mb-8">
-          <Sparkles className="h-8 w-8 text-[#D4AF37]" />
-          <h2 className="text-4xl font-bold">Les coups de coeur de Morgane</h2>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-8 w-8 text-[#D4AF37]" />
+            <h2 className="text-4xl font-bold">Les coups de coeur de Morgane</h2>
+          </div>
+
+          <div className="hidden md:flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={scrollPrev}
+              disabled={!canScrollPrev}
+              className="rounded-full border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white disabled:opacity-30"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={scrollNext}
+              disabled={!canScrollNext}
+              className="rounded-full border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white disabled:opacity-30"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {products.map((product) => (
-            <Link key={product.id} href={`/product/${product.slug}`}>
-              <Card className="rounded-xl overflow-hidden shadow-soft hover:shadow-xl transition-smooth transform hover:-translate-y-1 cursor-pointer">
-                <div className="aspect-square overflow-hidden bg-gray-100">
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full h-full object-cover hover:scale-110 transition-smooth"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      Pas d'image
-                    </div>
-                  )}
-                </div>
-                <CardContent className="p-4">
-                  <h3 className="font-medium text-sm mb-2 line-clamp-2">
-                    {product.name}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    {product.sale_price && product.sale_price < (product.regular_price || 0) ? (
-                      <>
-                        <span className="text-[#D4AF37] font-bold">
-                          {product.sale_price.toFixed(2)}€
-                        </span>
-                        <span className="text-gray-400 line-through text-sm">
-                          {product.regular_price?.toFixed(2)}€
-                        </span>
-                      </>
-                    ) : (
-                      <span className="font-bold">
-                        {product.regular_price?.toFixed(2)}€
-                      </span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+        <div className="overflow-hidden" ref={emblaRef}>
+          <div className="flex gap-6">
+            {products.map((product) => (
+              <div
+                key={product.id}
+                className="flex-[0_0_85%] sm:flex-[0_0_45%] md:flex-[0_0_32%] lg:flex-[0_0_24%] min-w-0"
+              >
+                <ProductCard product={product} showAddToCart={true} />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

@@ -414,56 +414,58 @@ export default function MediaLibrary({
               <p>Aucun fichier trouvé</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {filteredFiles.map((file) => (
-                <Card
-                  key={file.id}
-                  className={`relative group cursor-pointer overflow-hidden transition-all bg-white ${
-                    selectedFile === file.url
-                      ? 'ring-2 ring-[#d4af37] ring-offset-2'
-                      : 'hover:shadow-lg hover:border-[#d4af37]'
-                  }`}
-                  onClick={() => handleSelectFile(file.url)}
-                >
-                  <div className="aspect-square relative bg-gray-100">
-                    <img
-                      src={file.url}
-                      alt={file.filename}
-                      className="w-full h-full object-cover"
-                    />
-                    {selectedFile === file.url && (
-                      <div className="absolute top-2 right-2 bg-[#d4af37] text-white rounded-full p-1">
-                        <Check className="h-4 w-4" />
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(file.id, file.url, file.fromStorage);
-                        }}
-                        className="gap-2 bg-red-600 hover:bg-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Supprimer
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="p-2 space-y-1 bg-white">
-                    <p className="text-xs font-medium truncate text-gray-900" title={file.filename}>
-                      {file.filename}
-                    </p>
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>{formatFileSize(file.file_size)}</span>
-                      {file.usage_count !== undefined && (
-                        <span className="text-[#d4af37]">Utilisé: {file.usage_count}×</span>
+            <div className="max-h-[500px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-[#d4af37] scrollbar-track-gray-100">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {filteredFiles.map((file) => (
+                  <Card
+                    key={file.id}
+                    className={`relative group cursor-pointer overflow-hidden transition-all bg-white ${
+                      selectedFile === file.url
+                        ? 'ring-2 ring-[#d4af37] ring-offset-2'
+                        : 'hover:shadow-lg hover:border-[#d4af37]'
+                    }`}
+                    onClick={() => handleSelectFile(file.url)}
+                  >
+                    <div className="aspect-square relative bg-gray-100">
+                      <img
+                        src={file.url}
+                        alt={file.filename}
+                        className="w-full h-full object-cover"
+                      />
+                      {selectedFile === file.url && (
+                        <div className="absolute top-2 right-2 bg-[#d4af37] text-white rounded-full p-1">
+                          <Check className="h-4 w-4" />
+                        </div>
                       )}
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(file.id, file.url, file.fromStorage);
+                          }}
+                          className="gap-2 bg-red-600 hover:bg-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Supprimer
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </Card>
-              ))}
+                    <div className="p-2 space-y-1 bg-white">
+                      <p className="text-xs font-medium truncate text-gray-900" title={file.filename}>
+                        {file.filename}
+                      </p>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>{formatFileSize(file.file_size)}</span>
+                        {file.usage_count !== undefined && (
+                          <span className="text-[#d4af37]">Utilisé: {file.usage_count}×</span>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
             </div>
           )}
         </TabsContent>

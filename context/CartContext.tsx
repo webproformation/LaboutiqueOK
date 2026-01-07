@@ -81,52 +81,64 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  const syncCartToSupabase = useCallback(async (cartItems: CartItem[]) => {
+  const syncCartToSupabase = useCallback(async (cartItems: CartItem[], showToast = false) => {
     if (!user) return;
 
-    const itemsToUpsert = cartItems.map(item => ({
-      user_id: user.id,
-      product_id: item.id,
-      product_name: item.name,
-      product_slug: item.slug,
-      product_price: item.price,
-      product_image_url: item.image?.sourceUrl || null,
-      quantity: item.quantity,
-      variation_id: item.variationId || null,
-      variation_data: item.variationId ? {
-        price: item.variationPrice,
-        image: item.variationImage,
-        attributes: item.selectedAttributes,
-      } : null,
-      updated_at: new Date().toISOString(),
-    }));
+    try {
+      const itemsToUpsert = cartItems.map(item => ({
+        user_id: user.id,
+        product_id: item.id,
+        product_name: item.name,
+        product_slug: item.slug,
+        product_price: item.price,
+        product_image_url: item.image?.sourceUrl || null,
+        quantity: item.quantity,
+        variation_id: item.variationId || null,
+        variation_data: item.variationId ? {
+          price: item.variationPrice,
+          image: item.variationImage,
+          attributes: item.selectedAttributes,
+        } : null,
+        updated_at: new Date().toISOString(),
+      }));
 
-    if (itemsToUpsert.length > 0) {
-      const { error } = await supabase
-        .from('cart_items')
-        .upsert(itemsToUpsert, {
-          onConflict: 'user_id,product_id,variation_id',
-        });
+      if (itemsToUpsert.length > 0) {
+        const { error } = await supabase
+          .from('cart_items')
+          .upsert(itemsToUpsert, {
+            onConflict: 'user_id,product_id,variation_id',
+          });
 
-      if (error) {
-        console.error('Error syncing cart to Supabase:', error);
+        if (error) {
+          console.error('Error syncing cart to Supabase:', error);
+          throw error;
+        }
       }
-    }
 
-    const cartProductIds = cartItems.map(item => ({
-      product_id: item.id,
-      variation_id: item.variationId || null
-    }));
+      const cartProductIds = cartItems.map(item => item.id);
 
-    if (cartProductIds.length > 0) {
-      const { error: deleteError } = await supabase
-        .from('cart_items')
-        .delete()
-        .eq('user_id', user.id)
-        .not('product_id', 'in', `(${cartItems.map(i => `'${i.id}'`).join(',')})`)
-        .not('variation_id', 'in', `(${cartItems.map(i => i.variationId ? `'${i.variationId}'` : 'null').join(',')})`);
-    } else {
-      await supabase.from('cart_items').delete().eq('user_id', user.id);
+      if (cartProductIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('cart_items')
+          .delete()
+          .eq('user_id', user.id)
+          .not('product_id', 'in', `(${cartProductIds.map(id => `"${id}"`).join(',')})`);
+
+        if (deleteError) {
+          console.error('Error cleaning up cart items:', deleteError);
+        }
+      } else {
+        await supabase.from('cart_items').delete().eq('user_id', user.id);
+      }
+
+      if (showToast) {
+        toast.success('Panier sauvegardé', {
+          position: 'bottom-right',
+          duration: 2000,
+        });
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
     }
   }, [user]);
 
@@ -139,19 +151,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const localCart = loadCartFromLocalStorage();
 
         const mergedCart: CartItem[] = [...supabaseCart];
+        let hasMerged = false;
+
         localCart.forEach(localItem => {
           const existingIndex = mergedCart.findIndex(
             item => item.id === localItem.id && item.variationId === localItem.variationId
           );
           if (existingIndex >= 0) {
             mergedCart[existingIndex].quantity += localItem.quantity;
+            hasMerged = true;
           } else {
             mergedCart.push(localItem as CartItem);
+            hasMerged = true;
           }
         });
 
         setCart(mergedCart);
-        await syncCartToSupabase(mergedCart);
+        await syncCartToSupabase(mergedCart, hasMerged || mergedCart.length > 0);
         localStorage.removeItem('cart');
       } else {
         const localCart = loadCartFromLocalStorage();
@@ -169,7 +185,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     const timeoutId = setTimeout(() => {
       if (user) {
-        syncCartToSupabase(cart);
+        syncCartToSupabase(cart, false);
       } else {
         saveCartToLocalStorage(cart);
       }
