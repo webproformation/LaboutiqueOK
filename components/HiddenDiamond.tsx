@@ -10,25 +10,14 @@ import { useAuth } from "@/context/AuthContext";
 interface HiddenDiamondProps {
   productId: string;
   position: "title" | "image" | "description";
+  selectedPosition: "title" | "image" | "description";
 }
 
-const diamondPositions = ["title", "image", "description"];
-
-export function HiddenDiamond({ productId, position }: HiddenDiamondProps) {
+export function HiddenDiamond({ productId, position, selectedPosition }: HiddenDiamondProps) {
   const { user, profile } = useAuth();
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(position === selectedPosition);
   const [hasFoundDiamond, setHasFoundDiamond] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [currentPosition, setCurrentPosition] = useState<string>(position);
-
-  useEffect(() => {
-    const randomPosition = diamondPositions[Math.floor(Math.random() * diamondPositions.length)];
-    setCurrentPosition(randomPosition);
-
-    if (randomPosition === position) {
-      setIsVisible(true);
-    }
-  }, [position]);
 
   useEffect(() => {
     if (user && profile) {
@@ -113,7 +102,7 @@ export function HiddenDiamond({ productId, position }: HiddenDiamondProps) {
     }
   };
 
-  if (!isVisible || currentPosition !== position) {
+  if (!isVisible || position !== selectedPosition) {
     return null;
   }
 

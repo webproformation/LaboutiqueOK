@@ -277,6 +277,7 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                 currentImageUrl={formData.image_url}
                 onSelect={(url) => setFormData(prev => ({ ...prev, image_url: url }))}
                 label="Image de la catégorie"
+                bucket="category-images"
               />
             </CardContent>
           </Card>

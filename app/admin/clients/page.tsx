@@ -23,7 +23,8 @@ import {
   Search,
   Eye,
   Edit2,
-  Save
+  Save,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -60,6 +61,7 @@ export default function ClientsPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<SupabaseProfile | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editedData, setEditedData] = useState<any>(null);
+  const [deletingClient, setDeletingClient] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>({
     total: 0,
     admins: 0,
@@ -228,6 +230,33 @@ export default function ClientsPage() {
     }
   };
 
+  const deleteClient = async (clientId: string, clientEmail: string) => {
+    const confirmed = window.confirm(
+      `Êtes-vous sûr de vouloir supprimer le client ${clientEmail} ?\n\nCette action est irréversible et supprimera :\n- Le profil\n- Les commandes\n- Les adresses\n- L'historique complet`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingClient(clientId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', clientId);
+
+      if (error) throw error;
+
+      toast.success('Client supprimé avec succès');
+      await loadProfiles();
+      setSelectedCustomer(null);
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      toast.error(`Erreur lors de la suppression: ${error.message}`);
+    } finally {
+      setDeletingClient(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -372,13 +401,28 @@ export default function ClientsPage() {
                       {new Date(profile.created_at).toLocaleDateString('fr-FR')}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openCustomerDetail(profile)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openCustomerDetail(profile)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteClient(profile.id, profile.email)}
+                          disabled={deletingClient === profile.id}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          {deletingClient === profile.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -489,13 +533,33 @@ export default function ClientsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 pt-4 border-t">
-                <Badge variant={selectedCustomer.is_admin ? 'default' : 'secondary'}>
-                  {selectedCustomer.is_admin ? 'Admin' : 'Client'}
-                </Badge>
-                {selectedCustomer.blocked && (
-                  <Badge variant="destructive">Bloqué</Badge>
-                )}
+              <div className="flex items-center justify-between pt-4 border-t">
+                <div className="flex items-center gap-4">
+                  <Badge variant={selectedCustomer.is_admin ? 'default' : 'secondary'}>
+                    {selectedCustomer.is_admin ? 'Admin' : 'Client'}
+                  </Badge>
+                  {selectedCustomer.blocked && (
+                    <Badge variant="destructive">Bloqué</Badge>
+                  )}
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => deleteClient(selectedCustomer.id, selectedCustomer.email)}
+                  disabled={deletingClient === selectedCustomer.id}
+                >
+                  {deletingClient === selectedCustomer.id ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Suppression...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Supprimer le client
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           )}

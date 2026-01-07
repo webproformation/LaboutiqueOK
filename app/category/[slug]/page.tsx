@@ -21,6 +21,7 @@ interface Product {
   sale_price: number | null;
   image_url: string | null;
   stock_quantity: number | null;
+  is_variable_product?: boolean;
   color?: string;
   size?: string;
 }
@@ -47,6 +48,31 @@ export default function CategoryPage() {
 
   const [availableColors, setAvailableColors] = useState<string[]>([]);
   const [availableSizes, setAvailableSizes] = useState<string[]>([]);
+
+  const getColorValue = (colorName: string): string => {
+    const colorMap: Record<string, string> = {
+      noir: "#000000",
+      blanc: "#FFFFFF",
+      rouge: "#DC2626",
+      bleu: "#2563EB",
+      vert: "#16A34A",
+      jaune: "#EAB308",
+      rose: "#EC4899",
+      violet: "#9333EA",
+      orange: "#F97316",
+      gris: "#6B7280",
+      beige: "#D4B896",
+      marron: "#92400E",
+    };
+
+    const lowerName = colorName.toLowerCase();
+    for (const [key, value] of Object.entries(colorMap)) {
+      if (lowerName.includes(key)) {
+        return value;
+      }
+    }
+    return "#9CA3AF";
+  };
 
   useEffect(() => {
     loadCategoryAndProducts();
@@ -88,16 +114,36 @@ export default function CategoryPage() {
 
         if (productsError) throw productsError;
         const prods = productsData || [];
-        setProducts(prods);
 
         const colors = new Set<string>();
         const sizes = new Set<string>();
 
-        prods.forEach((product: any) => {
-          if (product.color) colors.add(product.color);
-          if (product.size) sizes.add(product.size);
-        });
+        for (const product of prods) {
+          if (product.is_variable_product) {
+            const { data: variations } = await supabase
+              .from('product_variations')
+              .select('attributes')
+              .eq('product_id', product.id);
 
+            if (variations) {
+              variations.forEach((v: any) => {
+                if (v.attributes) {
+                  Object.entries(v.attributes).forEach(([key, value]) => {
+                    const lowerKey = key.toLowerCase();
+                    if (lowerKey.includes('couleur') || lowerKey.includes('color')) {
+                      colors.add(value as string);
+                    }
+                    if (lowerKey.includes('taille') || lowerKey.includes('size')) {
+                      sizes.add(value as string);
+                    }
+                  });
+                }
+              });
+            }
+          }
+        }
+
+        setProducts(prods);
         setAvailableColors(Array.from(colors));
         setAvailableSizes(Array.from(sizes));
       } else {
@@ -111,36 +157,74 @@ export default function CategoryPage() {
   };
 
   useEffect(() => {
-    let result = [...products];
+    const filterProducts = async () => {
+      let result = [...products];
 
-    if (filterColor !== 'all') {
-      result = result.filter(p => p.color === filterColor);
-    }
+      if (filterColor !== 'all' || filterSize !== 'all') {
+        const filteredIds = new Set<string>();
 
-    if (filterSize !== 'all') {
-      result = result.filter(p => p.size === filterSize);
-    }
+        for (const product of products) {
+          if (product.is_variable_product) {
+            const { data: variations } = await supabase
+              .from('product_variations')
+              .select('attributes, product_id')
+              .eq('product_id', product.id);
 
-    switch (sortBy) {
-      case 'price_asc':
-        result.sort((a, b) => {
-          const priceA = a.sale_price || a.regular_price || 0;
-          const priceB = b.sale_price || b.regular_price || 0;
-          return priceA - priceB;
-        });
-        break;
-      case 'price_desc':
-        result.sort((a, b) => {
-          const priceA = a.sale_price || a.regular_price || 0;
-          const priceB = b.sale_price || b.regular_price || 0;
-          return priceB - priceA;
-        });
-        break;
-      default:
-        break;
-    }
+            if (variations) {
+              const hasMatchingVariation = variations.some((v: any) => {
+                if (!v.attributes) return false;
 
-    setFilteredProducts(result);
+                let matchesColor = filterColor === 'all';
+                let matchesSize = filterSize === 'all';
+
+                Object.entries(v.attributes).forEach(([key, value]) => {
+                  const lowerKey = key.toLowerCase();
+                  if ((lowerKey.includes('couleur') || lowerKey.includes('color')) && value === filterColor) {
+                    matchesColor = true;
+                  }
+                  if ((lowerKey.includes('taille') || lowerKey.includes('size')) && value === filterSize) {
+                    matchesSize = true;
+                  }
+                });
+
+                return (filterColor === 'all' || matchesColor) && (filterSize === 'all' || matchesSize);
+              });
+
+              if (hasMatchingVariation) {
+                filteredIds.add(product.id);
+              }
+            }
+          } else {
+            filteredIds.add(product.id);
+          }
+        }
+
+        result = result.filter(p => filteredIds.has(p.id));
+      }
+
+      switch (sortBy) {
+        case 'price_asc':
+          result.sort((a, b) => {
+            const priceA = a.sale_price || a.regular_price || 0;
+            const priceB = b.sale_price || b.regular_price || 0;
+            return priceA - priceB;
+          });
+          break;
+        case 'price_desc':
+          result.sort((a, b) => {
+            const priceA = a.sale_price || a.regular_price || 0;
+            const priceB = b.sale_price || b.regular_price || 0;
+            return priceB - priceA;
+          });
+          break;
+        default:
+          break;
+      }
+
+      setFilteredProducts(result);
+    };
+
+    filterProducts();
   }, [products, sortBy, filterColor, filterSize]);
 
   if (loading) {
@@ -222,25 +306,37 @@ export default function CategoryPage() {
                     <>
                       <Separator />
                       <div>
-                        <h4 className="font-medium mb-3">Couleur</h4>
-                        <RadioGroup value={filterColor} onValueChange={setFilterColor}>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="all" id="color-all" />
-                            <Label htmlFor="color-all" className="cursor-pointer">Toutes</Label>
-                          </div>
+                        <h4 className="font-medium mb-3">Couleurs principales</h4>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => setFilterColor('all')}
+                            className={`px-3 py-1 text-sm rounded-md border transition-all ${
+                              filterColor === 'all'
+                                ? 'bg-[#b8933d] text-white border-[#b8933d]'
+                                : 'bg-white text-gray-700 border-gray-300 hover:border-[#b8933d]'
+                            }`}
+                          >
+                            Toutes
+                          </button>
                           {availableColors.map((color) => (
-                            <div key={color} className="flex items-center space-x-2">
-                              <RadioGroupItem value={color} id={`color-${color}`} />
-                              <Label htmlFor={`color-${color}`} className="cursor-pointer flex items-center gap-2">
-                                <span
-                                  className="w-4 h-4 rounded-full border border-gray-300"
-                                  style={{ backgroundColor: color }}
-                                />
-                                {color}
-                              </Label>
-                            </div>
+                            <button
+                              key={color}
+                              onClick={() => setFilterColor(color)}
+                              className={`flex items-center gap-2 px-3 py-1 text-sm rounded-md border transition-all ${
+                                filterColor === color
+                                  ? 'bg-[#b8933d] text-white border-[#b8933d]'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:border-[#b8933d]'
+                              }`}
+                              title={color}
+                            >
+                              <span
+                                className="w-4 h-4 rounded-full border border-gray-400"
+                                style={{ backgroundColor: getColorValue(color) }}
+                              />
+                              <span className="capitalize">{color}</span>
+                            </button>
                           ))}
-                        </RadioGroup>
+                        </div>
                       </div>
                     </>
                   )}
@@ -249,19 +345,32 @@ export default function CategoryPage() {
                     <>
                       <Separator />
                       <div>
-                        <h4 className="font-medium mb-3">Taille</h4>
-                        <RadioGroup value={filterSize} onValueChange={setFilterSize}>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="all" id="size-all" />
-                            <Label htmlFor="size-all" className="cursor-pointer">Toutes</Label>
-                          </div>
+                        <h4 className="font-medium mb-3">Tailles</h4>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => setFilterSize('all')}
+                            className={`px-3 py-1 text-sm rounded-md border transition-all ${
+                              filterSize === 'all'
+                                ? 'bg-[#b8933d] text-white border-[#b8933d]'
+                                : 'bg-white text-gray-700 border-gray-300 hover:border-[#b8933d]'
+                            }`}
+                          >
+                            Toutes
+                          </button>
                           {availableSizes.map((size) => (
-                            <div key={size} className="flex items-center space-x-2">
-                              <RadioGroupItem value={size} id={`size-${size}`} />
-                              <Label htmlFor={`size-${size}`} className="cursor-pointer">{size}</Label>
-                            </div>
+                            <button
+                              key={size}
+                              onClick={() => setFilterSize(size)}
+                              className={`px-3 py-1 text-sm rounded-md border transition-all uppercase ${
+                                filterSize === size
+                                  ? 'bg-[#b8933d] text-white border-[#b8933d]'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:border-[#b8933d]'
+                              }`}
+                            >
+                              {size}
+                            </button>
                           ))}
-                        </RadioGroup>
+                        </div>
                       </div>
                     </>
                   )}

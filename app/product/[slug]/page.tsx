@@ -40,6 +40,8 @@ import { toast } from "sonner";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { useCart } from "@/context/CartContext";
 
+const diamondPositions: Array<"title" | "image" | "description"> = ["title", "image", "description"];
+
 export default function ProductPage() {
   const params = useParams();
   const router = useRouter();
@@ -52,6 +54,9 @@ export default function ProductPage() {
   const [selectedVariation, setSelectedVariation] = useState<any>(null);
   const [notifyEmail, setNotifyEmail] = useState("");
   const [showNotifyDialog, setShowNotifyDialog] = useState(false);
+  const [diamondPosition] = useState<"title" | "image" | "description">(() =>
+    diamondPositions[Math.floor(Math.random() * diamondPositions.length)]
+  );
 
   useEffect(() => {
     loadProduct();
@@ -70,6 +75,51 @@ export default function ProductPage() {
       if (!productData) {
         router.push("/");
         return;
+      }
+
+      if (productData.is_variable_product) {
+        const { data: variations, error: variationsError } = await supabase
+          .from("product_variations")
+          .select("*")
+          .eq("product_id", productData.id);
+
+        if (!variationsError && variations) {
+          const attributesMap = new Map<string, Set<string>>();
+
+          variations.forEach((variation) => {
+            if (variation.attributes) {
+              Object.entries(variation.attributes).forEach(([key, value]) => {
+                if (!attributesMap.has(key)) {
+                  attributesMap.set(key, new Set());
+                }
+                attributesMap.get(key)?.add(value as string);
+              });
+            }
+          });
+
+          const attributes = Array.from(attributesMap.entries()).map(([name, options]) => ({
+            name,
+            options: Array.from(options),
+          }));
+
+          const formattedVariations = variations.map((v) => ({
+            id: v.id,
+            attributes: Object.entries(v.attributes || {}).map(([name, option]) => ({
+              name,
+              option: option as string,
+            })),
+            price: v.sale_price || v.regular_price || "0",
+            regular_price: v.regular_price || "0",
+            sale_price: v.sale_price,
+            stock_status: v.stock_status || "outofstock",
+            stock_quantity: v.stock_quantity,
+            image: v.image_url ? { src: v.image_url, alt: productData.name } : undefined,
+          }));
+
+          productData.attributes = attributes;
+          productData.variations = formattedVariations;
+          productData.type = "VARIABLE";
+        }
       }
 
       setProduct(productData);
@@ -169,14 +219,14 @@ export default function ProductPage() {
             <ProductGallery images={galleryImages} productName={decodeHtmlEntities(product.name)} />
             {product.is_diamond && (
               <div className="mt-4">
-                <HiddenDiamond productId={product.id} position="image" />
+                <HiddenDiamond productId={product.id} position="image" selectedPosition={diamondPosition} />
               </div>
             )}
           </div>
 
           <div className="space-y-6">
             {product.is_diamond && (
-              <HiddenDiamond productId={product.id} position="title" />
+              <HiddenDiamond productId={product.id} position="title" selectedPosition={diamondPosition} />
             )}
 
             <div>
@@ -306,7 +356,7 @@ export default function ProductPage() {
                 <AccordionContent>
                   {product.is_diamond && (
                     <div className="mb-4">
-                      <HiddenDiamond productId={product.id} position="description" />
+                      <HiddenDiamond productId={product.id} position="description" selectedPosition={diamondPosition} />
                     </div>
                   )}
                   {product.description ? (
