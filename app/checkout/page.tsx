@@ -84,6 +84,7 @@ export default function CheckoutPage() {
   const [notes, setNotes] = useState('');
   const [newsletterConsent, setNewsletterConsent] = useState(false);
   const [rgpdConsent, setRgpdConsent] = useState(false);
+  const [shippingInsurance, setShippingInsurance] = useState('0');
 
   useEffect(() => {
     if (user) {
@@ -161,11 +162,12 @@ export default function CheckoutPage() {
 
   const subtotal = cartTotal;
   const shippingCost = addToOpenPackage ? 0 : (selectedShippingMethod?.cost || 0);
+  const insuranceCost = parseFloat(shippingInsurance);
   const paymentFee = selectedPaymentMethod
     ? (subtotal * selectedPaymentMethod.processing_fee_percentage / 100) + selectedPaymentMethod.processing_fee_fixed
     : 0;
 
-  const totalBeforeDiscount = subtotal + shippingCost + paymentFee;
+  const totalBeforeDiscount = subtotal + shippingCost + insuranceCost + paymentFee;
   const totalAfterDiscount = Math.max(0, totalBeforeDiscount - discountAmount);
   const totalAfterWallet = Math.max(0, totalAfterDiscount - walletAmountToUse);
   const tvaAmount = totalAfterWallet * TVA_RATE / (1 + TVA_RATE);
@@ -274,8 +276,10 @@ export default function CheckoutPage() {
 
       clearCart();
 
-      toast.success(`Commande ${orderNumber} validée avec succès !`);
-      router.push('/account/orders');
+      toast.success(`Commande ${orderNumber} validée avec succès !`, {
+        position: 'bottom-right'
+      });
+      router.push(`/checkout/confirmation?order=${newOrder.id}`);
     } catch (error) {
       console.error('Error processing order:', error);
       toast.error('Erreur lors du traitement de la commande');
@@ -489,8 +493,104 @@ export default function CheckoutPage() {
                     ))}
                   </div>
                 </RadioGroup>
+
+                {selectedPaymentMethod?.code === 'bank_transfer' && (
+                  <div className="mt-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                    <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                      <Info className="h-5 w-5" />
+                      Informations bancaires pour le virement
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <p className="font-medium text-blue-800">Bénéficiaire</p>
+                        <p className="text-blue-900">LA BOUTIQUE DE MORGANE</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-blue-800">IBAN</p>
+                        <p className="text-blue-900 font-mono">FR76 XXXX XXXX XXXX XXXX XXXX XXX</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-blue-800">BIC</p>
+                        <p className="text-blue-900 font-mono">XXXXXXXX</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-blue-800">Banque</p>
+                        <p className="text-blue-900">VOTRE BANQUE</p>
+                      </div>
+                      <div className="pt-2 border-t border-blue-300 mt-3">
+                        <p className="text-xs text-blue-700">
+                          ⚠️ Pensez à indiquer votre numéro de commande comme référence du virement
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
+
+            {!addToOpenPackage && selectedShippingMethodId && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-[#D4AF37]" />
+                    Assurance livraison (facultative)
+                  </CardTitle>
+                  <CardDescription>
+                    Protégez votre colis contre la perte, le vol ou les dommages pendant le transport
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <RadioGroup value={shippingInsurance} onValueChange={setShippingInsurance}>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3 border p-4 rounded-lg hover:border-[#D4AF37] transition-colors">
+                        <RadioGroupItem value="0" id="insurance-none" />
+                        <label htmlFor="insurance-none" className="flex-1 cursor-pointer">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-medium">Sans assurance</span>
+                              <p className="text-sm text-gray-600 mt-1">
+                                Pas de protection supplémentaire
+                              </p>
+                            </div>
+                            <span className="font-semibold text-[#D4AF37]">Gratuit</span>
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="flex items-center space-x-3 border p-4 rounded-lg hover:border-[#D4AF37] transition-colors">
+                        <RadioGroupItem value="1.5" id="insurance-basic" />
+                        <label htmlFor="insurance-basic" className="flex-1 cursor-pointer">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-medium">Assurance de base</span>
+                              <p className="text-sm text-gray-600 mt-1">
+                                Couverture jusqu'à 100€
+                              </p>
+                            </div>
+                            <span className="font-semibold text-[#D4AF37]">1,50 €</span>
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="flex items-center space-x-3 border p-4 rounded-lg hover:border-[#D4AF37] transition-colors">
+                        <RadioGroupItem value="3" id="insurance-premium" />
+                        <label htmlFor="insurance-premium" className="flex-1 cursor-pointer">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-medium">Assurance premium</span>
+                              <p className="text-sm text-gray-600 mt-1">
+                                Couverture jusqu'à 300€ + remplacement prioritaire
+                              </p>
+                            </div>
+                            <span className="font-semibold text-[#D4AF37]">3,00 €</span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>

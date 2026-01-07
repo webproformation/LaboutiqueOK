@@ -6,13 +6,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Loader2, User, Package, MapPin, Heart, LogOut, Shield, Settings } from 'lucide-react';
+import { Loader2, User, Package, MapPin, Heart, LogOut, Shield, Settings, Ruler } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const accountNavItems = [
   { href: '/account', label: 'Mon profil', icon: User },
   { href: '/account/orders', label: 'Mes commandes', icon: Package },
   { href: '/account/addresses', label: 'Mes adresses', icon: MapPin },
+  { href: '/account/measurements', label: 'Mes mensurations', icon: Ruler },
   { href: '/wishlist', label: 'Ma liste de souhaits', icon: Heart },
 ];
 

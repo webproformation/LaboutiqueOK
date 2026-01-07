@@ -5,7 +5,10 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, SlidersHorizontal, ArrowUpDown } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { decodeHtmlEntities } from '@/lib/utils';
 
@@ -18,6 +21,8 @@ interface Product {
   sale_price: number | null;
   image_url: string | null;
   stock_quantity: number | null;
+  color?: string;
+  size?: string;
 }
 
 interface Category {
@@ -33,7 +38,15 @@ export default function CategoryPage() {
   const slug = params.slug as string;
   const [category, setCategory] = useState<Category | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [sortBy, setSortBy] = useState<string>('default');
+  const [filterColor, setFilterColor] = useState<string>('all');
+  const [filterSize, setFilterSize] = useState<string>('all');
+
+  const [availableColors, setAvailableColors] = useState<string[]>([]);
+  const [availableSizes, setAvailableSizes] = useState<string[]>([]);
 
   useEffect(() => {
     loadCategoryAndProducts();
@@ -74,7 +87,19 @@ export default function CategoryPage() {
           .eq('status', 'publish');
 
         if (productsError) throw productsError;
-        setProducts(productsData || []);
+        const prods = productsData || [];
+        setProducts(prods);
+
+        const colors = new Set<string>();
+        const sizes = new Set<string>();
+
+        prods.forEach((product: any) => {
+          if (product.color) colors.add(product.color);
+          if (product.size) sizes.add(product.size);
+        });
+
+        setAvailableColors(Array.from(colors));
+        setAvailableSizes(Array.from(sizes));
       } else {
         setProducts([]);
       }
@@ -84,6 +109,39 @@ export default function CategoryPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let result = [...products];
+
+    if (filterColor !== 'all') {
+      result = result.filter(p => p.color === filterColor);
+    }
+
+    if (filterSize !== 'all') {
+      result = result.filter(p => p.size === filterSize);
+    }
+
+    switch (sortBy) {
+      case 'price_asc':
+        result.sort((a, b) => {
+          const priceA = a.sale_price || a.regular_price || 0;
+          const priceB = b.sale_price || b.regular_price || 0;
+          return priceA - priceB;
+        });
+        break;
+      case 'price_desc':
+        result.sort((a, b) => {
+          const priceA = a.sale_price || a.regular_price || 0;
+          const priceB = b.sale_price || b.regular_price || 0;
+          return priceB - priceA;
+        });
+        break;
+      default:
+        break;
+    }
+
+    setFilteredProducts(result);
+  }, [products, sortBy, filterColor, filterSize]);
 
   if (loading) {
     return (
@@ -113,10 +171,10 @@ export default function CategoryPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
+      <div className="mb-8 text-center">
         <h1 className="text-4xl font-bold mb-2">{decodeHtmlEntities(category.name)}</h1>
         {category.description && (
-          <p className="text-gray-600">{decodeHtmlEntities(category.description)}</p>
+          <p className="text-gray-600 max-w-3xl mx-auto">{decodeHtmlEntities(category.description)}</p>
         )}
       </div>
 
@@ -128,8 +186,96 @@ export default function CategoryPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {products.map((product) => (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <aside className="lg:col-span-1 space-y-6">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <SlidersHorizontal className="h-5 w-5 text-[#D4AF37]" />
+                  <h3 className="font-semibold text-lg">Filtres</h3>
+                </div>
+                <Separator className="mb-4" />
+
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="font-medium mb-3 flex items-center gap-2">
+                      <ArrowUpDown className="h-4 w-4" />
+                      Trier par prix
+                    </h4>
+                    <RadioGroup value={sortBy} onValueChange={setSortBy}>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="default" id="sort-default" />
+                        <Label htmlFor="sort-default" className="cursor-pointer">Par défaut</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="price_asc" id="sort-asc" />
+                        <Label htmlFor="sort-asc" className="cursor-pointer">Prix croissant</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="price_desc" id="sort-desc" />
+                        <Label htmlFor="sort-desc" className="cursor-pointer">Prix décroissant</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {availableColors.length > 0 && (
+                    <>
+                      <Separator />
+                      <div>
+                        <h4 className="font-medium mb-3">Couleur</h4>
+                        <RadioGroup value={filterColor} onValueChange={setFilterColor}>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="all" id="color-all" />
+                            <Label htmlFor="color-all" className="cursor-pointer">Toutes</Label>
+                          </div>
+                          {availableColors.map((color) => (
+                            <div key={color} className="flex items-center space-x-2">
+                              <RadioGroupItem value={color} id={`color-${color}`} />
+                              <Label htmlFor={`color-${color}`} className="cursor-pointer flex items-center gap-2">
+                                <span
+                                  className="w-4 h-4 rounded-full border border-gray-300"
+                                  style={{ backgroundColor: color }}
+                                />
+                                {color}
+                              </Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      </div>
+                    </>
+                  )}
+
+                  {availableSizes.length > 0 && (
+                    <>
+                      <Separator />
+                      <div>
+                        <h4 className="font-medium mb-3">Taille</h4>
+                        <RadioGroup value={filterSize} onValueChange={setFilterSize}>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="all" id="size-all" />
+                            <Label htmlFor="size-all" className="cursor-pointer">Toutes</Label>
+                          </div>
+                          {availableSizes.map((size) => (
+                            <div key={size} className="flex items-center space-x-2">
+                              <RadioGroupItem value={size} id={`size-${size}`} />
+                              <Label htmlFor={`size-${size}`} className="cursor-pointer">{size}</Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </aside>
+
+          <div className="lg:col-span-3">
+            <div className="mb-4 text-sm text-gray-600">
+              {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredProducts.map((product) => (
             <Card key={product.id} className="group overflow-hidden">
               <Link href={`/product/${product.slug}`}>
                 <div className="aspect-square overflow-hidden bg-gray-100">
@@ -169,6 +315,8 @@ export default function CategoryPage() {
               </Link>
             </Card>
           ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
