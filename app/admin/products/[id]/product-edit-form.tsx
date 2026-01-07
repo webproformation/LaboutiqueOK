@@ -28,6 +28,7 @@ interface Product {
   status: string;
   image_url: string | null;
   images: any;
+  gallery_images?: string[] | any;
   is_diamond?: boolean;
   is_featured?: boolean;
   is_variable_product?: boolean;
@@ -98,7 +99,8 @@ export default function ProductEditForm({
   const [attributes, setAttributes] = useState<ProductAttribute[]>([]);
   const [colorVariations, setColorVariations] = useState<any[]>([]);
   const [galleryImages, setGalleryImages] = useState<string[]>(
-    initialProduct.images?.gallery_images || []
+    Array.isArray(initialProduct.gallery_images) ? initialProduct.gallery_images :
+    (initialProduct.images?.gallery_images || [])
   );
   const [seoData, setSeoData] = useState<SeoData>({
     seo_title: "",

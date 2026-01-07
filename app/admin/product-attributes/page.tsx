@@ -509,7 +509,7 @@ export default function ProductAttributesPage() {
                         required
                       />
                     </div>
-                    {selectedAttribute?.type === 'select' && (
+                    {selectedAttribute && (selectedAttribute.slug.includes('couleur') || selectedAttribute.name.toLowerCase().includes('couleur')) && (
                       <div>
                         <Label htmlFor="term-color">Code couleur</Label>
                         <div className="flex gap-2">
@@ -557,7 +557,7 @@ export default function ProductAttributesPage() {
                   <TableRow>
                     <TableHead>Nom</TableHead>
                     <TableHead>Slug</TableHead>
-                    {selectedAttribute.type === 'select' && <TableHead>Couleur</TableHead>}
+                    {(selectedAttribute.slug.includes('couleur') || selectedAttribute.name.toLowerCase().includes('couleur')) && <TableHead>Couleur</TableHead>}
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -566,7 +566,7 @@ export default function ProductAttributesPage() {
                     <TableRow key={term.id}>
                       <TableCell className="font-medium">{term.name}</TableCell>
                       <TableCell><code className="text-xs bg-gray-100 px-2 py-1 rounded">{term.slug}</code></TableCell>
-                      {selectedAttribute.type === 'select' && (
+                      {(selectedAttribute.slug.includes('couleur') || selectedAttribute.name.toLowerCase().includes('couleur')) && (
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="relative">
