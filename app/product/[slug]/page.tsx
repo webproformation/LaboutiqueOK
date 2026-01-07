@@ -276,13 +276,44 @@ export default function ProductPage() {
     ? selectedVariation?.stock_status === "instock"
     : product.stock_status === "instock" && (product.stock_quantity ?? 0) > 0;
 
-  const galleryImages = product.images && product.images.length > 0
-    ? product.images.map((img: any, idx: number) => ({
-        id: `img-${idx}`,
-        src: img.src || img.sourceUrl || img.url,
-        alt: img.alt || product.name,
-      }))
-    : [{ id: "main", src: product.image_url || "/placeholder.png", alt: product.name }];
+  const galleryImages = (() => {
+    const images: Array<{ id: string; src: string; alt: string }> = [];
+
+    if (product.image_url) {
+      images.push({
+        id: "main",
+        src: product.image_url,
+        alt: product.name,
+      });
+    }
+
+    if (product.gallery_images && Array.isArray(product.gallery_images) && product.gallery_images.length > 0) {
+      product.gallery_images.forEach((imgUrl: string, idx: number) => {
+        if (imgUrl && imgUrl !== product.image_url) {
+          images.push({
+            id: `gallery-${idx}`,
+            src: imgUrl,
+            alt: product.name,
+          });
+        }
+      });
+    }
+
+    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      product.images.forEach((img: any, idx: number) => {
+        const imgSrc = img.src || img.sourceUrl || img.url;
+        if (imgSrc && !images.some(i => i.src === imgSrc)) {
+          images.push({
+            id: `img-${idx}`,
+            src: imgSrc,
+            alt: img.alt || product.name,
+          });
+        }
+      });
+    }
+
+    return images.length > 0 ? images : [{ id: "placeholder", src: "/placeholder.png", alt: product.name }];
+  })();
 
   return (
     <div className="min-h-screen bg-white">

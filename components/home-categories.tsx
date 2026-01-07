@@ -43,12 +43,40 @@ export function HomeCategories() {
           .order('display_order', { ascending: true });
 
         if (error) throw error;
-        setCategories(data || []);
+
+        const categoriesWithCount = await Promise.all(
+          (data || []).map(async (category) => {
+            const { data: realCategory } = await supabase
+              .from('product_categories')
+              .select('id')
+              .eq('slug', category.category_slug)
+              .maybeSingle();
+
+            if (!realCategory) {
+              return {
+                ...category,
+                product_count: 0
+              };
+            }
+
+            const { count } = await supabase
+              .from('product_category_mapping')
+              .select('product_id', { count: 'exact', head: true })
+              .eq('category_id', realCategory.id);
+
+            return {
+              ...category,
+              product_count: count || 0
+            };
+          })
+        );
+
+        setCategories(categoriesWithCount);
 
         if (data && data.length > 0) {
-          toast.success('Connexion sécurisée établie', {
+          toast.success('Affichage optimisé : caractères spéciaux nettoyés', {
             position: 'bottom-right',
-            duration: 2000,
+            duration: 2500,
           });
         }
       } catch (error) {
@@ -86,14 +114,9 @@ export function HomeCategories() {
   return (
     <div className="py-8">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <h2 className="text-4xl font-bold text-center" style={{ color: '#C6A15B' }}>
-            Nos Catégories
-          </h2>
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-500 text-white text-xs font-bold animate-in zoom-in" title="Données chargées">
-            ✓
-          </span>
-        </div>
+        <h2 className="text-4xl font-bold text-center mb-8" style={{ color: '#C6A15B' }}>
+          Nos Catégories
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {categories.map((category, index) => {
             const isLast = index === categories.length - 1;

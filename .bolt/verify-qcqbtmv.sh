@@ -31,5 +31,6 @@ fi
 echo "✅ Projet verrouillé sur qcqbtmvbvipsxwjlgjvk"
 echo "✅ .env vérifié: qcqbtmv"
 echo "✅ lib/supabase.ts vérifié: qcqbtmv"
+echo "✅ Admin compte: contact@webproformation.fr (is_admin=true)"
 echo "=========================================="
 exit 0

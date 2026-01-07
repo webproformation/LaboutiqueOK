@@ -78,7 +78,6 @@ export default function BackupPage() {
         timestamp: new Date().toISOString(),
       };
 
-      console.log('🔍 AUTH DIAGNOSTIC:', diagnostic);
       setAuthDiagnostic(diagnostic);
     } catch (error: any) {
       console.error('Diagnostic error:', error);
@@ -301,11 +300,6 @@ export default function BackupPage() {
 
     setLoading(true);
     try {
-      console.log('🚀 Lancement sauvegarde BDD...');
-      console.log('👤 User ID:', user.id);
-      console.log('🔑 Is Admin:', isAdmin);
-      console.log('📊 Profile:', profile);
-
       toast.info('Préparation de l\'export de la base de données...');
 
       const { data, error } = await supabase.rpc('get_database_export');
@@ -360,7 +354,6 @@ export default function BackupPage() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      console.log('✅ Sauvegarde créée avec succès');
       toast.success(
         `Sauvegarde créée avec succès ! ${exportData._export_info.total_records} enregistrements exportés.`
       );

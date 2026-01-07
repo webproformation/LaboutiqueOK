@@ -162,9 +162,6 @@ export default function CouponsPage() {
         is_active: formData.is_active,
       };
 
-      console.log('=== SAVING COUPON ===');
-      console.log('Coupon Data:', JSON.stringify(couponData, null, 2));
-
       if (editingCoupon) {
         const { data, error } = await supabase
           .from('coupons')
@@ -174,7 +171,6 @@ export default function CouponsPage() {
           .single();
 
         if (error) throw error;
-        console.log('Coupon updated successfully:', data);
         toast.success('Coupon modifié avec succès', { position: 'bottom-right' });
       } else {
         const { data, error } = await supabase
@@ -184,11 +180,9 @@ export default function CouponsPage() {
           .single();
 
         if (error) throw error;
-        console.log('Coupon created successfully:', data);
         toast.success('Coupon créé avec succès', { position: 'bottom-right' });
       }
 
-      console.log('=== SAVE SUCCESSFUL ===');
       resetForm();
       loadCoupons();
     } catch (error: any) {

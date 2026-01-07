@@ -45,8 +45,6 @@ export default function MediaAdminPage() {
   const loadProductImages = async () => {
     setLoading(true);
     try {
-      console.log('[MEDIA] Loading images...');
-
       const { data: storageFiles, error: storageError } = await supabase.storage
         .from('product-images')
         .list('products', {
@@ -71,8 +69,6 @@ export default function MediaAdminPage() {
           };
         });
 
-      console.log('[MEDIA] Storage files loaded:', storageImagesData.length);
-
       const productsResult = await supabase
         .from('products')
         .select('image_url, gallery_images');
@@ -93,14 +89,10 @@ export default function MediaAdminPage() {
         }
       });
 
-      console.log('[MEDIA] Product URLs loaded:', productImageUrls.length);
-
       const allImages = [...storageImagesData, ...productImageUrls];
       const uniqueImages = Array.from(
         new Map(allImages.map(img => [img.url, img])).values()
       );
-
-      console.log('[MEDIA] Total unique images:', uniqueImages.length);
 
       const calculatedSize = uniqueImages.reduce((acc, img) => acc + (img.size || 0), 0);
 

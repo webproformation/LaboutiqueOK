@@ -230,17 +230,6 @@ export default function ProductEditForm({
     setSaving(true);
 
     try {
-      console.log("=== SAVING PRODUCT ===");
-      console.log("Product ID (should be string):", product.id, typeof product.id);
-      console.log("Selected Categories:", selectedCategories);
-      console.log("Product Data:", {
-        name: product.name,
-        slug: product.slug,
-        regular_price: product.regular_price,
-        sale_price: product.sale_price,
-        stock_quantity: product.stock_quantity,
-      });
-
       // 1. Mettre à jour le produit
       const productUpdateData = {
         name: String(product.name).trim(),
@@ -257,8 +246,6 @@ export default function ProductEditForm({
         is_variable_product: colorVariations.length > 0,
       };
 
-      console.log("Product Update Data (cleaned):", productUpdateData);
-
       const { error: productError } = await supabase
         .from("products")
         .update(productUpdateData)
@@ -270,7 +257,6 @@ export default function ProductEditForm({
       }
 
       // 2. Mettre à jour les catégories
-      console.log("Deleting old category mappings for product:", product.id);
       const { error: deleteCatError } = await supabase
         .from("product_category_mapping")
         .delete()
@@ -289,8 +275,6 @@ export default function ProductEditForm({
           display_order: index,
         }));
 
-        console.log("Inserting category mappings:", categoryMappings);
-
         const { error: insertCatError } = await supabase
           .from("product_category_mapping")
           .insert(categoryMappings);
@@ -302,7 +286,6 @@ export default function ProductEditForm({
       }
 
       // 3. Mettre à jour les variations
-      console.log("Deleting old variations for product:", product.id);
       const { error: deleteVarError } = await supabase
         .from("product_variations")
         .delete()
@@ -335,8 +318,6 @@ export default function ProductEditForm({
           };
         });
 
-        console.log("Inserting color variations:", JSON.stringify(variationsToInsert, null, 2));
-
         const { data: insertedVariations, error: insertVarError } = await supabase
           .from("product_variations")
           .insert(variationsToInsert)
@@ -346,12 +327,9 @@ export default function ProductEditForm({
           console.error("Insert Variations Error:", insertVarError);
           throw insertVarError;
         }
-
-        console.log("Color variations inserted successfully:", insertedVariations);
       }
 
       // 4. Mettre à jour le SEO
-      console.log("Deleting old SEO data for product:", product.id);
       const { error: deleteSeoError } = await supabase
         .from("seo_metadata")
         .delete()
@@ -375,8 +353,6 @@ export default function ProductEditForm({
           is_active: true,
         };
 
-        console.log("Inserting SEO data:", seoInsertData);
-
         const { error: insertSeoError } = await supabase
           .from("seo_metadata")
           .insert(seoInsertData);
@@ -386,8 +362,6 @@ export default function ProductEditForm({
           throw insertSeoError;
         }
       }
-
-      console.log("=== SAVE SUCCESSFUL ===");
 
       toast.success("Produit mis à jour avec succès", {
         duration: 4000,

@@ -87,10 +87,9 @@ export function FeaturedProducts() {
     return (
       <div className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
-          <div className="flex items-center gap-3 mb-8">
-            <Sparkles className="h-8 w-8 text-[#D4AF37]" />
-            <h2 className="text-4xl font-bold">Les coups de coeur de Morgane</h2>
-          </div>
+          <h2 className="text-4xl font-bold text-center mb-8" style={{ color: '#C6A15B' }}>
+          Les pépites du moment
+        </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, i) => (
               <Card key={i} className="rounded-xl overflow-hidden">
@@ -114,13 +113,12 @@ export function FeaturedProducts() {
   return (
     <section className="py-16 bg-gray-50">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <Sparkles className="h-8 w-8 text-[#D4AF37]" />
-            <h2 className="text-4xl font-bold">Les coups de coeur de Morgane</h2>
-          </div>
+        <div className="flex items-center justify-center mb-8 relative">
+          <h2 className="text-4xl font-bold text-center" style={{ color: '#C6A15B' }}>
+            Les pépites du moment
+          </h2>
 
-          <div className="hidden md:flex gap-2">
+          <div className="hidden md:flex gap-2 absolute right-0">
             <Button
               variant="outline"
               size="icon"
