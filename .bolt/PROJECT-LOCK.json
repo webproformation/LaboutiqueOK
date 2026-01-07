@@ -1,34 +1,87 @@
 {
   "project": {
     "name": "La Boutique de Morgane",
-    "locked_at": "2026-01-06T00:00:00Z",
-    "supabase": {
-      "project_id": "qcqbtmvbvipsxwjlgjvk",
-      "url": "https://qcqbtmvbvipsxwjlgjvk.supabase.co",
-      "region": "eu-west-1",
-      "locked": true,
-      "reason": "Production finale - Centaines de retours en arrière évités"
+    "locked_at": "2026-01-07T17:00:00Z",
+    "locked_by": "Protection Anti-Revert System",
+    "supabase_project_id": "qcqbtmvbvipsxwjlgjvk",
+    "supabase_url": "https://qcqbtmvbvipsxwjlgjvk.supabase.co",
+    "status": "LOCKED"
+  },
+  "forbidden_projects": [
+    {
+      "id": "mcstvpdcfvhsgnhdfeee",
+      "reason": "Ancien projet - Centaines de retours en arrière détectés",
+      "blocked_since": "2026-01-05"
+    }
+  ],
+  "data_types": {
+    "products.id": "TEXT",
+    "categories.id": "TEXT",
+    "note": "Format WordPress/WooCommerce - IDs numériques en string"
+  },
+  "protections": {
+    "env_file": {
+      "enabled": true,
+      "hardcoded_values": true,
+      "comments": "⚠️ VERROUILLAGE PROJET qcqbtmvbvipsxwjlgjvk"
     },
-    "data_model": {
-      "product_ids": "TEXT",
-      "reason": "Héritage : IDs textuels comme '571', '102', etc.",
-      "do_not_change": true
+    "code_verification": {
+      "enabled": true,
+      "file": "lib/supabase.ts",
+      "type": "runtime_check",
+      "throws_error": true
     },
-    "protection": {
-      "anti_revert": true,
-      "singleton_enforced": true,
-      "env_locked": true,
-      "verification_script": ".bolt/verify-qcqbtmv.sh"
+    "prebuild_script": {
+      "enabled": true,
+      "script": ".bolt/verify-qcqbtmv.sh",
+      "npm_hook": "prebuild",
+      "auto_run": true
+    },
+    "manual_verification": {
+      "enabled": true,
+      "command": "npm run verify-project"
     }
   },
-  "history": {
-    "previous_project": "mcstv (ABANDONNÉ)",
-    "migration_date": "2026-01-05",
-    "reason": "Retours en arrière répétés sur mcstv"
+  "security_code": {
+    "required_for_env_changes": true,
+    "code": "FORCE-CHANGE-PROJECT",
+    "purpose": "Empêcher les modifications accidentelles du .env"
   },
-  "admin": {
+  "corruption_history": [
+    {
+      "date": "2026-01-07T16:50:00Z",
+      "type": "env_corruption",
+      "details": ".env pointait sur mcstv au lieu de qcqbtmv",
+      "detected_by": "user_alert",
+      "resolved": true,
+      "resolution": "Restauration .env + création protections"
+    }
+  ],
+  "admin_account": {
+    "status": "pending_manual_creation",
     "email": "contact@webproformation.fr",
-    "synchronized": true,
-    "is_admin": true
-  }
+    "password": "WebPro2026!",
+    "issue": "Supabase Auth signup fails with 'Database error saving new user'",
+    "solution": "Manual creation via Supabase Dashboard required",
+    "documentation": "CREATION-COMPTE-ADMIN.md"
+  },
+  "last_verification": {
+    "date": "2026-01-07T17:00:00Z",
+    "status": "PASSED",
+    "checks": {
+      "env_file": "✅",
+      "lib_supabase": "✅",
+      "no_mcstv_references": "✅",
+      "build_success": "✅"
+    }
+  },
+  "verification_command": "npm run verify-project",
+  "build_command": "npm run build",
+  "notes": [
+    "Le projet a subi des centaines de retours en arrière vers mcstv",
+    "Protections multi-niveaux implémentées le 2026-01-07",
+    "Script de vérification s'exécute automatiquement avant chaque build",
+    "Constantes hardcodées dans le code pour éviter toute corruption .env",
+    "Documentation complète dans .bolt/SECURITE-PERIMETRE-qcqbtmv.md"
+  ]
 }

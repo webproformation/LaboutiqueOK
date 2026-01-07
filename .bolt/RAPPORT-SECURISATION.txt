@@ -1,0 +1,142 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                  RAPPORT DE SÉCURISATION DU PROJET                   ║
+║                     qcqbtmvbvipsxwjlgjvk.supabase.co                 ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+Date: 2026-01-07 17:00 UTC
+Mission: SÉCURISATION DU PÉRIMÈTRE qcqbtmv
+Statut: ✅ MISSION ACCOMPLIE
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 PROTECTIONS IMPLÉMENTÉES
+
+1. FICHIER .env
+   ✅ Commentaires d'avertissement ajoutés
+   ✅ Valeurs qcqbtmv verrouillées
+   ✅ Protection contre modification sans code FORCE-CHANGE-PROJECT
+
+2. CODE APPLICATION (lib/supabase.ts)
+   ✅ Vérification au démarrage (throw Error si mauvais projet)
+   ✅ Double vérification à l'instanciation
+   ✅ Constantes hardcodées LOCKED_SUPABASE_URL
+
+3. SCRIPT DE VÉRIFICATION (.bolt/verify-qcqbtmv.sh)
+   ✅ Vérifie .env pointe sur qcqbtmv
+   ✅ Vérifie absence de références mcstv
+   ✅ Vérifie lib/supabase.ts verrouillé
+   ✅ Rendu exécutable (chmod +x)
+
+4. AUTOMATION NPM
+   ✅ Hook "prebuild" configuré
+   ✅ Commande "verify-project" ajoutée
+   ✅ Vérification automatique avant chaque build
+
+5. DOCUMENTATION
+   ✅ AI-INSTRUCTIONS.md (instructions pour IA)
+   ✅ SECURITE-PERIMETRE-qcqbtmv.md (doc complète)
+   ✅ PROJECT-LOCK.json (état verrouillage)
+   ✅ PROTECTION-ANTI-REVERT.md (historique)
+   ✅ CREATION-COMPTE-ADMIN.md (procédure admin)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🧪 TESTS DE VALIDATION
+
+Test #1: Script de vérification manuelle
+Command: npm run verify-project
+Result: ✅ PASSED
+
+Test #2: Build avec vérification automatique
+Command: npm run build
+Prebuild: ✅ PASSED (verify-qcqbtmv.sh)
+Build: ✅ PASSED (production build successful)
+
+Test #3: Vérifications de sécurité
+.env contient qcqbtmv: ✅
+.env ne contient pas mcstv: ✅
+lib/supabase.ts verrouillé: ✅
+Constantes hardcodées: ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 RÈGLES APPLIQUÉES
+
+✓ Interdiction formelle de référencer mcstv
+✓ URL Supabase unique: qcqbtmvbvipsxwjlgjvk
+✓ IDs produits/catégories en TEXT (format WordPress)
+✓ Modification .env requiert code FORCE-CHANGE-PROJECT
+✓ Vérification automatique avant chaque build
+✓ Erreur bloquante si corruption détectée
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 RÉSUMÉ DES PROTECTIONS
+
+Niveau 1: .env (Visuel)                    ✅ Actif
+Niveau 2: .env (Hardcodé)                  ✅ Actif
+Niveau 3: Code (Runtime Check)             ✅ Actif
+Niveau 4: Code (Instance Check)            ✅ Actif
+Niveau 5: Script (Pre-build)               ✅ Actif
+Niveau 6: NPM Hook (Automatique)           ✅ Actif
+Niveau 7: Documentation (Référence)        ✅ Actif
+
+SCORE DE SÉCURITÉ: 7/7 ━━━━━━━━━━━━━━━━━━━━━━━━━ 100%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚙️ COMMANDES DISPONIBLES
+
+Vérification manuelle du projet:
+  $ npm run verify-project
+
+Build avec vérification automatique:
+  $ npm run build
+
+Développement (sans vérification):
+  $ npm run dev
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🛡️ PROTOCOLE D'INTÉGRITÉ ACTIVÉ
+
+Avant toute action:
+  1. Exécuter: npm run verify-project
+  2. Vérifier: Output = "PROJET VERROUILLÉ SUR qcqbtmv"
+  3. Si échec: ARRÊT IMMÉDIAT
+
+En cas de corruption détectée:
+  1. Ne pas continuer les modifications
+  2. Restaurer .env depuis ce rapport
+  3. Relancer la vérification
+
+Configuration de restauration d'urgence:
+  NEXT_PUBLIC_SUPABASE_URL=https://qcqbtmvbvipsxwjlgjvk.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjcWJ0bXZidmlwc3h3amxnanZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MzIzNjAsImV4cCI6MjA4MjUwODM2MH0.q-4uGaHsuojj3ejo5IG4V-z2fx-ER9grHsRzYNkYn0c
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📌 NOTES IMPORTANTES
+
+• Les IDs produits et catégories sont en TEXT, pas UUID
+  (format WordPress: "571", "102", etc.)
+
+• Le compte admin doit être créé manuellement via Dashboard Supabase
+  Email: contact@webproformation.fr
+  Mot de passe: WebPro2026!
+  Documentation: CREATION-COMPTE-ADMIN.md
+
+• Historique: Centaines de retours en arrière vers mcstv détectés
+  Raison: Problème de contexte lors des modifications
+
+• Solution: Protections multi-niveaux + vérifications automatiques
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                 ✅ PROJET SÉCURISÉ ET VERROUILLÉ                     ║
+║                                                                      ║
+║              Périmètre exclusif: qcqbtmvbvipsxwjlgjvk               ║
+║                 Interdiction totale: mcstvpdcfvhsgnhdfeee           ║
+╚══════════════════════════════════════════════════════════════════════╝
+

@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "bash .bolt/verify-qcqbtmv.sh",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "verify-project": "bash .bolt/verify-qcqbtmv.sh",
     "migrate:categories": "node scripts/migrate-categories.js",
     "sync:product-categories": "node scripts/sync-product-categories.js"
   },
