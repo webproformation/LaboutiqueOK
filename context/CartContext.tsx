@@ -74,7 +74,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       price: item.product_price,
       image: item.product_image_url ? { sourceUrl: item.product_image_url } : undefined,
       quantity: item.quantity,
-      variationId: item.variation_id,
+      variationId: item.variation_id === 'default' ? null : item.variation_id,
       variationPrice: item.variation_data?.price || null,
       variationImage: item.variation_data?.image || null,
       selectedAttributes: item.variation_data?.attributes || {},
@@ -93,8 +93,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         product_price: item.price,
         product_image_url: item.image?.sourceUrl || null,
         quantity: item.quantity,
-        variation_id: item.variationId || null,
-        variation_data: item.variationId ? {
+        variation_id: item.variationId || 'default',
+        variation_data: item.variationId && item.variationId !== 'default' ? {
           price: item.variationPrice,
           image: item.variationImage,
           attributes: item.selectedAttributes,
@@ -207,10 +207,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existingIndex >= 0) {
         const updatedCart = [...prevCart];
         updatedCart[existingIndex].quantity += quantity;
-        toast.success('Quantité mise à jour');
+        toast.success('Quantité mise à jour', {
+          position: 'bottom-right',
+        });
         return updatedCart;
       } else {
-        toast.success('Article ajouté au panier');
+        toast.success('Article ajouté au panier', {
+          position: 'bottom-right',
+        });
         const newItem: CartItem = {
           id: product.id,
           name: product.name,
@@ -234,7 +238,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const itemId = item.variationId ? `${item.id}-${item.variationId}` : item.id;
         return itemId !== productId;
       });
-      toast.success('Article retiré du panier');
+      toast.success('Article retiré du panier', {
+        position: 'bottom-right',
+      });
       return newCart;
     });
   };
@@ -267,7 +273,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         .eq('user_id', user.id);
     }
 
-    toast.success('Panier vidé');
+    toast.success('Panier vidé', {
+      position: 'bottom-right',
+    });
   };
 
   const cartTotal = cart.reduce((total, item) => {
