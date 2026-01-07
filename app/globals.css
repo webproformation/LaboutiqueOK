@@ -3,6 +3,17 @@
 @tailwind utilities;
 
 @layer base {
+  main h1,
+  main h2,
+  section h1,
+  section h2,
+  article h1,
+  article h2 {
+    @apply text-center;
+  }
+}
+
+@layer base {
   :root {
     --background: 0 0% 100%;
     --foreground: 0 0% 0%;

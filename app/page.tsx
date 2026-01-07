@@ -1,6 +1,8 @@
 import { HeroSlider } from '@/components/hero-slider';
 import { FeaturedProducts } from '@/components/featured-products';
 import { HomeCategories } from '@/components/home-categories';
+import { VideoShortsSection } from '@/components/VideoShortsSection';
+import { CustomerReviewsSection } from '@/components/CustomerReviewsSection';
 import Link from 'next/link';
 import { Sparkles, Gift, Truck } from 'lucide-react';
 
@@ -48,6 +50,10 @@ export default function Home() {
         </section>
 
         <FeaturedProducts />
+
+        <VideoShortsSection />
+
+        <CustomerReviewsSection />
 
         <section className="py-16 bg-gray-50">
           <div className="container mx-auto px-4 text-center">

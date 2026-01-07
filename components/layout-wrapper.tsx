@@ -9,6 +9,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
 import { WishlistProvider } from '@/context/WishlistContext';
 import { useAuthStore } from '@/stores/auth-store';
+import { OpenPackageBanner } from '@/components/OpenPackageBanner';
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -27,7 +28,12 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     <AuthProvider>
       <WishlistProvider>
         <CartProvider>
-          {showHeaderFooter && <SiteHeader />}
+          {showHeaderFooter && (
+            <>
+              <OpenPackageBanner />
+              <SiteHeader />
+            </>
+          )}
           {children}
           {showHeaderFooter && <SiteFooter />}
           <Toaster position="bottom-right" richColors />
