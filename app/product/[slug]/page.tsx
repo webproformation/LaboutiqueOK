@@ -113,11 +113,25 @@ export default function ProductPage() {
 
           variations.forEach((variation) => {
             if (variation.attributes) {
-              Object.entries(variation.attributes).forEach(([key, value]) => {
-                if (!attributesMap.has(key)) {
-                  attributesMap.set(key, new Set());
+              // Ne garder que les attributs d'affichage (pas les codes techniques)
+              if (variation.attributes.couleur_name) {
+                if (!attributesMap.has("Couleur")) {
+                  attributesMap.set("Couleur", new Set());
                 }
-                attributesMap.get(key)?.add(value as string);
+                attributesMap.get("Couleur")?.add(variation.attributes.couleur_name as string);
+              }
+
+              // Ajouter d'autres attributs (taille, etc.) sauf couleur, color_code
+              Object.entries(variation.attributes).forEach(([key, value]) => {
+                const lowerKey = key.toLowerCase();
+                // Ignorer les champs techniques de couleur
+                if (!lowerKey.includes('couleur') && !lowerKey.includes('color')) {
+                  const displayName = key.charAt(0).toUpperCase() + key.slice(1);
+                  if (!attributesMap.has(displayName)) {
+                    attributesMap.set(displayName, new Set());
+                  }
+                  attributesMap.get(displayName)?.add(value as string);
+                }
               });
             }
           });
@@ -129,10 +143,19 @@ export default function ProductPage() {
 
           const formattedVariations = variations.map((v) => ({
             id: v.id,
-            attributes: Object.entries(v.attributes || {}).map(([name, option]) => ({
-              name,
-              option: option as string,
-            })),
+            attributes: Object.entries(v.attributes || {})
+              .filter(([key]) => {
+                const lowerKey = key.toLowerCase();
+                // Pour les couleurs, ne garder que couleur_name
+                if (lowerKey.includes('couleur') || lowerKey.includes('color')) {
+                  return key === 'couleur_name';
+                }
+                return true; // Garder les autres attributs
+              })
+              .map(([name, option]) => ({
+                name: name === 'couleur_name' ? 'Couleur' : (name.charAt(0).toUpperCase() + name.slice(1)),
+                option: option as string,
+              })),
             price: v.sale_price || v.regular_price || productData.sale_price || productData.regular_price || "0",
             regular_price: v.regular_price || productData.regular_price || "0",
             sale_price: v.sale_price || (v.regular_price ? null : productData.sale_price),
