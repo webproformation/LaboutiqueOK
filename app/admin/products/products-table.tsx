@@ -22,7 +22,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Edit, Eye, Package, Diamond, Star } from "lucide-react";
+import { Search, Edit, Eye, Package, Diamond, Star, Trash2 } from "lucide-react";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -79,6 +79,28 @@ export default function ProductsTable({
     } catch (error) {
       console.error("Error toggling featured:", error);
       toast.error("Erreur lors de la mise à jour");
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string, productName: string) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer le produit "${decodeHtmlEntities(productName)}" ?\n\nCette action est irréversible.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("products")
+        .delete()
+        .eq("id", productId);
+
+      if (error) throw error;
+
+      setLocalProducts(prev => prev.filter(p => p.id !== productId));
+
+      toast.success("Produit supprimé avec succès");
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      toast.error("Erreur lors de la suppression");
     }
   };
 
@@ -258,15 +280,24 @@ export default function ProductsTable({
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Link href={`/product/${product.slug}`}>
-                            <Button variant="ghost" size="sm">
+                            <Button variant="ghost" size="sm" title="Voir le produit">
                               <Eye className="h-4 w-4" />
                             </Button>
                           </Link>
                           <Link href={`/admin/products/${product.id}`}>
-                            <Button variant="ghost" size="sm">
+                            <Button variant="ghost" size="sm" title="Modifier le produit">
                               <Edit className="h-4 w-4" />
                             </Button>
                           </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteProduct(product.id, product.name)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Supprimer le produit"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
