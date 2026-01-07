@@ -38,7 +38,7 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
       const parentSlugs: Record<string, string> = {
         mode: 'mode',
         maison: 'maison',
-        beaute: 'beaute-senteurs'
+        beaute: 'beaute-et-senteurs'
       };
 
       const { data: parentCategory } = await supabase
@@ -135,7 +135,11 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
         {loading ? (
           <div className="text-center py-4">Chargement...</div>
         ) : categories.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+          <div className={`grid gap-8 ${
+            type === 'mode' ? 'grid-cols-2 md:grid-cols-5' :
+            type === 'maison' ? 'grid-cols-2 md:grid-cols-4' :
+            'grid-cols-2 md:grid-cols-4'
+          }`}>
             {categories.map((category) => (
               <div key={category.id} className="space-y-3">
                 <Link

@@ -40,6 +40,7 @@ export default function ProductsTable({
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [stockFilter, setStockFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [localProducts, setLocalProducts] = useState(products);
 
   const handleToggleDiamond = async (productId: string, currentValue: boolean) => {
@@ -118,16 +119,20 @@ export default function ProductsTable({
         (stockFilter === "in-stock" && product.stock_quantity > 0) ||
         (stockFilter === "out-of-stock" && product.stock_quantity === 0);
 
-      return matchesSearch && matchesStatus && matchesStock;
+      const matchesCategory =
+        categoryFilter === "all" ||
+        (product.category_ids && product.category_ids.includes(categoryFilter));
+
+      return matchesSearch && matchesStatus && matchesStock && matchesCategory;
     });
-  }, [localProducts, searchTerm, statusFilter, stockFilter]);
+  }, [localProducts, searchTerm, statusFilter, stockFilter, categoryFilter]);
 
   return (
     <div className="space-y-4">
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
@@ -146,6 +151,20 @@ export default function ProductsTable({
                 <SelectItem value="all">Tous les statuts</SelectItem>
                 <SelectItem value="publish">Publié</SelectItem>
                 <SelectItem value="draft">Brouillon</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Catégorie" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les catégories</SelectItem>
+                {categories.filter((cat) => !cat.parent_id).map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {decodeHtmlEntities(category.name)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
