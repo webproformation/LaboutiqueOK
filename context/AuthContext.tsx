@@ -159,13 +159,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string): Promise<{ error: AuthError | null }> => {
     try {
+      console.log('[AuthContext] Appel signInWithPassword...');
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (authError) return { error: authError };
-      if (!authData.user) return { error: { message: 'Erreur lors de la connexion' } as AuthError };
+      if (authError) {
+        console.error('[AuthContext] Erreur Supabase Auth:', {
+          message: authError.message,
+          status: (authError as any).status,
+          code: (authError as any).code
+        });
+        return { error: authError };
+      }
+
+      if (!authData.user) {
+        console.error('[AuthContext] Pas de user retourné');
+        return { error: { message: 'Erreur lors de la connexion' } as AuthError };
+      }
+
+      console.log('[AuthContext] Authentification réussie, ID:', authData.user.id);
 
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')

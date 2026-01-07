@@ -1,40 +1,40 @@
 #!/bin/bash
 
-# 🔒 VÉRIFICATION ANCRAGE qcqbtmv
-# Ce script vérifie que le projet est bien sur qcqbtmvbvipsxwjlgjvk
+# Script de vérification du projet qcqbtmv
+# INTERDICTION ABSOLUE de retourner sur mcstv
 
-echo "🔍 VÉRIFICATION ANCRAGE qcqbtmv"
-echo "================================"
+echo ""
+echo "=========================================="
+echo "VÉRIFICATION PROJET qcqbtmvbvipsxwjlgjvk"
+echo "=========================================="
 echo ""
 
-# Vérifier si .env existe
-if [ ! -f .env ]; then
-    echo "❌ ERREUR : Fichier .env introuvable !"
-    exit 1
-fi
-
-# Extraire l'URL Supabase
-CURRENT_URL=$(grep "NEXT_PUBLIC_SUPABASE_URL" .env | cut -d '=' -f2)
-EXPECTED_URL="https://qcqbtmvbvipsxwjlgjvk.supabase.co"
-
-echo "URL Actuelle  : $CURRENT_URL"
-echo "URL Attendue  : $EXPECTED_URL"
-echo ""
-
-# Comparer
-if [ "$CURRENT_URL" = "$EXPECTED_URL" ]; then
-    echo "✅ ANCRAGE CORRECT : qcqbtmvbvipsxwjlgjvk"
-    echo ""
-    echo "📌 Projet verrouillé sur le bon environnement"
-    echo "🔐 Prêt pour les opérations"
-    exit 0
+# Vérifier le .env
+if grep -q "qcqbtmvbvipsxwjlgjvk" .env; then
+    echo "✅ .env pointe sur qcqbtmv"
 else
-    echo "❌ ERREUR : PROJET SUR MAUVAIS ENVIRONNEMENT !"
+    echo "❌ ALERTE: .env ne pointe PAS sur qcqbtmv !!!"
     echo ""
-    echo "🚨 ACTION REQUISE :"
-    echo "   1. Ouvrir .env"
-    echo "   2. Remplacer l'URL par : $EXPECTED_URL"
-    echo "   3. Relancer ce script"
+    echo "Contenu actuel de NEXT_PUBLIC_SUPABASE_URL:"
+    grep "NEXT_PUBLIC_SUPABASE_URL" .env
     echo ""
     exit 1
 fi
+
+# Vérifier qu'il n'y a pas de référence à mcstv
+if grep -q "mcstvpdcfvhsgnhdfeee" .env; then
+    echo "❌ CORRUPTION DÉTECTÉE: référence à mcstv trouvée !!!"
+    exit 1
+fi
+
+echo "✅ Aucune référence à mcstv trouvée"
+echo ""
+echo "Configuration correcte:"
+grep "NEXT_PUBLIC_SUPABASE_URL" .env
+echo ""
+echo "=========================================="
+echo "PROJET VERROUILLÉ SUR qcqbtmv"
+echo "=========================================="
+echo ""
+
+exit 0

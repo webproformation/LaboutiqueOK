@@ -34,6 +34,12 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
+    console.log('\n========== TENTATIVE DE CONNEXION ==========');
+    console.log('Email:', email);
+    console.log('URL Supabase:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log('Timestamp:', new Date().toISOString());
+    console.log('=========================================\n');
+
     if (!email || !password) {
       setError('Veuillez remplir tous les champs');
       setLoading(false);
@@ -43,10 +49,25 @@ export default function LoginPage() {
     const { error: signInError } = await signIn(email, password);
 
     if (signInError) {
-      setError(signInError.message || 'Erreur lors de la connexion');
+      console.error('\n========== ERREUR AUTHENTIFICATION ==========');
+      console.error('Message:', signInError.message);
+      console.error('Status:', (signInError as any).status);
+      console.error('Code:', (signInError as any).code);
+      console.error('Détails complets:', JSON.stringify(signInError, null, 2));
+      console.error('=========================================\n');
+
+      const errorMsg = signInError.message === 'Invalid login credentials'
+        ? 'Email ou mot de passe incorrect'
+        : signInError.message || 'Erreur lors de la connexion';
+
+      setError(`${errorMsg} (Code: ${(signInError as any).status || 'N/A'})`);
       setLoading(false);
       return;
     }
+
+    console.log('\n========== CONNEXION RÉUSSIE ==========');
+    console.log('Redirection vers:', redirect);
+    console.log('=========================================\n');
 
     toast.success('Connexion réussie!');
     router.push(redirect);
