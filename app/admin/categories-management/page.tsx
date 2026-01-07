@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 import CategoriesTable from "./categories-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,8 +7,21 @@ import { Plus, FolderTree, ShoppingBag, Eye, EyeOff } from "lucide-react";
 
 export const revalidate = 0;
 
+function getAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  );
+}
+
 async function getCategories() {
-  const supabase = createClient();
+  const supabase = getAdminClient();
 
   const { data: categories, error } = await supabase
     .from("categories")
@@ -24,7 +37,7 @@ async function getCategories() {
 }
 
 async function getCategoryProductCounts() {
-  const supabase = createClient();
+  const supabase = getAdminClient();
 
   const { data, error } = await supabase
     .from("product_category_mapping")

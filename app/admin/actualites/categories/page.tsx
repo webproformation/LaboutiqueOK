@@ -45,9 +45,9 @@ interface NewsCategory {
   slug: string;
   description: string;
   color: string;
-  count: number;
   display_order: number;
   is_active: boolean;
+  created_at?: string;
 }
 
 export default function NewsCategoriesPage() {
@@ -77,12 +77,7 @@ export default function NewsCategoriesPage() {
 
       if (error) throw error;
 
-      const categoriesWithCount = (categoriesData || []).map((cat) => ({
-        ...cat,
-        count: cat.count || 0
-      }));
-
-      setCategories(categoriesWithCount);
+      setCategories(categoriesData || []);
     } catch (error) {
       console.error('Error loading categories:', error);
       toast.error('Erreur lors du chargement');
@@ -117,16 +112,6 @@ export default function NewsCategoriesPage() {
     }
 
     try {
-      const categoryData = {
-        name: formData.name,
-        slug: formData.slug,
-        description: formData.description || '',
-        color: formData.color,
-        display_order: formData.display_order,
-        count: 0,
-        is_active: true,
-      };
-
       if (editingCategory) {
         const { error } = await supabase
           .from('news_categories')
@@ -145,12 +130,12 @@ export default function NewsCategoriesPage() {
         const { error } = await supabase
           .from('news_categories')
           .insert({
+            id: crypto.randomUUID(),
             name: formData.name,
             slug: formData.slug,
             description: formData.description || '',
             color: formData.color,
             display_order: formData.display_order,
-            count: 0,
             is_active: true,
           });
 
@@ -182,13 +167,21 @@ export default function NewsCategoriesPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (id: string, name: string, count: number) => {
-    if (count > 0) {
-      toast.error(`Impossible de supprimer : ${count} article(s) associé(s)`);
-      return;
-    }
-
+  const handleDelete = async (id: string, name: string) => {
     try {
+      const { data: articlesCheck, error: checkError } = await supabase
+        .from('news_articles')
+        .select('id')
+        .eq('category_id', id)
+        .limit(1);
+
+      if (checkError) throw checkError;
+
+      if (articlesCheck && articlesCheck.length > 0) {
+        toast.error('Impossible de supprimer : des articles sont associés');
+        return;
+      }
+
       const { error } = await supabase
         .from('news_categories')
         .delete()
@@ -383,9 +376,7 @@ export default function NewsCategoriesPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">
-                          {category.count} article{category.count > 1 ? 's' : ''}
-                        </Badge>
+                        <Badge variant="secondary">-</Badge>
                       </TableCell>
                       <TableCell>
                         <span className="text-sm text-gray-600">{category.display_order}</span>
@@ -414,7 +405,6 @@ export default function NewsCategoriesPage() {
                                 variant="ghost"
                                 size="sm"
                                 className="hover:bg-red-50 hover:text-red-600"
-                                disabled={category.count > 0}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -430,7 +420,7 @@ export default function NewsCategoriesPage() {
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Annuler</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => handleDelete(category.id, category.name, category.count)}
+                                  onClick={() => handleDelete(category.id, category.name)}
                                   className="bg-red-600 hover:bg-red-700"
                                 >
                                   Supprimer
