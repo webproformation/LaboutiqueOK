@@ -29,6 +29,13 @@ function getSupabaseInstance(): SupabaseClient {
       throw new Error('🚨 ERREUR CRITIQUE: URL Supabase corrompue détectée');
     }
 
+    // 🔍 LOG DE DIAGNOSTIC - Mission "Le Marteau Piqueur"
+    console.log('🔧 [SUPABASE INIT] URL verrouillée:', LOCKED_SUPABASE_URL);
+    console.log('🔧 [SUPABASE INIT] Clé ANON (50 premiers chars):', LOCKED_SUPABASE_ANON_KEY.substring(0, 50));
+    console.log('🔧 [SUPABASE INIT] process.env.NEXT_PUBLIC_SUPABASE_URL:',
+      typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SUPABASE_URL : 'N/A (build-time)'
+    );
+
     supabaseInstance = createSupabaseClient(LOCKED_SUPABASE_URL, LOCKED_SUPABASE_ANON_KEY, {
       auth: {
         persistSession: true,
@@ -37,6 +44,8 @@ function getSupabaseInstance(): SupabaseClient {
         storage: typeof window !== 'undefined' ? window.localStorage : undefined,
       },
     });
+
+    console.log('✅ [SUPABASE INIT] Client Supabase créé avec succès sur qcqbtmv');
   }
   return supabaseInstance;
 }

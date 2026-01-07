@@ -1,28 +1,35 @@
 #!/bin/bash
 
-# 🔒 SCRIPT DE VÉRIFICATION DU VERROUILLAGE PROJET qcqbtmvbvipsxwjlgjvk
-# Skip en environnement CI (Vercel, Netlify, etc.)
+# Script de vérification anti-revert pour le projet qcqbtmv
+# INTERDICTION de revenir à mcstv ou tout autre projet
 
-# Détection environnement CI
-if [ "$VERCEL" = "1" ] || [ "$CI" = "true" ] || [ "$NETLIFY" = "true" ]; then
-  echo "⚠️  Environnement CI détecté - Vérification ignorée"
-  exit 0
-fi
+echo "=========================================="
+echo "🔒 VÉRIFICATION PROJET qcqbtmv"
+echo "=========================================="
 
-PROJECT_ID="qcqbtmvbvipsxwjlgjvk"
-ENV_FILE=".env"
-
-echo "🔍 Vérification du verrouillage projet..."
-
-if [ ! -f "$ENV_FILE" ]; then
-  echo "⚠️  Fichier .env introuvable - Vérification ignorée (probablement CI)"
-  exit 0
-fi
-
-if ! grep -q "NEXT_PUBLIC_SUPABASE_URL=https://$PROJECT_ID.supabase.co" "$ENV_FILE"; then
-  echo "❌ ERREUR: Le projet n'est pas verrouillé sur $PROJECT_ID"
+# Vérifier que le .env contient qcqbtmv
+if ! grep -q "qcqbtmvbvipsxwjlgjvk" .env 2>/dev/null; then
+  echo "❌ ERREUR CRITIQUE: Le .env ne pointe pas vers qcqbtmv !"
+  echo "❌ Projet verrouillé sur qcqbtmvbvipsxwjlgjvk"
+  echo "❌ INTERDICTION de revenir à mcstv ou tout autre projet"
   exit 1
 fi
 
-echo "✅ Verrouillage confirmé: $PROJECT_ID"
+# Vérifier que lib/supabase.ts contient qcqbtmv
+if ! grep -q "qcqbtmvbvipsxwjlgjvk" lib/supabase.ts 2>/dev/null; then
+  echo "❌ ERREUR CRITIQUE: lib/supabase.ts ne pointe pas vers qcqbtmv !"
+  exit 1
+fi
+
+# Vérifier qu'il ne contient PAS mcstv
+if grep -q "mcstvpdcfvhsgnhdfeee" .env 2>/dev/null; then
+  echo "❌ ERREUR CRITIQUE: Tentative de retour vers mcstv détectée !"
+  echo "❌ Restauration immédiate requise !"
+  exit 1
+fi
+
+echo "✅ Projet verrouillé sur qcqbtmvbvipsxwjlgjvk"
+echo "✅ .env vérifié: qcqbtmv"
+echo "✅ lib/supabase.ts vérifié: qcqbtmv"
+echo "=========================================="
 exit 0
