@@ -15,6 +15,7 @@ import { Save, ArrowLeft, Plus, X, Upload } from "lucide-react";
 import Link from "next/link";
 import { ProductMediaSelector } from "@/components/product-media-selector";
 import RichTextEditor from "@/components/RichTextEditor";
+import ProductVariationsManager from "@/components/ProductVariationsManager";
 
 interface Product {
   id: string;
@@ -95,8 +96,10 @@ export default function ProductEditForm({
   const [product, setProduct] = useState(initialProduct);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategories);
   const [attributes, setAttributes] = useState<ProductAttribute[]>([]);
-  const [selectedAttributeTerms, setSelectedAttributeTerms] = useState<Record<string, string[]>>({});
-  const [variations, setVariations] = useState<ProductVariation[]>([]);
+  const [colorVariations, setColorVariations] = useState<any[]>([]);
+  const [galleryImages, setGalleryImages] = useState<string[]>(
+    initialProduct.images?.gallery_images || []
+  );
   const [seoData, setSeoData] = useState<SeoData>({
     seo_title: "",
     meta_description: "",
@@ -109,7 +112,7 @@ export default function ProductEditForm({
   useEffect(() => {
     loadAttributes();
     loadSeoData();
-    loadVariations();
+    loadColorVariations();
   }, []);
 
   const loadAttributes = async () => {
@@ -175,7 +178,7 @@ export default function ProductEditForm({
     }
   };
 
-  const loadVariations = async () => {
+  const loadColorVariations = async () => {
     try {
       const { data, error } = await supabase
         .from("product_variations")
@@ -185,14 +188,20 @@ export default function ProductEditForm({
 
       if (error) throw error;
 
-      if (data) {
-        setVariations(data);
+      if (data && data.length > 0) {
+        const variations = data.map(v => ({
+          color_id: v.attributes?.couleur || "",
+          color_name: v.attributes?.couleur_name || "",
+          color_code: v.attributes?.color_code || null,
+          image_url: v.image_url,
+          sku: v.sku,
+          regular_price: v.regular_price,
+          sale_price: v.sale_price,
+        }));
+        setColorVariations(variations);
       }
     } catch (error) {
       console.error("Error loading variations:", error);
-      toast.error("Erreur lors du chargement des variations", {
-        position: "bottom-right",
-      });
     }
   };
 
@@ -204,38 +213,8 @@ export default function ProductEditForm({
     );
   };
 
-  const handleAttributeTermToggle = (attributeId: string, termId: string) => {
-    setSelectedAttributeTerms(prev => {
-      const current = prev[attributeId] || [];
-      const updated = current.includes(termId)
-        ? current.filter(id => id !== termId)
-        : [...current, termId];
-      return { ...prev, [attributeId]: updated };
-    });
-  };
-
-  const addVariation = () => {
-    setVariations(prev => [...prev, {
-      sku: "",
-      attributes: {},
-      regular_price: product.regular_price,
-      sale_price: product.sale_price,
-      stock_quantity: 0,
-      image_url: null,
-      stock_status: "instock",
-    }]);
-  };
-
-  const updateVariation = (index: number, field: string, value: any) => {
-    setVariations(prev => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
-      return updated;
-    });
-  };
-
-  const removeVariation = (index: number) => {
-    setVariations(prev => prev.filter((_, i) => i !== index));
+  const handleColorVariationsChange = (variations: any[]) => {
+    setColorVariations(variations);
   };
 
   const handleSave = async () => {
@@ -270,9 +249,10 @@ export default function ProductEditForm({
         stock_quantity: parseInt(String(product.stock_quantity)) || 0,
         status: product.status || "draft",
         image_url: product.image_url || null,
+        gallery_images: galleryImages.length > 0 ? galleryImages : null,
         is_diamond: Boolean(product.is_diamond),
         is_featured: Boolean(product.is_featured),
-        is_variable_product: variations.length > 0,
+        is_variable_product: colorVariations.length > 0,
       };
 
       console.log("Product Update Data (cleaned):", productUpdateData);
@@ -331,26 +311,29 @@ export default function ProductEditForm({
         throw deleteVarError;
       }
 
-      if (variations.length > 0) {
-        const variationsToInsert = variations.map(v => {
-          const regularPrice = v.regular_price != null ? parseFloat(String(v.regular_price)) : null;
-          const salePrice = v.sale_price != null ? parseFloat(String(v.sale_price)) : null;
-          const stockQty = v.stock_quantity != null ? parseInt(String(v.stock_quantity)) : 0;
+      if (colorVariations.length > 0) {
+        const variationsToInsert = colorVariations.map(v => {
+          const regularPrice = v.regular_price ? parseFloat(String(v.regular_price)) : null;
+          const salePrice = v.sale_price ? parseFloat(String(v.sale_price)) : null;
 
           return {
             product_id: String(product.id),
             sku: String(v.sku || ""),
-            attributes: v.attributes || {},
-            regular_price: isNaN(regularPrice as any) ? null : regularPrice,
-            sale_price: isNaN(salePrice as any) ? null : salePrice,
-            stock_quantity: isNaN(stockQty) ? 0 : stockQty,
+            attributes: {
+              couleur: v.color_id,
+              couleur_name: v.color_name,
+              color_code: v.color_code,
+            },
+            regular_price: regularPrice,
+            sale_price: salePrice,
+            stock_quantity: 0,
             image_url: v.image_url || null,
-            stock_status: v.stock_status || "instock",
+            stock_status: "instock",
             is_active: true,
           };
         });
 
-        console.log("Inserting variations:", JSON.stringify(variationsToInsert, null, 2));
+        console.log("Inserting color variations:", JSON.stringify(variationsToInsert, null, 2));
 
         const { data: insertedVariations, error: insertVarError } = await supabase
           .from("product_variations")
@@ -362,7 +345,7 @@ export default function ProductEditForm({
           throw insertVarError;
         }
 
-        console.log("Variations inserted successfully:", insertedVariations);
+        console.log("Color variations inserted successfully:", insertedVariations);
       }
 
       // 4. Mettre à jour le SEO
@@ -640,6 +623,72 @@ export default function ProductEditForm({
           </CardContent>
         </Card>
 
+        {/* Galerie d'images */}
+        <Card className="bg-white">
+          <CardHeader>
+            <CardTitle className="text-[#d4af37]">Galerie d'images</CardTitle>
+            <CardDescription>Ajoutez plusieurs images pour la galerie du produit</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Liste des images de la galerie */}
+              {galleryImages.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {galleryImages.map((imageUrl, index) => (
+                    <div key={index} className="relative group border-2 border-gray-200 rounded-lg overflow-hidden aspect-square">
+                      <img
+                        src={imageUrl}
+                        alt={`Galerie ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => {
+                            setGalleryImages(prev => prev.filter((_, i) => i !== index));
+                            toast.success("Image retirée de la galerie");
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Supprimer
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Ajouter une nouvelle image à la galerie */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Ajouter une image à la galerie
+                </Label>
+                <ProductMediaSelector
+                  currentImageUrl=""
+                  onSelect={(url) => {
+                    if (!galleryImages.includes(url)) {
+                      setGalleryImages(prev => [...prev, url]);
+                      toast.success("Image ajoutée à la galerie");
+                    } else {
+                      toast.error("Cette image est déjà dans la galerie");
+                    }
+                  }}
+                />
+              </div>
+
+              {galleryImages.length === 0 && (
+                <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
+                  <p className="text-sm">Aucune image dans la galerie</p>
+                  <p className="text-xs mt-1">Utilisez le sélecteur ci-dessus pour ajouter des images</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Catégories */}
         <Card className="bg-white">
           <CardHeader>
@@ -653,171 +702,38 @@ export default function ProductEditForm({
           </CardContent>
         </Card>
 
-        {/* Attributs et Variations */}
+        {/* Variations de Couleurs */}
         <Card className="bg-white">
           <CardHeader>
-            <CardTitle className="text-[#d4af37]">Attributs et Variations</CardTitle>
+            <CardTitle className="text-[#d4af37]">Variations de Couleurs</CardTitle>
             <CardDescription>
-              Sélectionnez les attributs du produit. Les variations seront créées automatiquement.
+              Créez des variations de produit par couleur avec leurs propres images et prix
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Couleurs */}
-            {attributes.find(attr => attr.slug === "couleurs-principales") && (
-              <div>
-                <Label className="text-lg font-semibold text-gray-900">Couleurs principales</Label>
-                <div className="flex flex-wrap gap-3 mt-3">
-                  {attributes
+          <CardContent>
+            {attributes.find(attr => attr.slug === "couleurs-principales") ? (
+              <ProductVariationsManager
+                colorTerms={
+                  attributes
                     .find(attr => attr.slug === "couleurs-principales")
-                    ?.terms?.map((term) => (
-                      <button
-                        key={term.id}
-                        type="button"
-                        onClick={() => handleAttributeTermToggle(term.attribute_id, term.id)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all ${
-                          selectedAttributeTerms[term.attribute_id]?.includes(term.id)
-                            ? "border-[#d4af37] bg-[#d4af37]/10"
-                            : "border-gray-300 hover:border-[#d4af37]"
-                        }`}
-                      >
-                        <div
-                          className="w-6 h-6 rounded-full border-2 border-gray-300"
-                          style={{ backgroundColor: term.color_code || "#gray" }}
-                        />
-                        <span className="text-sm font-medium text-gray-900">{term.name}</span>
-                      </button>
-                    ))}
-                </div>
+                    ?.terms?.map(term => ({
+                      id: term.id,
+                      name: term.name,
+                      color_code: term.color_code,
+                    })) || []
+                }
+                initialVariations={colorVariations}
+                onChange={handleColorVariationsChange}
+              />
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p className="text-sm">
+                  Aucune couleur disponible. Ajoutez des couleurs dans la section{" "}
+                  <Link href="/admin/product-attributes" className="text-[#d4af37] hover:underline">
+                    Attributs Produits
+                  </Link>
+                </p>
               </div>
-            )}
-
-            {/* Tailles */}
-            {attributes.find(attr => attr.slug === "tailles") && (
-              <div>
-                <Label className="text-lg font-semibold text-gray-900">Tailles</Label>
-                <div className="flex flex-wrap gap-3 mt-3">
-                  {attributes
-                    .find(attr => attr.slug === "tailles")
-                    ?.terms?.map((term) => (
-                      <button
-                        key={term.id}
-                        type="button"
-                        onClick={() => handleAttributeTermToggle(term.attribute_id, term.id)}
-                        className={`px-4 py-2 rounded-lg border-2 transition-all ${
-                          selectedAttributeTerms[term.attribute_id]?.includes(term.id)
-                            ? "border-[#d4af37] bg-[#d4af37]/10 text-[#d4af37] font-semibold"
-                            : "border-gray-300 text-gray-700 hover:border-[#d4af37]"
-                        }`}
-                      >
-                        {term.name}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Variations */}
-            {variations.length > 0 && (
-              <div className="space-y-4 mt-6">
-                <div className="flex items-center justify-between">
-                  <Label className="text-lg font-semibold text-gray-900">Variations ({variations.length})</Label>
-                  <Button
-                    type="button"
-                    onClick={addVariation}
-                    variant="outline"
-                    size="sm"
-                    className="border-[#d4af37] text-[#d4af37] hover:bg-[#d4af37]/10"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Ajouter
-                  </Button>
-                </div>
-
-                {variations.map((variation, index) => (
-                  <Card key={index} className="bg-gray-50 border border-gray-200">
-                    <CardContent className="pt-6 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-gray-900">Variation {index + 1}</h4>
-                        <Button
-                          type="button"
-                          onClick={() => removeVariation(index)}
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Image de la variation</Label>
-                          <ProductMediaSelector
-                            currentImageUrl={variation.image_url || ""}
-                            onSelect={(url) => updateVariation(index, "image_url", url)}
-                          />
-                        </div>
-
-                        <div className="space-y-4">
-                          <div>
-                            <Label>Référence (UGS)</Label>
-                            <Input
-                              value={variation.sku}
-                              onChange={(e) => updateVariation(index, "sku", e.target.value)}
-                              placeholder="SKU-001"
-                              className="bg-white"
-                            />
-                          </div>
-
-                          <div>
-                            <Label>Prix régulier (€)</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={variation.regular_price || ""}
-                              onChange={(e) => updateVariation(index, "regular_price", parseFloat(e.target.value) || null)}
-                              className="bg-white"
-                            />
-                          </div>
-
-                          <div>
-                            <Label>Prix promo (€)</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={variation.sale_price || ""}
-                              onChange={(e) => updateVariation(index, "sale_price", parseFloat(e.target.value) || null)}
-                              className="bg-white"
-                            />
-                          </div>
-
-                          <div>
-                            <Label>Stock</Label>
-                            <Input
-                              type="number"
-                              value={variation.stock_quantity || 0}
-                              onChange={(e) => updateVariation(index, "stock_quantity", parseInt(e.target.value) || 0)}
-                              className="bg-white"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {variations.length === 0 && (
-              <Button
-                type="button"
-                onClick={addVariation}
-                variant="outline"
-                className="w-full border-dashed border-2 border-[#d4af37] text-[#d4af37] hover:bg-[#d4af37]/10"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Créer une première variation
-              </Button>
             )}
           </CardContent>
         </Card>

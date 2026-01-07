@@ -3,66 +3,99 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import MediaLibrary from '@/components/MediaLibrary';
 import { ImageUploader } from '@/components/image-uploader';
-import { RefreshCw, Database, HardDrive, Image as ImageIcon, Loader2 } from 'lucide-react';
+import {
+  RefreshCw,
+  Database,
+  HardDrive,
+  Image as ImageIcon,
+  Loader2,
+  Trash2,
+  Copy,
+} from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-interface BucketStats {
-  totalFiles: number;
-  totalSize: number;
-  usedFiles: number;
-  orphanFiles: number;
+interface ImageData {
+  url: string;
+  size?: number;
+  name?: string;
 }
 
 export default function MediaAdminPage() {
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<Record<string, BucketStats>>({
-    'product-images': { totalFiles: 0, totalSize: 0, usedFiles: 0, orphanFiles: 0 },
-    'category-images': { totalFiles: 0, totalSize: 0, usedFiles: 0, orphanFiles: 0 },
-  });
-  const [selectedBucket, setSelectedBucket] = useState<'all-product-images' | 'product-images' | 'category-images'>('all-product-images');
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [productImages, setProductImages] = useState<string[]>([]);
+  const [productImages, setProductImages] = useState<ImageData[]>([]);
+  const [totalSize, setTotalSize] = useState(0);
+  const [imageToDelete, setImageToDelete] = useState<string | null>(null);
 
   useEffect(() => {
-    loadStats();
     loadProductImages();
   }, []);
 
-  const loadStats = async () => {
+  const loadProductImages = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('media')
-        .select('bucket_name, file_size, is_orphan, usage_count');
+      const { data: storageFiles, error: storageError } = await supabase.storage
+        .from('product-images')
+        .list('products', {
+          limit: 1000,
+          sortBy: { column: 'created_at', order: 'desc' },
+        });
 
-      if (error) throw error;
+      if (storageError) {
+        console.error('Storage error:', storageError);
+      }
 
-      const calculatedStats: Record<string, BucketStats> = {
-        'product-images': { totalFiles: 0, totalSize: 0, usedFiles: 0, orphanFiles: 0 },
-        'category-images': { totalFiles: 0, totalSize: 0, usedFiles: 0, orphanFiles: 0 },
-      };
+      const storageImagesData: ImageData[] = (storageFiles || []).map(file => {
+        const { data } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(`products/${file.name}`);
+        return {
+          url: data.publicUrl,
+          size: file.metadata?.size || 0,
+          name: file.name,
+        };
+      });
 
-      data?.forEach((file: any) => {
-        const bucketName = file.bucket_name as string;
-        if (calculatedStats[bucketName]) {
-          calculatedStats[bucketName].totalFiles++;
-          calculatedStats[bucketName].totalSize += file.file_size || 0;
-          if (file.usage_count && file.usage_count > 0) {
-            calculatedStats[bucketName].usedFiles++;
-          }
-          if (file.is_orphan) {
-            calculatedStats[bucketName].orphanFiles++;
-          }
+      const productsResult = await supabase
+        .from('products')
+        .select('image_url, gallery_images')
+        .not('image_url', 'is', null);
+
+      const productImageUrls: ImageData[] = [];
+      productsResult.data?.forEach(p => {
+        if (p.image_url) {
+          productImageUrls.push({ url: p.image_url });
+        }
+        if (p.gallery_images && Array.isArray(p.gallery_images)) {
+          p.gallery_images.forEach((img: string) => {
+            if (img) productImageUrls.push({ url: img });
+          });
         }
       });
 
-      setStats(calculatedStats);
+      const allImages = [...storageImagesData, ...productImageUrls];
+      const uniqueImages = Array.from(
+        new Map(allImages.map(img => [img.url, img])).values()
+      );
+
+      const calculatedSize = uniqueImages.reduce((acc, img) => acc + (img.size || 0), 0);
+
+      setProductImages(uniqueImages);
+      setTotalSize(calculatedSize);
     } catch (error) {
-      toast.error('Erreur lors du chargement des statistiques');
+      console.error('Error loading product images:', error);
+      toast.error('Erreur lors du chargement des images');
     } finally {
       setLoading(false);
     }
@@ -76,67 +109,83 @@ export default function MediaAdminPage() {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   };
 
-  const loadProductImages = async () => {
+  const handleCopyUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
+    toast.success('URL copiée dans le presse-papier');
+  };
+
+  const handleDeleteImage = async (imageUrl: string) => {
     try {
-      // Load from products table
-      const productsResult = await supabase
-        .from('products')
-        .select('image_url')
-        .not('image_url', 'is', null);
+      const urlPath = new URL(imageUrl).pathname;
+      const fileName = urlPath.split('/').pop();
 
-      // Load from media table
-      const mediaResult = await supabase
-        .from('media')
-        .select('url')
-        .order('created_at', { ascending: false });
-
-      // Load from Storage bucket
-      const { data: storageFiles, error: storageError } = await supabase.storage
-        .from('product-images')
-        .list('products', {
-          limit: 1000,
-          sortBy: { column: 'created_at', order: 'desc' },
-        });
-
-      if (storageError) {
-        console.error('Storage error:', storageError);
+      if (!fileName) {
+        toast.error('Impossible d\'identifier le fichier');
+        return;
       }
 
-      const productUrls = productsResult.data?.map(p => p.image_url).filter(Boolean) || [];
-      const mediaUrls = mediaResult.data?.map(m => m.url).filter(Boolean) || [];
+      const { error: storageError } = await supabase.storage
+        .from('product-images')
+        .remove([`products/${fileName}`]);
 
-      // Get public URLs for storage files
-      const storageUrls = (storageFiles || []).map(file => {
-        const { data } = supabase.storage
-          .from('product-images')
-          .getPublicUrl(`products/${file.name}`);
-        return data.publicUrl;
-      });
+      if (storageError) {
+        console.error('Storage delete error:', storageError);
+      }
 
-      const allUrls = [...storageUrls, ...mediaUrls, ...productUrls];
-      const uniqueUrls = Array.from(new Set(allUrls));
+      const { error: productsError } = await supabase
+        .from('products')
+        .update({ image_url: null })
+        .eq('image_url', imageUrl);
 
-      setProductImages(uniqueUrls as string[]);
+      if (productsError) {
+        console.error('Products update error:', productsError);
+      }
+
+      const { data: productsWithGallery } = await supabase
+        .from('products')
+        .select('id, gallery_images')
+        .not('gallery_images', 'is', null);
+
+      if (productsWithGallery) {
+        for (const product of productsWithGallery) {
+          if (Array.isArray(product.gallery_images) && product.gallery_images.includes(imageUrl)) {
+            const newGallery = product.gallery_images.filter((img: string) => img !== imageUrl);
+            await supabase
+              .from('products')
+              .update({ gallery_images: newGallery })
+              .eq('id', product.id);
+          }
+        }
+      }
+
+      toast.success('Image supprimée avec succès');
+      loadProductImages();
+      setImageToDelete(null);
     } catch (error) {
-      console.error('Error loading product images:', error);
+      console.error('Error deleting image:', error);
+      toast.error('Erreur lors de la suppression');
     }
   };
 
   const handleRefresh = () => {
-    loadStats();
     loadProductImages();
-    setRefreshKey(prev => prev + 1);
   };
 
   return (
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Médiathèque</h1>
-          <p className="text-gray-600">Gérez vos images et médias</p>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#b8933d] to-[#d4af37] bg-clip-text text-transparent">
+            Médiathèque
+          </h1>
+          <p className="text-gray-600 text-lg mt-2">Gérez vos images et médias</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleRefresh} variant="outline" className="gap-2 border-[#d4af37]/30 text-[#d4af37] hover:bg-[#d4af37]/10">
+          <Button
+            onClick={handleRefresh}
+            variant="outline"
+            className="gap-2 border-[#d4af37] hover:bg-[#d4af37] hover:text-white"
+          >
             <RefreshCw className="h-4 w-4" />
             Actualiser
           </Button>
@@ -145,79 +194,48 @@ export default function MediaAdminPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-[#b8933d]" />
+          <Loader2 className="h-8 w-8 animate-spin text-[#d4af37]" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
+          <Card className="border-[#d4af37]/30">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-[#d4af37]">Images Produits</CardTitle>
+              <CardTitle className="text-sm font-medium text-[#d4af37]">
+                Images Totales
+              </CardTitle>
               <ImageIcon className="h-4 w-4 text-[#d4af37]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats['product-images'].totalFiles}</div>
-              <p className="text-xs text-gray-600">
-                {formatSize(stats['product-images'].totalSize)}
-              </p>
-              <div className="mt-2 text-xs space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-green-600">Utilisées:</span>
-                  <span className="font-medium">{stats['product-images'].usedFiles}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-orange-600">Orphelines:</span>
-                  <span className="font-medium">{stats['product-images'].orphanFiles}</span>
-                </div>
-              </div>
+              <div className="text-3xl font-bold text-gray-900">{productImages.length}</div>
+              <p className="text-xs text-gray-600 mt-1">images dans la bibliothèque</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-[#d4af37]/30">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-[#d4af37]">Images Catégories</CardTitle>
-              <Database className="h-4 w-4 text-[#d4af37]" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats['category-images'].totalFiles}</div>
-              <p className="text-xs text-gray-600">
-                {formatSize(stats['category-images'].totalSize)}
-              </p>
-              <div className="mt-2 text-xs space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-green-600">Utilisées:</span>
-                  <span className="font-medium">{stats['category-images'].usedFiles}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-orange-600">Orphelines:</span>
-                  <span className="font-medium">{stats['category-images'].orphanFiles}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-[#d4af37]">Stockage Total</CardTitle>
+              <CardTitle className="text-sm font-medium text-[#d4af37]">
+                Stockage Utilisé
+              </CardTitle>
               <HardDrive className="h-4 w-4 text-[#d4af37]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {stats['product-images'].totalFiles + stats['category-images'].totalFiles}
+              <div className="text-3xl font-bold text-gray-900">{formatSize(totalSize)}</div>
+              <p className="text-xs text-gray-600 mt-1">espace total occupé</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-[#d4af37]/30">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-[#d4af37]">
+                Base de Données
+              </CardTitle>
+              <Database className="h-4 w-4 text-[#d4af37]" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-gray-900">
+                {productImages.filter(img => img.size && img.size > 0).length}
               </div>
-              <p className="text-xs text-gray-600">
-                {formatSize(stats['product-images'].totalSize + stats['category-images'].totalSize)}
-              </p>
-              <div className="mt-2 text-xs space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Taux utilisation:</span>
-                  <span className="font-medium text-[#d4af37]">
-                    {stats['product-images'].totalFiles + stats['category-images'].totalFiles > 0
-                      ? Math.round(((stats['product-images'].usedFiles + stats['category-images'].usedFiles) /
-                          (stats['product-images'].totalFiles + stats['category-images'].totalFiles)) * 100)
-                      : 0}%
-                  </span>
-                </div>
-              </div>
+              <p className="text-xs text-gray-600 mt-1">images avec métadonnées</p>
             </CardContent>
           </Card>
         </div>
@@ -225,106 +243,103 @@ export default function MediaAdminPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-[#d4af37]">Bibliothèque de médias</CardTitle>
-          <CardDescription>Parcourez et gérez vos images par catégorie</CardDescription>
+          <CardTitle className="text-[#d4af37] text-2xl">Bibliothèque de médias</CardTitle>
+          <CardDescription className="text-base">
+            Parcourez, gérez et supprimez vos images
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={selectedBucket} onValueChange={(v) => setSelectedBucket(v as any)}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="all-product-images">
-                Toutes les images ({productImages.length})
-              </TabsTrigger>
-              <TabsTrigger value="product-images">
-                Bucket Produits ({stats['product-images'].totalFiles})
-              </TabsTrigger>
-              <TabsTrigger value="category-images">
-                Bucket Catégories ({stats['category-images'].totalFiles})
-              </TabsTrigger>
-            </TabsList>
+          <div className="space-y-6">
+            <div className="border-2 border-dashed border-[#d4af37]/30 rounded-lg p-6 bg-[#d4af37]/5">
+              <ImageUploader
+                onUploadSuccess={(url) => {
+                  toast.success('Image ajoutée à la médiathèque');
+                  loadProductImages();
+                }}
+              />
+            </div>
 
-            <TabsContent value="all-product-images" className="mt-4">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-600">
-                    Images utilisées dans les produits ({productImages.length} images)
-                  </div>
-                </div>
-
-                <div className="border-b pb-4">
-                  <ImageUploader
-                    onUploadSuccess={(url) => {
-                      toast.success('Image ajoutée à la médiathèque');
-                      loadProductImages();
-                      loadStats();
-                    }}
-                  />
-                </div>
-                {productImages.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <ImageIcon className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p>Aucune image trouvée</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    {productImages.map((url, index) => (
-                      <div
-                        key={index}
-                        className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-[#d4af37] transition-all group"
-                      >
-                        <img
-                          src={url}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => {
-                              navigator.clipboard.writeText(url);
-                              toast.success('URL copiée');
-                            }}
-                          >
-                            Copier URL
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            {productImages.length === 0 ? (
+              <div className="text-center py-16 text-gray-500">
+                <ImageIcon className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Aucune image trouvée
+                </h3>
+                <p>Commencez par ajouter des images à votre médiathèque</p>
               </div>
-            </TabsContent>
-
-            <TabsContent value="product-images" className="mt-4">
-              <MediaLibrary
-                key={`products-${refreshKey}`}
-                bucket="product-images"
-                onSelect={(url) => console.log('Selected:', url)}
-                onUploadSuccess={() => {
-                  loadStats();
-                  setRefreshKey(prev => prev + 1);
-                }}
-              />
-            </TabsContent>
-
-            <TabsContent value="category-images" className="mt-4">
-              <MediaLibrary
-                key={`categories-${refreshKey}`}
-                bucket="category-images"
-                onSelect={(url) => console.log('Selected:', url)}
-                onUploadSuccess={() => {
-                  loadStats();
-                  setRefreshKey(prev => prev + 1);
-                }}
-              />
-            </TabsContent>
-          </Tabs>
+            ) : (
+              <div>
+                <div className="mb-4 text-sm text-gray-600 font-medium">
+                  {productImages.length} image{productImages.length > 1 ? 's' : ''} disponible{productImages.length > 1 ? 's' : ''}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {productImages.map((imageData, index) => (
+                    <div
+                      key={index}
+                      className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-[#d4af37] transition-all group"
+                    >
+                      <img
+                        src={imageData.url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-70 transition-all flex items-center justify-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleCopyUrl(imageData.url)}
+                        >
+                          <Copy className="h-4 w-4 mr-1" />
+                          Copier
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => setImageToDelete(imageData.url)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Supprimer
+                        </Button>
+                      </div>
+                      {imageData.size && imageData.size > 0 && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs p-1 text-center">
+                          {formatSize(imageData.size)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!imageToDelete} onOpenChange={() => setImageToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer cette image ? Cette action est irréversible et
+              l'image sera retirée de tous les produits qui l'utilisent.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => imageToDelete && handleDeleteImage(imageToDelete)}
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
