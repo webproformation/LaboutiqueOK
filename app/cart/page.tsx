@@ -160,8 +160,8 @@ export default function CartPage() {
                               {Object.entries(item.selectedAttributes).map(([key, value]) => {
                                 const formattedKey = key.replace(/^attribute_/, '').replace(/_/g, ' ');
                                 const displayValue = typeof value === 'object' && value !== null
-                                  ? (value as any).name || (value as any).option || String(value)
-                                  : String(value);
+                                  ? (value as any)?.name || (value as any)?.option || String(value || '')
+                                  : String(value || '');
                                 return (
                                   <div key={key} className="text-sm text-gray-700">
                                     <span className="font-semibold capitalize">{formattedKey}:</span>{' '}

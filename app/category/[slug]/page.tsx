@@ -181,11 +181,18 @@ export default function CategoryPage() {
                 if (v.attributes) {
                   Object.entries(v.attributes).forEach(([key, value]) => {
                     const lowerKey = key.toLowerCase();
-                    if (lowerKey.includes('couleur') || lowerKey.includes('color')) {
-                      colors.add(value as string);
-                    }
-                    if (lowerKey.includes('taille') || lowerKey.includes('size')) {
-                      sizes.add(value as string);
+                    const stringValue = String(value || '');
+
+                    // Filtrer les codes hexadécimaux malformés (8 caractères hex)
+                    const isHexCode = /^[a-f0-9]{8}$/i.test(stringValue);
+
+                    if (!isHexCode && stringValue) {
+                      if (lowerKey.includes('couleur') || lowerKey.includes('color')) {
+                        colors.add(stringValue);
+                      }
+                      if (lowerKey.includes('taille') || lowerKey.includes('size')) {
+                        sizes.add(stringValue);
+                      }
                     }
                   });
                 }

@@ -306,8 +306,8 @@ export default function CheckoutPage() {
           quantity: item.quantity,
           variation: item.selectedAttributes ? Object.entries(item.selectedAttributes).map(([k, v]) => {
             const displayValue = typeof v === 'object' && v !== null
-              ? (v as any).name || (v as any).option || String(v)
-              : String(v);
+              ? (v as any)?.name || (v as any)?.option || String(v || '')
+              : String(v || '');
             return `${k}: ${displayValue}`;
           }).join(', ') : undefined,
           image: item.image?.sourceUrl || item.variationImage?.sourceUrl,

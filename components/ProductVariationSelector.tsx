@@ -112,22 +112,22 @@ export function ProductVariationSelector({
   const isOptionAvailable = (attributeName: string, option: string): boolean => {
     const optionStr = safeString(option);
     const potentialSelection = { ...selectedAttributes, [attributeName]: optionStr };
-    const allAttributesSelected = attributes.every((attr) => potentialSelection[attr.name]);
+    const allAttributesSelected = attributes.every((attr) => potentialSelection[attr?.name]);
 
     if (!allAttributesSelected) {
       return variations.some((variation) =>
-        variation.attributes.some(
+        variation.attributes?.some(
           (attr) =>
-            attr.name === attributeName &&
-            safeString(attr.option).toLowerCase() === optionStr.toLowerCase() &&
+            attr?.name === attributeName &&
+            safeString(attr?.option).toLowerCase() === optionStr.toLowerCase() &&
             variation.stock_status === "instock"
         )
       );
     }
 
     const matchingVariation = variations.find((variation) =>
-      variation.attributes.every((attr) =>
-        potentialSelection[attr.name]?.toLowerCase() === safeString(attr.option).toLowerCase()
+      variation.attributes?.every((attr) =>
+        potentialSelection[attr?.name]?.toLowerCase() === safeString(attr?.option).toLowerCase()
       )
     );
 
@@ -135,12 +135,12 @@ export function ProductVariationSelector({
   };
 
   useEffect(() => {
-    const allSelected = attributes.every((attr) => selectedAttributes[attr.name]);
+    const allSelected = attributes.every((attr) => selectedAttributes[attr?.name]);
 
     if (allSelected) {
       const matchingVariation = variations.find((variation) =>
-        variation.attributes.every((attr) =>
-          selectedAttributes[attr.name]?.toLowerCase() === safeString(attr.option).toLowerCase()
+        variation.attributes?.every((attr) =>
+          selectedAttributes[attr?.name]?.toLowerCase() === safeString(attr?.option).toLowerCase()
         )
       );
       onVariationChange(matchingVariation || null);
@@ -148,10 +148,10 @@ export function ProductVariationSelector({
       const partialMatch = variations.find((variation) =>
         Object.entries(selectedAttributes).every(
           ([attrName, attrValue]) =>
-            variation.attributes.some(
+            variation.attributes?.some(
               (attr) =>
-                attr.name === attrName &&
-                safeString(attr.option).toLowerCase() === attrValue.toLowerCase()
+                attr?.name === attrName &&
+                safeString(attr?.option).toLowerCase() === attrValue.toLowerCase()
             )
         )
       );
