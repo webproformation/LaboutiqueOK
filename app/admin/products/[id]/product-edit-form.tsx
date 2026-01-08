@@ -195,6 +195,8 @@ export default function ProductEditForm({
           color_id: v.attributes?.couleur || "",
           color_name: v.attributes?.couleur_name || "",
           color_code: v.attributes?.color_code || null,
+          size_id: v.attributes?.taille || undefined,
+          size_name: v.attributes?.taille_name || undefined,
           image_url: v.image_url,
           sku: v.sku,
           regular_price: v.regular_price,
@@ -301,14 +303,21 @@ export default function ProductEditForm({
           const regularPrice = v.regular_price ? parseFloat(String(v.regular_price)) : null;
           const salePrice = v.sale_price ? parseFloat(String(v.sale_price)) : null;
 
+          const attributes: any = {
+            couleur: v.color_id,
+            couleur_name: v.color_name,
+            color_code: v.color_code,
+          };
+
+          if (v.size_id) {
+            attributes.taille = v.size_id;
+            attributes.taille_name = v.size_name;
+          }
+
           return {
             product_id: String(product.id),
             sku: String(v.sku || ""),
-            attributes: {
-              couleur: v.color_id,
-              couleur_name: v.color_name,
-              color_code: v.color_code,
-            },
+            attributes,
             regular_price: regularPrice,
             sale_price: salePrice,
             stock_quantity: 0,
@@ -678,12 +687,12 @@ export default function ProductEditForm({
           </CardContent>
         </Card>
 
-        {/* Variations de Couleurs */}
+        {/* Variations de Couleurs et Tailles */}
         <Card className="bg-white">
           <CardHeader>
-            <CardTitle className="text-[#d4af37]">Variations de Couleurs</CardTitle>
+            <CardTitle className="text-[#d4af37]">Variations de Produit</CardTitle>
             <CardDescription>
-              Créez des variations de produit par couleur avec leurs propres images et prix
+              Créez des variations de produit par couleur et taille avec leurs propres images et prix
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -696,6 +705,15 @@ export default function ProductEditForm({
                       id: term.id,
                       name: term.name,
                       color_code: term.color_code,
+                    })) || []
+                }
+                sizeTerms={
+                  attributes
+                    .find(attr => attr.slug === "taille")
+                    ?.terms?.map(term => ({
+                      id: term.id,
+                      name: term.name,
+                      value: term.value,
                     })) || []
                 }
                 initialVariations={colorVariations}

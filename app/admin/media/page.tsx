@@ -46,12 +46,12 @@ export default function MediaAdminPage() {
     setLoading(true);
     try {
       const { data: mediaFiles, error: mediaError } = await supabase
-        .from('media')
+        .from('unified_media')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (mediaError) {
-        console.error('[MEDIA] Media table error:', mediaError);
+        console.error('[MEDIA] Unified media view error:', mediaError);
       }
 
       const mediaImagesData: ImageData[] = (mediaFiles || []).map(file => ({

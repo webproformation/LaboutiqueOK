@@ -109,17 +109,17 @@ export default function MediaLibrary({
     try {
       console.log('[MediaLibrary] Loading media files from bucket:', bucket);
 
-      // 1. Charger depuis la table media
+      // 1. Charger depuis la vue unified_media
       const { data: dbMedia, error: dbError } = await supabase
-        .from('media')
+        .from('unified_media')
         .select('*')
         .eq('bucket_name', bucket)
         .order('created_at', { ascending: false });
 
       if (dbError) {
-        console.error('[MediaLibrary] Database error:', dbError);
+        console.error('[MediaLibrary] Unified media view error:', dbError);
       }
-      console.log('[MediaLibrary] DB media loaded:', dbMedia?.length || 0);
+      console.log('[MediaLibrary] Unified media loaded:', dbMedia?.length || 0);
 
       // 2. Lister les fichiers depuis le storage
       const folder = bucket === 'product-images' ? 'products' : 'categories';

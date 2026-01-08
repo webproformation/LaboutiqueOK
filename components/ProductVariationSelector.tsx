@@ -41,11 +41,20 @@ export function ProductVariationSelector({
 }: ProductVariationSelectorProps) {
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
 
+  const safeString = (value: any): string => {
+    if (typeof value === 'object' && value !== null) {
+      return value.name || JSON.stringify(value);
+    }
+    return String(value || '');
+  };
+
   const sortOptions = (options: string[], attributeName: string) => {
     if (attributeName.toLowerCase().includes("taille") || attributeName.toLowerCase().includes("size")) {
       return [...options].sort((a, b) => {
-        const aIndex = sizeOrder.indexOf(a.toLowerCase());
-        const bIndex = sizeOrder.indexOf(b.toLowerCase());
+        const aStr = safeString(a).toLowerCase();
+        const bStr = safeString(b).toLowerCase();
+        const aIndex = sizeOrder.indexOf(aStr);
+        const bIndex = sizeOrder.indexOf(bStr);
         if (aIndex === -1 && bIndex === -1) return 0;
         if (aIndex === -1) return 1;
         if (bIndex === -1) return -1;
@@ -63,7 +72,8 @@ export function ProductVariationSelector({
   };
 
   const isOptionAvailable = (attributeName: string, option: string): boolean => {
-    const potentialSelection = { ...selectedAttributes, [attributeName]: option };
+    const optionStr = safeString(option);
+    const potentialSelection = { ...selectedAttributes, [attributeName]: optionStr };
     const allAttributesSelected = attributes.every((attr) => potentialSelection[attr.name]);
 
     if (!allAttributesSelected) {
@@ -71,7 +81,7 @@ export function ProductVariationSelector({
         variation.attributes.some(
           (attr) =>
             attr.name === attributeName &&
-            attr.option.toLowerCase() === option.toLowerCase() &&
+            safeString(attr.option).toLowerCase() === optionStr.toLowerCase() &&
             variation.stock_status === "instock"
         )
       );
@@ -79,7 +89,7 @@ export function ProductVariationSelector({
 
     const matchingVariation = variations.find((variation) =>
       variation.attributes.every((attr) =>
-        potentialSelection[attr.name]?.toLowerCase() === attr.option.toLowerCase()
+        potentialSelection[attr.name]?.toLowerCase() === safeString(attr.option).toLowerCase()
       )
     );
 
@@ -92,7 +102,7 @@ export function ProductVariationSelector({
     if (allSelected) {
       const matchingVariation = variations.find((variation) =>
         variation.attributes.every((attr) =>
-          selectedAttributes[attr.name]?.toLowerCase() === attr.option.toLowerCase()
+          selectedAttributes[attr.name]?.toLowerCase() === safeString(attr.option).toLowerCase()
         )
       );
       onVariationChange(matchingVariation || null);
@@ -103,7 +113,7 @@ export function ProductVariationSelector({
             variation.attributes.some(
               (attr) =>
                 attr.name === attrName &&
-                attr.option.toLowerCase() === attrValue.toLowerCase()
+                safeString(attr.option).toLowerCase() === attrValue.toLowerCase()
             )
         )
       );
@@ -115,7 +125,8 @@ export function ProductVariationSelector({
     return name.toLowerCase().includes("couleur") || name.toLowerCase().includes("color");
   };
 
-  const getColorValue = (colorName: string): string => {
+  const getColorValue = (colorName: any): string => {
+    const colorStr = safeString(colorName);
     const colorMap: Record<string, string> = {
       noir: "#000000",
       blanc: "#FFFFFF",
@@ -131,7 +142,7 @@ export function ProductVariationSelector({
       marron: "#92400E",
     };
 
-    const lowerName = colorName.toLowerCase();
+    const lowerName = colorStr.toLowerCase();
     for (const [key, value] of Object.entries(colorMap)) {
       if (lowerName.includes(key)) {
         return value;
@@ -149,20 +160,21 @@ export function ProductVariationSelector({
           {isColorAttribute(attribute.name) ? (
             <div className="flex flex-wrap gap-3">
               {sortOptions(attribute.options, attribute.name).map((option) => {
-                const isSelected = selectedAttributes[attribute.name] === option;
+                const optionStr = safeString(option);
+                const isSelected = selectedAttributes[attribute.name] === optionStr;
                 const isAvailable = isOptionAvailable(attribute.name, option);
 
                 return (
                   <button
-                    key={option}
-                    onClick={() => handleAttributeSelect(attribute.name, option)}
+                    key={optionStr}
+                    onClick={() => handleAttributeSelect(attribute.name, optionStr)}
                     disabled={!isAvailable}
                     className={`relative w-12 h-12 rounded-full border-2 transition-all ${
                       isSelected
                         ? "border-[#b8933d] ring-2 ring-[#b8933d] ring-offset-2"
                         : "border-gray-300 hover:border-gray-400"
                     } ${!isAvailable ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
-                    title={option}
+                    title={optionStr}
                   >
                     <div
                       className="w-full h-full rounded-full"
@@ -180,13 +192,14 @@ export function ProductVariationSelector({
           ) : (
             <div className="flex flex-wrap gap-2">
               {sortOptions(attribute.options, attribute.name).map((option) => {
-                const isSelected = selectedAttributes[attribute.name] === option;
+                const optionStr = safeString(option);
+                const isSelected = selectedAttributes[attribute.name] === optionStr;
                 const isAvailable = isOptionAvailable(attribute.name, option);
 
                 return (
                   <Button
-                    key={option}
-                    onClick={() => handleAttributeSelect(attribute.name, option)}
+                    key={optionStr}
+                    onClick={() => handleAttributeSelect(attribute.name, optionStr)}
                     disabled={!isAvailable}
                     variant={isSelected ? "default" : "outline"}
                     className={`min-w-[60px] ${
@@ -195,7 +208,7 @@ export function ProductVariationSelector({
                         : "border-gray-300 hover:border-[#b8933d]"
                     } ${!isAvailable ? "opacity-50 line-through" : ""}`}
                   >
-                    {option}
+                    {optionStr}
                   </Button>
                 );
               })}
