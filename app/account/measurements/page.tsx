@@ -102,26 +102,45 @@ export default function MeasurementsPage() {
         waist: measurements.waist,
         hips: measurements.hips,
         inseam: measurements.inseam,
-        shoe_size: measurements.shoe_size,
-        notes: measurements.notes
+        shoe_size: measurements.shoe_size || null,
+        notes: measurements.notes || null,
+        updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('customer_measurements')
         .upsert(dataToSave, {
-          onConflict: 'user_id',
-          ignoreDuplicates: false
-        });
+          onConflict: 'user_id'
+        })
+        .select()
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw new Error(error.message || 'Erreur lors de l\'enregistrement');
+      }
 
-      toast.success('Mesures mises à jour', {
+      toast.success('Mensurations enregistrées avec succès', {
+        description: 'Vos mesures ont été mises à jour',
         position: 'bottom-right'
       });
+
+      if (data) {
+        setMeasurements({
+          height: data.height,
+          weight: data.weight,
+          bust: data.bust,
+          waist: data.waist,
+          hips: data.hips,
+          inseam: data.inseam,
+          shoe_size: data.shoe_size || '',
+          notes: data.notes || ''
+        });
+      }
     } catch (error: any) {
       console.error('Error saving measurements:', error);
       toast.error('Erreur lors de l\'enregistrement', {
-        description: error.message,
+        description: error.message || 'Une erreur est survenue',
         position: 'bottom-right'
       });
     } finally {
@@ -171,7 +190,9 @@ export default function MeasurementsPage() {
                   <Input
                     id="height"
                     type="number"
-                    placeholder="170"
+                    min="0"
+                    max="250"
+                    placeholder="Ex: 170 cm"
                     value={measurements.height || ''}
                     onChange={(e) => setMeasurements({ ...measurements, height: e.target.value ? parseInt(e.target.value) : null })}
                   />
@@ -183,7 +204,9 @@ export default function MeasurementsPage() {
                     id="weight"
                     type="number"
                     step="0.1"
-                    placeholder="65"
+                    min="0"
+                    max="300"
+                    placeholder="Ex: 65 kg"
                     value={measurements.weight || ''}
                     onChange={(e) => setMeasurements({ ...measurements, weight: e.target.value ? parseFloat(e.target.value) : null })}
                   />
@@ -194,7 +217,9 @@ export default function MeasurementsPage() {
                   <Input
                     id="bust"
                     type="number"
-                    placeholder="90"
+                    min="0"
+                    max="200"
+                    placeholder="Ex: 90 cm"
                     value={measurements.bust || ''}
                     onChange={(e) => setMeasurements({ ...measurements, bust: e.target.value ? parseInt(e.target.value) : null })}
                   />
@@ -205,7 +230,9 @@ export default function MeasurementsPage() {
                   <Input
                     id="waist"
                     type="number"
-                    placeholder="70"
+                    min="0"
+                    max="200"
+                    placeholder="Ex: 70 cm"
                     value={measurements.waist || ''}
                     onChange={(e) => setMeasurements({ ...measurements, waist: e.target.value ? parseInt(e.target.value) : null })}
                   />
@@ -216,7 +243,9 @@ export default function MeasurementsPage() {
                   <Input
                     id="hips"
                     type="number"
-                    placeholder="95"
+                    min="0"
+                    max="200"
+                    placeholder="Ex: 95 cm"
                     value={measurements.hips || ''}
                     onChange={(e) => setMeasurements({ ...measurements, hips: e.target.value ? parseInt(e.target.value) : null })}
                   />
@@ -227,7 +256,9 @@ export default function MeasurementsPage() {
                   <Input
                     id="inseam"
                     type="number"
-                    placeholder="78"
+                    min="0"
+                    max="150"
+                    placeholder="Ex: 78 cm"
                     value={measurements.inseam || ''}
                     onChange={(e) => setMeasurements({ ...measurements, inseam: e.target.value ? parseInt(e.target.value) : null })}
                   />
@@ -238,7 +269,7 @@ export default function MeasurementsPage() {
                   <Input
                     id="shoe_size"
                     type="text"
-                    placeholder="38"
+                    placeholder="Ex: 38 ou 38.5"
                     value={measurements.shoe_size}
                     onChange={(e) => setMeasurements({ ...measurements, shoe_size: e.target.value })}
                   />

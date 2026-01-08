@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { ShoppingBag, ArrowLeft, CreditCard, MapPin, Truck, Wallet, Package, AlertCircle, Info, Gift } from 'lucide-react';
 import Link from 'next/link';
@@ -89,6 +90,8 @@ export default function CheckoutPage() {
   const [newsletterConsent, setNewsletterConsent] = useState(false);
   const [rgpdConsent, setRgpdConsent] = useState(false);
   const [shippingInsurance, setShippingInsurance] = useState('0');
+  const [relayDialogOpen, setRelayDialogOpen] = useState(false);
+  const [bankDialogOpen, setBankDialogOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -386,8 +389,8 @@ export default function CheckoutPage() {
           Finaliser ma commande
         </h1>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
+        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
+          <div className="space-y-6">
             {openPackage && !packageLoading && (
               <Card>
                 <CardHeader>
@@ -503,11 +506,86 @@ export default function CheckoutPage() {
                     </RadioGroup>
 
                     {selectedShippingMethod?.is_relay && (
-                      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                        <p className="text-sm text-blue-800">
-                          <Info className="h-4 w-4 inline mr-1" />
-                          La sélection du point relais sera disponible après validation de la commande.
-                        </p>
+                      <div className="mt-4">
+                        <Dialog open={relayDialogOpen} onOpenChange={setRelayDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button type="button" variant="outline" className="w-full">
+                              <MapPin className="h-4 w-4 mr-2" />
+                              {relayPointData ? 'Modifier le point relais' : 'Choisir un point relais'}
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>Sélectionnez votre point relais</DialogTitle>
+                              <DialogDescription>
+                                Choisissez le point relais le plus proche de chez vous
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="mt-4">
+                              <div className="bg-gray-100 rounded-lg p-4 mb-4">
+                                <p className="text-sm text-gray-600 mb-2">Adresse de recherche:</p>
+                                <Input
+                                  placeholder="Code postal ou ville"
+                                  className="mb-2"
+                                />
+                                <Button type="button" variant="outline" size="sm">
+                                  Rechercher
+                                </Button>
+                              </div>
+
+                              <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center mb-4">
+                                <div className="text-center text-gray-500">
+                                  <MapPin className="h-12 w-12 mx-auto mb-2" />
+                                  <p className="text-sm">Carte Google Maps</p>
+                                  <p className="text-xs">(Intégration nécessaire)</p>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <h4 className="font-semibold">Points relais disponibles</h4>
+                                <div className="space-y-2">
+                                  {[1, 2, 3].map((i) => (
+                                    <div key={i} className="border p-3 rounded-lg hover:border-[#D4AF37] cursor-pointer">
+                                      <div className="flex items-start justify-between">
+                                        <div>
+                                          <p className="font-medium">Point Relais {i}</p>
+                                          <p className="text-sm text-gray-600">123 Rue Example, 75000 Paris</p>
+                                          <p className="text-xs text-gray-500 mt-1">
+                                            Ouvert du lundi au samedi - 9h-19h
+                                          </p>
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          onClick={() => {
+                                            setRelayPointData({
+                                              name: `Point Relais ${i}`,
+                                              address: '123 Rue Example, 75000 Paris'
+                                            });
+                                            setRelayDialogOpen(false);
+                                            toast.success('Point relais sélectionné');
+                                          }}
+                                        >
+                                          Sélectionner
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+
+                        {relayPointData && (
+                          <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-md">
+                            <p className="text-sm text-green-800">
+                              <MapPin className="h-4 w-4 inline mr-1" />
+                              Point relais: {relayPointData.name}
+                            </p>
+                            <p className="text-xs text-green-700 mt-1">{relayPointData.address}</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -550,33 +628,67 @@ export default function CheckoutPage() {
                 </RadioGroup>
 
                 {selectedPaymentMethod?.code === 'bank_transfer' && (
-                  <div className="mt-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                    <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                      <Info className="h-5 w-5" />
-                      Informations bancaires pour le virement
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <p className="font-medium text-blue-800">Bénéficiaire</p>
-                        <p className="text-blue-900">LA BOUTIQUE DE MORGANE</p>
-                      </div>
-                      <div>
-                        <p className="font-medium text-blue-800">IBAN</p>
-                        <p className="text-blue-900 font-mono">FR76 XXXX XXXX XXXX XXXX XXXX XXX</p>
-                      </div>
-                      <div>
-                        <p className="font-medium text-blue-800">BIC</p>
-                        <p className="text-blue-900 font-mono">XXXXXXXX</p>
-                      </div>
-                      <div>
-                        <p className="font-medium text-blue-800">Banque</p>
-                        <p className="text-blue-900">VOTRE BANQUE</p>
-                      </div>
-                      <div className="pt-2 border-t border-blue-300 mt-3">
-                        <p className="text-xs text-blue-700">
-                          ⚠️ Pensez à indiquer votre numéro de commande comme référence du virement
-                        </p>
-                      </div>
+                  <div className="mt-4">
+                    <Dialog open={bankDialogOpen} onOpenChange={setBankDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button type="button" variant="outline" className="w-full">
+                          <Wallet className="h-4 w-4 mr-2" />
+                          Voir les coordonnées bancaires
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Coordonnées bancaires pour virement</DialogTitle>
+                          <DialogDescription>
+                            Utilisez ces informations pour effectuer votre virement bancaire
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 mt-4">
+                          <div className="p-4 bg-blue-50 rounded-lg space-y-3">
+                            <div>
+                              <p className="text-xs font-medium text-blue-800 uppercase">Bénéficiaire</p>
+                              <p className="text-blue-900 font-semibold">LA BOUTIQUE DE MORGANE</p>
+                            </div>
+                            <Separator />
+                            <div>
+                              <p className="text-xs font-medium text-blue-800 uppercase">IBAN</p>
+                              <p className="text-blue-900 font-mono text-sm">FR76 XXXX XXXX XXXX XXXX XXXX XXX</p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-blue-800 uppercase">BIC</p>
+                              <p className="text-blue-900 font-mono text-sm">XXXXXXXX</p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-blue-800 uppercase">Banque</p>
+                              <p className="text-blue-900">VOTRE BANQUE</p>
+                            </div>
+                          </div>
+
+                          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <p className="text-sm text-amber-800 flex items-start gap-2">
+                              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                              <span>
+                                Pensez à indiquer votre <strong>numéro de commande</strong> comme référence du virement pour un traitement rapide
+                              </span>
+                            </p>
+                          </div>
+
+                          <Button
+                            type="button"
+                            className="w-full"
+                            onClick={() => setBankDialogOpen(false)}
+                          >
+                            J'ai noté les informations
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-sm text-blue-800">
+                        <Info className="h-4 w-4 inline mr-1" />
+                        Votre commande sera validée après réception du virement
+                      </p>
                     </div>
                   </div>
                 )}
@@ -811,14 +923,27 @@ export default function CheckoutPage() {
                 </div>
               </CardContent>
             </Card>
-          </div>
 
-          <div className="lg:col-span-1">
-            <Card className="sticky top-4">
+            <Card>
               <CardHeader>
-                <CardTitle>Récapitulatif</CardTitle>
+                <CardTitle>Récapitulatif de votre commande</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  {cart.map((item) => (
+                    <div key={item.id} className="flex justify-between text-sm">
+                      <span className="text-gray-600">
+                        {item.name} × {item.quantity}
+                      </span>
+                      <span className="font-medium">
+                        {(parseFloat(item.price) * item.quantity).toFixed(2)} €
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <Separator />
+
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Sous-total</span>
@@ -834,6 +959,13 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
+                  {insuranceCost > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Assurance</span>
+                      <span className="font-medium">{insuranceCost.toFixed(2)} €</span>
+                    </div>
+                  )}
+
                   {paymentFee > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Frais de paiement</span>
@@ -845,6 +977,13 @@ export default function CheckoutPage() {
                     <div className="flex justify-between text-sm text-green-600">
                       <span>Remise {couponCode && `(${couponCode})`}</span>
                       <span className="font-medium">-{discountAmount.toFixed(2)} €</span>
+                    </div>
+                  )}
+
+                  {referralDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Parrainage</span>
+                      <span className="font-medium">-{referralDiscount.toFixed(2)} €</span>
                     </div>
                   )}
 
@@ -876,19 +1015,6 @@ export default function CheckoutPage() {
                 </div>
 
                 <Separator />
-
-                <div className="space-y-2">
-                  {cart.map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span className="text-gray-600">
-                        {item.name} × {item.quantity}
-                      </span>
-                      <span className="font-medium">
-                        {(parseFloat(item.price) * item.quantity).toFixed(2)} €
-                      </span>
-                    </div>
-                  ))}
-                </div>
 
                 {selectedPaymentMethod?.code === 'paypal' ? (
                   <>
