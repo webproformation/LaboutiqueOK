@@ -127,8 +127,12 @@ export function ScratchCardGame({ game, onClose, onWin }: ScratchCardGameProps) 
     }
 
     ctx.globalCompositeOperation = 'destination-out';
+    ctx.lineWidth = 40;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
     ctx.beginPath();
-    ctx.arc(x, y, 20, 0, Math.PI * 2);
+    ctx.arc(x, y, 25, 0, Math.PI * 2);
     ctx.fill();
 
     checkProgress();

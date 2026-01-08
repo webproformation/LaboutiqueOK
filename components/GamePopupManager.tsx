@@ -58,23 +58,33 @@ export function GamePopupManager() {
     try {
       const now = new Date().toISOString();
 
-      const { data: scratchData } = await supabase
+      const { data: scratchData, error: scratchError } = await supabase
         .from('scratch_card_games')
         .select('*')
         .eq('is_active', true)
         .or(`start_date.is.null,start_date.lte.${now}`)
         .or(`end_date.is.null,end_date.gte.${now}`)
+        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      const { data: wheelData } = await supabase
+      if (scratchError) {
+        console.error('Error loading scratch games:', scratchError);
+      }
+
+      const { data: wheelData, error: wheelError } = await supabase
         .from('wheel_games')
         .select('*')
         .eq('is_active', true)
         .or(`start_date.is.null,start_date.lte.${now}`)
         .or(`end_date.is.null,end_date.gte.${now}`)
+        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      if (wheelError) {
+        console.error('Error loading wheel games:', wheelError);
+      }
 
       const hasSeenToday = sessionStorage.getItem('game-popup-seen-today');
       const today = new Date().toDateString();

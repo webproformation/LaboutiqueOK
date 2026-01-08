@@ -235,61 +235,7 @@ export default function ProductVariationsManager({
 
   return (
     <div className="space-y-6">
-      {/* Section pour tous les attributs disponibles */}
-      {allAttributes.length > 0 && (
-        <div className="space-y-6 border-2 border-[#d4af37]/30 rounded-lg p-6 bg-[#d4af37]/5">
-          <div>
-            <h3 className="text-xl font-bold text-[#d4af37] mb-2">
-              Attributs disponibles
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Sélectionnez les termes pour créer des variations
-            </p>
-          </div>
-
-          {allAttributes.map((attribute) => (
-            <div key={attribute.id} className="bg-white rounded-lg p-4 shadow-sm">
-              <Label className="text-lg font-semibold text-gray-900 mb-3 block">
-                {attribute.name}
-              </Label>
-              <p className="text-xs text-gray-500 mb-3">Type: {attribute.type}</p>
-
-              {attribute.terms && attribute.terms.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                  {attribute.terms.map((term) => {
-                    const isSelected = selectedAttributeTerms[attribute.slug]?.includes(term.id) || false;
-                    return (
-                      <button
-                        key={term.id}
-                        type="button"
-                        onClick={() => toggleAttributeTerm(attribute.slug, term.id)}
-                        className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 transition-all text-sm ${
-                          isSelected
-                            ? "border-[#d4af37] bg-[#d4af37]/10 text-[#d4af37] font-semibold"
-                            : "border-gray-300 hover:border-[#d4af37] bg-white"
-                        }`}
-                      >
-                        {term.color_code && (
-                          <div
-                            className="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0"
-                            style={{ backgroundColor: term.color_code }}
-                          />
-                        )}
-                        <span className="truncate">{term.name}</span>
-                        {isSelected && <Check className="h-4 w-4 flex-shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400 italic">Aucun terme disponible pour cet attribut</p>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Section originale pour les couleurs */}
+      {/* Section pour les couleurs */}
       <div className="space-y-4">
         <div>
           <Label className="text-lg font-semibold text-gray-900 mb-3 block">

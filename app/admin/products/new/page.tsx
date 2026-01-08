@@ -578,6 +578,15 @@ export default function NewProductPage() {
                       color_code: term.color_code,
                     })) || []
                 }
+                sizeTerms={
+                  attributes
+                    .find(attr => attr.slug === "taille")
+                    ?.terms?.map(term => ({
+                      id: term.id,
+                      name: term.name,
+                      value: term.value,
+                    })) || []
+                }
                 initialVariations={colorVariations}
                 onChange={handleColorVariationsChange}
               />

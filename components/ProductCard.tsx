@@ -136,7 +136,7 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
           >
             <Heart
               className={`h-5 w-5 transition-colors ${
-                isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600'
+                isFavorite ? 'fill-pink-500 text-pink-500' : 'text-gray-600'
               }`}
             />
           </button>
@@ -203,7 +203,7 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
                 Disponible
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-xs border-red-200 bg-red-50 text-red-700">
+              <Badge variant="outline" className="text-xs border-pink-200 bg-pink-50 text-pink-700">
                 Rupture
               </Badge>
             )}

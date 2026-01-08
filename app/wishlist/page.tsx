@@ -136,7 +136,7 @@ export default function WishlistPage() {
                 onClick={() => removeItem(product.id)}
                 className="absolute top-3 right-3 z-10 bg-white/90 hover:bg-white rounded-full p-2 shadow-sm transition-all"
               >
-                <Heart className="h-5 w-5 fill-red-500 text-red-500" />
+                <Heart className="h-5 w-5 fill-pink-500 text-pink-500" />
               </button>
 
               <Link href={`/product/${product.slug}`}>
