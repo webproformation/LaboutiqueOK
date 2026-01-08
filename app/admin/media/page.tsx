@@ -45,6 +45,21 @@ export default function MediaAdminPage() {
   const loadProductImages = async () => {
     setLoading(true);
     try {
+      const { data: mediaFiles, error: mediaError } = await supabase
+        .from('media')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (mediaError) {
+        console.error('[MEDIA] Media table error:', mediaError);
+      }
+
+      const mediaImagesData: ImageData[] = (mediaFiles || []).map(file => ({
+        url: file.url,
+        size: file.file_size || 0,
+        name: file.filename,
+      }));
+
       const { data: storageFiles, error: storageError } = await supabase.storage
         .from('product-images')
         .list('products', {
@@ -89,7 +104,7 @@ export default function MediaAdminPage() {
         }
       });
 
-      const allImages = [...storageImagesData, ...productImageUrls];
+      const allImages = [...mediaImagesData, ...storageImagesData, ...productImageUrls];
       const uniqueImages = Array.from(
         new Map(allImages.map(img => [img.url, img])).values()
       );

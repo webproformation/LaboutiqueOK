@@ -104,6 +104,23 @@ export default function OrderConfirmationPage() {
       };
     }
 
+    if (paymentMethod?.code === 'stripe') {
+      if (order.payment_status === 'paid') {
+        return {
+          icon: <CheckCircle className="h-12 w-12 text-green-500" />,
+          title: 'Paiement Stripe confirmé',
+          description: 'Votre paiement a été traité avec succès. Votre commande sera traitée dans les plus brefs délais.',
+          color: 'green'
+        };
+      }
+      return {
+        icon: <Clock className="h-12 w-12 text-orange-500" />,
+        title: 'Paiement en cours de traitement',
+        description: 'Votre paiement Stripe est en cours de vérification. Vous recevrez une confirmation par email.',
+        color: 'orange'
+      };
+    }
+
     if (paymentMethod?.code === 'bank_transfer') {
       return {
         icon: <Clock className="h-12 w-12 text-orange-500" />,

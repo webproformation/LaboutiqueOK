@@ -487,6 +487,109 @@ export default function BackupPage() {
     }
   };
 
+  const handleRestoreBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.json')) {
+      toast.error('Veuillez sélectionner un fichier JSON');
+      return;
+    }
+
+    const confirmed = confirm(
+      '⚠️ ATTENTION : La restauration va ÉCRASER toutes les données actuelles.\n\n' +
+      'Cette opération est IRRÉVERSIBLE.\n\n' +
+      'Assurez-vous d\'avoir une sauvegarde récente avant de continuer.\n\n' +
+      'Voulez-vous vraiment continuer ?'
+    );
+
+    if (!confirmed) {
+      event.target.value = '';
+      return;
+    }
+
+    setLoading(true);
+    setExportProgress(0);
+    setExportStep('Lecture du fichier...');
+
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+
+      setExportProgress(10);
+
+      if (!backup._export_info) {
+        throw new Error('Format de sauvegarde invalide (pas de _export_info)');
+      }
+
+      const isFullBackup = backup.database && backup.storage_manifest;
+      const dataToRestore = isFullBackup ? backup.database : backup;
+
+      const tables = Object.keys(dataToRestore).filter(k => !k.startsWith('_'));
+      const totalTables = tables.length;
+      let restoredTables = 0;
+      let totalRecords = 0;
+
+      toast.info(`Restauration de ${totalTables} tables...`);
+
+      for (const tableName of tables) {
+        const records = dataToRestore[tableName];
+        if (!Array.isArray(records) || records.length === 0) continue;
+
+        setExportStep(`Restauration de ${tableName}...`);
+        setExportProgress(10 + (restoredTables / totalTables) * 80);
+
+        try {
+          const { error } = await supabase
+            .from(tableName)
+            .upsert(records, { onConflict: 'id' });
+
+          if (error) {
+            console.error(`Erreur ${tableName}:`, error);
+            toast.warning(`${tableName}: ${error.message}`, { duration: 2000 });
+          } else {
+            restoredTables++;
+            totalRecords += records.length;
+          }
+        } catch (tableError: any) {
+          console.error(`Erreur critique ${tableName}:`, tableError);
+        }
+      }
+
+      setExportProgress(100);
+      setExportStep('Terminé !');
+
+      toast.success(
+        <div className="space-y-1">
+          <p className="font-semibold">Restauration terminée !</p>
+          <p className="text-sm">{restoredTables}/{totalTables} tables restaurées</p>
+          <p className="text-sm">{totalRecords} enregistrements</p>
+        </div>,
+        { duration: 7000 }
+      );
+
+      setTimeout(() => {
+        setExportProgress(0);
+        setExportStep('');
+      }, 3000);
+
+    } catch (error: any) {
+      console.error('Restore error:', error);
+      toast.error(
+        <div className="space-y-1">
+          <p className="font-semibold">Erreur de restauration</p>
+          <p className="text-sm">{error.message}</p>
+        </div>,
+        { duration: 7000 }
+      );
+      setExportProgress(0);
+      setExportStep('');
+    } finally {
+      setLoading(false);
+      event.target.value = '';
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -675,6 +778,63 @@ export default function BackupPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-2 border-red-200 bg-red-50/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-red-700">
+            <RefreshCw className="h-5 w-5" />
+            Restauration de Sauvegarde
+          </CardTitle>
+          <CardDescription className="text-red-600">
+            ⚠️ ATTENTION : Cette opération écrase toutes les données actuelles
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert className="border-red-300 bg-red-100">
+            <AlertTriangle className="h-4 w-4 text-red-700" />
+            <AlertDescription className="text-red-800">
+              <strong>DANGER :</strong> La restauration est IRRÉVERSIBLE. Assurez-vous d'avoir une sauvegarde récente avant de continuer.
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-3">
+            <p className="text-sm text-gray-700">
+              Sélectionnez un fichier JSON de sauvegarde pour restaurer la base de données :
+            </p>
+            <div className="flex gap-3">
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleRestoreBackup}
+                disabled={loading}
+                className="flex-1 px-3 py-2 border-2 border-red-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                id="restore-input"
+              />
+              <label
+                htmlFor="restore-input"
+                className="cursor-pointer"
+              >
+                <Button
+                  type="button"
+                  disabled={loading}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  onClick={() => document.getElementById('restore-input')?.click()}
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  Restaurer
+                </Button>
+              </label>
+            </div>
+            <p className="text-xs text-gray-600">
+              Formats acceptés : backup-lbdm-*.json ou backup-COMPLET-lbdm-*.json
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

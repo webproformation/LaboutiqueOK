@@ -277,6 +277,52 @@ export default function CheckoutPage() {
           .eq('id', user.id);
       }
 
+      if (selectedPaymentMethod?.code === 'stripe') {
+        const stripeItems = cart.map(item => ({
+          name: item.name || 'Produit',
+          price: item.price,
+          quantity: item.quantity,
+          variation: item.selectedAttributes ? Object.entries(item.selectedAttributes).map(([k, v]) => `${k}: ${v}`).join(', ') : undefined,
+          image: item.image?.sourceUrl || item.variationImage?.sourceUrl,
+        }));
+
+        const stripeResponse = await fetch('/api/stripe/create-checkout-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            orderId: newOrder.id,
+            userId: user.id,
+            items: stripeItems,
+            total: totalAfterWallet,
+            metadata: {
+              email: profile?.email || '',
+              orderNumber: orderNumber,
+            },
+          }),
+        });
+
+        if (!stripeResponse.ok) {
+          throw new Error('Erreur lors de la création de la session Stripe');
+        }
+
+        const { url } = await stripeResponse.json();
+
+        if (!url) {
+          throw new Error('URL de paiement Stripe introuvable');
+        }
+
+        clearCart();
+
+        toast.success('Redirection vers Stripe pour le paiement...', {
+          position: 'bottom-right'
+        });
+
+        window.location.href = url;
+        return;
+      }
+
       clearCart();
 
       toast.success(`Commande ${orderNumber} validée avec succès !`, {
