@@ -160,6 +160,7 @@ export function ProductVariationSelector({
           {isColorAttribute(attribute.name) ? (
             <div className="flex flex-wrap gap-3">
               {sortOptions(attribute.options, attribute.name).map((option) => {
+                const displayValue = typeof option === 'object' && option !== null ? (option as any).name || String(option) : String(option);
                 const optionStr = safeString(option);
                 const isSelected = selectedAttributes[attribute.name] === optionStr;
                 const isAvailable = isOptionAvailable(attribute.name, option);
@@ -174,7 +175,7 @@ export function ProductVariationSelector({
                         ? "border-[#b8933d] ring-2 ring-[#b8933d] ring-offset-2"
                         : "border-gray-300 hover:border-gray-400"
                     } ${!isAvailable ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
-                    title={optionStr}
+                    title={displayValue}
                   >
                     <div
                       className="w-full h-full rounded-full"
@@ -192,6 +193,7 @@ export function ProductVariationSelector({
           ) : (
             <div className="flex flex-wrap gap-2">
               {sortOptions(attribute.options, attribute.name).map((option) => {
+                const displayValue = typeof option === 'object' && option !== null ? (option as any).name || String(option) : String(option);
                 const optionStr = safeString(option);
                 const isSelected = selectedAttributes[attribute.name] === optionStr;
                 const isAvailable = isOptionAvailable(attribute.name, option);
@@ -208,7 +210,7 @@ export function ProductVariationSelector({
                         : "border-gray-300 hover:border-[#b8933d]"
                     } ${!isAvailable ? "opacity-50 line-through" : ""}`}
                   >
-                    {optionStr}
+                    {displayValue}
                   </Button>
                 );
               })}

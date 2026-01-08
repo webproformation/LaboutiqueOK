@@ -60,14 +60,14 @@ const convertToWebP = async (file: File): Promise<Blob> => {
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              console.log(`✅ [WebP] Conversion réussie: ${file.name}`);
+              console.log(`✅ [WebP] Conversion réussie: ${file.name} (qualité 0.8)`);
               resolve(blob);
             } else {
               reject(new Error('Conversion WebP échouée'));
             }
           },
           'image/webp',
-          0.90
+          0.8
         );
       } catch (error) {
         reject(error);
@@ -325,7 +325,7 @@ export default function MediaLibrary({
       // Basculer automatiquement sur l'onglet "Toutes les images"
       setActiveTab('all');
 
-      // Recharger la liste pour afficher la nouvelle image
+      // Premier chargement immédiat
       await loadMediaFiles();
 
       // Sélectionner automatiquement la nouvelle image
@@ -343,6 +343,11 @@ export default function MediaLibrary({
         </div>,
         { duration: 4000 }
       );
+
+      // Second chargement différé pour garantir l'affichage
+      setTimeout(async () => {
+        await loadMediaFiles();
+      }, 1000);
 
       if (onUploadSuccess) {
         onUploadSuccess();
