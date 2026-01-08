@@ -174,30 +174,30 @@
 ```bash
 # ⚠️ VERROUILLAGE PROJET qcqbtmvbvipsxwjlgjvk
 NEXT_PUBLIC_SUPABASE_URL=https://qcqbtmvbvipsxwjlgjvk.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 # WordPress / WooCommerce (source de données)
 WORDPRESS_URL=https://wp.laboutiquedemorgane.com
-WORDPRESS_USERNAME=webproformation.fr
-WORDPRESS_APP_PASSWORD=1ZENOcErQzBZFqaF5TtsQzGC
-WOOCOMMERCE_CONSUMER_KEY=ck_d620ae1f9fcd1832bdb2c31fe3ad8362a9de8b28
-WOOCOMMERCE_CONSUMER_SECRET=cs_f452fc79440e83b64d6c3a0c712d51c91c8dd5a4
+WORDPRESS_USERNAME=your_wordpress_username
+WORDPRESS_APP_PASSWORD=your_wordpress_app_password
+WOOCOMMERCE_CONSUMER_KEY=your_woocommerce_consumer_key
+WOOCOMMERCE_CONSUMER_SECRET=your_woocommerce_consumer_secret
 
 # APIs tierces
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyCaMpoky_a5DGD5Hs1cA9OBLw2pUkqjTRU
-BREVO_API_KEY=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
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+BREVO_API_KEY=your_brevo_api_key
 
 # Paiements (PRODUCTION)
-STRIPE_SECRET_KEY=rk_live_51SUr5xPQtkhTJgDovlbmLd516kKVPUq...
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_51SUr5xPQtkhTJgDoeF...
-PAYPAL_CLIENT_ID=BAACikVdtpOx8gP2eh1n7xQdrCE3SAVWfIQsB17pS...
-PAYPAL_CLIENT_SECRET=ELjeY6wp47qSK8e74Hwch-ro8fgVcCxVWtIyk2D8c...
+STRIPE_SECRET_KEY=your_stripe_secret_key
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
+PAYPAL_CLIENT_ID=your_paypal_client_id
+PAYPAL_CLIENT_SECRET=your_paypal_client_secret
 
 # Notifications push
-ONESIGNAL_API_KEY=os_v2_app_poq5pgl2cze63gx6dphwforo5erqsjl3cqyegwv2lpyae34ra2v...
-ONESIGNAL_APP_ID=rqsjl3cqyegwv2lpyae34ra2v
-NEXT_PUBLIC_ONESIGNAL_APP_ID=rqsjl3cqyegwv2lpyae34ra2v
+ONESIGNAL_API_KEY=your_onesignal_api_key
+ONESIGNAL_APP_ID=your_onesignal_app_id
+NEXT_PUBLIC_ONESIGNAL_APP_ID=your_onesignal_app_id
 ```
 
 ### Package.json - Scripts
