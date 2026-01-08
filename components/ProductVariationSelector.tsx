@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/lib/supabase";
 
 interface Attribute {
   name: string;
@@ -23,6 +24,11 @@ interface Variation {
   };
 }
 
+interface AttributeTerm {
+  name: string;
+  color_code: string | null;
+}
+
 interface ProductVariationSelectorProps {
   attributes: Array<{
     name: string;
@@ -40,6 +46,38 @@ export function ProductVariationSelector({
   onVariationChange,
 }: ProductVariationSelectorProps) {
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
+  const [colorCodes, setColorCodes] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const fetchColorCodes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('product_attribute_terms')
+          .select('name, color_code')
+          .not('color_code', 'is', null);
+
+        if (error) {
+          console.error('Error fetching color codes:', error);
+          return;
+        }
+
+        if (data) {
+          const colorMap: Record<string, string> = {};
+          data.forEach((term: AttributeTerm) => {
+            const normalizedName = term.name.toLowerCase().trim();
+            if (term.color_code) {
+              colorMap[normalizedName] = term.color_code;
+            }
+          });
+          setColorCodes(colorMap);
+        }
+      } catch (error) {
+        console.error('Error fetching color codes:', error);
+      }
+    };
+
+    fetchColorCodes();
+  }, []);
 
   const safeString = (value: any): string => {
     if (typeof value === 'object' && value !== null) {
@@ -127,7 +165,13 @@ export function ProductVariationSelector({
 
   const getColorValue = (colorName: any): string => {
     const colorStr = safeString(colorName);
-    const colorMap: Record<string, string> = {
+    const normalizedName = colorStr.toLowerCase().trim();
+
+    if (colorCodes[normalizedName]) {
+      return colorCodes[normalizedName];
+    }
+
+    const fallbackColorMap: Record<string, string> = {
       noir: "#000000",
       blanc: "#FFFFFF",
       rouge: "#DC2626",
@@ -142,12 +186,12 @@ export function ProductVariationSelector({
       marron: "#92400E",
     };
 
-    const lowerName = colorStr.toLowerCase();
-    for (const [key, value] of Object.entries(colorMap)) {
-      if (lowerName.includes(key)) {
+    for (const [key, value] of Object.entries(fallbackColorMap)) {
+      if (normalizedName.includes(key)) {
         return value;
       }
     }
+
     return "#9CA3AF";
   };
 
@@ -165,12 +209,17 @@ export function ProductVariationSelector({
                 const isSelected = selectedAttributes[attribute.name] === optionStr;
                 const isAvailable = isOptionAvailable(attribute.name, option);
 
+                const colorValue = getColorValue(option);
+                const normalizedName = safeString(option).toLowerCase().trim();
+                const hasColorCode = colorCodes[normalizedName];
+                const shouldShowLetter = !hasColorCode && colorValue === "#9CA3AF";
+
                 return (
                   <button
                     key={optionStr}
                     onClick={() => handleAttributeSelect(attribute.name, optionStr)}
                     disabled={!isAvailable}
-                    className={`relative w-12 h-12 rounded-full border-2 transition-all ${
+                    className={`relative w-8 h-8 rounded-full border-2 transition-all ${
                       isSelected
                         ? "border-[#b8933d] ring-2 ring-[#b8933d] ring-offset-2"
                         : "border-gray-300 hover:border-gray-400"
@@ -178,9 +227,15 @@ export function ProductVariationSelector({
                     title={displayValue}
                   >
                     <div
-                      className="w-full h-full rounded-full"
-                      style={{ backgroundColor: getColorValue(option) }}
-                    />
+                      className="w-full h-full rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: colorValue }}
+                    >
+                      {shouldShowLetter && (
+                        <span className="text-xs font-semibold text-white uppercase">
+                          {displayValue.charAt(0)}
+                        </span>
+                      )}
+                    </div>
                     {!isAvailable && (
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="w-full h-0.5 bg-gray-400 rotate-45" />

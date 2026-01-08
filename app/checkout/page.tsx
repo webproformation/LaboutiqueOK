@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useOpenPackage } from '@/hooks/use-open-package';
 import { PayPalButtons } from '@/components/PayPalButtons';
+import { RelayPointSelector } from '@/components/RelayPointSelector';
 
 interface Address {
   id: string;
@@ -90,7 +91,6 @@ export default function CheckoutPage() {
   const [newsletterConsent, setNewsletterConsent] = useState(false);
   const [rgpdConsent, setRgpdConsent] = useState(false);
   const [shippingInsurance, setShippingInsurance] = useState('0');
-  const [relayDialogOpen, setRelayDialogOpen] = useState(false);
   const [bankDialogOpen, setBankDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -507,83 +507,31 @@ export default function CheckoutPage() {
 
                     {selectedShippingMethod?.is_relay && (
                       <div className="mt-4">
-                        <Dialog open={relayDialogOpen} onOpenChange={setRelayDialogOpen}>
-                          <DialogTrigger asChild>
-                            <Button type="button" variant="outline" className="w-full">
-                              <MapPin className="h-4 w-4 mr-2" />
-                              {relayPointData ? 'Modifier le point relais' : 'Choisir un point relais'}
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                            <DialogHeader>
-                              <DialogTitle>Sélectionnez votre point relais</DialogTitle>
-                              <DialogDescription>
-                                Choisissez le point relais le plus proche de chez vous
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="mt-4">
-                              <div className="bg-gray-100 rounded-lg p-4 mb-4">
-                                <p className="text-sm text-gray-600 mb-2">Adresse de recherche:</p>
-                                <Input
-                                  placeholder="Code postal ou ville"
-                                  className="mb-2"
-                                />
-                                <Button type="button" variant="outline" size="sm">
-                                  Rechercher
-                                </Button>
-                              </div>
-
-                              <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center mb-4">
-                                <div className="text-center text-gray-500">
-                                  <MapPin className="h-12 w-12 mx-auto mb-2" />
-                                  <p className="text-sm">Carte Google Maps</p>
-                                  <p className="text-xs">(Intégration nécessaire)</p>
-                                </div>
-                              </div>
-
-                              <div className="space-y-2">
-                                <h4 className="font-semibold">Points relais disponibles</h4>
-                                <div className="space-y-2">
-                                  {[1, 2, 3].map((i) => (
-                                    <div key={i} className="border p-3 rounded-lg hover:border-[#D4AF37] cursor-pointer">
-                                      <div className="flex items-start justify-between">
-                                        <div>
-                                          <p className="font-medium">Point Relais {i}</p>
-                                          <p className="text-sm text-gray-600">123 Rue Example, 75000 Paris</p>
-                                          <p className="text-xs text-gray-500 mt-1">
-                                            Ouvert du lundi au samedi - 9h-19h
-                                          </p>
-                                        </div>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          onClick={() => {
-                                            setRelayPointData({
-                                              name: `Point Relais ${i}`,
-                                              address: '123 Rue Example, 75000 Paris'
-                                            });
-                                            setRelayDialogOpen(false);
-                                            toast.success('Point relais sélectionné');
-                                          }}
-                                        >
-                                          Sélectionner
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
+                        <RelayPointSelector
+                          provider={selectedShippingMethod.code as 'mondial-relay' | 'chronopost' | 'gls'}
+                          onSelect={(point) => {
+                            setRelayPointData({
+                              name: point.name,
+                              address: `${point.address}, ${point.postalCode} ${point.city}`,
+                              id: point.id,
+                              provider: point.provider
+                            });
+                          }}
+                          selectedPoint={relayPointData}
+                          customerAddress={selectedAddress ? {
+                            postalCode: selectedAddress.postal_code,
+                            city: selectedAddress.city
+                          } : undefined}
+                        />
 
                         {relayPointData && (
                           <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-md">
-                            <p className="text-sm text-green-800">
+                            <p className="text-sm text-green-800 font-medium">
                               <MapPin className="h-4 w-4 inline mr-1" />
-                              Point relais: {relayPointData.name}
+                              Point relais sélectionné
                             </p>
-                            <p className="text-xs text-green-700 mt-1">{relayPointData.address}</p>
+                            <p className="text-sm text-green-800 mt-1">{relayPointData.name}</p>
+                            <p className="text-xs text-green-700">{relayPointData.address}</p>
                           </div>
                         )}
                       </div>
@@ -646,21 +594,43 @@ export default function CheckoutPage() {
                         <div className="space-y-4 mt-4">
                           <div className="p-4 bg-blue-50 rounded-lg space-y-3">
                             <div>
-                              <p className="text-xs font-medium text-blue-800 uppercase">Bénéficiaire</p>
-                              <p className="text-blue-900 font-semibold">LA BOUTIQUE DE MORGANE</p>
+                              <p className="text-xs font-medium text-blue-800 uppercase">Compte Courant</p>
+                              <p className="text-blue-900 font-semibold">31822952121 - SAS A U MORGANE DEWANIN</p>
                             </div>
                             <Separator />
                             <div>
                               <p className="text-xs font-medium text-blue-800 uppercase">IBAN</p>
-                              <p className="text-blue-900 font-mono text-sm">FR76 XXXX XXXX XXXX XXXX XXXX XXX</p>
+                              <p className="text-blue-900 font-mono text-sm break-all">FR76 1350 7000 4331 8229 5212 127</p>
                             </div>
                             <div>
                               <p className="text-xs font-medium text-blue-800 uppercase">BIC</p>
-                              <p className="text-blue-900 font-mono text-sm">XXXXXXXX</p>
+                              <p className="text-blue-900 font-mono text-sm">CCBPFRPPLIL</p>
                             </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <p className="text-xs font-medium text-blue-800 uppercase">Code banque</p>
+                                <p className="text-blue-900 font-mono text-sm">13507</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-blue-800 uppercase">Code guichet</p>
+                                <p className="text-blue-900 font-mono text-sm">00043</p>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <p className="text-xs font-medium text-blue-800 uppercase">N° du compte</p>
+                                <p className="text-blue-900 font-mono text-sm">31822952121</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-medium text-blue-800 uppercase">Clé RIB</p>
+                                <p className="text-blue-900 font-mono text-sm">27</p>
+                              </div>
+                            </div>
+                            <Separator />
                             <div>
                               <p className="text-xs font-medium text-blue-800 uppercase">Banque</p>
-                              <p className="text-blue-900">VOTRE BANQUE</p>
+                              <p className="text-blue-900 font-semibold">BANQUE POPULAIRE DU NORD</p>
+                              <p className="text-blue-700 text-xs mt-1">Agence: AG CENTRALE</p>
                             </div>
                           </div>
 

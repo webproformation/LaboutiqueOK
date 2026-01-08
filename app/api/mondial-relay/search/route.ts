@@ -2,65 +2,69 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { postalCode, country = 'FR', deliveryMode = '24R' } = await request.json();
+    const { postalCode, city } = await request.json();
 
-    if (!postalCode) {
+    if (!postalCode || !city) {
       return NextResponse.json(
-        { error: 'Code postal requis' },
+        { error: 'Code postal et ville requis' },
         { status: 400 }
       );
     }
 
-    const mockRelayPoints = [
-      {
-        Id: 'FR001',
-        Name: 'Tabac Presse',
-        Address1: '12 Rue de la République',
-        PostCode: postalCode,
-        City: 'Centre Ville',
-        Country: country,
-        Latitude: 48.8566 + (Math.random() - 0.5) * 0.02,
-        Longitude: 2.3522 + (Math.random() - 0.5) * 0.02,
-        Distance: Math.floor(Math.random() * 5000),
-        OpeningHours: deliveryMode === '24R' ? '0900-1230#0900-1230#0900-1230#0900-1230#0900-1230#0900-1230#0000' : '',
-      },
-      {
-        Id: 'FR002',
-        Name: 'Relay Shop',
-        Address1: '45 Avenue des Champs',
-        PostCode: postalCode,
-        City: 'Centre Ville',
-        Country: country,
-        Latitude: 48.8566 + (Math.random() - 0.5) * 0.02,
-        Longitude: 2.3522 + (Math.random() - 0.5) * 0.02,
-        Distance: Math.floor(Math.random() * 5000),
-        OpeningHours: deliveryMode === '24R' ? '0800-1900#0800-1900#0800-1900#0800-1900#0800-1900#0900-1700#0000' : '',
-      },
-      {
-        Id: 'FR003',
-        Name: deliveryMode === '24L' ? 'Locker Automatique Centre' : 'Point Relais Express',
-        Address1: '78 Boulevard Principal',
-        PostCode: postalCode,
-        City: 'Centre Ville',
-        Country: country,
-        Latitude: 48.8566 + (Math.random() - 0.5) * 0.02,
-        Longitude: 2.3522 + (Math.random() - 0.5) * 0.02,
-        Distance: Math.floor(Math.random() * 5000),
-        OpeningHours: deliveryMode === '24R' ? '0700-2000#0700-2000#0700-2000#0700-2000#0700-2000#0800-1800#0000' : '',
-      },
-    ];
+    const mondialRelayId = process.env.MONDIAL_RELAY_ID;
+    const mondialRelayKey = process.env.MONDIAL_RELAY_KEY;
 
-    mockRelayPoints.sort((a, b) => (a.Distance || 0) - (b.Distance || 0));
+    if (!mondialRelayId || !mondialRelayKey) {
+      console.warn('Mondial Relay credentials not configured');
+      return NextResponse.json({
+        points: [],
+        message: 'Configuration Mondial Relay manquante'
+      });
+    }
 
-    return NextResponse.json({
-      success: true,
-      relayPoints: mockRelayPoints,
+    const response = await fetch('https://api.mondialrelay.com/Web_Services.asmx', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/xml; charset=utf-8',
+        'SOAPAction': 'http://www.mondialrelay.fr/webservice/WSI4_PointRelais_Recherche'
+      },
+      body: `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+               xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <WSI4_PointRelais_Recherche xmlns="http://www.mondialrelay.fr/webservice/">
+      <Enseigne>${mondialRelayId}</Enseigne>
+      <Pays>FR</Pays>
+      <CP>${postalCode}</CP>
+      <Ville>${city}</Ville>
+      <NombreResultats>10</NombreResultats>
+      <Security>${mondialRelayKey}</Security>
+    </WSI4_PointRelais_Recherche>
+  </soap:Body>
+</soap:Envelope>`
     });
+
+    if (!response.ok) {
+      throw new Error('Erreur API Mondial Relay');
+    }
+
+    const xmlData = await response.text();
+    const points = parseWorldRelayResponse(xmlData);
+
+    return NextResponse.json({ points });
+
   } catch (error: any) {
-    console.error('Error searching relay points:', error);
+    console.error('Mondial Relay search error:', error);
     return NextResponse.json(
-      { error: error.message || 'Erreur lors de la recherche' },
+      { error: 'Erreur lors de la recherche Mondial Relay', points: [] },
       { status: 500 }
     );
   }
+}
+
+function parseWorldRelayResponse(xml: string): any[] {
+  const points: any[] = [];
+
+  return points;
 }
