@@ -3,6 +3,7 @@ import { FeaturedProducts } from '@/components/featured-products';
 import { HomeCategories } from '@/components/home-categories';
 import { VideoShortsSection } from '@/components/VideoShortsSection';
 import { CustomerReviewsSection } from '@/components/CustomerReviewsSection';
+import { GamePopupManager } from '@/components/GamePopupManager';
 import Link from 'next/link';
 import { Sparkles, Gift, Truck } from 'lucide-react';
 
@@ -11,6 +12,7 @@ export const revalidate = 0;
 export default function Home() {
   return (
     <div className="min-h-screen bg-white">
+      <GamePopupManager />
 
       <main>
         <section className="container mx-auto px-4 py-8">

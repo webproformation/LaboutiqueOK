@@ -126,6 +126,85 @@ async function verifyDatabase() {
       });
     }
 
+    // VÉRIFIER PAYPAL
+    console.log('\n\n💳 VÉRIFICATION SYSTÈME DE PAIEMENT PAYPAL\n');
+    console.log('═══════════════════════════════════════════════════════\n');
+
+    const { data: paymentMethods, error: pmError } = await supabase
+      .from('payment_methods')
+      .select('*')
+      .order('name');
+
+    if (pmError) {
+      console.error('❌ Erreur payment_methods:', pmError);
+    } else {
+      console.log(`📦 Méthodes de paiement : ${paymentMethods?.length || 0}\n`);
+      paymentMethods?.forEach((pm) => {
+        console.log(`${pm.is_active ? '✅' : '❌'} ${pm.name} (${pm.code})`);
+        console.log(`   Type: ${pm.type}`);
+        console.log(`   Config: ${pm.config ? JSON.stringify(pm.config) : 'Aucune'}`);
+        console.log('');
+      });
+    }
+
+    const { data: paypal } = await supabase
+      .from('payment_methods')
+      .select('*')
+      .eq('code', 'paypal')
+      .maybeSingle();
+
+    console.log('\n🔍 ÉTAT PAYPAL DANS LA DB:\n');
+    if (paypal) {
+      console.log('✅ PayPal trouvé dans payment_methods');
+      console.log(`   Actif: ${paypal.is_active ? '✅ OUI' : '❌ NON'}`);
+      console.log(`   Config: ${paypal.config ? JSON.stringify(paypal.config, null, 2) : 'Aucune'}`);
+    } else {
+      console.log('❌ PayPal NON trouvé dans payment_methods');
+    }
+
+    console.log('\n\n🔑 VARIABLES D\'ENVIRONNEMENT PAYPAL:\n');
+    console.log(`PAYPAL_CLIENT_ID: ${process.env.PAYPAL_CLIENT_ID ? '✅ Défini' : '❌ Manquant'}`);
+    console.log(`PAYPAL_CLIENT_SECRET: ${process.env.PAYPAL_CLIENT_SECRET ? '✅ Défini' : '❌ Manquant'}`);
+    console.log(`NEXT_PUBLIC_PAYPAL_CLIENT_ID: ${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? '✅ Défini' : '❌ Manquant'}`);
+
+    console.log('\n\n🔍 INTÉGRATION CODE PAYPAL:\n');
+
+    const fs = await import('fs');
+    const filesToCheck = [
+      'app/api/paypal/create-order/route.ts',
+      'app/api/paypal/capture-order/route.ts',
+      'components/PayPalButtons.tsx',
+      'package.json'
+    ];
+
+    for (const file of filesToCheck) {
+      const fullPath = path.join(path.dirname(__dirname), file);
+      const exists = fs.existsSync(fullPath);
+      console.log(`${exists ? '✅' : '❌'} ${file}`);
+    }
+
+    const packageJsonPath = path.join(path.dirname(__dirname), 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+    const hasPayPalPackage = packageJson.dependencies['@paypal/react-paypal-js'];
+
+    console.log('\n\n📦 PACKAGE NPM PAYPAL:\n');
+    console.log(`${hasPayPalPackage ? '✅' : '❌'} @paypal/react-paypal-js: ${hasPayPalPackage || 'NON INSTALLÉ'}`);
+
+    console.log('\n\n🎯 CONCLUSION PAYPAL:\n');
+    const dbConfigured = paypal && paypal.is_active;
+    const envConfigured = process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET;
+    const codeIntegrated = hasPayPalPackage;
+
+    if (dbConfigured && envConfigured && codeIntegrated) {
+      console.log('✅ PayPal est COMPLÈTEMENT FONCTIONNEL');
+    } else if (dbConfigured && envConfigured) {
+      console.log('⚠️  PayPal est PARTIELLEMENT configuré (manque l\'intégration code)');
+    } else if (dbConfigured || envConfigured) {
+      console.log('⚠️  PayPal est EN COURS de configuration');
+    } else {
+      console.log('❌ PayPal N\'EST PAS configuré');
+    }
+
     console.log('\n═══════════════════════════════════════════════════════');
     console.log('✅ DIAGNOSTIC TERMINÉ');
     console.log('═══════════════════════════════════════════════════════\n');

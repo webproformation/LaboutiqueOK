@@ -18,6 +18,7 @@ import { ShoppingBag, ArrowLeft, CreditCard, MapPin, Truck, Wallet, Package, Ale
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useOpenPackage } from '@/hooks/use-open-package';
+import { PayPalButtons } from '@/components/PayPalButtons';
 
 interface Address {
   id: string;
@@ -884,23 +885,47 @@ export default function CheckoutPage() {
                   ))}
                 </div>
 
-                <Button
-                  type="submit"
-                  disabled={loading || !rgpdConsent}
-                  className="w-full bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Traitement en cours...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Valider la commande
-                    </>
-                  )}
-                </Button>
+                {selectedPaymentMethod?.code === 'paypal' ? (
+                  <>
+                    {!rgpdConsent && (
+                      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-sm">
+                        <AlertCircle className="h-4 w-4 inline mr-1" />
+                        Vous devez accepter la politique de confidentialité pour continuer
+                      </div>
+                    )}
+                    <PayPalButtons
+                      amount={totalAfterWallet}
+                      disabled={!rgpdConsent || loading}
+                      onSuccess={(orderId) => {
+                        clearCart();
+                        toast.success('Paiement PayPal réussi !');
+                        router.push(`/checkout/confirmation?paypal=${orderId}`);
+                      }}
+                      onError={(error) => {
+                        console.error('PayPal error:', error);
+                        toast.error('Erreur lors du paiement PayPal');
+                      }}
+                    />
+                  </>
+                ) : (
+                  <Button
+                    type="submit"
+                    disabled={loading || !rgpdConsent}
+                    className="w-full bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Traitement en cours...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Valider la commande
+                      </>
+                    )}
+                  </Button>
+                )}
 
                 <div className="text-xs text-gray-500 text-center">
                   <AlertCircle className="h-3 w-3 inline mr-1" />
