@@ -41,7 +41,7 @@ const categories = [
   { name: 'Mode', href: '/category/mode' },
   { name: 'Les looks de Morgane', href: '/category/les-looks-de-morgane' },
   { name: 'Maison', href: '/category/maison' },
-  { name: 'Beauté et Senteurs', href: '/category/beaute-senteurs' },
+  { name: 'Beauté et Senteurs', href: '/category/beaute-et-senteurs' },
   { name: 'Bonnes affaires', href: '/category/bonnes-affaires' },
 ];
 

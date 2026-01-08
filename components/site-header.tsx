@@ -38,7 +38,7 @@ const navigation = [
   { name: 'Mode', href: '/category/mode', hasMegaMenu: true, megaType: 'mode' as const },
   { name: 'Les looks de Morgane', href: '/les-looks-de-morgane', hasMegaMenu: true, megaType: 'morgane' as const },
   { name: 'Maison', href: '/category/maison', hasMegaMenu: true, megaType: 'maison' as const },
-  { name: 'Beauté et Senteurs', href: '/category/beaute-senteurs', hasMegaMenu: true, megaType: 'beaute' as const },
+  { name: 'Beauté et Senteurs', href: '/category/beaute-et-senteurs', hasMegaMenu: true, megaType: 'beaute' as const },
   { name: 'Bonnes affaires', href: '/category/bonnes-affaires', hasMegaMenu: false },
   { name: 'Live & Replay', href: '/live', hasMegaMenu: false },
   { name: 'Carte cadeau', href: '/carte-cadeau', hasMegaMenu: false },

@@ -106,7 +106,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       const { data: beauteParent } = await supabase
         .from('categories')
         .select('id')
-        .eq('slug', 'beaute-senteurs')
+        .eq('slug', 'beaute-et-senteurs')
         .maybeSingle();
 
       if (beauteParent) {
