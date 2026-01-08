@@ -85,7 +85,11 @@ const navSections: NavSection[] = [
     icon: Users,
     items: [
       { href: "/admin/clients", label: "Clients" },
+      { href: "/admin/guestbook", label: "Livre d'Or" },
       { href: "/admin/ambassador", label: "Ambassadrice" },
+      { href: "/admin/returns-management", label: "Retours" },
+      { href: "/admin/looks-management", label: "Les Looks" },
+      { href: "/admin/open-packages", label: "Colis Ouverts" },
       { href: "/admin/diagnostic", label: "Diagnostic" },
       { href: "/admin/media", label: "Médiathèque" },
       { href: "/admin/sauvegarde", label: "Sauvegardes" },
