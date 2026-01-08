@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { supabase } from '@/lib/supabase';
+import { sendOrderConfirmationEmail } from '@/lib/mail';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-12-15.clover',
@@ -61,6 +62,54 @@ export async function POST(request: NextRequest) {
           console.error('Error updating order payment status:', updateError);
         } else {
           console.log(`Order ${orderId} marked as paid`);
+
+          const { data: orderDetails } = await supabase
+            .from('orders')
+            .select(`
+              *,
+              order_items (
+                *,
+                products (name, price)
+              ),
+              addresses (
+                street_address,
+                city,
+                postal_code,
+                country
+              ),
+              profiles (
+                first_name,
+                last_name,
+                email
+              )
+            `)
+            .eq('id', orderId)
+            .single();
+
+          if (orderDetails && orderDetails.profiles?.email) {
+            const items = orderDetails.order_items?.map((item: any) => ({
+              name: item.products?.name || 'Produit',
+              quantity: item.quantity,
+              price: item.price,
+            })) || [];
+
+            const shippingAddress = orderDetails.addresses
+              ? `${orderDetails.addresses.street_address}\n${orderDetails.addresses.postal_code} ${orderDetails.addresses.city}\n${orderDetails.addresses.country}`
+              : 'Adresse non spécifiée';
+
+            try {
+              await sendOrderConfirmationEmail(orderDetails.profiles.email, {
+                orderId: orderDetails.order_number || orderId,
+                customerName: `${orderDetails.profiles.first_name || ''} ${orderDetails.profiles.last_name || ''}`.trim(),
+                items,
+                total: orderDetails.total_amount,
+                shippingAddress,
+              });
+              console.log(`Confirmation email sent to ${orderDetails.profiles.email}`);
+            } catch (emailError) {
+              console.error('Error sending confirmation email:', emailError);
+            }
+          }
         }
 
         const userId = session.metadata?.userId;

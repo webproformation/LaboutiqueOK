@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { sendOrderConfirmationEmail } from '@/lib/mail';
 
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID!;
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET!;
@@ -71,6 +72,54 @@ export async function POST(request: NextRequest) {
           order_status: 'processing',
         })
         .eq('id', dbOrderId);
+
+      const { data: orderDetails } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (
+            *,
+            products (name, price)
+          ),
+          addresses (
+            street_address,
+            city,
+            postal_code,
+            country
+          ),
+          profiles (
+            first_name,
+            last_name,
+            email
+          )
+        `)
+        .eq('id', dbOrderId)
+        .single();
+
+      if (orderDetails && orderDetails.profiles?.email) {
+        const items = orderDetails.order_items?.map((item: any) => ({
+          name: item.products?.name || 'Produit',
+          quantity: item.quantity,
+          price: item.price,
+        })) || [];
+
+        const shippingAddress = orderDetails.addresses
+          ? `${orderDetails.addresses.street_address}\n${orderDetails.addresses.postal_code} ${orderDetails.addresses.city}\n${orderDetails.addresses.country}`
+          : 'Adresse non spécifiée';
+
+        try {
+          await sendOrderConfirmationEmail(orderDetails.profiles.email, {
+            orderId: orderDetails.order_number || dbOrderId,
+            customerName: `${orderDetails.profiles.first_name || ''} ${orderDetails.profiles.last_name || ''}`.trim(),
+            items,
+            total: orderDetails.total_amount,
+            shippingAddress,
+          });
+          console.log(`Confirmation email sent to ${orderDetails.profiles.email} for PayPal order`);
+        } catch (emailError) {
+          console.error('Error sending PayPal confirmation email:', emailError);
+        }
+      }
     }
 
     return NextResponse.json({

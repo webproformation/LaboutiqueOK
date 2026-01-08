@@ -229,12 +229,13 @@ export default function CheckoutPage() {
         tax_amount: tvaAmount.toFixed(2),
         discount_amount: discountAmount.toFixed(2),
         wallet_amount_used: walletAmountToUse.toFixed(2),
-        total: totalAfterWallet.toFixed(2),
-        items: cart,
+        total_amount: totalAfterWallet.toFixed(2),
         shipping_address: selectedAddress,
         shipping_method_id: selectedShippingMethodId || null,
         payment_method_id: selectedPaymentMethodId,
         relay_point_data: relayPointData,
+        insurance_type: shippingInsurance === '0' ? 'none' : shippingInsurance,
+        insurance_cost: insuranceCost.toFixed(2),
         coupon_code: couponCode || null,
         notes: notes || null,
         newsletter_consent: newsletterConsent,
@@ -249,6 +250,23 @@ export default function CheckoutPage() {
         .single();
 
       if (orderError) throw orderError;
+
+      // Insérer les items de la commande
+      const orderItems = cart.map(item => ({
+        order_id: newOrder.id,
+        product_name: item.name || 'Produit',
+        product_slug: item.slug || '',
+        product_image: item.image?.sourceUrl || item.variationImage?.sourceUrl || '',
+        price: String(item.price || 0),
+        quantity: item.quantity || 1,
+        variation_data: item.selectedAttributes || null,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
 
       if (addToOpenPackage && openPackage) {
         const { error: packageError } = await supabase

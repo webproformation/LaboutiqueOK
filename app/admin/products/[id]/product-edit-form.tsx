@@ -16,6 +16,7 @@ import Link from "next/link";
 import { ProductMediaSelector } from "@/components/product-media-selector";
 import RichTextEditor from "@/components/RichTextEditor";
 import ProductVariationsManager from "@/components/ProductVariationsManager";
+import ProductAttributesSelector from "@/components/ProductAttributesSelector";
 
 interface Product {
   id: string;
@@ -98,6 +99,7 @@ export default function ProductEditForm({
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategories);
   const [attributes, setAttributes] = useState<ProductAttribute[]>([]);
   const [colorVariations, setColorVariations] = useState<any[]>([]);
+  const [selectedAttributeTerms, setSelectedAttributeTerms] = useState<Record<string, string[]>>({});
   const [galleryImages, setGalleryImages] = useState<string[]>(
     Array.isArray(initialProduct.gallery_images) ? initialProduct.gallery_images :
     (initialProduct.images?.gallery_images || [])
@@ -684,6 +686,22 @@ export default function ProductEditForm({
             <div className="space-y-1 max-h-96 overflow-y-auto p-1">
               {categoryTree.map((category: any) => renderCategoryCheckbox(category))}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Attributs de Produit (Couleurs, Tailles, etc.) */}
+        <Card className="bg-white">
+          <CardHeader>
+            <CardTitle className="text-[#d4af37]">Attributs de Produit</CardTitle>
+            <CardDescription>
+              Sélectionnez les attributs disponibles pour ce produit (couleurs, tailles, etc.)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ProductAttributesSelector
+              selectedTerms={selectedAttributeTerms}
+              onChange={setSelectedAttributeTerms}
+            />
           </CardContent>
         </Card>
 

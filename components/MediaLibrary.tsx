@@ -390,7 +390,14 @@ export default function MediaLibrary({
       }
 
       toast.success('Fichier supprimé avec succès');
+
+      // Premier chargement immédiat
       await loadMediaFiles();
+
+      // Second chargement différé pour confirmer la disparition visuelle
+      setTimeout(async () => {
+        await loadMediaFiles();
+      }, 500);
     } catch (error) {
       console.error('Delete error:', error);
       toast.error('Erreur lors de la suppression');
