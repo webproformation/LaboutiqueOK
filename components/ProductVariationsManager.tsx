@@ -1,12 +1,29 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProductMediaSelector } from "@/components/product-media-selector";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
+
+interface AttributeTerm {
+  id: string;
+  name: string;
+  slug: string;
+  color_code: string | null;
+  value: string;
+}
+
+interface ProductAttribute {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+  terms?: AttributeTerm[];
+}
 
 interface ColorTerm {
   id: string;
@@ -49,6 +66,12 @@ export default function ProductVariationsManager({
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [variations, setVariations] = useState<Variation[]>(initialVariations);
   const [expandedVariationKey, setExpandedVariationKey] = useState<string | null>(null);
+  const [allAttributes, setAllAttributes] = useState<ProductAttribute[]>([]);
+  const [selectedAttributeTerms, setSelectedAttributeTerms] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    loadAllAttributes();
+  }, []);
 
   useEffect(() => {
     if (initialVariations.length > 0) {
@@ -62,6 +85,53 @@ export default function ProductVariationsManager({
       setSelectedSizes(Array.from(sizes));
     }
   }, []);
+
+  const loadAllAttributes = async () => {
+    try {
+      const { data: attrs, error } = await supabase
+        .from("product_attributes")
+        .select(`
+          *,
+          product_attribute_terms (
+            id,
+            name,
+            slug,
+            value,
+            color_code,
+            order_by,
+            attribute_id
+          )
+        `)
+        .eq("is_visible", true)
+        .order("order_by");
+
+      if (error) throw error;
+
+      if (attrs) {
+        const formatted = attrs.map(attr => ({
+          ...attr,
+          terms: attr.product_attribute_terms || []
+        }));
+        setAllAttributes(formatted as any);
+      }
+    } catch (error) {
+      console.error("Error loading all attributes:", error);
+    }
+  };
+
+  const toggleAttributeTerm = (attributeSlug: string, termId: string) => {
+    setSelectedAttributeTerms(prev => {
+      const currentTerms = prev[attributeSlug] || [];
+      const newTerms = currentTerms.includes(termId)
+        ? currentTerms.filter(id => id !== termId)
+        : [...currentTerms, termId];
+
+      return {
+        ...prev,
+        [attributeSlug]: newTerms
+      };
+    });
+  };
 
   const generateVariations = (colors: string[], sizes: string[]) => {
     const newVariations: Variation[] = [];
@@ -165,10 +235,65 @@ export default function ProductVariationsManager({
 
   return (
     <div className="space-y-6">
+      {/* Section pour tous les attributs disponibles */}
+      {allAttributes.length > 0 && (
+        <div className="space-y-6 border-2 border-[#d4af37]/30 rounded-lg p-6 bg-[#d4af37]/5">
+          <div>
+            <h3 className="text-xl font-bold text-[#d4af37] mb-2">
+              Attributs disponibles
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Sélectionnez les termes pour créer des variations
+            </p>
+          </div>
+
+          {allAttributes.map((attribute) => (
+            <div key={attribute.id} className="bg-white rounded-lg p-4 shadow-sm">
+              <Label className="text-lg font-semibold text-gray-900 mb-3 block">
+                {attribute.name}
+              </Label>
+              <p className="text-xs text-gray-500 mb-3">Type: {attribute.type}</p>
+
+              {attribute.terms && attribute.terms.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                  {attribute.terms.map((term) => {
+                    const isSelected = selectedAttributeTerms[attribute.slug]?.includes(term.id) || false;
+                    return (
+                      <button
+                        key={term.id}
+                        type="button"
+                        onClick={() => toggleAttributeTerm(attribute.slug, term.id)}
+                        className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 transition-all text-sm ${
+                          isSelected
+                            ? "border-[#d4af37] bg-[#d4af37]/10 text-[#d4af37] font-semibold"
+                            : "border-gray-300 hover:border-[#d4af37] bg-white"
+                        }`}
+                      >
+                        {term.color_code && (
+                          <div
+                            className="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0"
+                            style={{ backgroundColor: term.color_code }}
+                          />
+                        )}
+                        <span className="truncate">{term.name}</span>
+                        {isSelected && <Check className="h-4 w-4 flex-shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 italic">Aucun terme disponible pour cet attribut</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Section originale pour les couleurs */}
       <div className="space-y-4">
         <div>
           <Label className="text-lg font-semibold text-gray-900 mb-3 block">
-            Couleurs
+            Couleurs (pour variations de produit)
           </Label>
           <p className="text-sm text-gray-600 mb-4">
             Sélectionnez les couleurs disponibles pour ce produit
@@ -206,7 +331,7 @@ export default function ProductVariationsManager({
         {sizeTerms.length > 0 && (
           <div>
             <Label className="text-lg font-semibold text-gray-900 mb-3 block">
-              Tailles
+              Tailles (pour variations de produit)
             </Label>
             <p className="text-sm text-gray-600 mb-4">
               Sélectionnez les tailles disponibles (optionnel)

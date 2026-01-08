@@ -109,11 +109,12 @@ export default function MediaLibrary({
     try {
       console.log('[MediaLibrary] Loading media files from bucket:', bucket);
 
-      // 1. Charger depuis la vue unified_media
+      // 1. Charger depuis la vue unified_media (filtrer les fichiers vides)
       const { data: dbMedia, error: dbError } = await supabase
         .from('unified_media')
         .select('*')
         .eq('bucket_name', bucket)
+        .gt('file_size', 0)
         .order('created_at', { ascending: false });
 
       if (dbError) {
@@ -175,10 +176,16 @@ export default function MediaLibrary({
         urlMap.set(file.url, file);
       });
 
-      // Ajouter les fichiers du storage
+      // Ajouter les fichiers du storage (filtrer les fichiers vides)
       if (storageFiles) {
         for (const storageFile of storageFiles) {
           if (!storageFile.name || storageFile.name === '.emptyFolderPlaceholder') {
+            continue;
+          }
+
+          const fileSize = storageFile.metadata?.size || 0;
+          if (fileSize === 0) {
+            console.warn(`[MediaLibrary] Skipping empty file: ${storageFile.name}`);
             continue;
           }
 

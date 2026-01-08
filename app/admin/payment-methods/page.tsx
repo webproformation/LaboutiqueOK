@@ -37,7 +37,36 @@ import {
   Store,
   Euro,
   ArrowUpDown,
+  Smartphone,
+  Banknote,
+  Building2,
+  Gift,
+  QrCode,
+  CheckCircle2,
 } from "lucide-react";
+
+const PAYMENT_ICONS = [
+  { value: "💳", label: "Carte bancaire" },
+  { value: "🏦", label: "Banque" },
+  { value: "💵", label: "Espèces" },
+  { value: "💰", label: "Argent" },
+  { value: "📱", label: "Mobile" },
+  { value: "🎁", label: "Cadeau" },
+  { value: "🔐", label: "Sécurisé" },
+  { value: "✅", label: "Valide" },
+  { value: "⚡", label: "Rapide" },
+  { value: "🌟", label: "Premium" },
+  { value: "💎", label: "Diamant" },
+  { value: "🔵", label: "PayPal" },
+  { value: "🟢", label: "Visa" },
+  { value: "🔴", label: "Mastercard" },
+  { value: "🟡", label: "Bitcoin" },
+  { value: "📲", label: "Apple Pay" },
+  { value: "🤖", label: "Google Pay" },
+  { value: "🏪", label: "En boutique" },
+  { value: "📦", label: "A la livraison" },
+  { value: "💌", label: "Chèque" },
+];
 
 interface PaymentMethod {
   id: string;
@@ -401,12 +430,18 @@ export default function PaymentMethodsPage() {
             <div className="grid grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="icon">Icône</Label>
-                <Input
+                <select
                   id="icon"
                   value={formData.icon}
                   onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                  placeholder="💳"
-                />
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#D4AF37] bg-white"
+                >
+                  {PAYMENT_ICONS.map((icon) => (
+                    <option key={icon.value} value={icon.value}>
+                      {icon.value} {icon.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="processing_fee_percentage">Frais (%)</Label>

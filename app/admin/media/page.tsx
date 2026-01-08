@@ -48,6 +48,7 @@ export default function MediaAdminPage() {
       const { data: mediaFiles, error: mediaError } = await supabase
         .from('unified_media')
         .select('*')
+        .gt('file_size', 0)
         .order('created_at', { ascending: false });
 
       if (mediaError) {
@@ -72,7 +73,15 @@ export default function MediaAdminPage() {
       }
 
       const storageImagesData: ImageData[] = (storageFiles || [])
-        .filter(file => file.name && file.name !== '.emptyFolderPlaceholder')
+        .filter(file => {
+          if (!file.name || file.name === '.emptyFolderPlaceholder') return false;
+          const fileSize = file.metadata?.size || 0;
+          if (fileSize === 0) {
+            console.warn(`[MEDIA] Skipping empty file: ${file.name}`);
+            return false;
+          }
+          return true;
+        })
         .map(file => {
           const { data } = supabase.storage
             .from('product-images')
@@ -276,9 +285,11 @@ export default function MediaAdminPage() {
           <div className="space-y-6">
             <div className="border-2 border-dashed border-[#d4af37]/30 rounded-lg p-6 bg-[#d4af37]/5">
               <ImageUploader
-                onUploadSuccess={(url) => {
+                onUploadSuccess={async (url) => {
                   toast.success('Image ajoutée à la médiathèque');
-                  loadProductImages();
+                  setTimeout(async () => {
+                    await loadProductImages();
+                  }, 500);
                 }}
               />
             </div>

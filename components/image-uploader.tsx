@@ -66,7 +66,17 @@ export function ImageUploader({ onUploadSuccess }: ImageUploaderProps) {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast.error('Veuillez sélectionner une image');
+      toast.error('Veuillez sélectionner une image valide (format image uniquement)');
+      return;
+    }
+
+    if (file.size === 0) {
+      toast.error('Le fichier est vide. Veuillez sélectionner un fichier valide');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('L\'image ne doit pas dépasser 10MB');
       return;
     }
 
