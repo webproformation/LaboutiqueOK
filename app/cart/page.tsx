@@ -121,6 +121,8 @@ export default function CartPage() {
         <div className="flex flex-col lg:grid gap-8 lg:grid-cols-3">
           <div className="order-2 lg:order-1 lg:col-span-2 space-y-4">
             {cart.map((item) => {
+              if (!item) return null;
+
               const displayPrice = item.variationPrice || item.price;
               const displayImage = item.variationImage?.src || item.image?.sourceUrl || '/placeholder.png';
               const itemId = item.variationId ? `${item.id}-${item.variationId}` : item.id;
@@ -157,10 +159,13 @@ export default function CartPage() {
                             <div className="mt-2 space-y-1">
                               {Object.entries(item.selectedAttributes).map(([key, value]) => {
                                 const formattedKey = key.replace(/^attribute_/, '').replace(/_/g, ' ');
+                                const displayValue = typeof value === 'object' && value !== null
+                                  ? (value as any).name || (value as any).option || String(value)
+                                  : String(value);
                                 return (
                                   <div key={key} className="text-sm text-gray-700">
                                     <span className="font-semibold capitalize">{formattedKey}:</span>{' '}
-                                    <span>{value}</span>
+                                    <span>{displayValue}</span>
                                   </div>
                                 );
                               })}
