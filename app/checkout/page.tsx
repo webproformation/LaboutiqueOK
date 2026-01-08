@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { ShoppingBag, ArrowLeft, CreditCard, MapPin, Truck, Wallet, Package, AlertCircle, Info } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, CreditCard, MapPin, Truck, Wallet, Package, AlertCircle, Info, Gift } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useOpenPackage } from '@/hooks/use-open-package';
@@ -79,6 +79,9 @@ export default function CheckoutPage() {
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [referralCode, setReferralCode] = useState('');
+  const [appliedReferral, setAppliedReferral] = useState<any>(null);
+  const [referralDiscount, setReferralDiscount] = useState(0);
 
   const [addToOpenPackage, setAddToOpenPackage] = useState(false);
   const [notes, setNotes] = useState('');
@@ -168,7 +171,7 @@ export default function CheckoutPage() {
     : 0;
 
   const totalBeforeDiscount = subtotal + shippingCost + insuranceCost + paymentFee;
-  const totalAfterDiscount = Math.max(0, totalBeforeDiscount - discountAmount);
+  const totalAfterDiscount = Math.max(0, totalBeforeDiscount - discountAmount - referralDiscount);
   const totalAfterWallet = Math.max(0, totalAfterDiscount - walletAmountToUse);
   const tvaAmount = totalAfterWallet * TVA_RATE / (1 + TVA_RATE);
   const totalHT = totalAfterWallet - tvaAmount;
@@ -640,6 +643,71 @@ export default function CheckoutPage() {
                       Appliquer
                     </Button>
                   </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label htmlFor="referralCode">Code parrainage</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="referralCode"
+                      value={referralCode}
+                      onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                      placeholder="Code parrainage (5€ offerts)"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={async () => {
+                        if (!referralCode.trim()) {
+                          toast.error('Veuillez saisir un code parrainage');
+                          return;
+                        }
+
+                        const { data: hasOrders } = await supabase
+                          .from('orders')
+                          .select('id')
+                          .eq('user_id', user?.id)
+                          .limit(1)
+                          .maybeSingle();
+
+                        if (hasOrders) {
+                          toast.error('Le code parrainage est réservé aux nouveaux clients');
+                          return;
+                        }
+
+                        const { data: referralData, error } = await supabase
+                          .from('referral_codes')
+                          .select('id, code, user_id, is_active')
+                          .eq('code', referralCode.toUpperCase())
+                          .eq('is_active', true)
+                          .maybeSingle();
+
+                        if (error || !referralData) {
+                          toast.error('Code parrainage invalide');
+                          return;
+                        }
+
+                        if (referralData.user_id === user?.id) {
+                          toast.error('Vous ne pouvez pas utiliser votre propre code');
+                          return;
+                        }
+
+                        setAppliedReferral(referralData);
+                        setReferralDiscount(5);
+                        toast.success('Code parrainage appliqué ! -5€');
+                      }}
+                    >
+                      Appliquer
+                    </Button>
+                  </div>
+                  {appliedReferral && (
+                    <p className="text-sm text-green-600 flex items-center gap-1">
+                      <Gift className="h-4 w-4" />
+                      Code parrainage appliqué : -5,00 €
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>

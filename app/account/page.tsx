@@ -84,6 +84,30 @@ export default function AccountPage() {
 
   return (
     <div className="space-y-6">
+      <div className="bg-gradient-to-r from-[#D4AF37]/10 to-[#C6A15B]/10 border border-[#D4AF37]/20 rounded-xl p-6">
+        <div className="flex items-center gap-4">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={`${firstName} ${lastName}`}
+              className="h-16 w-16 rounded-full object-cover border-2 border-[#D4AF37]"
+            />
+          ) : (
+            <div className="h-16 w-16 rounded-full bg-[#D4AF37] flex items-center justify-center text-white text-2xl font-semibold">
+              {firstName.charAt(0)}{lastName.charAt(0)}
+            </div>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Bonjour {firstName}, ravie de te revoir !
+            </h1>
+            <p className="text-gray-600">
+              Membre depuis le {formatMemberSince(profile.created_at)}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <Card className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] border-[#b8933d]">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
