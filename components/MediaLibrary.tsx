@@ -264,8 +264,14 @@ export default function MediaLibrary({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validation stricte
     if (!file.type.startsWith('image/')) {
-      toast.error('Veuillez sélectionner une image valide');
+      toast.error('Veuillez sélectionner une image valide (format image uniquement)');
+      return;
+    }
+
+    if (file.size === 0) {
+      toast.error('Le fichier est vide. Veuillez sélectionner un fichier valide');
       return;
     }
 
@@ -280,18 +286,24 @@ export default function MediaLibrary({
       let fileToUpload: File | Blob = file;
       let fileName = file.name;
 
+      // TOUJOURS convertir en WebP sauf si déjà en WebP
       if (!file.type.includes('webp')) {
         console.log(`🔄 [WebP] Conversion de ${file.name} en WebP...`);
-        toast.info('Conversion en WebP...');
+        toast.info('Conversion en WebP en cours...', { duration: 2000 });
 
         try {
           const webpBlob = await convertToWebP(file);
           fileToUpload = webpBlob;
-          fileName = file.name.replace(/\.(jpg|jpeg|png|gif)$/i, '.webp');
+          fileName = file.name.replace(/\.(jpg|jpeg|png|gif|bmp|tiff)$/i, '.webp');
+          console.log(`✅ [WebP] Converti: ${fileName}`);
         } catch (conversionError) {
-          console.warn('[WebP] Conversion échouée, upload du fichier original');
-          toast.warning('Conversion WebP échouée, upload de l\'image originale');
+          console.error('[WebP] Conversion échouée:', conversionError);
+          toast.error('Erreur lors de la conversion WebP. Veuillez réessayer avec une autre image.');
+          setUploading(false);
+          return;
         }
+      } else {
+        console.log(`✅ [WebP] Fichier déjà en WebP: ${fileName}`);
       }
 
       const formData = new FormData();
@@ -310,10 +322,27 @@ export default function MediaLibrary({
         throw new Error(result.error || 'Upload failed');
       }
 
-      toast.success('Image uploadée avec succès');
+      // Basculer automatiquement sur l'onglet "Toutes les images"
+      setActiveTab('all');
+
+      // Recharger la liste pour afficher la nouvelle image
       await loadMediaFiles();
+
+      // Sélectionner automatiquement la nouvelle image
       setSelectedFile(result.url);
       onSelect(result.url);
+
+      // Toast amélioré avec preview
+      toast.success(
+        <div className="flex items-center gap-3">
+          <img src={result.url} alt="Preview" className="w-12 h-12 object-cover rounded" />
+          <div>
+            <p className="font-semibold">Image uploadée avec succès</p>
+            <p className="text-xs text-gray-600">{fileName}</p>
+          </div>
+        </div>,
+        { duration: 4000 }
+      );
 
       if (onUploadSuccess) {
         onUploadSuccess();
