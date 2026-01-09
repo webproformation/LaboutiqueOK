@@ -464,18 +464,20 @@ export default function NewsEditorPage() {
       </div>
 
       <Dialog open={showMediaLibrary} onOpenChange={setShowMediaLibrary}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="p-6 pb-0 shrink-0">
             <DialogTitle>Sélectionner une image</DialogTitle>
           </DialogHeader>
-          <MediaLibrary
-            bucket="media"
-            onSelect={(url) => {
-              setFormData({ ...formData, featured_image_url: url });
-              setShowMediaLibrary(false);
-            }}
-            onClose={() => setShowMediaLibrary(false)}
-          />
+          <div className="p-6 pt-4 overflow-y-auto flex-1">
+            <MediaLibrary
+              bucket="media"
+              onSelect={(url) => {
+                setFormData({ ...formData, featured_image_url: url });
+                setShowMediaLibrary(false);
+              }}
+              onClose={() => setShowMediaLibrary(false)}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

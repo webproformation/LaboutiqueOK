@@ -46,11 +46,11 @@ export function ProductMediaSelector({
               Choisir une image
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-7xl max-h-[90vh] p-0">
-            <DialogHeader className="p-6 pb-0">
+          <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+            <DialogHeader className="p-6 pb-0 shrink-0">
               <DialogTitle>Médiathèque</DialogTitle>
             </DialogHeader>
-            <div className="p-6 pt-4">
+            <div className="p-6 pt-4 overflow-y-auto flex-1">
               <MediaLibrary
                 bucket={bucket}
                 selectedUrl={currentImageUrl}

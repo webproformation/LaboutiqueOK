@@ -571,7 +571,7 @@ export default function MediaLibrary({
               <p>Aucun fichier trouvé</p>
             </div>
           ) : (
-            <div className="max-h-[500px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-[#d4af37] scrollbar-track-gray-100">
+            <div className="max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-[#d4af37] scrollbar-track-gray-100">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {filteredFiles.map((file) => (
                   <Card

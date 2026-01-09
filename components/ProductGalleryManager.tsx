@@ -63,15 +63,17 @@ export default function ProductGalleryManager({ images, onChange }: ProductGalle
             Ajouter une image à la galerie
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="p-6 pb-0 shrink-0">
             <DialogTitle>Choisir une image pour la galerie</DialogTitle>
           </DialogHeader>
-          <MediaLibrary
-            bucket="media"
-            onSelect={(url) => handleAddImage(url)}
-            onClose={() => setOpen(false)}
-          />
+          <div className="p-6 pt-4 overflow-y-auto flex-1">
+            <MediaLibrary
+              bucket="media"
+              onSelect={(url) => handleAddImage(url)}
+              onClose={() => setOpen(false)}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </div>
