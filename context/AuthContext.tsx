@@ -229,12 +229,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return { error: new Error('No user logged in') };
 
     try {
+      // Ne garder que les champs modifiables par l'utilisateur
+      const allowedFields: (keyof Profile)[] = [
+        'first_name',
+        'last_name',
+        'phone',
+        'avatar_url',
+        'birth_date'
+      ];
+
+      const updateData: any = { updated_at: new Date().toISOString() };
+
+      // Filtrer pour ne garder que les champs autorisés
+      allowedFields.forEach(field => {
+        if (field in data) {
+          updateData[field] = data[field];
+        }
+      });
+
+      console.log('📦 PAYLOAD ENVOYÉ À SUPABASE:', JSON.stringify(updateData, null, 2));
+
       const { error } = await supabase
         .from('profiles')
-        .update({ ...data, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq('id', user.id);
 
-      if (error) return { error };
+      if (error) {
+        console.error('❌ ERREUR SUPABASE:', error);
+        return { error };
+      }
 
       await loadProfile(user.id);
 
