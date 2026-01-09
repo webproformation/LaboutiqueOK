@@ -19,6 +19,7 @@ import { ShoppingBag, ArrowLeft, CreditCard, MapPin, Truck, Wallet, Package, Ale
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useOpenPackage } from '@/hooks/use-open-package';
+import { useUserCoupons } from '@/hooks/use-user-coupons';
 import { PayPalButtons } from '@/components/PayPalButtons';
 import { RelayPointSelector } from '@/components/RelayPointSelector';
 
@@ -67,6 +68,7 @@ export default function CheckoutPage() {
   const { user, profile } = useAuth();
   const { cart, cartTotal, clearCart } = useCart();
   const { openPackage, loading: packageLoading } = useOpenPackage();
+  const { coupons: userCoupons, loading: couponsLoading, markCouponAsUsed } = useUserCoupons(user?.id);
   const [loading, setLoading] = useState(false);
 
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -80,6 +82,7 @@ export default function CheckoutPage() {
   const [useWallet, setUseWallet] = useState(false);
   const [walletAmountToUse, setWalletAmountToUse] = useState(0);
   const [couponCode, setCouponCode] = useState('');
+  const [selectedUserCouponId, setSelectedUserCouponId] = useState<string>('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [referralCode, setReferralCode] = useState('');
@@ -297,6 +300,10 @@ export default function CheckoutPage() {
           .from('profiles')
           .update({ wallet_balance: newBalance })
           .eq('id', user.id);
+      }
+
+      if (selectedUserCouponId) {
+        await markCouponAsUsed(selectedUserCouponId, newOrder.id);
       }
 
       if (selectedPaymentMethod?.code === 'stripe') {
@@ -747,51 +754,168 @@ export default function CheckoutPage() {
               </Card>
             )}
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wallet className="h-5 w-5 text-[#D4AF37]" />
-                  Options de paiement
+            <Card className="border-[#D4AF37]/20 shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-[#F2F2E8] to-white border-b border-[#D4AF37]/10">
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <Gift className="h-6 w-6 text-[#D4AF37]" />
+                  Réductions & Fidélité
                 </CardTitle>
+                <CardDescription>
+                  Profitez de vos avantages pour réduire le montant de votre commande
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6 pt-6">
+                {/* Porte-monnaie */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label>Utiliser mon porte-monnaie</Label>
-                    <Badge variant="outline">{(profile?.wallet_balance || 0).toFixed(2)} € disponible</Badge>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="h-5 w-5 text-[#D4AF37]" />
+                      <Label className="text-base font-semibold">Mon porte-monnaie</Label>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="bg-[#D4AF37]/10 text-[#D4AF37] border-[#D4AF37]/30 font-semibold px-3 py-1"
+                    >
+                      {(profile?.wallet_balance || 0).toFixed(2)} € disponible
+                    </Badge>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="useWallet"
-                      checked={useWallet}
-                      onCheckedChange={(checked) => {
-                        setUseWallet(checked as boolean);
-                        if (!checked) {
-                          setWalletAmountToUse(0);
-                        } else {
-                          const maxAmount = Math.min(profile?.wallet_balance || 0, totalAfterDiscount);
-                          setWalletAmountToUse(maxAmount);
-                        }
-                      }}
-                    />
-                    <label htmlFor="useWallet" className="text-sm cursor-pointer">
-                      Utiliser mon solde ({(profile?.wallet_balance || 0).toFixed(2)} €)
-                    </label>
-                  </div>
+
+                  {(profile?.wallet_balance || 0) > 0 ? (
+                    <div className="border border-[#D4AF37]/20 rounded-lg p-4 bg-gradient-to-br from-[#F2F2E8] to-white hover:border-[#D4AF37]/40 transition-all">
+                      <div className="flex items-start space-x-3">
+                        <Checkbox
+                          id="useWallet"
+                          checked={useWallet}
+                          onCheckedChange={(checked) => {
+                            setUseWallet(checked as boolean);
+                            if (!checked) {
+                              setWalletAmountToUse(0);
+                            } else {
+                              const maxAmount = Math.min(profile?.wallet_balance || 0, totalAfterDiscount);
+                              setWalletAmountToUse(maxAmount);
+                            }
+                          }}
+                          className="mt-1"
+                        />
+                        <div className="flex-1">
+                          <label htmlFor="useWallet" className="cursor-pointer">
+                            <p className="font-medium text-gray-900">
+                              Utiliser mon solde de {(profile?.wallet_balance || 0).toFixed(2)} €
+                            </p>
+                            <p className="text-sm text-gray-600 mt-1">
+                              Économisez jusqu'à {Math.min(profile?.wallet_balance || 0, totalAfterDiscount).toFixed(2)} € sur cette commande
+                            </p>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <p className="text-sm text-gray-600 text-center">
+                        Votre porte-monnaie est vide. Gagnez des points lors de vos achats ou en participant à nos jeux !
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <Separator />
 
+                {/* Coupons gagnés */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Gift className="h-5 w-5 text-[#D4AF37]" />
+                    <Label className="text-base font-semibold">Mes coupons gagnés</Label>
+                  </div>
+
+                  {couponsLoading ? (
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <p className="text-sm text-gray-600 text-center">Chargement de vos coupons...</p>
+                    </div>
+                  ) : userCoupons.length > 0 ? (
+                    <div className="space-y-3">
+                      <RadioGroup
+                        value={selectedUserCouponId}
+                        onValueChange={(value) => {
+                          setSelectedUserCouponId(value);
+                          const selectedCoupon = userCoupons.find(c => c.id === value);
+                          if (selectedCoupon && selectedCoupon.coupon_type) {
+                            const discount = selectedCoupon.coupon_type.discount_type === 'percentage'
+                              ? (subtotal * selectedCoupon.coupon_type.discount_value / 100)
+                              : Number(selectedCoupon.coupon_type.discount_value);
+                            setDiscountAmount(discount);
+                          } else {
+                            setDiscountAmount(0);
+                          }
+                        }}
+                      >
+                        {userCoupons.map((coupon) => (
+                          <div
+                            key={coupon.id}
+                            className="border border-[#D4AF37]/20 rounded-lg p-4 bg-gradient-to-br from-white to-[#F2F2E8] hover:border-[#D4AF37]/50 transition-all cursor-pointer relative overflow-hidden"
+                          >
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-[#D4AF37]/5 rounded-full -mr-10 -mt-10" />
+                            <div className="flex items-start space-x-3 relative">
+                              <RadioGroupItem value={coupon.id} id={coupon.id} className="mt-1" />
+                              <label htmlFor={coupon.id} className="flex-1 cursor-pointer">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <p className="font-semibold text-gray-900">
+                                        {coupon.coupon_type?.name || 'Coupon'}
+                                      </p>
+                                      <Badge className="bg-[#D4AF37] text-white border-0 text-xs">
+                                        {coupon.code}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-gray-600 mb-2">
+                                      {coupon.coupon_type?.description || 'Réduction applicable'}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      Valable jusqu'au {new Date(coupon.valid_until).toLocaleDateString('fr-FR')}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-2xl font-bold text-[#D4AF37]">
+                                      {coupon.coupon_type?.discount_type === 'percentage'
+                                        ? `-${coupon.coupon_type.discount_value}%`
+                                        : `-${Number(coupon.coupon_type?.discount_value || 0).toFixed(2)}€`
+                                      }
+                                    </p>
+                                  </div>
+                                </div>
+                              </label>
+                            </div>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                  ) : (
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <p className="text-sm text-gray-600 text-center">
+                        Vous n'avez pas encore de coupons. Participez à nos jeux pour en gagner !
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Code promo manuel */}
                 <div className="space-y-2">
-                  <Label htmlFor="coupon">Code promo</Label>
+                  <Label htmlFor="coupon" className="text-base font-semibold">Code promo</Label>
                   <div className="flex gap-2">
                     <Input
                       id="coupon"
                       value={couponCode}
                       onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                       placeholder="Entrez votre code"
+                      className="border-[#D4AF37]/20 focus:border-[#D4AF37]"
                     />
-                    <Button type="button" variant="outline">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white transition-colors"
+                    >
                       Appliquer
                     </Button>
                   </div>
