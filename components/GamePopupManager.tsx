@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { ScratchCardGame } from './ScratchCardGame';
 import { WheelGame } from './WheelGame';
+import { CardFlipGame } from './CardFlipGame';
 import { toast } from 'sonner';
 
 interface ScratchCardGame {
@@ -41,12 +42,22 @@ interface WheelGameType {
   max_plays_per_user: number;
 }
 
+interface CardFlipGameType {
+  id: string;
+  name: string;
+  description: string;
+  coupon_id: string;
+  max_plays_per_user: number;
+}
+
 export function GamePopupManager() {
   const { user } = useAuth();
   const [scratchGame, setScratchGame] = useState<ScratchCardGame | null>(null);
   const [wheelGame, setWheelGame] = useState<WheelGameType | null>(null);
+  const [cardFlipGame, setCardFlipGame] = useState<CardFlipGameType | null>(null);
   const [showScratchGame, setShowScratchGame] = useState(false);
   const [showWheelGame, setShowWheelGame] = useState(false);
+  const [showCardFlipGame, setShowCardFlipGame] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -86,6 +97,20 @@ export function GamePopupManager() {
         console.error('Error loading wheel games:', wheelError);
       }
 
+      const { data: cardFlipData, error: cardFlipError } = await supabase
+        .from('card_flip_games')
+        .select('*')
+        .eq('is_active', true)
+        .or(`start_date.is.null,start_date.lte.${now}`)
+        .or(`end_date.is.null,end_date.gte.${now}`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (cardFlipError) {
+        console.error('Error loading card flip games:', cardFlipError);
+      }
+
       const hasSeenToday = sessionStorage.getItem('game-popup-seen-today');
       const today = new Date().toDateString();
 
@@ -101,6 +126,19 @@ export function GamePopupManager() {
         if (canPlay) {
           setWheelGame(wheelData);
           setTimeout(() => setShowWheelGame(true), 2000);
+          sessionStorage.setItem('game-popup-seen-today', today);
+        }
+      } else if (cardFlipData && (!hasSeenToday || hasSeenToday !== today) && user) {
+        const { data: plays } = await supabase
+          .from('card_flip_game_plays')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('game_id', cardFlipData.id);
+
+        const canPlay = (plays?.length || 0) < cardFlipData.max_plays_per_user;
+        if (canPlay) {
+          setCardFlipGame(cardFlipData);
+          setTimeout(() => setShowCardFlipGame(true), 2000);
           sessionStorage.setItem('game-popup-seen-today', today);
         }
       }
@@ -149,6 +187,13 @@ export function GamePopupManager() {
           game={wheelGame}
           onClose={() => setShowWheelGame(false)}
           onWin={handleWin}
+        />
+      )}
+
+      {showCardFlipGame && cardFlipGame && (
+        <CardFlipGame
+          gameId={cardFlipGame.id}
+          onClose={() => setShowCardFlipGame(false)}
         />
       )}
     </>

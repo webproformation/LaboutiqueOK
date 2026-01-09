@@ -236,7 +236,7 @@ export function ScratchCardGame({ game, onClose, onWin }: ScratchCardGameProps) 
 
   if (hasPlayed && remainingPlays === 0) {
     return (
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
         <div
           className="relative bg-gradient-to-br from-[#1a1a1a] via-[#2a2a2a] to-[#1a1a1a] rounded-2xl p-8 max-w-md w-full border-2 border-[#d4af37] shadow-2xl"
           style={{
@@ -273,7 +273,7 @@ export function ScratchCardGame({ game, onClose, onWin }: ScratchCardGameProps) 
   return (
     <>
       <Fireworks active={showFireworks} />
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto">
         <div
           className="relative bg-gradient-to-br from-[#1a1a1a] via-[#2a2a2a] to-[#1a1a1a] rounded-2xl p-6 max-w-2xl w-full border-2 border-[#d4af37] shadow-2xl my-4 max-h-[95vh] overflow-y-auto"
           style={{

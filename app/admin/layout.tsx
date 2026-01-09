@@ -85,6 +85,7 @@ const navSections: NavSection[] = [
       { href: "/admin/loyalty", label: "Gestion des points" },
       { href: "/admin/wheel", label: "Roue de la fortune" },
       { href: "/admin/scratch-cards", label: "Jeux à gratter" },
+      { href: "/admin/card-flip", label: "Jeux de cartes" },
     ],
   },
   {
