@@ -65,7 +65,14 @@ export default function AccountPage() {
     });
 
     if (error) {
-      toast.error('Erreur lors de la mise à jour', { id: toastId });
+      console.error('❌ ERREUR COMPLÈTE:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        full: error
+      });
+      toast.error(`Erreur: ${error.message || 'Inconnue'}`, { id: toastId });
       setIsUpdating(false);
       return;
     }

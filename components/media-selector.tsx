@@ -97,35 +97,6 @@ export function MediaSelector({ currentImageUrl, onSelect, label = "Image" }: Me
 
       console.log('[MediaSelector] Media storage files:', allUrls.length);
 
-      const { data: categoryFiles, error: categoryStorageError } = await supabase.storage
-        .from('category-images')
-        .list('categories', {
-          limit: 1000,
-          sortBy: { column: 'created_at', order: 'desc' }
-        });
-
-      if (categoryStorageError) {
-        console.error('[MediaSelector] Category storage error:', categoryStorageError);
-      }
-
-      const categoryCount = allUrls.length;
-
-      if (categoryFiles) {
-        for (const file of categoryFiles) {
-          if (file.name && file.name !== '.emptyFolderPlaceholder') {
-            const { data } = supabase.storage
-              .from('category-images')
-              .getPublicUrl(`categories/${file.name}`);
-
-            if (data?.publicUrl) {
-              allUrls.push(data.publicUrl);
-            }
-          }
-        }
-      }
-
-      console.log('[MediaSelector] Category storage files:', allUrls.length - categoryCount);
-
       const [productsResult, mediaResult] = await Promise.all([
         supabase
           .from('products')

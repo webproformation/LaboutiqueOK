@@ -134,64 +134,39 @@ export default function BackupPage() {
 
       setExportProgress(30);
 
-      // Étape 2 : Liste des fichiers du bucket product-images
-      setExportStep('Récupération des images produits...');
-      const { data: productFiles, error: productError } = await supabase.storage
-        .from('product-images')
-        .list('products', { limit: 1000 });
+      // Étape 2 : Liste des fichiers du bucket media
+      setExportStep('Récupération des médias...');
+      const { data: mediaFiles, error: mediaError } = await supabase.storage
+        .from('media')
+        .list('', { limit: 5000 });
 
-      const productImagesManifest = productFiles
+      const mediaManifest = mediaFiles
         ?.filter(file => file.name && file.name !== '.emptyFolderPlaceholder')
         .map(file => ({
           name: file.name,
-          path: `products/${file.name}`,
-          url: `${supabase.storage.from('product-images').getPublicUrl(`products/${file.name}`).data.publicUrl}`,
+          path: file.name,
+          url: `${supabase.storage.from('media').getPublicUrl(file.name).data.publicUrl}`,
           size: file.metadata?.size || 0,
           last_modified: file.updated_at || file.created_at,
         })) || [];
 
-      setExportProgress(50);
+      setExportProgress(60);
 
-      // Étape 3 : Liste des fichiers du bucket category-images
-      setExportStep('Récupération des images catégories...');
-      const { data: categoryFiles, error: categoryError } = await supabase.storage
-        .from('category-images')
-        .list('categories', { limit: 1000 });
-
-      const categoryImagesManifest = categoryFiles
-        ?.filter(file => file.name && file.name !== '.emptyFolderPlaceholder')
-        .map(file => ({
-          name: file.name,
-          path: `categories/${file.name}`,
-          url: `${supabase.storage.from('category-images').getPublicUrl(`categories/${file.name}`).data.publicUrl}`,
-          size: file.metadata?.size || 0,
-          last_modified: file.updated_at || file.created_at,
-        })) || [];
-
-      setExportProgress(70);
-
-      // Étape 4 : Création du manifest storage
+      // Étape 3 : Création du manifest storage
       setExportStep('Création du manifest storage...');
       const storageManifest = {
-        'product-images': {
-          bucket: 'product-images',
-          path: 'products',
-          count: productImagesManifest.length,
-          total_size: productImagesManifest.reduce((sum, file) => sum + file.size, 0),
-          files: productImagesManifest,
-        },
-        'category-images': {
-          bucket: 'category-images',
-          path: 'categories',
-          count: categoryImagesManifest.length,
-          total_size: categoryImagesManifest.reduce((sum, file) => sum + file.size, 0),
-          files: categoryImagesManifest,
+        'media': {
+          bucket: 'media',
+          path: '',
+          count: mediaManifest.length,
+          total_size: mediaManifest.reduce((sum, file) => sum + file.size, 0),
+          files: mediaManifest,
         },
       };
 
-      setExportProgress(80);
+      setExportProgress(70);
 
-      // Étape 5 : Création de l'environment summary
+      // Étape 4 : Création de l'environment summary
       setExportStep('Génération du résumé d\'environnement...');
       const environmentSummary = {
         next_version: '13.5.1',
@@ -201,7 +176,7 @@ export default function BackupPage() {
         deployment_platform: 'Netlify',
         framework: 'Next.js',
         database: 'Supabase PostgreSQL',
-        storage_buckets: ['product-images', 'category-images'],
+        storage_buckets: ['media'],
         key_routes: [
           '/',
           '/admin',
@@ -222,9 +197,9 @@ export default function BackupPage() {
         },
       };
 
-      setExportProgress(90);
+      setExportProgress(80);
 
-      // Étape 6 : Compilation du super JSON final
+      // Étape 5 : Compilation du super JSON final
       setExportStep('Compilation du super JSON...');
       const superExport = {
         database: dbExport,
@@ -238,17 +213,17 @@ export default function BackupPage() {
           exported_by: user.email,
           user_id: user.id,
           total_db_tables: Object.keys(dbExport).filter(k => !k.startsWith('_')).length,
-          total_storage_files: productImagesManifest.length + categoryImagesManifest.length,
-          total_storage_size_bytes: storageManifest['product-images'].total_size + storageManifest['category-images'].total_size,
+          total_storage_files: mediaManifest.length,
+          total_storage_size_bytes: storageManifest['media'].total_size,
           database_records: Object.values(dbExport)
             .filter(val => Array.isArray(val))
             .reduce((sum: number, arr: any) => sum + arr.length, 0),
         },
       };
 
-      setExportProgress(95);
+      setExportProgress(90);
 
-      // Étape 7 : Téléchargement du fichier
+      // Étape 6 : Téléchargement du fichier
       setExportStep('Téléchargement du fichier...');
       const blob = new Blob([JSON.stringify(superExport, null, 2)], {
         type: 'application/json',
@@ -376,57 +351,27 @@ export default function BackupPage() {
 
       let totalFiles = 0;
 
-      // Télécharger les images produits
-      toast.info('Récupération des images produits...');
-      const { data: productFiles, error: productError } = await supabase.storage
-        .from('product-images')
-        .list('products', {
-          limit: 1000,
+      // Télécharger les médias
+      toast.info('Récupération des médias...');
+      const { data: mediaFiles, error: mediaError } = await supabase.storage
+        .from('media')
+        .list('', {
+          limit: 5000,
         });
 
-      if (productError) {
-        console.warn('Erreur images produits:', productError);
-      } else if (productFiles) {
-        const productFolder = zip.folder('product-images');
-        for (const file of productFiles) {
+      if (mediaError) {
+        console.warn('Erreur médias:', mediaError);
+      } else if (mediaFiles) {
+        const mediaFolder = zip.folder('media');
+        for (const file of mediaFiles) {
           if (file.name && file.name !== '.emptyFolderPlaceholder') {
             try {
               const { data: blob, error: downloadError } = await supabase.storage
-                .from('product-images')
-                .download(`products/${file.name}`);
+                .from('media')
+                .download(file.name);
 
               if (!downloadError && blob) {
-                productFolder?.file(file.name, blob);
-                totalFiles++;
-              }
-            } catch (err) {
-              console.error('Download error:', file.name, err);
-            }
-          }
-        }
-      }
-
-      // Télécharger les images catégories
-      toast.info('Récupération des images catégories...');
-      const { data: categoryFiles, error: categoryError } = await supabase.storage
-        .from('category-images')
-        .list('categories', {
-          limit: 1000,
-        });
-
-      if (categoryError) {
-        console.warn('Erreur images catégories:', categoryError);
-      } else if (categoryFiles) {
-        const categoryFolder = zip.folder('category-images');
-        for (const file of categoryFiles) {
-          if (file.name && file.name !== '.emptyFolderPlaceholder') {
-            try {
-              const { data: blob, error: downloadError } = await supabase.storage
-                .from('category-images')
-                .download(`categories/${file.name}`);
-
-              if (!downloadError && blob) {
-                categoryFolder?.file(file.name, blob);
+                mediaFolder?.file(file.name, blob);
                 totalFiles++;
               }
             } catch (err) {
