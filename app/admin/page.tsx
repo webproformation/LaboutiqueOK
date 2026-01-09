@@ -222,7 +222,7 @@ export default async function AdminDashboard() {
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-gray-900">
-                      {order.total.toFixed(2)} €
+                      {(Number(order.total) || 0).toFixed(2)} €
                     </p>
                     <span
                       className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${

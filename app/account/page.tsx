@@ -122,7 +122,7 @@ export default function AccountPage() {
             </div>
             <div className="text-right">
               <p className="text-3xl font-bold text-white">
-                {profile.wallet_balance.toFixed(2)}€
+                {(Number(profile.wallet_balance) || 0).toFixed(2)}€
               </p>
             </div>
           </div>

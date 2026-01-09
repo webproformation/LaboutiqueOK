@@ -200,7 +200,7 @@ export default function CartPage() {
 
                           <div className="flex items-center space-x-4">
                             <p className="text-lg font-semibold text-gray-900">
-                              {total.toFixed(2)} €
+                              {(Number(total) || 0).toFixed(2)} €
                             </p>
                             <Button
                               variant="ghost"
@@ -232,11 +232,11 @@ export default function CartPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Sous-total HT</span>
-                      <span className="font-medium">{(cartTotal / 1.20).toFixed(2)} €</span>
+                      <span className="font-medium">{((Number(cartTotal) || 0) / 1.20).toFixed(2)} €</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">TVA (20%)</span>
-                      <span className="font-medium">{(cartTotal - (cartTotal / 1.20)).toFixed(2)} €</span>
+                      <span className="font-medium">{((Number(cartTotal) || 0) - ((Number(cartTotal) || 0) / 1.20)).toFixed(2)} €</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Frais de port</span>
@@ -248,7 +248,7 @@ export default function CartPage() {
 
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total TTC</span>
-                    <span className="text-[#b8933d]">{cartTotal.toFixed(2)} €</span>
+                    <span className="text-[#b8933d]">{(Number(cartTotal) || 0).toFixed(2)} €</span>
                   </div>
 
                   {user && <WalletSelector
@@ -261,12 +261,12 @@ export default function CartPage() {
                     <div className="bg-green-50 border border-green-200 rounded-md p-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-green-800">Cagnotte utilisée</span>
-                        <span className="font-semibold text-green-900">-{walletAmount.toFixed(2)} €</span>
+                        <span className="font-semibold text-green-900">-{(Number(walletAmount) || 0).toFixed(2)} €</span>
                       </div>
                       <Separator className="my-2 bg-green-200" />
                       <div className="flex justify-between text-base font-bold">
                         <span className="text-gray-900">Reste à payer</span>
-                        <span className="text-[#b8933d]">{finalTotal.toFixed(2)} €</span>
+                        <span className="text-[#b8933d]">{(Number(finalTotal) || 0).toFixed(2)} €</span>
                       </div>
                     </div>
                   )}
@@ -275,9 +275,9 @@ export default function CartPage() {
                     <Alert className="bg-orange-50 border-orange-200">
                       <Info className="h-4 w-4 text-orange-600" />
                       <AlertDescription className="text-sm text-orange-800">
-                        Pour votre première commande, le montant minimum est de {MINIMUM_ORDER_AMOUNT.toFixed(2)} €
+                        Pour votre première commande, le montant minimum est de {(Number(MINIMUM_ORDER_AMOUNT) || 0).toFixed(2)} €
                         <br />
-                        Il vous manque <strong>{(MINIMUM_ORDER_AMOUNT - finalTotal).toFixed(2)} €</strong>
+                        Il vous manque <strong>{((Number(MINIMUM_ORDER_AMOUNT) || 0) - (Number(finalTotal) || 0)).toFixed(2)} €</strong>
                       </AlertDescription>
                     </Alert>
                   )}
