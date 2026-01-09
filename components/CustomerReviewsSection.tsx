@@ -20,27 +20,40 @@ export function CustomerReviewsSection() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadReviews();
-  }, []);
+    let isMounted = true;
 
-  async function loadReviews() {
-    try {
-      const { data, error } = await supabase
-        .from('customer_reviews')
-        .select('*')
-        .eq('status', 'approved')
-        .eq('is_featured', true)
-        .order('created_at', { ascending: false })
-        .limit(10);
+    async function loadReviews() {
+      try {
+        const { data, error } = await supabase
+          .from('customer_reviews')
+          .select('*')
+          .eq('status', 'approved')
+          .eq('is_featured', true)
+          .order('created_at', { ascending: false })
+          .limit(10);
 
-      if (error) throw error;
-      setReviews(data || []);
-    } catch (error) {
-      console.error('Error loading reviews:', error);
-    } finally {
-      setLoading(false);
+        if (error) throw error;
+
+        if (isMounted) {
+          setReviews(data || []);
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error loading reviews:', error);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
     }
-  }
+
+    loadReviews();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   function nextReview() {
     setCurrentIndex((prev) => (prev + 1) % reviews.length);
