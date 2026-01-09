@@ -1,75 +1,21 @@
 {
+  "locked": true,
   "project_id": "qcqbtmvbvipsxwjlgjvk",
-  "project_name": "La Boutique de Morgane",
   "project_url": "https://qcqbtmvbvipsxwjlgjvk.supabase.co",
-  "lock_date": "2026-01-07T00:00:00Z",
-  "lock_reason": "Plus de 100 retours en arrière détectés - Verrouillage permanent",
-  "admin_account": {
-    "email": "contact@webproformation.fr",
-    "uuid": "446278c1-a429-4827-b710-ebed5cb34478",
-    "is_admin": true,
-    "created_at": "2026-01-07T17:18:01Z"
-  },
   "forbidden_projects": [
-    {
-      "id": "mcstvpdcfvhsgnhdfeee",
-      "reason": "Ancien projet - Migration complète effectuée vers qcqbtmv",
-      "forbidden_since": "2026-01-07"
-    }
+    "mcstv",
+    "mcstvpdcfvhsgnhdfeee"
   ],
-  "critical_files": [
-    {
-      "file": ".env",
-      "check": "MUST contain qcqbtmvbvipsxwjlgjvk",
-      "forbidden": "MUST NOT contain mcstvpdcfvhsgnhdfeee"
-    },
-    {
-      "file": "lib/supabase.ts",
-      "check": "MUST use environment variables from .env",
-      "forbidden": "MUST NOT hardcode mcstv URLs"
-    }
-  ],
-  "verification_script": ".bolt/verify-qcqbtmv.sh",
-  "lock_file": ".env.lock",
-  "documentation": [
-    "ACCES-ADMIN-TOTAL-qcqbtmv.md",
-    "INSTRUCTIONS-RECONNEXION-ADMIN.md",
-    "RLS-SECURITY-AUDIT-2026-01-07.md",
-    ".bolt/AI-INSTRUCTIONS.md"
-  ],
-  "history": [
-    {
-      "date": "2026-01-07",
-      "event": "Détection .env → mcstv",
-      "action": "Correction immédiate + création .env.lock",
-      "status": "resolved"
-    },
-    {
-      "date": "2026-01-07",
-      "event": "Erreur 400 sur /profiles",
-      "action": "Migration profiles.id vers UUID",
-      "status": "resolved"
-    },
-    {
-      "date": "2026-01-07",
-      "event": "RLS policies trop restrictives",
-      "action": "Correction policies + documentation",
-      "status": "resolved"
-    }
-  ],
-  "checksum": {
-    "env_expected": "qcqbtmvbvipsxwjlgjvk",
-    "env_forbidden": "mcstvpdcfvhsgnhdfeee",
-    "last_verified": "2026-01-07T00:00:00Z"
+  "lock_date": "2026-01-09",
+  "reason": "Protection contre les changements de projet accidentels",
+  "warnings_issued": 8,
+  "rollbacks_count": "centaines",
+  "critical_rules": {
+    "ids_format": "TEXT (WordPress format: '571', '102', etc.)",
+    "no_uuid_conversion": true,
+    "no_foreign_keys_on_text_ids": true,
+    "always_verify_env_before_action": true
   },
-  "ai_instructions": {
-    "before_env_modification": "MUST read .bolt/AI-INSTRUCTIONS.md and verify current .env content",
-    "after_env_modification": "MUST run .bolt/verify-qcqbtmv.sh",
-    "on_mcstv_detection": "MUST correct immediately and alert user",
-    "forbidden_actions": [
-      "Revert to mcstv",
-      "Modify .env without verification",
-      "Ignore verification script errors"
-    ]
-  }
+  "verification_command": ".bolt/verify-qcqbtmv.sh",
+  "emergency_contact": "STOP AND ASK USER IMMEDIATELY IF mcstv DETECTED"
 }

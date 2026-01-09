@@ -109,18 +109,41 @@ export default function OrdersPage() {
   const loadOrders = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Récupération des commandes avec order_items
+      const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
         .select(`
           *,
-          order_items(*),
-          shipping_method:shipping_methods(*),
-          payment_method:payment_methods(*)
+          order_items(*)
         `)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setOrders(data || []);
+      if (ordersError) throw ordersError;
+
+      // Récupération des méthodes de livraison et paiement
+      const shippingMethodIds = Array.from(new Set(ordersData?.map(o => o.shipping_method_id).filter(Boolean))) as string[];
+      const paymentMethodIds = Array.from(new Set(ordersData?.map(o => o.payment_method_id).filter(Boolean))) as string[];
+
+      const [shippingMethodsRes, paymentMethodsRes] = await Promise.all([
+        shippingMethodIds.length > 0
+          ? supabase.from("shipping_methods").select("*").in("id", shippingMethodIds)
+          : Promise.resolve({ data: [] }),
+        paymentMethodIds.length > 0
+          ? supabase.from("payment_methods").select("*").in("id", paymentMethodIds)
+          : Promise.resolve({ data: [] })
+      ]);
+
+      // Association des données
+      const shippingMethodsMap = new Map(shippingMethodsRes.data?.map(m => [m.id, m]));
+      const paymentMethodsMap = new Map(paymentMethodsRes.data?.map(m => [m.id, m]));
+
+      const enrichedOrders = ordersData?.map(order => ({
+        ...order,
+        shipping_method: order.shipping_method_id ? shippingMethodsMap.get(order.shipping_method_id) : null,
+        payment_method: order.payment_method_id ? paymentMethodsMap.get(order.payment_method_id) : null
+      })) || [];
+
+      setOrders(enrichedOrders);
     } catch (error) {
       console.error("Error loading orders:", error);
       toast.error("Erreur lors du chargement des commandes");
