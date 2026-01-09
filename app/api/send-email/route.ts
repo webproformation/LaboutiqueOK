@@ -30,11 +30,11 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('is_admin')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (profile?.role !== 'admin') {
+    if (!profile?.is_admin) {
       return NextResponse.json(
         { error: 'Accès interdit - Admin uniquement' },
         { status: 403 }
@@ -96,11 +96,11 @@ export async function GET(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('is_admin')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (profile?.role !== 'admin') {
+    if (!profile?.is_admin) {
       return NextResponse.json(
         { error: 'Accès interdit - Admin uniquement' },
         { status: 403 }
