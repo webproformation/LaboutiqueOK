@@ -49,82 +49,8 @@ export default function CategoryPage() {
   const [minPrice, setMinPrice] = useState<number>(0);
   const [maxPrice, setMaxPrice] = useState<number>(1000);
 
-  const [availableColors, setAvailableColors] = useState<string[]>([]);
+  const [availableColors, setAvailableColors] = useState<Array<{ name: string; color_code?: string }>>([]);
   const [availableSizes, setAvailableSizes] = useState<string[]>([]);
-
-  const getColorValue = (colorName: string): string => {
-    // Si c'est déjà un code hexadécimal, le retourner directement
-    if (colorName.startsWith('#')) {
-      return colorName;
-    }
-
-    const colorMap: Record<string, string> = {
-      noir: "#000000",
-      black: "#000000",
-      blanc: "#FFFFFF",
-      white: "#FFFFFF",
-      rouge: "#DC2626",
-      red: "#DC2626",
-      bleu: "#2563EB",
-      "bleu ciel": "#7DD3FC",
-      blue: "#2563EB",
-      vert: "#16A34A",
-      green: "#16A34A",
-      jaune: "#EAB308",
-      yellow: "#EAB308",
-      rose: "#EC4899",
-      pink: "#EC4899",
-      violet: "#9333EA",
-      purple: "#9333EA",
-      orange: "#F97316",
-      gris: "#6B7280",
-      gray: "#6B7280",
-      beige: "#D4B896",
-      marron: "#92400E",
-      brown: "#92400E",
-      bordeaux: "#8B0E44",
-      burgundy: "#8B0E44",
-    };
-
-    const lowerName = colorName.toLowerCase();
-
-    // Correspondance exacte d'abord
-    if (colorMap[lowerName]) {
-      return colorMap[lowerName];
-    }
-
-    // Puis recherche par inclusion
-    for (const [key, value] of Object.entries(colorMap)) {
-      if (lowerName.includes(key)) {
-        return value;
-      }
-    }
-
-    return "#9CA3AF";
-  };
-
-  const getColorDisplayName = (colorValue: string): string => {
-    // Si c'est un ID/UUID (contient des tirets et des chiffres), extraire le nom de couleur
-    if (colorValue.includes('-') && colorValue.length > 20) {
-      // Chercher un nom de couleur connu dans la chaîne
-      const colorNames = ['noir', 'blanc', 'rouge', 'bleu', 'vert', 'jaune', 'rose', 'violet', 'orange', 'gris', 'beige', 'marron', 'bordeaux'];
-      const lowerValue = colorValue.toLowerCase();
-      for (const name of colorNames) {
-        if (lowerValue.includes(name)) {
-          return name.charAt(0).toUpperCase() + name.slice(1);
-        }
-      }
-      return colorValue.split('-')[0];
-    }
-
-    // Si c'est un code hex pur, ne pas afficher de texte
-    if (colorValue.startsWith('#')) {
-      return '';
-    }
-
-    // Capitaliser la première lettre
-    return colorValue.charAt(0).toUpperCase() + colorValue.slice(1).toLowerCase();
-  };
 
   useEffect(() => {
     loadCategoryAndProducts();
@@ -167,7 +93,7 @@ export default function CategoryPage() {
         if (productsError) throw productsError;
         const prods = productsData || [];
 
-        const colors = new Set<string>();
+        const colorsMap = new Map<string, { name: string; color_code?: string }>();
         const sizes = new Set<string>();
 
         for (const product of prods) {
@@ -189,7 +115,9 @@ export default function CategoryPage() {
 
                     if (!isHexCode && stringValue) {
                       if (lowerKey.includes('couleur') || lowerKey.includes('color')) {
-                        colors.add(stringValue);
+                        if (!colorsMap.has(stringValue)) {
+                          colorsMap.set(stringValue, { name: stringValue });
+                        }
                       }
                       if (lowerKey.includes('taille') || lowerKey.includes('size')) {
                         sizes.add(stringValue);
@@ -218,7 +146,12 @@ export default function CategoryPage() {
                 attributeTerms.forEach((term: any) => {
                   const attrSlug = term.product_attributes?.slug || '';
                   if (attrSlug.includes('couleur') || attrSlug.includes('color')) {
-                    colors.add(term.name);
+                    if (!colorsMap.has(term.name)) {
+                      colorsMap.set(term.name, {
+                        name: term.name,
+                        color_code: term.color_code
+                      });
+                    }
                   }
                   if (attrSlug.includes('taille') || attrSlug.includes('size')) {
                     sizes.add(term.name);
@@ -239,7 +172,7 @@ export default function CategoryPage() {
         setPriceRange([calculatedMin, calculatedMax]);
 
         setProducts(prods);
-        setAvailableColors(Array.from(colors));
+        setAvailableColors(Array.from(colorsMap.values()));
         setAvailableSizes(Array.from(sizes));
       } else {
         setProducts([]);
@@ -280,10 +213,11 @@ export default function CategoryPage() {
 
                 Object.entries(v.attributes).forEach(([key, value]) => {
                   const lowerKey = key.toLowerCase();
-                  if ((lowerKey.includes('couleur') || lowerKey.includes('color')) && value === filterColor) {
+                  const stringValue = String(value || '');
+                  if ((lowerKey.includes('couleur') || lowerKey.includes('color')) && stringValue === filterColor) {
                     matchesColor = true;
                   }
-                  if ((lowerKey.includes('taille') || lowerKey.includes('size')) && value === filterSize) {
+                  if ((lowerKey.includes('taille') || lowerKey.includes('size')) && stringValue === filterSize) {
                     matchesSize = true;
                   }
                 });
@@ -447,30 +381,35 @@ export default function CategoryPage() {
                             Toutes
                           </button>
                           {availableColors.map((color) => {
-                            const displayName = getColorDisplayName(color);
-                            const colorHex = getColorValue(color);
+                            const hasColorCode = color.color_code && color.color_code.startsWith('#');
 
                             return (
                               <button
-                                key={color}
-                                onClick={() => setFilterColor(color)}
+                                key={color.name}
+                                onClick={() => setFilterColor(color.name)}
                                 className={`flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-full border-2 transition-all ${
-                                  filterColor === color
+                                  filterColor === color.name
                                     ? 'border-[#b8933d] shadow-md scale-105'
                                     : 'border-gray-200 hover:border-[#b8933d] hover:shadow-sm'
                                 }`}
-                                title={color}
+                                title={color.name}
                               >
-                                <span
-                                  className={`w-6 h-6 rounded-full border-2 flex-shrink-0 ${
-                                    colorHex === '#FFFFFF' ? 'border-gray-300' : 'border-gray-400'
-                                  }`}
-                                  style={{
-                                    backgroundColor: colorHex,
-                                    boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)'
-                                  }}
-                                />
-                                <span className="text-gray-700 font-medium">{displayName}</span>
+                                {hasColorCode ? (
+                                  <span
+                                    className={`w-6 h-6 rounded-full border-2 flex-shrink-0 ${
+                                      color.color_code === '#FFFFFF' ? 'border-gray-300' : 'border-gray-400'
+                                    }`}
+                                    style={{
+                                      backgroundColor: color.color_code,
+                                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.1)'
+                                    }}
+                                  />
+                                ) : (
+                                  <span className="w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100">
+                                    {color.name.charAt(0).toUpperCase()}
+                                  </span>
+                                )}
+                                <span className="text-gray-700 font-medium">{color.name}</span>
                               </button>
                             );
                           })}
