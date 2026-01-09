@@ -105,14 +105,24 @@ async function testRealOperations() {
       last_name: profiles.last_name
     });
 
-    // Tenter une mise à jour
+    // Tenter une mise à jour avec tous les champs autorisés
     const testPhone = `+33 6 ${Math.floor(Math.random() * 90000000 + 10000000)}`;
+    const testBirthDate = '1990-05-15';
 
-    console.log(`📝 Tentative de mise à jour du téléphone: ${testPhone}`);
+    console.log(`📝 Tentative de mise à jour complète:`);
+    console.log(`  - Téléphone: ${testPhone}`);
+    console.log(`  - Date de naissance: ${testBirthDate}`);
+    console.log(`  - Prénom: TestPrenom`);
+    console.log(`  - Nom: TestNom`);
 
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({ phone: testPhone })
+      .update({
+        phone: testPhone,
+        birth_date: testBirthDate,
+        first_name: 'TestPrenom',
+        last_name: 'TestNom'
+      })
       .eq('id', profiles.id);
 
     if (updateError) {
@@ -130,11 +140,16 @@ async function testRealOperations() {
     // Vérifier la mise à jour
     const { data: updatedProfile } = await supabase
       .from('profiles')
-      .select('phone')
+      .select('phone, birth_date, first_name, last_name')
       .eq('id', profiles.id)
       .maybeSingle();
 
-    console.log('✅ Vérification: phone =', updatedProfile?.phone);
+    console.log('✅ Vérification profil mis à jour:', {
+      phone: updatedProfile?.phone,
+      birth_date: updatedProfile?.birth_date,
+      first_name: updatedProfile?.first_name,
+      last_name: updatedProfile?.last_name
+    });
 
   } catch (error) {
     console.error('❌ TEST PROFIL ÉCHOUÉ:', error);
