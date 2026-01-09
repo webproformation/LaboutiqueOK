@@ -1,36 +1,38 @@
 #!/bin/bash
 
-# Script de vérification anti-revert pour le projet qcqbtmv
-# INTERDICTION de revenir à mcstv ou tout autre projet
+# Script de vérification d'intégrité projet qcqbtmv
+# INTERDICTION FORMELLE de retourner sur mcstv
 
-echo "=========================================="
-echo "🔒 VÉRIFICATION PROJET qcqbtmv"
-echo "=========================================="
+PROJECT_ID="qcqbtmvbvipsxwjlgjvk"
+EXPECTED_URL="https://qcqbtmvbvipsxwjlgjvk.supabase.co"
 
-# Vérifier que le .env contient qcqbtmv
-if ! grep -q "qcqbtmvbvipsxwjlgjvk" .env 2>/dev/null; then
-  echo "❌ ERREUR CRITIQUE: Le .env ne pointe pas vers qcqbtmv !"
-  echo "❌ Projet verrouillé sur qcqbtmvbvipsxwjlgjvk"
-  echo "❌ INTERDICTION de revenir à mcstv ou tout autre projet"
+# Vérification du fichier .env
+if [ ! -f .env ]; then
+  echo "❌ ERREUR: Fichier .env manquant!"
   exit 1
 fi
 
-# Vérifier que lib/supabase.ts contient qcqbtmv
-if ! grep -q "qcqbtmvbvipsxwjlgjvk" lib/supabase.ts 2>/dev/null; then
-  echo "❌ ERREUR CRITIQUE: lib/supabase.ts ne pointe pas vers qcqbtmv !"
+# Extraction de l'URL depuis .env
+CURRENT_URL=$(grep "NEXT_PUBLIC_SUPABASE_URL" .env | cut -d '=' -f2)
+
+# Vérification
+if [[ "$CURRENT_URL" != "$EXPECTED_URL" ]]; then
+  echo "❌ ERREUR CRITIQUE: Mauvais projet détecté!"
+  echo "   Attendu: $EXPECTED_URL"
+  echo "   Détecté: $CURRENT_URL"
+  echo ""
+  echo "🚨 INTERDICTION de revenir sur mcstv ou tout autre projet"
   exit 1
 fi
 
-# Vérifier qu'il ne contient PAS mcstv
-if grep -q "mcstvpdcfvhsgnhdfeee" .env 2>/dev/null; then
-  echo "❌ ERREUR CRITIQUE: Tentative de retour vers mcstv détectée !"
-  echo "❌ Restauration immédiate requise !"
-  exit 1
+# Vérification lib/supabase.ts
+if [ -f lib/supabase.ts ]; then
+  if ! grep -q "qcqbtmvbvipsxwjlgjvk" lib/supabase.ts; then
+    echo "❌ ERREUR: lib/supabase.ts ne contient pas qcqbtmvbvipsxwjlgjvk"
+    exit 1
+  fi
 fi
 
-echo "✅ Projet verrouillé sur qcqbtmvbvipsxwjlgjvk"
-echo "✅ .env vérifié: qcqbtmv"
-echo "✅ lib/supabase.ts vérifié: qcqbtmv"
-echo "✅ Admin compte: contact@webproformation.fr (is_admin=true)"
-echo "=========================================="
+echo "✅ VÉRIFICATION RÉUSSIE: Projet qcqbtmvbvipsxwjlgjvk"
+echo "   URL: $CURRENT_URL"
 exit 0
