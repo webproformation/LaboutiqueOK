@@ -114,13 +114,13 @@ export function CouponSelector({ selectedCouponId, onSelectCoupon, subtotal }: C
                               </p>
                             </div>
                             <div className="text-right">
-                              {couponData.discount_type === 'fixed' && (
-                                <p className="text-lg font-bold text-[#b8933d]">-{couponData.discount_value}€</p>
+                              {(couponData.discount_type === 'fixed' || couponData.type === 'discount_amount') && (
+                                <p className="text-lg font-bold text-[#b8933d]">-{couponData.discount_value || couponData.value}€</p>
                               )}
-                              {couponData.discount_type === 'percentage' && (
-                                <p className="text-lg font-bold text-[#b8933d]">-{couponData.discount_value}%</p>
+                              {(couponData.discount_type === 'percentage' || couponData.type === 'discount_percentage') && (
+                                <p className="text-lg font-bold text-[#b8933d]">-{couponData.discount_value || couponData.value}%</p>
                               )}
-                              {couponData.discount_type === 'free_shipping' && (
+                              {(couponData.discount_type === 'free_shipping' || couponData.type === 'free_delivery') && (
                                 <Badge className="bg-[#b8933d] hover:bg-[#a07c2f]">
                                   Livraison offerte
                                 </Badge>
@@ -128,14 +128,9 @@ export function CouponSelector({ selectedCouponId, onSelectCoupon, subtotal }: C
                             </div>
                           </div>
                           <p className="text-xs text-gray-600">Code: {couponData.code}</p>
-                          {couponData.valid_until && (
+                          {coupon.valid_until && (
                             <p className="text-xs text-gray-500">
-                              Valable jusqu'au {new Date(couponData.valid_until).toLocaleDateString('fr-FR')}
-                            </p>
-                          )}
-                          {couponData.min_purchase_amount && (
-                            <p className="text-xs text-gray-500">
-                              Achat minimum: {couponData.min_purchase_amount}€
+                              Valable jusqu'au {new Date(coupon.valid_until).toLocaleDateString('fr-FR')}
                             </p>
                           )}
                         </div>

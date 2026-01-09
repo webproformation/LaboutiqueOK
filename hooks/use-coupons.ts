@@ -5,19 +5,22 @@ import { useAuth } from '@/context/AuthContext';
 export interface UserCoupon {
   id: string;
   user_id: string;
-  coupon_id: string;
-  assigned_at: string;
+  coupon_type_id: string;
+  code: string;
+  source: string;
   is_used: boolean;
   used_at?: string;
+  obtained_at: string;
+  valid_until: string;
   coupon?: {
     id: string;
     code: string;
+    type: string;
+    value: number;
     description: string;
-    discount_type: 'fixed' | 'percentage' | 'free_shipping';
-    discount_value: number;
-    min_purchase_amount?: number;
-    valid_from?: string;
-    valid_until?: string;
+    name?: string;
+    discount_type?: string;
+    discount_value?: number;
     is_active: boolean;
   };
 }
@@ -41,15 +44,15 @@ export function useCoupons() {
         .from('user_coupons')
         .select(`
           *,
-          coupon:coupons (
+          coupon:coupon_types!coupon_type_id (
             id,
             code,
+            type,
+            value,
             description,
+            name,
             discount_type,
             discount_value,
-            min_purchase_amount,
-            valid_from,
-            valid_until,
             is_active
           )
         `)
@@ -63,7 +66,7 @@ export function useCoupons() {
         const validCoupons = (data || []).filter(c => {
           if (!c.coupon) return false;
           if (!c.coupon.is_active) return false;
-          if (c.coupon.valid_until && new Date(c.coupon.valid_until) < new Date()) return false;
+          if (c.valid_until && new Date(c.valid_until) < new Date()) return false;
           return true;
         });
         setCoupons(validCoupons);
