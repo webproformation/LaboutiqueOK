@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { MediaSelector } from '@/components/media-selector';
 import { Plus, Save, X, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -171,13 +172,12 @@ export default function SlidesPage() {
               </div>
 
               <div>
-                <Label>URL de l'image</Label>
-                <Input
-                  value={editingSlide?.image_url || ''}
-                  onChange={(e) =>
-                    setEditingSlide((prev) => ({ ...prev!, image_url: e.target.value }))
+                <MediaSelector
+                  label="Image du slide"
+                  currentImageUrl={editingSlide?.image_url}
+                  onSelect={(url) =>
+                    setEditingSlide((prev) => ({ ...prev!, image_url: url }))
                   }
-                  placeholder="https://..."
                 />
               </div>
 
