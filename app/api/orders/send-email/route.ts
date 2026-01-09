@@ -66,12 +66,23 @@ export async function POST(request: NextRequest) {
       host: process.env.SMTP_HOST,
       port: process.env.SMTP_PORT,
       user: process.env.SMTP_USER ? '***' : 'MANQUANT',
-      pass: process.env.SMTP_PASS ? '***' : 'MANQUANT'
+      pass: process.env.SMTP_PASS ? '***' : 'MANQUANT',
+      from: process.env.EMAIL_FROM ? '***' : 'MANQUANT'
     });
 
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.error('[SEND-EMAIL] Variables SMTP manquantes');
-      return NextResponse.json({ error: "Configuration SMTP incomplète" }, { status: 500 });
+    const missingVars: string[] = [];
+    if (!process.env.SMTP_HOST) missingVars.push('SMTP_HOST');
+    if (!process.env.SMTP_PORT) missingVars.push('SMTP_PORT');
+    if (!process.env.SMTP_USER) missingVars.push('SMTP_USER');
+    if (!process.env.SMTP_PASS) missingVars.push('SMTP_PASS');
+
+    if (missingVars.length > 0) {
+      const errorMsg = `Configuration SMTP incomplète. Variables manquantes: ${missingVars.join(', ')}`;
+      console.error('[SEND-EMAIL]', errorMsg);
+      return NextResponse.json({
+        error: errorMsg,
+        missingVariables: missingVars
+      }, { status: 500 });
     }
 
     const transporter = nodemailer.createTransport({

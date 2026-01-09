@@ -17,10 +17,10 @@ export function useWalletBalance() {
     setLoading(true);
 
     const { data, error } = await supabase
-      .from('user_profiles')
+      .from('profiles')
       .select('wallet_balance')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error loading wallet balance:', error);

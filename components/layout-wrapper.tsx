@@ -11,6 +11,8 @@ import { WishlistProvider } from '@/context/WishlistContext';
 import { useAuthStore } from '@/stores/auth-store';
 import { OpenPackageBanner } from '@/components/OpenPackageBanner';
 import { AdminBanner } from '@/components/AdminBanner';
+import { CookieConsent } from '@/components/CookieConsent';
+import { FloatingButtons } from '@/components/FloatingButtons';
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -38,7 +40,18 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
           )}
           {children}
           {showHeaderFooter && <SiteFooter />}
-          <Toaster position="bottom-right" richColors />
+          <CookieConsent />
+          <FloatingButtons />
+          <Toaster
+            position="bottom-right"
+            richColors
+            toastOptions={{
+              style: {
+                marginBottom: '80px',
+                marginRight: '8px',
+              }
+            }}
+          />
         </CartProvider>
       </WishlistProvider>
     </AuthProvider>

@@ -48,10 +48,9 @@ interface UserCoupon {
 export default function CouponsPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
   const [userCoupons, setUserCoupons] = useState<UserCoupon[]>([]);
   const [usedUserCoupons, setUsedUserCoupons] = useState<UserCoupon[]>([]);
-  const [expiringSoonCoupons, setExpiringSoonCoupons] = useState<Coupon[]>([]);
+  const [expiringSoonCoupons, setExpiringSoonCoupons] = useState<UserCoupon[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -62,55 +61,44 @@ export default function CouponsPage() {
   async function loadCoupons() {
     setLoading(true);
     try {
-      const now = new Date().toISOString();
-      const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-      const { data: available, error: availableError } = await supabase
-        .from('coupons')
-        .select('*')
-        .eq('is_active', true)
-        .or(`valid_from.is.null,valid_from.lte.${now}`)
-        .or(`valid_until.is.null,valid_until.gte.${now}`)
-        .order('created_at', { ascending: false });
-
-      if (availableError) throw availableError;
-      setAvailableCoupons(available || []);
-
-      const { data: expiring, error: expiringError } = await supabase
-        .from('coupons')
-        .select('*')
-        .eq('is_active', true)
-        .or(`valid_from.is.null,valid_from.lte.${now}`)
-        .gte('valid_until', now)
-        .lte('valid_until', in7Days)
-        .order('valid_until', { ascending: true });
-
-      if (expiringError) throw expiringError;
-      setExpiringSoonCoupons(expiring || []);
-
-      if (user) {
-        const { data: myCoupons, error: myCouponsError } = await supabase
-          .from('user_coupons')
-          .select(`
-            *,
-            coupon_type:coupon_types!coupon_type_id(
-              code,
-              type,
-              value,
-              description
-            )
-          `)
-          .eq('user_id', user.id)
-          .order('obtained_at', { ascending: false });
-
-        if (myCouponsError) {
-          console.error('Error loading user coupons:', myCouponsError);
-        }
-
-        const all = (myCoupons as any) || [];
-        setUserCoupons(all.filter((c: UserCoupon) => !c.is_used));
-        setUsedUserCoupons(all.filter((c: UserCoupon) => c.is_used));
+      if (!user) {
+        setLoading(false);
+        return;
       }
+
+      const { data: myCoupons, error: myCouponsError } = await supabase
+        .from('user_coupons')
+        .select(`
+          *,
+          coupon_type:coupon_types!coupon_type_id(
+            code,
+            type,
+            value,
+            description
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('obtained_at', { ascending: false });
+
+      if (myCouponsError) {
+        console.error('Error loading user coupons:', myCouponsError);
+        throw myCouponsError;
+      }
+
+      const all = (myCoupons as any) || [];
+      const now = new Date();
+      const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      setUserCoupons(all.filter((c: UserCoupon) => !c.is_used));
+      setUsedUserCoupons(all.filter((c: UserCoupon) => c.is_used));
+
+      setExpiringSoonCoupons(
+        all.filter((c: UserCoupon) => {
+          if (c.is_used || !c.valid_until) return false;
+          const validUntil = new Date(c.valid_until);
+          return validUntil >= now && validUntil <= in7Days;
+        })
+      );
     } catch (error) {
       console.error('Error loading coupons:', error);
       toast.error('Erreur lors du chargement des coupons');
@@ -264,12 +252,8 @@ export default function CouponsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="available" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="available" className="flex items-center gap-2">
-            <Gift className="h-4 w-4" />
-            Disponibles ({availableCoupons.length})
-          </TabsTrigger>
+      <Tabs defaultValue="my-coupons" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="my-coupons" className="flex items-center gap-2">
             <Ticket className="h-4 w-4" />
             Mes coupons ({userCoupons.length})
@@ -283,25 +267,6 @@ export default function CouponsPage() {
             Utilisés ({usedUserCoupons.length})
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="available" className="space-y-4 mt-6">
-          {availableCoupons.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Ticket className="h-16 w-16 text-gray-300 mb-4" />
-                <p className="text-gray-500 text-center">
-                  Aucun coupon disponible pour le moment
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {availableCoupons.map((coupon) => (
-                <CouponCard key={coupon.id} coupon={coupon} />
-              ))}
-            </div>
-          )}
-        </TabsContent>
 
         <TabsContent value="expiring" className="space-y-4 mt-6">
           {expiringSoonCoupons.length === 0 ? (
@@ -325,8 +290,53 @@ export default function CouponsPage() {
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
-                {expiringSoonCoupons.map((coupon) => (
-                  <CouponCard key={coupon.id} coupon={coupon} />
+                {expiringSoonCoupons.map((userCoupon) => (
+                  <Card key={userCoupon.id} className="relative overflow-hidden border-orange-400/30">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-400/10 to-transparent rounded-bl-full" />
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <CardTitle className="text-xl font-bold text-orange-600 flex items-center gap-2">
+                            {userCoupon.coupon_type?.code || userCoupon.code}
+                            <AlertTriangle className="h-5 w-5" />
+                          </CardTitle>
+                          <CardDescription className="text-sm">
+                            {userCoupon.coupon_type?.description || 'Réduction applicable'}
+                          </CardDescription>
+                        </div>
+                        <Badge className="bg-orange-500 text-white">{userCoupon.code}</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-center p-6 bg-gradient-to-br from-orange-400/10 to-orange-300/5 rounded-lg">
+                        <div className="text-4xl font-bold text-orange-600">
+                          {userCoupon.coupon_type?.type === 'percentage'
+                            ? `-${userCoupon.coupon_type.value}%`
+                            : `-${(Number(userCoupon.coupon_type?.value) || 0).toFixed(2)}€`
+                          }
+                        </div>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2 text-orange-600 font-semibold">
+                          <Calendar className="h-4 w-4" />
+                          <span>Expire: {formatDate(userCoupon.valid_until)}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <Gift className="h-4 w-4" />
+                          <span>Source: {userCoupon.source}</span>
+                        </div>
+                      </div>
+                      <div className="pt-3">
+                        <Button
+                          onClick={() => copyCode(userCoupon.code)}
+                          className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copier le code
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             </div>
