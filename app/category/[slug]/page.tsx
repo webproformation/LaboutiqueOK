@@ -313,10 +313,10 @@ export default function CategoryPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8 text-center">
-        <h1 className="text-4xl font-bold mb-2">{decodeHtmlEntities(category.name)}</h1>
+      <div className="mb-8 text-center md:text-left">
+        <h1 className="page-title mb-2">{decodeHtmlEntities(category.name)}</h1>
         {category.description && (
-          <p className="text-gray-600 max-w-3xl mx-auto">{decodeHtmlEntities(category.description)}</p>
+          <p className="text-gray-600 max-w-3xl md:mx-0 mx-auto">{decodeHtmlEntities(category.description)}</p>
         )}
       </div>
 

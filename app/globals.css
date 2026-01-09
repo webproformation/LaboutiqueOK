@@ -59,4 +59,8 @@
   .transition-smooth {
     transition: all 0.3s ease-in-out;
   }
+
+  .page-title {
+    @apply text-4xl font-bold bg-gradient-to-r from-[#b8933d] to-[#d4af37] bg-clip-text text-transparent;
+  }
 }

@@ -185,15 +185,15 @@ function ActualitesContent() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-12">
       <div className="container mx-auto px-4">
-        <div className="mb-10">
-          <div className="flex items-center gap-3 mb-4">
+        <div className="mb-10 text-center">
+          <div className="flex items-center justify-center gap-3 mb-4">
             <BookOpen className="h-10 w-10 text-[#C6A15B]" />
-            <h1 className="text-5xl font-bold text-gray-900 tracking-tight">
+            <h1 className="page-title">
               {categoryName ? `${categoryName}` : 'Le Carnet de Morgane'}
             </h1>
             <Sparkles className="h-7 w-7 text-[#C6A15B] animate-pulse" />
           </div>
-          <p className="text-xl text-gray-600 italic ml-14 font-light" style={{ fontFamily: "'Dancing Script', cursive" }}>
+          <p className="text-xl text-gray-600 italic font-light" style={{ fontFamily: "'Dancing Script', cursive" }}>
             {categoryName
               ? `${posts.length} article${posts.length > 1 ? 's' : ''} dans cette catégorie`
               : 'Le coin des confidences, de la mode et du lifestyle'

@@ -75,7 +75,7 @@ export function HeroSlider() {
 
   if (loading) {
     return (
-      <div className="relative w-full h-[500px] overflow-hidden rounded-3xl shadow-soft bg-gray-200 animate-pulse">
+      <div className="relative w-full h-[500px] overflow-hidden bg-gray-200 animate-pulse">
         <div className="absolute inset-0 flex items-end">
           <div className="p-12 w-full">
             <div className="h-12 bg-gray-300 rounded w-96 mb-4"></div>
@@ -91,7 +91,7 @@ export function HeroSlider() {
   }
 
   return (
-    <div className="relative w-full h-[500px] overflow-hidden rounded-3xl shadow-soft">
+    <div className="relative w-full h-[500px] overflow-hidden">
       {slides.map((slide, index) => (
         <div
           key={slide.id}
