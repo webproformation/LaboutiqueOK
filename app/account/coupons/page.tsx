@@ -26,20 +26,31 @@ interface Coupon {
   created_at: string;
 }
 
-interface CouponUsage {
+interface UserCoupon {
   id: string;
-  coupon_id: string;
-  used_at: string;
-  order_id: string;
-  discount_applied: number;
-  coupons: Coupon;
+  user_id: string;
+  coupon_type_id: string;
+  code: string;
+  source: string;
+  is_used: boolean;
+  used_at: string | null;
+  order_id: string | null;
+  obtained_at: string;
+  valid_until: string;
+  coupon_type?: {
+    name: string;
+    discount_type: string;
+    discount_value: number;
+    description: string;
+  };
 }
 
 export default function CouponsPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
-  const [usedCoupons, setUsedCoupons] = useState<CouponUsage[]>([]);
+  const [userCoupons, setUserCoupons] = useState<UserCoupon[]>([]);
+  const [usedUserCoupons, setUsedUserCoupons] = useState<UserCoupon[]>([]);
   const [expiringSoonCoupons, setExpiringSoonCoupons] = useState<Coupon[]>([]);
 
   useEffect(() => {
@@ -78,33 +89,25 @@ export default function CouponsPage() {
       setExpiringSoonCoupons(expiring || []);
 
       if (user) {
-        const { data: used, error: usedError } = await supabase
-          .from('coupon_usage')
+        const { data: myCoupons, error: myCouponsError } = await supabase
+          .from('user_coupons')
           .select(`
-            id,
-            coupon_id,
-            used_at,
-            order_id,
-            discount_applied,
-            coupons (
-              id,
-              code,
+            *,
+            coupon_type:coupon_types(
+              name,
               discount_type,
               discount_value,
-              min_purchase,
-              max_uses,
-              uses_count,
-              valid_from,
-              valid_until,
-              is_active,
-              created_at
+              description
             )
           `)
           .eq('user_id', user.id)
-          .order('used_at', { ascending: false });
+          .order('obtained_at', { ascending: false });
 
-        if (usedError) throw usedError;
-        setUsedCoupons(used as any || []);
+        if (myCouponsError) throw myCouponsError;
+
+        const all = (myCoupons as any) || [];
+        setUserCoupons(all.filter((c: UserCoupon) => !c.is_used));
+        setUsedUserCoupons(all.filter((c: UserCoupon) => c.is_used));
       }
     } catch (error) {
       console.error('Error loading coupons:', error);
@@ -141,7 +144,7 @@ export default function CouponsPage() {
     return daysUntilExpiry <= 7 && daysUntilExpiry > 0;
   }
 
-  function CouponCard({ coupon, isUsed = false, usageInfo }: { coupon: Coupon; isUsed?: boolean; usageInfo?: CouponUsage }) {
+  function CouponCard({ coupon, isUsed = false, usageInfo }: { coupon: Coupon; isUsed?: boolean; usageInfo?: UserCoupon }) {
     return (
       <Card className={`relative overflow-hidden ${isUsed ? 'opacity-60' : 'border-[#D4AF37]/30'}`}>
         <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#D4AF37]/10 to-transparent rounded-bl-full" />
@@ -211,12 +214,9 @@ export default function CouponsPage() {
             )}
           </div>
 
-          {isUsed && usageInfo && (
+          {isUsed && usageInfo && usageInfo.order_id && (
             <div className="pt-3 border-t border-gray-200">
-              <p className="text-sm text-gray-600">
-                Réduction appliquée: <span className="font-semibold text-green-600">{usageInfo.discount_applied.toFixed(2)}€</span>
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-500">
                 Commande: {usageInfo.order_id}
               </p>
             </div>
@@ -263,10 +263,14 @@ export default function CouponsPage() {
       </div>
 
       <Tabs defaultValue="available" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="available" className="flex items-center gap-2">
             <Gift className="h-4 w-4" />
             Disponibles ({availableCoupons.length})
+          </TabsTrigger>
+          <TabsTrigger value="my-coupons" className="flex items-center gap-2">
+            <Ticket className="h-4 w-4" />
+            Mes coupons ({userCoupons.length})
           </TabsTrigger>
           <TabsTrigger value="expiring" className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
@@ -274,7 +278,7 @@ export default function CouponsPage() {
           </TabsTrigger>
           <TabsTrigger value="used" className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4" />
-            Utilisés ({usedCoupons.length})
+            Utilisés ({usedUserCoupons.length})
           </TabsTrigger>
         </TabsList>
 
@@ -327,8 +331,74 @@ export default function CouponsPage() {
           )}
         </TabsContent>
 
+        <TabsContent value="my-coupons" className="space-y-4 mt-6">
+          {userCoupons.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Ticket className="h-16 w-16 text-gray-300 mb-4" />
+                <p className="text-gray-500 text-center">
+                  Vous n'avez pas encore gagné de coupons
+                </p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Participez à nos jeux pour gagner des coupons exclusifs !
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {userCoupons.map((userCoupon) => (
+                <Card key={userCoupon.id} className="relative overflow-hidden border-[#D4AF37]/30">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#D4AF37]/10 to-transparent rounded-bl-full" />
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <CardTitle className="text-xl font-bold text-[#D4AF37]">
+                          {userCoupon.coupon_type?.name || 'Coupon'}
+                        </CardTitle>
+                        <CardDescription className="text-sm">
+                          {userCoupon.coupon_type?.description || 'Réduction applicable'}
+                        </CardDescription>
+                      </div>
+                      <Badge className="bg-[#D4AF37] text-white">{userCoupon.code}</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-center p-6 bg-gradient-to-br from-[#D4AF37]/10 to-[#C6A15B]/5 rounded-lg">
+                      <div className="text-4xl font-bold text-[#D4AF37]">
+                        {userCoupon.coupon_type?.discount_type === 'percentage'
+                          ? `-${userCoupon.coupon_type.discount_value}%`
+                          : `-${(Number(userCoupon.coupon_type?.discount_value) || 0).toFixed(2)}€`
+                        }
+                      </div>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Calendar className="h-4 w-4" />
+                        <span>Expire: {formatDate(userCoupon.valid_until)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Gift className="h-4 w-4" />
+                        <span>Source: {userCoupon.source}</span>
+                      </div>
+                    </div>
+                    <div className="pt-3">
+                      <Button
+                        onClick={() => copyCode(userCoupon.code)}
+                        className="w-full bg-[#D4AF37] hover:bg-[#C6A15B] text-white"
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copier le code
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
         <TabsContent value="used" className="space-y-4 mt-6">
-          {usedCoupons.length === 0 ? (
+          {usedUserCoupons.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <CheckCircle className="h-16 w-16 text-gray-300 mb-4" />
@@ -339,13 +409,40 @@ export default function CouponsPage() {
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {usedCoupons.map((usage) => (
-                <CouponCard
-                  key={usage.id}
-                  coupon={usage.coupons as Coupon}
-                  isUsed={true}
-                  usageInfo={usage}
-                />
+              {usedUserCoupons.map((userCoupon) => (
+                <Card key={userCoupon.id} className="relative overflow-hidden opacity-60">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <CardTitle className="text-xl font-bold">
+                          {userCoupon.coupon_type?.name || 'Coupon'}
+                        </CardTitle>
+                        <Badge variant="secondary">{userCoupon.code}</Badge>
+                      </div>
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-center p-4 bg-gray-50 rounded-lg">
+                      <div className="text-2xl font-bold text-gray-600">
+                        {userCoupon.coupon_type?.discount_type === 'percentage'
+                          ? `-${userCoupon.coupon_type.discount_value}%`
+                          : `-${(Number(userCoupon.coupon_type?.discount_value) || 0).toFixed(2)}€`
+                        }
+                      </div>
+                    </div>
+                    <div className="pt-3 border-t border-gray-200 space-y-1">
+                      <p className="text-sm text-gray-600">
+                        Utilisé le: {userCoupon.used_at ? formatDate(userCoupon.used_at) : 'N/A'}
+                      </p>
+                      {userCoupon.order_id && (
+                        <p className="text-xs text-gray-500">
+                          Commande: {userCoupon.order_id}
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}

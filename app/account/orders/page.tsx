@@ -5,18 +5,39 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Package, Eye, Calendar, CreditCard } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
+import { Loader2, Package, Eye, Calendar, CreditCard, Truck, MapPin } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import Link from 'next/link';
+import Image from 'next/image';
+
+interface OrderItem {
+  id: string;
+  product_name: string;
+  product_slug: string;
+  product_image: string;
+  price: string;
+  quantity: number;
+  variation_data: any;
+}
 
 interface Order {
   id: string;
   order_number: string;
   status: string;
-  total_amount: number;
+  total_amount: string;
+  subtotal: string;
+  shipping_cost: string;
+  tax_amount: string;
+  discount_amount: string;
   created_at: string;
+  shipping_address: any;
+  order_items?: OrderItem[];
+  shipping_method?: any;
+  payment_method?: any;
 }
 
 const statusLabels: Record<string, { label: string; color: string }> = {
@@ -32,6 +53,8 @@ export default function OrdersPage() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -43,7 +66,12 @@ export default function OrdersPage() {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, order_number, status, total_amount, created_at')
+        .select(`
+          *,
+          order_items(*),
+          shipping_method:shipping_methods(*),
+          payment_method:payment_methods(*)
+        `)
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
@@ -118,10 +146,18 @@ export default function OrdersPage() {
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-5 w-5 text-gray-400" />
                     <span className="text-lg font-semibold">
-                      {order.total_amount.toFixed(2)}€
+                      {(Number(order.total_amount) || 0).toFixed(2)}€
                     </span>
                   </div>
-                  <Button variant="outline" size="sm" className="gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => {
+                      setSelectedOrder(order);
+                      setDialogOpen(true);
+                    }}
+                  >
                     <Eye className="h-4 w-4" />
                     Voir les détails
                   </Button>
@@ -131,6 +167,145 @@ export default function OrdersPage() {
           ))}
         </div>
       )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Détails de la commande #{selectedOrder?.order_number}</DialogTitle>
+            <DialogDescription>
+              Commandée le {selectedOrder && formatDate(selectedOrder.created_at)}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedOrder && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <Package className="h-5 w-5 text-[#D4AF37]" />
+                  Articles commandés ({selectedOrder.order_items?.length || 0})
+                </h3>
+
+                {selectedOrder.order_items && selectedOrder.order_items.length > 0 ? (
+                  <div className="space-y-3">
+                    {selectedOrder.order_items.map((item) => (
+                      <div key={item.id} className="flex gap-4 border rounded-lg p-4">
+                        {item.product_image && (
+                          <div className="relative w-20 h-20 flex-shrink-0">
+                            <Image
+                              src={item.product_image}
+                              alt={item.product_name}
+                              fill
+                              className="object-cover rounded"
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <h4 className="font-semibold">{item.product_name}</h4>
+                          {item.variation_data && Object.keys(item.variation_data).length > 0 && (
+                            <div className="text-sm text-gray-600 mt-1">
+                              {Object.entries(item.variation_data).map(([key, value]) => (
+                                <span key={key} className="mr-3">
+                                  {key}: <strong>{typeof value === 'object' ? (value as any)?.name || (value as any)?.option || String(value) : String(value)}</strong>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-sm text-gray-600">Quantité: {item.quantity}</span>
+                            <span className="font-semibold">{(Number(item.price) || 0).toFixed(2)}€</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-600">Aucun article trouvé</p>
+                )}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-[#D4AF37]" />
+                  Adresse de livraison
+                </h3>
+                {selectedOrder.shipping_address ? (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="font-medium">
+                      {selectedOrder.shipping_address.first_name} {selectedOrder.shipping_address.last_name}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {selectedOrder.shipping_address.address_line1}
+                    </p>
+                    {selectedOrder.shipping_address.address_line2 && (
+                      <p className="text-sm text-gray-600">
+                        {selectedOrder.shipping_address.address_line2}
+                      </p>
+                    )}
+                    <p className="text-sm text-gray-600">
+                      {selectedOrder.shipping_address.postal_code} {selectedOrder.shipping_address.city}
+                    </p>
+                    <p className="text-sm text-gray-600">{selectedOrder.shipping_address.phone}</p>
+                  </div>
+                ) : (
+                  <p className="text-gray-600">Adresse non disponible</p>
+                )}
+              </div>
+
+              {selectedOrder.shipping_method && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                      <Truck className="h-5 w-5 text-[#D4AF37]" />
+                      Mode de livraison
+                    </h3>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="font-medium">{selectedOrder.shipping_method.name}</p>
+                      <p className="text-sm text-gray-600">{selectedOrder.shipping_method.description}</p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <Separator />
+
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-[#D4AF37]" />
+                  Récapitulatif
+                </h3>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Sous-total</span>
+                    <span>{(Number(selectedOrder.subtotal) || 0).toFixed(2)}€</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Livraison</span>
+                    <span>{(Number(selectedOrder.shipping_cost) || 0).toFixed(2)}€</span>
+                  </div>
+                  {Number(selectedOrder.discount_amount) > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Réduction</span>
+                      <span>-{(Number(selectedOrder.discount_amount) || 0).toFixed(2)}€</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span>TVA</span>
+                    <span>{(Number(selectedOrder.tax_amount) || 0).toFixed(2)}€</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between font-semibold text-lg">
+                    <span>Total</span>
+                    <span>{(Number(selectedOrder.total_amount) || 0).toFixed(2)}€</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

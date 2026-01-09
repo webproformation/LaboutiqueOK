@@ -44,6 +44,7 @@ import {
   Clock,
   Trash2,
   FileText,
+  MapPin,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
@@ -60,9 +61,12 @@ interface Order {
   wallet_amount_used: number;
   total: number;
   items: any[];
+  order_items?: any[];
   shipping_address: any;
   shipping_method_id: string;
+  shipping_method?: any;
   payment_method_id: string;
+  payment_method?: any;
   coupon_code?: string;
   notes?: string;
   newsletter_consent: boolean;
@@ -107,7 +111,12 @@ export default function OrdersPage() {
     try {
       const { data, error } = await supabase
         .from("orders")
-        .select("*")
+        .select(`
+          *,
+          order_items(*),
+          shipping_method:shipping_methods(*),
+          payment_method:payment_methods(*)
+        `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -454,7 +463,7 @@ export default function OrdersPage() {
                         {order.shipping_address?.first_name} {order.shipping_address?.last_name}
                       </TableCell>
                       <TableCell className="font-semibold text-[#D4AF37]">
-                        {Number(order.total).toFixed(2)} €
+                        {(Number(order.total) || 0).toFixed(2)} €
                       </TableCell>
                       <TableCell>{getStatusBadge(order.status)}</TableCell>
                       <TableCell>{getPaymentBadge(order.payment_status)}</TableCell>
@@ -578,24 +587,49 @@ export default function OrdersPage() {
 
                 <Separator />
 
-                <div>
-                  <h3 className="font-semibold text-lg mb-3">Adresse de livraison</h3>
-                  {selectedOrder.shipping_address && (
-                    <div className="bg-gray-50 p-4 rounded-lg text-sm">
-                      <p className="font-medium">
-                        {selectedOrder.shipping_address.first_name}{" "}
-                        {selectedOrder.shipping_address.last_name}
-                      </p>
-                      <p>{selectedOrder.shipping_address.address_line1}</p>
-                      {selectedOrder.shipping_address.address_line2 && (
-                        <p>{selectedOrder.shipping_address.address_line2}</p>
-                      )}
-                      <p>
-                        {selectedOrder.shipping_address.postal_code}{" "}
-                        {selectedOrder.shipping_address.city}
-                      </p>
-                      <p>{selectedOrder.shipping_address.country}</p>
-                      <p className="mt-2">Tél: {selectedOrder.shipping_address.phone}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                      <MapPin className="h-5 w-5 text-[#D4AF37]" />
+                      Adresse de livraison
+                    </h3>
+                    {selectedOrder.shipping_address ? (
+                      <div className="bg-gray-50 p-4 rounded-lg text-sm">
+                        <p className="font-medium">
+                          {selectedOrder.shipping_address.first_name}{" "}
+                          {selectedOrder.shipping_address.last_name}
+                        </p>
+                        <p>{selectedOrder.shipping_address.address_line1}</p>
+                        {selectedOrder.shipping_address.address_line2 && (
+                          <p>{selectedOrder.shipping_address.address_line2}</p>
+                        )}
+                        <p>
+                          {selectedOrder.shipping_address.postal_code}{" "}
+                          {selectedOrder.shipping_address.city}
+                        </p>
+                        <p>{selectedOrder.shipping_address.country}</p>
+                        <p className="mt-2">Tél: {selectedOrder.shipping_address.phone}</p>
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm">Adresse non disponible</p>
+                    )}
+                  </div>
+
+                  {selectedOrder.shipping_method && (
+                    <div>
+                      <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                        <Truck className="h-5 w-5 text-[#D4AF37]" />
+                        Mode de livraison
+                      </h3>
+                      <div className="bg-gray-50 p-4 rounded-lg text-sm">
+                        <p className="font-medium">{selectedOrder.shipping_method.name}</p>
+                        <p className="text-gray-600 mt-1">{selectedOrder.shipping_method.description}</p>
+                        {selectedOrder.shipping_method.delivery_time && (
+                          <p className="text-gray-600 mt-1">
+                            Délai: {selectedOrder.shipping_method.delivery_time}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -603,34 +637,48 @@ export default function OrdersPage() {
                 <Separator />
 
                 <div>
-                  <h3 className="font-semibold text-lg mb-3">Produits commandés</h3>
-                  <div className="space-y-2">
-                    {selectedOrder.items && selectedOrder.items.length > 0 ? (
-                      selectedOrder.items.map((item: any, index: number) => (
+                  <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                    <Package className="h-5 w-5 text-[#D4AF37]" />
+                    Produits commandés ({selectedOrder.order_items?.length || 0})
+                  </h3>
+                  <div className="space-y-3">
+                    {selectedOrder.order_items && selectedOrder.order_items.length > 0 ? (
+                      selectedOrder.order_items.map((item: any) => (
                         <div
-                          key={index}
-                          className="flex items-center justify-between bg-gray-50 p-3 rounded-lg"
+                          key={item.id}
+                          className="flex gap-4 bg-gray-50 p-4 rounded-lg border"
                         >
-                          <div className="flex items-center gap-3">
-                            {item.image && (
+                          {item.product_image && (
+                            <div className="relative w-16 h-16 flex-shrink-0">
                               <img
-                                src={item.image}
-                                alt={item.name}
-                                className="w-12 h-12 object-cover rounded"
+                                src={item.product_image}
+                                alt={item.product_name}
+                                className="w-full h-full object-cover rounded"
                               />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <p className="font-medium">{item.product_name}</p>
+                            {item.variation_data && Object.keys(item.variation_data).length > 0 && (
+                              <div className="text-sm text-gray-600 mt-1">
+                                {Object.entries(item.variation_data).map(([key, value]) => (
+                                  <span key={key} className="mr-3">
+                                    {key}: <strong>{typeof value === 'object' ? (value as any)?.name || (value as any)?.option || String(value) : String(value)}</strong>
+                                  </span>
+                                ))}
+                              </div>
                             )}
-                            <div>
-                              <p className="font-medium">{item.name}</p>
+                            <div className="flex items-center justify-between mt-2">
                               <p className="text-sm text-gray-600">Quantité: {item.quantity}</p>
+                              <p className="font-semibold">
+                                {((Number(item.price) || 0) * item.quantity).toFixed(2)} €
+                              </p>
                             </div>
                           </div>
-                          <p className="font-semibold">
-                            {(parseFloat(item.price) * item.quantity).toFixed(2)} €
-                          </p>
                         </div>
                       ))
                     ) : (
-                      <p className="text-gray-500 text-sm">Aucun produit</p>
+                      <p className="text-gray-500 text-sm">Aucun produit trouvé</p>
                     )}
                   </div>
                 </div>
@@ -642,36 +690,36 @@ export default function OrdersPage() {
                   <div className="bg-gray-50 p-4 rounded-lg space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span>Sous-total</span>
-                      <span>{Number(selectedOrder.subtotal).toFixed(2)} €</span>
+                      <span>{(Number(selectedOrder.subtotal) || 0).toFixed(2)} €</span>
                     </div>
-                    {Number(selectedOrder.shipping_cost) > 0 && (
+                    {(Number(selectedOrder.shipping_cost) || 0) > 0 && (
                       <div className="flex justify-between">
                         <span>Frais de port</span>
-                        <span>{Number(selectedOrder.shipping_cost).toFixed(2)} €</span>
+                        <span>{(Number(selectedOrder.shipping_cost) || 0).toFixed(2)} €</span>
                       </div>
                     )}
-                    {Number(selectedOrder.discount_amount) > 0 && (
+                    {(Number(selectedOrder.discount_amount) || 0) > 0 && (
                       <div className="flex justify-between text-green-600">
                         <span>
                           Remise {selectedOrder.coupon_code && `(${selectedOrder.coupon_code})`}
                         </span>
-                        <span>-{Number(selectedOrder.discount_amount).toFixed(2)} €</span>
+                        <span>-{(Number(selectedOrder.discount_amount) || 0).toFixed(2)} €</span>
                       </div>
                     )}
                     {Number(selectedOrder.wallet_amount_used) > 0 && (
                       <div className="flex justify-between text-purple-600">
                         <span>Portefeuille utilisé</span>
-                        <span>-{Number(selectedOrder.wallet_amount_used).toFixed(2)} €</span>
+                        <span>-{(Number(selectedOrder.wallet_amount_used) || 0).toFixed(2)} €</span>
                       </div>
                     )}
                     <div className="flex justify-between text-xs text-gray-500">
                       <span>TVA (20%)</span>
-                      <span>{Number(selectedOrder.tax_amount).toFixed(2)} €</span>
+                      <span>{(Number(selectedOrder.tax_amount) || 0).toFixed(2)} €</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between font-bold text-lg text-[#D4AF37]">
                       <span>Total TTC</span>
-                      <span>{Number(selectedOrder.total).toFixed(2)} €</span>
+                      <span>{(Number(selectedOrder.total) || 0).toFixed(2)} €</span>
                     </div>
                   </div>
                 </div>
