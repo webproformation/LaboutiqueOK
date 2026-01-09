@@ -71,22 +71,22 @@ export function MediaSelector({ currentImageUrl, onSelect, label = "Image" }: Me
       const allUrls: string[] = [];
 
       const { data: productFiles, error: productStorageError } = await supabase.storage
-        .from('media')
-        .list('', {
+        .from('product-images')
+        .list('products', {
           limit: 1000,
           sortBy: { column: 'created_at', order: 'desc' }
         });
 
       if (productStorageError) {
-        console.error('[MediaSelector] Media storage error:', productStorageError);
+        console.error('[MediaSelector] Product storage error:', productStorageError);
       }
 
       if (productFiles) {
         for (const file of productFiles) {
           if (file.name && file.name !== '.emptyFolderPlaceholder') {
             const { data } = supabase.storage
-              .from('media')
-              .getPublicUrl(file.name);
+              .from('product-images')
+              .getPublicUrl(`products/${file.name}`);
 
             if (data?.publicUrl) {
               allUrls.push(data.publicUrl);
@@ -95,7 +95,7 @@ export function MediaSelector({ currentImageUrl, onSelect, label = "Image" }: Me
         }
       }
 
-      console.log('[MediaSelector] Media storage files:', allUrls.length);
+      console.log('[MediaSelector] Product storage files:', allUrls.length);
 
       const { data: categoryFiles, error: categoryStorageError } = await supabase.storage
         .from('category-images')

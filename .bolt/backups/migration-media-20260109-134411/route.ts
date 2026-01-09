@@ -12,8 +12,8 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const bucket = formData.get('bucket') as string || 'media';
-    const folder = formData.get('folder') as string || '';
+    const bucket = formData.get('bucket') as string || 'product-images';
+    const folder = formData.get('folder') as string || 'products';
 
     if (!file) {
       return NextResponse.json(

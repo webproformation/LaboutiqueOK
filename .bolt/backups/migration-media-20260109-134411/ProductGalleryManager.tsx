@@ -68,7 +68,7 @@ export default function ProductGalleryManager({ images, onChange }: ProductGalle
             <DialogTitle>Choisir une image pour la galerie</DialogTitle>
           </DialogHeader>
           <MediaLibrary
-            bucket="media"
+            bucket="product-images"
             onSelect={(url) => handleAddImage(url)}
             onClose={() => setOpen(false)}
           />
