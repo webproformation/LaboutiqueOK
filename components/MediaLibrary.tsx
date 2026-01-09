@@ -91,10 +91,13 @@ export default function MediaLibrary({
   const [filteredFiles, setFilteredFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'used' | 'unused'>('all');
   const [selectedFile, setSelectedFile] = useState<string | null>(selectedUrl || null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadMediaFiles();
@@ -260,91 +263,114 @@ export default function MediaLibrary({
     setFilteredFiles(filtered);
   };
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const uploadSingleFile = async (file: File): Promise<string> => {
     // Validation stricte
     if (!file.type.startsWith('image/')) {
-      toast.error('Veuillez sélectionner une image valide (format image uniquement)');
-      return;
+      throw new Error(`${file.name}: Format invalide (image uniquement)`);
     }
 
     if (file.size === 0) {
-      toast.error('Le fichier est vide. Veuillez sélectionner un fichier valide');
-      return;
+      throw new Error(`${file.name}: Fichier vide`);
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      toast.error('L\'image ne doit pas dépasser 10MB');
-      return;
+      throw new Error(`${file.name}: Taille max 10MB`);
     }
 
+    let fileToUpload: File | Blob = file;
+    let fileName = file.name;
+
+    // TOUJOURS convertir en WebP sauf si déjà en WebP
+    if (!file.type.includes('webp')) {
+      console.log(`🔄 [WebP] Conversion de ${file.name} en WebP...`);
+
+      try {
+        const webpBlob = await convertToWebP(file);
+        fileToUpload = webpBlob;
+        fileName = file.name.replace(/\.(jpg|jpeg|png|gif|bmp|tiff)$/i, '.webp');
+        console.log(`✅ [WebP] Converti: ${fileName}`);
+      } catch (conversionError) {
+        throw new Error(`${file.name}: Erreur conversion WebP`);
+      }
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileToUpload, fileName);
+    formData.append('bucket', bucket);
+    formData.append('folder', bucket === 'media' ? '' : 'categories');
+
+    const response = await fetch('/api/storage/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || 'Upload failed');
+    }
+
+    return result.url;
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
     setUploading(true);
+    setUploadProgress({ current: 0, total: files.length });
 
     try {
-      let fileToUpload: File | Blob = file;
-      let fileName = file.name;
-
-      // TOUJOURS convertir en WebP sauf si déjà en WebP
-      if (!file.type.includes('webp')) {
-        console.log(`🔄 [WebP] Conversion de ${file.name} en WebP...`);
-        toast.info('Conversion en WebP en cours...', { duration: 2000 });
-
-        try {
-          const webpBlob = await convertToWebP(file);
-          fileToUpload = webpBlob;
-          fileName = file.name.replace(/\.(jpg|jpeg|png|gif|bmp|tiff)$/i, '.webp');
-          console.log(`✅ [WebP] Converti: ${fileName}`);
-        } catch (conversionError) {
-          console.error('[WebP] Conversion échouée:', conversionError);
-          toast.error('Erreur lors de la conversion WebP. Veuillez réessayer avec une autre image.');
-          setUploading(false);
-          return;
-        }
+      if (files.length === 1) {
+        toast.info('Upload en cours...', { duration: 2000 });
       } else {
-        console.log(`✅ [WebP] Fichier déjà en WebP: ${fileName}`);
+        toast.info(`Upload de ${files.length} images...`, { duration: 2000 });
       }
 
-      const formData = new FormData();
-      formData.append('file', fileToUpload, fileName);
-      formData.append('bucket', bucket);
-      formData.append('folder', bucket === 'media' ? '' : 'categories');
+      // Upload simultané avec Promise.all
+      const uploadPromises = files.map((file, index) =>
+        uploadSingleFile(file).then(url => {
+          setUploadProgress(prev => prev ? { ...prev, current: prev.current + 1 } : null);
+          return { success: true, url, filename: file.name };
+        }).catch(error => {
+          setUploadProgress(prev => prev ? { ...prev, current: prev.current + 1 } : null);
+          return { success: false, error: error.message, filename: file.name };
+        })
+      );
 
-      const response = await fetch('/api/storage/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      const results = await Promise.all(uploadPromises);
 
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.error || 'Upload failed');
-      }
+      const successful = results.filter((r): r is { success: true; url: string; filename: string } => r.success === true);
+      const failed = results.filter((r): r is { success: false; error: any; filename: string } => r.success === false);
 
       // Basculer automatiquement sur l'onglet "Toutes les images"
       setActiveTab('all');
 
-      // Premier chargement immédiat
+      // Recharger la liste
       await loadMediaFiles();
 
-      // Sélectionner automatiquement la nouvelle image
-      setSelectedFile(result.url);
-      onSelect(result.url);
+      // Sélectionner la dernière image uploadée
+      if (successful.length > 0) {
+        const lastSuccessful = successful[successful.length - 1];
+        setSelectedFile(lastSuccessful.url);
+        onSelect(lastSuccessful.url);
+      }
 
-      // Toast amélioré avec preview
-      toast.success(
-        <div className="flex items-center gap-3">
-          <img src={result.url} alt="Preview" className="w-12 h-12 object-cover rounded" />
-          <div>
-            <p className="font-semibold">Image uploadée avec succès</p>
-            <p className="text-xs text-gray-600">{fileName}</p>
-          </div>
-        </div>,
-        { duration: 4000 }
-      );
+      // Notifications
+      if (successful.length > 0) {
+        toast.success(
+          `${successful.length} image${successful.length > 1 ? 's' : ''} uploadée${successful.length > 1 ? 's' : ''} avec succès`,
+          { duration: 4000 }
+        );
+      }
 
-      // Second chargement différé pour garantir l'affichage
+      if (failed.length > 0) {
+        failed.forEach(f => {
+          toast.error(f.error || `Erreur: ${f.filename}`);
+        });
+      }
+
+      // Second chargement différé
       setTimeout(async () => {
         await loadMediaFiles();
       }, 1000);
@@ -357,7 +383,47 @@ export default function MediaLibrary({
       toast.error(error.message || 'Erreur lors de l\'upload');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+
+    if (files.length === 0) {
+      toast.error('Veuillez déposer des images uniquement');
+      return;
+    }
+
+    // Simuler un event pour réutiliser handleUpload
+    const dataTransfer = new DataTransfer();
+    files.forEach(file => dataTransfer.items.add(file));
+
+    const mockEvent = {
+      target: { files: dataTransfer.files }
+    } as React.ChangeEvent<HTMLInputElement>;
+
+    await handleUpload(mockEvent);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
   };
 
   const handleDelete = async (fileId: string, filePath: string, fromStorage?: boolean) => {
@@ -421,6 +487,55 @@ export default function MediaLibrary({
 
   return (
     <div className="space-y-4">
+      <div
+        ref={dropZoneRef}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        className={`border-2 border-dashed rounded-lg p-6 transition-all ${
+          isDragging
+            ? 'border-[#d4af37] bg-[#d4af37]/10'
+            : 'border-gray-300 bg-gray-50'
+        }`}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <Upload className={`h-10 w-10 ${isDragging ? 'text-[#d4af37]' : 'text-gray-400'}`} />
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-900">
+              Glissez-déposez vos images ici
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              ou cliquez pour sélectionner (plusieurs fichiers possibles)
+            </p>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleUpload}
+            className="hidden"
+          />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="gap-2 bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {uploadProgress ? `${uploadProgress.current}/${uploadProgress.total}` : 'Upload...'}
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4" />
+                Sélectionner des images
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
       <div className="flex items-center gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -431,30 +546,6 @@ export default function MediaLibrary({
             className="pl-10"
           />
         </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleUpload}
-          className="hidden"
-        />
-        <Button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="gap-2 bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
-        >
-          {uploading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Upload...
-            </>
-          ) : (
-            <>
-              <Upload className="h-4 w-4" />
-              Uploader une image
-            </>
-          )}
-        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>

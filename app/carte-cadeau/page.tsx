@@ -10,8 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
+import { useCart } from "@/context/CartContext";
 
 export default function CartesCadeauxPage() {
+  const { addToCart } = useCart();
   const [amount, setAmount] = useState(50);
   const [fromName, setFromName] = useState("");
   const [toName, setToName] = useState("");
@@ -25,7 +27,23 @@ export default function CartesCadeauxPage() {
       return;
     }
 
-    toast.success("Carte cadeau ajoutée au panier !");
+    const giftCardProduct = {
+      id: `gift-card-${Date.now()}`,
+      name: `Carte Cadeau ${amount}€`,
+      slug: 'carte-cadeau',
+      price: amount.toString(),
+      image: { sourceUrl: '/lbdm-logobdc.png' },
+      giftCardData: {
+        amount,
+        fromName,
+        toName,
+        message,
+        deliveryMethod,
+        recipientEmail: deliveryMethod === "recipient-email" ? recipientEmail : null
+      }
+    };
+
+    addToCart(giftCardProduct, 1);
   };
 
   return (

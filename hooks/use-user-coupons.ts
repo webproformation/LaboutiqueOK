@@ -40,7 +40,7 @@ export function useUserCoupons(userId: string | undefined) {
         .from('user_coupons')
         .select(`
           *,
-          coupon_type:coupon_types(
+          coupon_type:coupon_types!coupon_type_id(
             name,
             discount_type,
             discount_value,

@@ -535,6 +535,149 @@ export default function BackupPage() {
     }
   };
 
+  const handleGenerateSitemap = async () => {
+    setLoading(true);
+    setExportStep('Génération du sitemap...');
+    setExportProgress(0);
+
+    try {
+      const sitemap: any = {
+        generated_at: new Date().toISOString(),
+        base_url: typeof window !== 'undefined' ? window.location.origin : 'https://laboutiquedemorgane.com',
+        pages: []
+      };
+
+      // Pages statiques
+      setExportProgress(10);
+      sitemap.pages.push(
+        { url: '/', type: 'home', priority: 1.0 },
+        { url: '/actualites', type: 'news', priority: 0.8 },
+        { url: '/les-looks-de-morgane', type: 'looks', priority: 0.7 },
+        { url: '/livre-dor', type: 'guestbook', priority: 0.6 },
+        { url: '/contact', type: 'contact', priority: 0.7 },
+        { url: '/qui-sommes-nous', type: 'about', priority: 0.6 },
+        { url: '/cgv', type: 'legal', priority: 0.4 },
+        { url: '/mentions-legales', type: 'legal', priority: 0.4 },
+        { url: '/politique-confidentialite', type: 'legal', priority: 0.4 },
+        { url: '/carte-cadeau', type: 'gift-card', priority: 0.8 }
+      );
+
+      // Produits
+      setExportStep('Chargement des produits...');
+      setExportProgress(20);
+      const { data: products } = await supabase
+        .from('products')
+        .select('id, slug, name, updated_at')
+        .eq('is_visible', true)
+        .order('updated_at', { ascending: false });
+
+      if (products) {
+        products.forEach(product => {
+          sitemap.pages.push({
+            url: `/product/${product.slug}`,
+            type: 'product',
+            id: product.id,
+            title: product.name,
+            lastmod: product.updated_at,
+            priority: 0.9
+          });
+        });
+      }
+
+      // Catégories
+      setExportStep('Chargement des catégories...');
+      setExportProgress(50);
+      const { data: categories } = await supabase
+        .from('categories')
+        .select('id, slug, name, updated_at')
+        .eq('is_visible', true)
+        .order('updated_at', { ascending: false });
+
+      if (categories) {
+        categories.forEach(category => {
+          sitemap.pages.push({
+            url: `/category/${category.slug}`,
+            type: 'category',
+            id: category.id,
+            title: category.name,
+            lastmod: category.updated_at,
+            priority: 0.8
+          });
+        });
+      }
+
+      // Articles
+      setExportStep('Chargement des actualités...');
+      setExportProgress(70);
+      const { data: news } = await supabase
+        .from('news')
+        .select('id, slug, title, updated_at')
+        .eq('is_published', true)
+        .order('updated_at', { ascending: false });
+
+      if (news) {
+        news.forEach(article => {
+          sitemap.pages.push({
+            url: `/actualites/${article.slug}`,
+            type: 'news-article',
+            id: article.id,
+            title: article.title,
+            lastmod: article.updated_at,
+            priority: 0.7
+          });
+        });
+      }
+
+      // Statistiques
+      setExportProgress(90);
+      sitemap.stats = {
+        total_pages: sitemap.pages.length,
+        total_products: products?.length || 0,
+        total_categories: categories?.length || 0,
+        total_news: news?.length || 0,
+        static_pages: sitemap.pages.filter((p: any) => ['home', 'news', 'looks', 'guestbook', 'contact', 'about', 'legal', 'gift-card'].includes(p.type)).length
+      };
+
+      // Téléchargement
+      setExportProgress(100);
+      setExportStep('Téléchargement...');
+
+      const blob = new Blob([JSON.stringify(sitemap, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sitemap-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(
+        <div className="space-y-1">
+          <p className="font-semibold">Sitemap généré !</p>
+          <p className="text-sm">{sitemap.stats.total_pages} pages</p>
+          <p className="text-sm">{sitemap.stats.total_products} produits</p>
+          <p className="text-sm">{sitemap.stats.total_categories} catégories</p>
+          <p className="text-sm">{sitemap.stats.total_news} articles</p>
+        </div>,
+        { duration: 5000 }
+      );
+
+      setTimeout(() => {
+        setExportProgress(0);
+        setExportStep('');
+      }, 2000);
+
+    } catch (error: any) {
+      console.error('Sitemap generation error:', error);
+      toast.error(`Erreur: ${error.message || 'Erreur inconnue'}`);
+      setExportProgress(0);
+      setExportStep('');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -719,6 +862,42 @@ export default function BackupPage() {
                 <Package className="h-4 w-4 mr-2" />
               )}
               Sauvegarde Totale Système
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-purple-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-purple-700">
+              <FileArchive className="h-5 w-5" />
+              Génération Sitemap
+            </CardTitle>
+            <CardDescription>
+              Générer un fichier sitemap.json complet du site
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm text-gray-600">
+              <p className="font-semibold mb-2">Le sitemap inclut :</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Toutes les pages statiques du site</li>
+                <li>Tous les produits visibles avec leurs URLs</li>
+                <li>Toutes les catégories visibles</li>
+                <li>Tous les articles d'actualités publiés</li>
+                <li>Statistiques et métadonnées complètes</li>
+              </ul>
+            </div>
+            <Button
+              onClick={handleGenerateSitemap}
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <FileArchive className="h-4 w-4 mr-2" />
+              )}
+              Générer Sitemap JSON
             </Button>
           </CardContent>
         </Card>
