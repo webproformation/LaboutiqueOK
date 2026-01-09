@@ -337,7 +337,7 @@ export default function ClientsPage() {
           <CardContent>
             <div className="flex items-center">
               <PiggyBank className="h-5 w-5 text-purple-600 mr-2" />
-              <p className="text-2xl font-bold">{stats.totalWallet.toFixed(2)} €</p>
+              <p className="text-2xl font-bold">{(Number(stats.totalWallet) || 0).toFixed(2)} €</p>
             </div>
           </CardContent>
         </Card>
@@ -382,7 +382,7 @@ export default function ClientsPage() {
                     </TableCell>
                     <TableCell>{profile.phone || '-'}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{profile.wallet_balance.toFixed(2)} €</Badge>
+                      <Badge variant="outline">{(Number(profile.wallet_balance) || 0).toFixed(2)} €</Badge>
                     </TableCell>
                     <TableCell>
                       <Switch
@@ -528,7 +528,7 @@ export default function ClientsPage() {
                   <Label>Wallet Balance</Label>
                   <div className="flex items-center mt-1">
                     <PiggyBank className="h-4 w-4 mr-2 text-gray-400" />
-                    <span>{selectedCustomer.wallet_balance.toFixed(2)} €</span>
+                    <span>{(Number(selectedCustomer.wallet_balance) || 0).toFixed(2)} €</span>
                   </div>
                 </div>
               </div>

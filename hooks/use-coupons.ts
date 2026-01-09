@@ -4,17 +4,21 @@ import { useAuth } from '@/context/AuthContext';
 
 export interface UserCoupon {
   id: string;
-  code: string;
-  source: string;
+  user_id: string;
+  coupon_id: string;
+  assigned_at: string;
   is_used: boolean;
-  obtained_at: string;
-  valid_until: string;
-  coupon_types: {
+  used_at?: string;
+  coupon?: {
     id: string;
     code: string;
-    type: 'discount_amount' | 'discount_percentage' | 'free_delivery';
-    value: number;
     description: string;
+    discount_type: 'fixed' | 'percentage' | 'free_shipping';
+    discount_value: number;
+    min_purchase_amount?: number;
+    valid_from?: string;
+    valid_until?: string;
+    is_active: boolean;
   };
 }
 
@@ -32,30 +36,44 @@ export function useCoupons() {
 
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from('user_coupons')
-      .select(`
-        *,
-        coupon_types (
-          id,
-          code,
-          type,
-          value,
-          description
-        )
-      `)
-      .eq('user_id', user.id)
-      .eq('is_used', false)
-      .gte('valid_until', new Date().toISOString());
+    try {
+      const { data, error } = await supabase
+        .from('user_coupons')
+        .select(`
+          *,
+          coupon:coupons (
+            id,
+            code,
+            description,
+            discount_type,
+            discount_value,
+            min_purchase_amount,
+            valid_from,
+            valid_until,
+            is_active
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('is_used', false);
 
-    if (error) {
+      if (error) {
+        console.error('Error loading coupons:', error);
+        setCoupons([]);
+      } else {
+        const validCoupons = (data || []).filter(c => {
+          if (!c.coupon) return false;
+          if (!c.coupon.is_active) return false;
+          if (c.coupon.valid_until && new Date(c.coupon.valid_until) < new Date()) return false;
+          return true;
+        });
+        setCoupons(validCoupons);
+      }
+    } catch (error) {
       console.error('Error loading coupons:', error);
       setCoupons([]);
-    } else {
-      setCoupons(data as UserCoupon[] || []);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   useEffect(() => {

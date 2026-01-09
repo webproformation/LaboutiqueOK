@@ -62,15 +62,15 @@ export function CouponSelector({ selectedCouponId, onSelectCoupon, subtotal }: C
 
       {isExpanded && (
         <div className="mt-4 space-y-3">
-          {selectedCoupon && (
+          {selectedCoupon && selectedCoupon.coupon && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Tag className="h-4 w-4 text-green-600" />
                 <div>
                   <p className="text-sm font-semibold text-green-900">
-                    {selectedCoupon.coupon_types.description}
+                    {selectedCoupon.coupon.description}
                   </p>
-                  <p className="text-xs text-green-700">Code: {selectedCoupon.code}</p>
+                  <p className="text-xs text-green-700">Code: {selectedCoupon.coupon.code}</p>
                 </div>
               </div>
               <Button
@@ -87,8 +87,10 @@ export function CouponSelector({ selectedCouponId, onSelectCoupon, subtotal }: C
           <RadioGroup value={selectedCouponId || ''} onValueChange={handleSelectCoupon}>
             <div className="space-y-2">
               {coupons.map((coupon) => {
+                if (!coupon.coupon) return null;
+
                 const isSelected = selectedCouponId === coupon.id;
-                const couponType = coupon.coupon_types;
+                const couponData = coupon.coupon;
 
                 return (
                   <div
@@ -108,33 +110,34 @@ export function CouponSelector({ selectedCouponId, onSelectCoupon, subtotal }: C
                             <div className="flex items-center gap-2">
                               <Tag className="w-4 h-4 text-[#b8933d]" />
                               <p className="font-semibold text-sm text-gray-900">
-                                {couponType.description}
+                                {couponData.description}
                               </p>
                             </div>
                             <div className="text-right">
-                              {couponType.type === 'discount_amount' && (
-                                <p className="text-lg font-bold text-[#b8933d]">-{couponType.value}€</p>
+                              {couponData.discount_type === 'fixed' && (
+                                <p className="text-lg font-bold text-[#b8933d]">-{couponData.discount_value}€</p>
                               )}
-                              {couponType.type === 'discount_percentage' && (
-                                <p className="text-lg font-bold text-[#b8933d]">-{couponType.value}%</p>
+                              {couponData.discount_type === 'percentage' && (
+                                <p className="text-lg font-bold text-[#b8933d]">-{couponData.discount_value}%</p>
                               )}
-                              {couponType.type === 'free_delivery' && (
+                              {couponData.discount_type === 'free_shipping' && (
                                 <Badge className="bg-[#b8933d] hover:bg-[#a07c2f]">
                                   Livraison offerte
                                 </Badge>
                               )}
                             </div>
                           </div>
-                          <p className="text-xs text-gray-600">Code: {coupon.code}</p>
-                          <p className="text-xs text-gray-500">
-                            Valable jusqu'au {new Date(coupon.valid_until).toLocaleDateString('fr-FR')}
-                          </p>
-                          <Badge variant="outline" className="text-xs">
-                            Source: {coupon.source === 'wheel' ? 'Roue de la chance' :
-                                    coupon.source === 'scratch' ? 'Carte à gratter' :
-                                    coupon.source === 'referral' ? 'Parrainage' :
-                                    coupon.source === 'welcome' ? 'Bienvenue' : 'Admin'}
-                          </Badge>
+                          <p className="text-xs text-gray-600">Code: {couponData.code}</p>
+                          {couponData.valid_until && (
+                            <p className="text-xs text-gray-500">
+                              Valable jusqu'au {new Date(couponData.valid_until).toLocaleDateString('fr-FR')}
+                            </p>
+                          )}
+                          {couponData.min_purchase_amount && (
+                            <p className="text-xs text-gray-500">
+                              Achat minimum: {couponData.min_purchase_amount}€
+                            </p>
+                          )}
                         </div>
                       </Label>
                     </div>
