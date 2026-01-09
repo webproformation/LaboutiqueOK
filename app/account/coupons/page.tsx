@@ -38,9 +38,9 @@ interface UserCoupon {
   obtained_at: string;
   valid_until: string;
   coupon_type?: {
-    name: string;
-    discount_type: string;
-    discount_value: number;
+    code: string;
+    type: string;
+    value: number;
     description: string;
   };
 }
@@ -93,17 +93,19 @@ export default function CouponsPage() {
           .from('user_coupons')
           .select(`
             *,
-            coupon_type:coupon_types(
-              name,
-              discount_type,
-              discount_value,
+            coupon_type:coupon_types!coupon_type_id(
+              code,
+              type,
+              value,
               description
             )
           `)
           .eq('user_id', user.id)
           .order('obtained_at', { ascending: false });
 
-        if (myCouponsError) throw myCouponsError;
+        if (myCouponsError) {
+          console.error('Error loading user coupons:', myCouponsError);
+        }
 
         const all = (myCoupons as any) || [];
         setUserCoupons(all.filter((c: UserCoupon) => !c.is_used));
@@ -353,7 +355,7 @@ export default function CouponsPage() {
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
                         <CardTitle className="text-xl font-bold text-[#D4AF37]">
-                          {userCoupon.coupon_type?.name || 'Coupon'}
+                          {userCoupon.coupon_type?.code || userCoupon.code}
                         </CardTitle>
                         <CardDescription className="text-sm">
                           {userCoupon.coupon_type?.description || 'Réduction applicable'}
@@ -365,9 +367,9 @@ export default function CouponsPage() {
                   <CardContent className="space-y-4">
                     <div className="flex items-center justify-center p-6 bg-gradient-to-br from-[#D4AF37]/10 to-[#C6A15B]/5 rounded-lg">
                       <div className="text-4xl font-bold text-[#D4AF37]">
-                        {userCoupon.coupon_type?.discount_type === 'percentage'
-                          ? `-${userCoupon.coupon_type.discount_value}%`
-                          : `-${(Number(userCoupon.coupon_type?.discount_value) || 0).toFixed(2)}€`
+                        {userCoupon.coupon_type?.type === 'percentage'
+                          ? `-${userCoupon.coupon_type.value}%`
+                          : `-${(Number(userCoupon.coupon_type?.value) || 0).toFixed(2)}€`
                         }
                       </div>
                     </div>
@@ -415,7 +417,7 @@ export default function CouponsPage() {
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
                         <CardTitle className="text-xl font-bold">
-                          {userCoupon.coupon_type?.name || 'Coupon'}
+                          {userCoupon.coupon_type?.code || userCoupon.code}
                         </CardTitle>
                         <Badge variant="secondary">{userCoupon.code}</Badge>
                       </div>
@@ -425,9 +427,9 @@ export default function CouponsPage() {
                   <CardContent className="space-y-3">
                     <div className="flex items-center justify-center p-4 bg-gray-50 rounded-lg">
                       <div className="text-2xl font-bold text-gray-600">
-                        {userCoupon.coupon_type?.discount_type === 'percentage'
-                          ? `-${userCoupon.coupon_type.discount_value}%`
-                          : `-${(Number(userCoupon.coupon_type?.discount_value) || 0).toFixed(2)}€`
+                        {userCoupon.coupon_type?.type === 'percentage'
+                          ? `-${userCoupon.coupon_type.value}%`
+                          : `-${(Number(userCoupon.coupon_type?.value) || 0).toFixed(2)}€`
                         }
                       </div>
                     </div>
