@@ -469,7 +469,7 @@ export default function NewsEditorPage() {
             <DialogTitle>Sélectionner une image</DialogTitle>
           </DialogHeader>
           <MediaLibrary
-            bucket="media"
+            bucket="medias"
             onSelect={(url) => {
               setFormData({ ...formData, featured_image_url: url });
               setShowMediaLibrary(false);

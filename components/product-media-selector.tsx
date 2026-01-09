@@ -18,14 +18,14 @@ interface ProductMediaSelectorProps {
   currentImageUrl?: string;
   onSelect: (imageUrl: string) => void;
   label?: string;
-  bucket?: 'media' | 'category-images';
+  bucket?: 'medias' | 'category-images';
 }
 
 export function ProductMediaSelector({
   currentImageUrl,
   onSelect,
   label = "Image",
-  bucket = 'media'
+  bucket = 'medias'
 }: ProductMediaSelectorProps) {
   const [open, setOpen] = useState(false);
 

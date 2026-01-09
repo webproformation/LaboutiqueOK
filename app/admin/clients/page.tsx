@@ -151,17 +151,29 @@ export default function ClientsPage() {
   const toggleAdmin = async (profileId: string, currentStatus: boolean) => {
     setUpdatingAdmin(profileId);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .update({ is_admin: !currentStatus })
-        .eq('id', profileId);
+        .eq('id', profileId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[ADMIN TOGGLE] Error:', error);
+        throw error;
+      }
 
+      if (!data || data.length === 0) {
+        console.error('[ADMIN TOGGLE] No rows updated');
+        toast.error('Aucune modification effectuée. Vérifiez vos permissions.');
+        return;
+      }
+
+      console.log('[ADMIN TOGGLE] Success:', data);
       toast.success(`Statut admin ${!currentStatus ? 'activé' : 'désactivé'}`);
       await loadProfiles();
-    } catch (error) {
-      toast.error('Erreur lors de la mise à jour');
+    } catch (error: any) {
+      console.error('[ADMIN TOGGLE] Exception:', error);
+      toast.error(`Erreur: ${error.message || 'Mise à jour impossible'}`);
     } finally {
       setUpdatingAdmin(null);
     }
@@ -169,17 +181,29 @@ export default function ClientsPage() {
 
   const toggleBlocked = async (profileId: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .update({ blocked: !currentStatus })
-        .eq('id', profileId);
+        .eq('id', profileId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[BLOCKED TOGGLE] Error:', error);
+        throw error;
+      }
 
+      if (!data || data.length === 0) {
+        console.error('[BLOCKED TOGGLE] No rows updated');
+        toast.error('Aucune modification effectuée. Vérifiez vos permissions.');
+        return;
+      }
+
+      console.log('[BLOCKED TOGGLE] Success:', data);
       toast.success(`Client ${!currentStatus ? 'bloqué' : 'débloqué'}`);
       await loadProfiles();
-    } catch (error) {
-      toast.error('Erreur lors de la mise à jour');
+    } catch (error: any) {
+      console.error('[BLOCKED TOGGLE] Exception:', error);
+      toast.error(`Erreur: ${error.message || 'Mise à jour impossible'}`);
     }
   };
 
@@ -209,7 +233,7 @@ export default function ClientsPage() {
     if (!selectedCustomer || !editedData) return;
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .update({
           first_name: editedData.first_name,
@@ -217,16 +241,28 @@ export default function ClientsPage() {
           phone: editedData.phone,
           birth_date: editedData.birth_date,
         })
-        .eq('id', selectedCustomer.id);
+        .eq('id', selectedCustomer.id)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[SAVE CUSTOMER] Error:', error);
+        throw error;
+      }
 
+      if (!data || data.length === 0) {
+        console.error('[SAVE CUSTOMER] No rows updated');
+        toast.error('Aucune modification effectuée. Vérifiez vos permissions.');
+        return;
+      }
+
+      console.log('[SAVE CUSTOMER] Success:', data);
       toast.success('Profil mis à jour');
       setEditMode(false);
       await loadProfiles();
       setSelectedCustomer(null);
-    } catch (error) {
-      toast.error('Erreur lors de la mise à jour');
+    } catch (error: any) {
+      console.error('[SAVE CUSTOMER] Exception:', error);
+      toast.error(`Erreur: ${error.message || 'Mise à jour impossible'}`);
     }
   };
 
@@ -239,19 +275,30 @@ export default function ClientsPage() {
 
     setDeletingClient(clientId);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .delete()
-        .eq('id', clientId);
+        .eq('id', clientId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[DELETE CLIENT] Error:', error);
+        throw error;
+      }
 
+      if (!data || data.length === 0) {
+        console.error('[DELETE CLIENT] No rows deleted');
+        toast.error('Aucune suppression effectuée. Vérifiez vos permissions.');
+        return;
+      }
+
+      console.log('[DELETE CLIENT] Success:', data);
       toast.success('Client supprimé avec succès');
       await loadProfiles();
       setSelectedCustomer(null);
     } catch (error: any) {
-      console.error('Delete error:', error);
-      toast.error(`Erreur lors de la suppression: ${error.message}`);
+      console.error('[DELETE CLIENT] Exception:', error);
+      toast.error(`Erreur: ${error.message || 'Suppression impossible'}`);
     } finally {
       setDeletingClient(null);
     }
