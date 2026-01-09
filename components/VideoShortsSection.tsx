@@ -25,10 +25,10 @@ export function VideoShortsSection() {
     try {
       const { data, error } = await supabase
         .from('live_streams')
-        .select('id, title, thumbnail_url, replay_url')
+        .select('id, title, thumbnail_url, replay_url, scheduled_start')
         .eq('status', 'ended')
         .not('replay_url', 'is', null)
-        .order('actual_end', { ascending: false })
+        .order('scheduled_start', { ascending: false })
         .limit(6);
 
       if (error) throw error;

@@ -12,9 +12,13 @@ import { toast } from 'sonner'
 
 interface ReferralCode {
   id: string
+  user_id: string
   code: string
   usage_count: number
+  reward_type: string
+  reward_value: number
   is_active: boolean
+  expires_at: string | null
   created_at: string
 }
 
@@ -81,8 +85,11 @@ export default function ReferralPage() {
       .insert({
         user_id: profile.id,
         code,
+        usage_count: 0,
+        reward_type: 'wallet_credit',
+        reward_value: 5.00,
         is_active: true,
-        usage_count: 0
+        expires_at: null
       })
       .select()
       .single()
@@ -135,7 +142,8 @@ export default function ReferralPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const totalEarned = referralUses.filter(u => u.sponsor_credited).length * 5
+  const rewardValue = referralCode?.reward_value || 5
+  const totalEarned = referralUses.filter(u => u.sponsor_credited).length * rewardValue
 
   if (loading) {
     return (
@@ -150,7 +158,7 @@ export default function ReferralPage() {
       <div>
         <h1 className="text-3xl font-bold mb-2">Parrainage</h1>
         <p className="text-gray-600">
-          Partagez votre code et gagnez 5€ pour chaque amie parrainée
+          Partagez votre code et gagnez {rewardValue}€ pour chaque amie parrainée
         </p>
       </div>
 
@@ -185,7 +193,7 @@ export default function ReferralPage() {
               <div>
                 <p className="text-sm text-white/80 mb-1">En attente</p>
                 <p className="text-3xl font-bold">
-                  {referralUses.filter(u => !u.sponsor_credited).length * 5}€
+                  {referralUses.filter(u => !u.sponsor_credited).length * rewardValue}€
                 </p>
               </div>
               <Gift className="h-12 w-12 text-white/30" />
@@ -227,13 +235,19 @@ export default function ReferralPage() {
                 </Button>
               </div>
 
+              {referralCode.expires_at && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm text-orange-700">
+                  Code valable jusqu'au {new Date(referralCode.expires_at).toLocaleDateString('fr-FR')}
+                </div>
+              )}
+
               <div className="bg-[#D4AF37]/10 rounded-lg p-4 space-y-2">
                 <h4 className="font-semibold text-gray-900">Comment ça marche ?</h4>
                 <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600">
                   <li>Partagez votre code avec vos amies</li>
                   <li>Elles utilisent votre code lors du paiement</li>
-                  <li>Elles reçoivent 5€ de réduction immédiate</li>
-                  <li>Vous recevez 5€ sur votre porte-monnaie après validation de leur commande</li>
+                  <li>Elles reçoivent {referralCode.reward_value}€ de réduction immédiate</li>
+                  <li>Vous recevez {referralCode.reward_value}€ sur votre porte-monnaie après validation de leur commande</li>
                   <li>Parrainez autant d'amies que vous le souhaitez !</li>
                 </ol>
               </div>
@@ -278,7 +292,7 @@ export default function ReferralPage() {
                   </div>
                   <div className="text-right">
                     {use.sponsor_credited ? (
-                      <Badge className="bg-green-500">5€ crédités</Badge>
+                      <Badge className="bg-green-500">{rewardValue}€ crédités</Badge>
                     ) : (
                       <Badge variant="secondary">En attente</Badge>
                     )}

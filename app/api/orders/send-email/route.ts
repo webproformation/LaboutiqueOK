@@ -7,32 +7,71 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[SEND-EMAIL] Début de traitement...');
     const { orderId, pdfBase64, filename } = await request.json();
+    console.log('[SEND-EMAIL] OrderId reçu:', orderId);
 
     if (!orderId || !pdfBase64) {
+      console.error('[SEND-EMAIL] Données manquantes');
       return NextResponse.json({ error: "Données manquantes" }, { status: 400 });
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    console.log('[SEND-EMAIL] Récupération de la commande...');
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .select("*")
       .eq("id", orderId)
       .maybeSingle();
 
-    if (orderError || !order) {
+    if (orderError) {
+      console.error('[SEND-EMAIL] Erreur récupération commande:', orderError);
+      return NextResponse.json({ error: "Erreur commande", details: orderError.message }, { status: 500 });
+    }
+
+    if (!order) {
+      console.error('[SEND-EMAIL] Commande non trouvée');
       return NextResponse.json({ error: "Commande non trouvée" }, { status: 404 });
     }
 
-    const { data: profile } = await supabase
+    console.log('[SEND-EMAIL] Commande trouvée:', order.order_number);
+
+    console.log('[SEND-EMAIL] Récupération du profil utilisateur...');
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("email, first_name, last_name")
       .eq("id", order.user_id)
       .maybeSingle();
 
+    if (profileError) {
+      console.error('[SEND-EMAIL] Erreur récupération profil:', profileError);
+      return NextResponse.json({ error: "Erreur profil", details: profileError.message }, { status: 500 });
+    }
+
     if (!profile || !profile.email) {
+      console.error('[SEND-EMAIL] Email client introuvable, profil:', profile);
       return NextResponse.json({ error: "Email client introuvable" }, { status: 404 });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(profile.email)) {
+      console.error('[SEND-EMAIL] Format email invalide:', profile.email);
+      return NextResponse.json({ error: "Format email invalide" }, { status: 400 });
+    }
+
+    console.log('[SEND-EMAIL] Email destinataire:', profile.email);
+
+    console.log('[SEND-EMAIL] Configuration SMTP:', {
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      user: process.env.SMTP_USER ? '***' : 'MANQUANT',
+      pass: process.env.SMTP_PASS ? '***' : 'MANQUANT'
+    });
+
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.error('[SEND-EMAIL] Variables SMTP manquantes');
+      return NextResponse.json({ error: "Configuration SMTP incomplète" }, { status: 500 });
     }
 
     const transporter = nodemailer.createTransport({
@@ -44,6 +83,18 @@ export async function POST(request: NextRequest) {
         pass: process.env.SMTP_PASS,
       },
     });
+
+    console.log('[SEND-EMAIL] Test de connexion SMTP...');
+    try {
+      await transporter.verify();
+      console.log('[SEND-EMAIL] Connexion SMTP OK');
+    } catch (smtpError: any) {
+      console.error('[SEND-EMAIL] Erreur connexion SMTP:', smtpError.message);
+      return NextResponse.json({
+        error: "Erreur connexion SMTP",
+        details: smtpError.message
+      }, { status: 500 });
+    }
 
     const htmlEmail = `
 <!DOCTYPE html>
@@ -180,7 +231,8 @@ export async function POST(request: NextRequest) {
 </html>
     `;
 
-    await transporter.sendMail({
+    console.log('[SEND-EMAIL] Envoi de l\'email...');
+    const mailOptions = {
       from: process.env.EMAIL_FROM || '"La Boutique de Morgane" <email@laboutiquedemorgane.com>',
       to: profile.email,
       subject: `Confirmation de votre commande #${order.order_number} - La Boutique de Morgane`,
@@ -192,16 +244,25 @@ export async function POST(request: NextRequest) {
           encoding: "base64",
         },
       ],
-    });
+    };
+
+    const mailResult = await transporter.sendMail(mailOptions);
+    console.log('[SEND-EMAIL] Email envoyé avec succès, messageId:', mailResult.messageId);
 
     return NextResponse.json({
       success: true,
       message: "Email envoyé avec succès",
+      messageId: mailResult.messageId
     });
   } catch (error: any) {
-    console.error("Erreur envoi email:", error);
+    console.error("[SEND-EMAIL] Erreur globale:", error);
+    console.error("[SEND-EMAIL] Stack:", error.stack);
     return NextResponse.json(
-      { error: "Erreur lors de l'envoi de l'email", details: error.message },
+      {
+        error: "Erreur lors de l'envoi de l'email",
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     );
   }
