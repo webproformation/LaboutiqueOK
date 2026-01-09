@@ -5,7 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, Trash2, ShoppingCart, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Heart, Trash2, ShoppingCart, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -17,7 +18,193 @@ interface Product {
   regular_price: number;
   sale_price: number | null;
   image_url: string | null;
+  gallery_images: string[] | null;
   stock_quantity: number;
+}
+
+function WishlistProductCard({
+  product,
+  onRemove,
+  onAddToCart
+}: {
+  product: Product;
+  onRemove: (id: string) => void;
+  onAddToCart: (product: Product) => void;
+}) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+
+  const images = [
+    product.image_url,
+    ...(product.gallery_images || [])
+  ].filter(Boolean) as string[];
+
+  const hasDiscount = product.sale_price && product.sale_price < product.regular_price;
+  const isInStock = product.stock_quantity > 0;
+  const displayPrice = product.sale_price || product.regular_price;
+
+  const handlePrevImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+  };
+
+  const handleNextImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe && currentImageIndex < images.length - 1) {
+      setCurrentImageIndex(currentImageIndex + 1);
+    }
+    if (isRightSwipe && currentImageIndex > 0) {
+      setCurrentImageIndex(currentImageIndex - 1);
+    }
+
+    setTouchStart(0);
+    setTouchEnd(0);
+  };
+
+  return (
+    <Card className="group relative overflow-hidden rounded-xl shadow-md hover:shadow-2xl transition-all duration-300">
+      <Link href={`/product/${product.slug}`}>
+        <div
+          className="aspect-square relative overflow-hidden bg-gray-50"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {images.length > 0 ? (
+            <img
+              src={images[currentImageIndex]}
+              alt={product.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-300">
+              <ShoppingCart className="h-16 w-16" />
+            </div>
+          )}
+
+          {hasDiscount && (
+            <div className="absolute top-3 left-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg">
+              PROMO
+            </div>
+          )}
+
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onRemove(product.id);
+            }}
+            className="absolute top-3 right-3 bg-white hover:bg-gray-50 p-2.5 rounded-full shadow-lg transition-all duration-200 hover:scale-110 z-10"
+          >
+            <Heart className="h-5 w-5 fill-pink-500 text-pink-500" />
+          </button>
+
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={handlePrevImage}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white p-2 rounded-full shadow-lg transition-all opacity-0 group-hover:opacity-100 z-10"
+              >
+                <ChevronLeft className="h-4 w-4 text-gray-700" />
+              </button>
+              <button
+                onClick={handleNextImage}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white p-2 rounded-full shadow-lg transition-all opacity-0 group-hover:opacity-100 z-10"
+              >
+                <ChevronRight className="h-4 w-4 text-gray-700" />
+              </button>
+
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                {images.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`h-1.5 rounded-full transition-all ${
+                      index === currentImageIndex
+                        ? 'w-6 bg-white'
+                        : 'w-1.5 bg-white/50'
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        <CardContent className="p-4 space-y-3">
+          <h3 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2 min-h-[2.5rem]">
+            {product.name}
+          </h3>
+
+          <div className="flex items-center gap-2">
+            {isInStock ? (
+              <Badge variant="outline" className="text-xs border-green-200 bg-green-50 text-green-700">
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>
+                Disponible
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs border-pink-200 bg-pink-50 text-pink-700">
+                Rupture
+              </Badge>
+            )}
+          </div>
+
+          <div className="flex items-baseline gap-2">
+            {hasDiscount ? (
+              <>
+                <span className="text-gray-400 line-through text-sm">
+                  {product.regular_price.toFixed(2)} €
+                </span>
+                <span className="text-[#C6A15B] font-bold text-xl">
+                  {displayPrice.toFixed(2)} €
+                </span>
+              </>
+            ) : (
+              <span className="text-gray-900 font-bold text-xl">
+                {displayPrice.toFixed(2)} €
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Link>
+
+      {isInStock && (
+        <div className="p-4 pt-0">
+          <Button
+            onClick={(e) => {
+              e.preventDefault();
+              onAddToCart(product);
+            }}
+            className="w-full bg-[#C6A15B] hover:bg-[#b8933d] text-white font-semibold rounded-xl"
+            size="sm"
+          >
+            <ShoppingCart className="h-4 w-4 mr-2" />
+            Ajouter au panier
+          </Button>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 export default function WishlistPage() {
@@ -40,7 +227,7 @@ export default function WishlistPage() {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, slug, regular_price, sale_price, image_url, stock_quantity')
+        .select('id, name, slug, regular_price, sale_price, image_url, gallery_images, stock_quantity')
         .in('id', wishlistItems);
 
       if (error) throw error;
@@ -105,9 +292,9 @@ export default function WishlistPage() {
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-6">
             <Heart className="h-10 w-10 text-gray-400" />
           </div>
-          <h1 className="text-3xl font-bold mb-4">Votre liste de favoris est vide</h1>
+          <h1 className="text-3xl font-bold mb-4">Vos coups de cœur sont en attente !</h1>
           <p className="text-gray-600 mb-8">
-            Ajoutez des produits à vos favoris pour les retrouver facilement plus tard
+            Ajoutez vos pépites préférées pour les retrouver facilement
           </p>
           <Button asChild size="lg" className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white">
             <Link href="/">
@@ -124,82 +311,19 @@ export default function WishlistPage() {
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Mes favoris</h1>
-            <p className="text-gray-600">{products.length} article{products.length > 1 ? 's' : ''}</p>
+            <h1 className="text-3xl font-bold mb-2" style={{ color: '#C6A15B' }}>Mes coups de cœur !</h1>
+            <p className="text-gray-600">{products.length} pépite{products.length > 1 ? 's' : ''}</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {products.map((product) => (
-            <Card key={product.id} className="group overflow-hidden relative border-gray-200 hover:border-[#D4AF37] transition-colors">
-              <button
-                onClick={() => removeItem(product.id)}
-                className="absolute top-3 right-3 z-10 bg-white/90 hover:bg-white rounded-full p-2 shadow-sm transition-all"
-              >
-                <Heart className="h-5 w-5 fill-pink-500 text-pink-500" />
-              </button>
-
-              <Link href={`/product/${product.slug}`}>
-                <div className="aspect-square overflow-hidden bg-gray-100">
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      Pas d'image
-                    </div>
-                  )}
-                </div>
-              </Link>
-
-              <CardContent className="p-4">
-                <Link href={`/product/${product.slug}`}>
-                  <h3 className="font-semibold text-lg mb-2 line-clamp-2 hover:text-[#D4AF37] transition-colors">
-                    {product.name}
-                  </h3>
-                </Link>
-
-                <div className="flex items-center gap-2 mb-4">
-                  {product.sale_price ? (
-                    <>
-                      <span className="text-lg font-bold text-[#D4AF37]">
-                        {product.sale_price.toFixed(2)} €
-                      </span>
-                      <span className="text-sm text-gray-500 line-through">
-                        {product.regular_price.toFixed(2)} €
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-lg font-bold">
-                      {product.regular_price.toFixed(2)} €
-                    </span>
-                  )}
-                </div>
-
-                {product.stock_quantity > 0 ? (
-                  <Button
-                    onClick={() => addToCart(product)}
-                    className="w-full bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
-                    size="sm"
-                  >
-                    <ShoppingCart className="h-4 w-4 mr-2" />
-                    Ajouter au panier
-                  </Button>
-                ) : (
-                  <Button
-                    disabled
-                    className="w-full"
-                    size="sm"
-                    variant="outline"
-                  >
-                    Rupture de stock
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+            <WishlistProductCard
+              key={product.id}
+              product={product}
+              onRemove={removeItem}
+              onAddToCart={addToCart}
+            />
           ))}
         </div>
       </div>
