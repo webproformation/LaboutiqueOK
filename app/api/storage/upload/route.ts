@@ -22,12 +22,15 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     console.log('[UPLOAD] FormData reçu, nombre de champs:', Array.from(formData.keys()).length);
     const file = formData.get('file') as File;
-    let bucket = formData.get('bucket') as string || 'medias';
+    let bucket = formData.get('bucket') as string || 'media';
     const folder = formData.get('folder') as string || '';
 
-    if (bucket === 'media') {
-      bucket = 'medias';
+    // Normaliser vers 'media' (sans s)
+    if (bucket === 'medias') {
+      bucket = 'media';
     }
+
+    console.log(`[UPLOAD] Bucket cible: ${bucket}`);
 
     if (!file) {
       return NextResponse.json(
@@ -54,8 +57,19 @@ export async function POST(request: NextRequest) {
 
     if (uploadError) {
       console.error('[UPLOAD] DÉTAIL ERREUR UPLOAD:', uploadError);
+      console.error('[UPLOAD] Bucket utilisé:', bucket);
+
+      const errorMessage = uploadError.message.includes('Bucket not found')
+        ? `Bucket '${bucket}' introuvable. Vérifiez que le bucket existe dans Supabase Storage.`
+        : uploadError.message;
+
       return NextResponse.json(
-        { success: false, error: uploadError.message },
+        {
+          success: false,
+          error: errorMessage,
+          bucket: bucket,
+          details: uploadError
+        },
         { status: 500 }
       );
     }

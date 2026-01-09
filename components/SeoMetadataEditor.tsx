@@ -230,7 +230,7 @@ export default function SeoMetadataEditor({
                   <DialogTitle>Choisir une image Open Graph</DialogTitle>
                 </DialogHeader>
                 <MediaLibrary
-                  bucket="medias"
+                  bucket="media"
                   selectedUrl={formData.og_image}
                   onSelect={(url) => {
                     setFormData({ ...formData, og_image: url });

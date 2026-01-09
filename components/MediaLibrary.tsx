@@ -25,7 +25,7 @@ interface MediaFile {
 }
 
 interface MediaLibraryProps {
-  bucket?: 'medias' | 'category-images';
+  bucket?: 'media' | 'category-images';
   selectedUrl?: string;
   onSelect: (url: string) => void;
   onClose?: () => void;
@@ -81,7 +81,7 @@ const convertToWebP = async (file: File): Promise<Blob> => {
 };
 
 export default function MediaLibrary({
-  bucket = 'medias',
+  bucket = 'media',
   selectedUrl,
   onSelect,
   onClose,
@@ -126,7 +126,7 @@ export default function MediaLibrary({
       console.log('[MediaLibrary] Unified media loaded:', dbMedia?.length || 0);
 
       // 2. Lister les fichiers depuis le storage
-      const folder = bucket === 'medias' ? '' : 'categories';
+      const folder = bucket === 'media' ? '' : 'categories';
       const { data: storageFiles, error: storageError } = await supabase.storage
         .from(bucket)
         .list(folder, {
@@ -141,7 +141,7 @@ export default function MediaLibrary({
 
       // 3. Charger les images depuis les produits/catégories
       let entityImages: string[] = [];
-      if (bucket === 'medias') {
+      if (bucket === 'media') {
         const { data: products, error: productsError } = await supabase
           .from('products')
           .select('image_url, gallery_images');
@@ -297,7 +297,7 @@ export default function MediaLibrary({
     const formData = new FormData();
     formData.append('file', fileToUpload, fileName);
     formData.append('bucket', bucket);
-    formData.append('folder', bucket === 'medias' ? '' : 'categories');
+    formData.append('folder', bucket === 'media' ? '' : 'categories');
 
     const response = await fetch('/api/storage/upload', {
       method: 'POST',
@@ -432,7 +432,7 @@ export default function MediaLibrary({
     try {
       // Extract the path relative to the bucket
       // filePath is a full URL, we need to extract the path after the bucket name
-      const folder = bucket === 'medias' ? '' : 'categories';
+      const folder = bucket === 'media' ? '' : 'categories';
       const filename = filePath.split('/').slice(-1)[0];
       const pathToDelete = folder ? `${folder}/${filename}` : filename;
 

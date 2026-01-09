@@ -178,7 +178,7 @@ export default function SlidesPage() {
                   onSelect={(url) =>
                     setEditingSlide((prev) => ({ ...prev!, image_url: url }))
                   }
-                  bucket="medias"
+                  bucket="media"
                 />
               </div>
 

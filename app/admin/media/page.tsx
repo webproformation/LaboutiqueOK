@@ -24,7 +24,7 @@ export default function MediaAdminPage() {
         </CardHeader>
         <CardContent>
           <MediaLibrary
-            bucket="medias"
+            bucket="media"
             onSelect={(url) => {
               console.log('Image sélectionnée:', url);
             }}

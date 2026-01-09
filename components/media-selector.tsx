@@ -71,7 +71,7 @@ export function MediaSelector({ currentImageUrl, onSelect, label = "Image" }: Me
       const allUrls: string[] = [];
 
       const { data: productFiles, error: productStorageError } = await supabase.storage
-        .from('medias')
+        .from('media')
         .list('', {
           limit: 1000,
           sortBy: { column: 'created_at', order: 'desc' }
@@ -85,7 +85,7 @@ export function MediaSelector({ currentImageUrl, onSelect, label = "Image" }: Me
         for (const file of productFiles) {
           if (file.name && file.name !== '.emptyFolderPlaceholder') {
             const { data } = supabase.storage
-              .from('medias')
+              .from('media')
               .getPublicUrl(file.name);
 
             if (data?.publicUrl) {
