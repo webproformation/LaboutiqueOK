@@ -238,7 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         'birth_date'
       ];
 
-      const updateData: any = { updated_at: new Date().toISOString() };
+      const updateData: any = {};
 
       // Filtrer pour ne garder que les champs autorisés
       allowedFields.forEach(field => {
