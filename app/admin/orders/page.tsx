@@ -42,6 +42,8 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Trash2,
+  FileText,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
@@ -217,6 +219,110 @@ export default function OrdersPage() {
     setDialogOpen(true);
   };
 
+  const handleDeleteOrder = async (orderId: string, orderNumber: string) => {
+    const confirmed = confirm(
+      `Êtes-vous sûr de vouloir supprimer la commande #${orderNumber} ?\n\nCette action est irréversible.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase.from("orders").delete().eq("id", orderId);
+
+      if (error) throw error;
+
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      toast.success("Commande supprimée avec succès");
+
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setDialogOpen(false);
+        setSelectedOrder(null);
+      }
+    } catch (error: any) {
+      console.error("Error deleting order:", error);
+      toast.error(`Erreur lors de la suppression: ${error.message}`);
+    }
+  };
+
+  const handleGeneratePDF = async (orderId: string, orderNumber: string) => {
+    toast.loading("Génération du PDF en cours...");
+
+    try {
+      const response = await fetch("/api/orders/generate-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erreur lors de la génération");
+      }
+
+      const pdfBlob = new Blob([Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0))], {
+        type: "application/pdf",
+      });
+
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.filename || `Commande_${orderNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.dismiss();
+      toast.success("PDF téléchargé avec succès");
+    } catch (error: any) {
+      toast.dismiss();
+      console.error("Error generating PDF:", error);
+      toast.error(`Erreur: ${error.message}`);
+    }
+  };
+
+  const handleSendEmail = async (orderId: string, orderNumber: string) => {
+    toast.loading("Génération et envoi de l'email...");
+
+    try {
+      const pdfResponse = await fetch("/api/orders/generate-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+
+      const pdfData = await pdfResponse.json();
+
+      if (!pdfResponse.ok) {
+        throw new Error(pdfData.error || "Erreur lors de la génération du PDF");
+      }
+
+      const emailResponse = await fetch("/api/orders/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          pdfBase64: pdfData.pdf,
+          filename: pdfData.filename,
+        }),
+      });
+
+      const emailData = await emailResponse.json();
+
+      if (!emailResponse.ok) {
+        throw new Error(emailData.error || "Erreur lors de l'envoi de l'email");
+      }
+
+      toast.dismiss();
+      toast.success("Email envoyé avec succès au client");
+    } catch (error: any) {
+      toast.dismiss();
+      console.error("Error sending email:", error);
+      toast.error(`Erreur: ${error.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -359,8 +465,36 @@ export default function OrdersPage() {
                             size="icon"
                             onClick={() => handleViewOrder(order)}
                             className="hover:bg-blue-50 hover:text-blue-600"
+                            title="Voir les détails"
                           >
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleGeneratePDF(order.id, order.order_number)}
+                            className="hover:bg-green-50 hover:text-green-600"
+                            title="Télécharger le PDF"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleSendEmail(order.id, order.order_number)}
+                            className="hover:bg-purple-50 hover:text-purple-600"
+                            title="Envoyer par email"
+                          >
+                            <Mail className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteOrder(order.id, order.order_number)}
+                            className="hover:bg-red-50 hover:text-red-600"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>

@@ -24,6 +24,7 @@ interface Product {
   is_variable_product?: boolean;
   color?: string;
   size?: string;
+  attributes?: any;
 }
 
 interface Category {
@@ -198,6 +199,33 @@ export default function CategoryPage() {
                 }
               });
             }
+          } else if (product.attributes && typeof product.attributes === 'object') {
+            // Produit simple - scanner les attributs depuis products.attributes
+            const attributeTermIds: string[] = [];
+            Object.values(product.attributes).forEach((termIds: any) => {
+              if (Array.isArray(termIds)) {
+                attributeTermIds.push(...termIds);
+              }
+            });
+
+            if (attributeTermIds.length > 0) {
+              const { data: attributeTerms } = await supabase
+                .from('product_attribute_terms')
+                .select('id, name, slug, color_code, attribute_id, product_attributes!inner(name, slug)')
+                .in('id', attributeTermIds);
+
+              if (attributeTerms) {
+                attributeTerms.forEach((term: any) => {
+                  const attrSlug = term.product_attributes?.slug || '';
+                  if (attrSlug.includes('couleur') || attrSlug.includes('color')) {
+                    colors.add(term.name);
+                  }
+                  if (attrSlug.includes('taille') || attrSlug.includes('size')) {
+                    sizes.add(term.name);
+                  }
+                });
+              }
+            }
           }
         }
 
@@ -267,8 +295,50 @@ export default function CategoryPage() {
                 filteredIds.add(product.id);
               }
             }
+          } else if (product.attributes && typeof product.attributes === 'object') {
+            // Produit simple - vérifier les attributs depuis products.attributes
+            const attributeTermIds: string[] = [];
+            Object.values(product.attributes).forEach((termIds: any) => {
+              if (Array.isArray(termIds)) {
+                attributeTermIds.push(...termIds);
+              }
+            });
+
+            if (attributeTermIds.length > 0) {
+              const { data: attributeTerms } = await supabase
+                .from('product_attribute_terms')
+                .select('id, name, slug, color_code, attribute_id, product_attributes!inner(name, slug)')
+                .in('id', attributeTermIds);
+
+              if (attributeTerms) {
+                let matchesColor = filterColor === 'all';
+                let matchesSize = filterSize === 'all';
+
+                attributeTerms.forEach((term: any) => {
+                  const attrSlug = term.product_attributes?.slug || '';
+                  if ((attrSlug.includes('couleur') || attrSlug.includes('color')) && term.name === filterColor) {
+                    matchesColor = true;
+                  }
+                  if ((attrSlug.includes('taille') || attrSlug.includes('size')) && term.name === filterSize) {
+                    matchesSize = true;
+                  }
+                });
+
+                if ((filterColor === 'all' || matchesColor) && (filterSize === 'all' || matchesSize)) {
+                  filteredIds.add(product.id);
+                }
+              }
+            } else {
+              // Produit simple sans attributs, inclure si pas de filtre actif
+              if (filterColor === 'all' && filterSize === 'all') {
+                filteredIds.add(product.id);
+              }
+            }
           } else {
-            filteredIds.add(product.id);
+            // Produit ni variable ni avec attributs
+            if (filterColor === 'all' && filterSize === 'all') {
+              filteredIds.add(product.id);
+            }
           }
         }
 

@@ -33,6 +33,8 @@ interface Product {
   is_diamond?: boolean;
   is_featured?: boolean;
   is_variable_product?: boolean;
+  has_variations?: boolean;
+  attributes?: any;
 }
 
 interface Category {
@@ -100,6 +102,7 @@ export default function ProductEditForm({
   const [attributes, setAttributes] = useState<ProductAttribute[]>([]);
   const [colorVariations, setColorVariations] = useState<any[]>([]);
   const [selectedAttributeTerms, setSelectedAttributeTerms] = useState<Record<string, string[]>>({});
+  const [productType, setProductType] = useState<'simple' | 'variable'>('simple');
   const [galleryImages, setGalleryImages] = useState<string[]>(
     Array.isArray(initialProduct.gallery_images) ? initialProduct.gallery_images :
     (initialProduct.images?.gallery_images || [])
@@ -117,7 +120,54 @@ export default function ProductEditForm({
     loadAttributes();
     loadSeoData();
     loadColorVariations();
+    loadProductAttributes();
+    determineProductType();
   }, []);
+
+  const determineProductType = async () => {
+    try {
+      const { data: variations } = await supabase
+        .from("product_variations")
+        .select("id")
+        .eq("product_id", product.id)
+        .limit(1);
+
+      const hasVariations = variations && variations.length > 0;
+      const hasAttributes = product.attributes && Array.isArray(product.attributes) && product.attributes.length > 0;
+
+      if (hasVariations) {
+        setProductType('variable');
+      } else if (hasAttributes) {
+        setProductType('simple');
+      } else {
+        setProductType('simple');
+      }
+    } catch (error) {
+      console.error("Error determining product type:", error);
+      setProductType('simple');
+    }
+  };
+
+  const loadProductAttributes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("attributes")
+        .eq("id", product.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data && data.attributes) {
+        const attrs = data.attributes;
+        if (typeof attrs === 'object' && !Array.isArray(attrs)) {
+          setSelectedAttributeTerms(attrs);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading product attributes:", error);
+    }
+  };
 
   const loadAttributes = async () => {
     try {
@@ -235,7 +285,7 @@ export default function ProductEditForm({
 
     try {
       // 1. Mettre à jour le produit
-      const productUpdateData = {
+      const productUpdateData: any = {
         name: String(product.name).trim(),
         slug: String(product.slug).trim(),
         description: product.description || "",
@@ -247,8 +297,15 @@ export default function ProductEditForm({
         gallery_images: galleryImages.length > 0 ? galleryImages : null,
         is_diamond: Boolean(product.is_diamond),
         is_featured: Boolean(product.is_featured),
-        is_variable_product: colorVariations.length > 0,
+        has_variations: productType === 'variable',
+        is_variable_product: productType === 'variable',
       };
+
+      if (productType === 'simple') {
+        productUpdateData.attributes = selectedAttributeTerms;
+      } else {
+        productUpdateData.attributes = {};
+      }
 
       const { error: productError } = await supabase
         .from("products")
@@ -289,7 +346,7 @@ export default function ProductEditForm({
         }
       }
 
-      // 3. Mettre à jour les variations
+      // 3. Mettre à jour les variations (seulement pour les produits variables)
       const { error: deleteVarError } = await supabase
         .from("product_variations")
         .delete()
@@ -300,7 +357,7 @@ export default function ProductEditForm({
         throw deleteVarError;
       }
 
-      if (colorVariations.length > 0) {
+      if (productType === 'variable' && colorVariations.length > 0) {
         const variationsToInsert = colorVariations.map(v => {
           const regularPrice = v.regular_price ? parseFloat(String(v.regular_price)) : null;
           const salePrice = v.sale_price ? parseFloat(String(v.sale_price)) : null;
@@ -486,6 +543,73 @@ export default function ProductEditForm({
 
       {/* Formulaire Mobile-First - Tout en dessous */}
       <div className="space-y-6">
+        {/* Type de Produit */}
+        <Card className="bg-white border-2 border-[#d4af37]">
+          <CardHeader>
+            <CardTitle className="text-[#d4af37]">Type de Produit</CardTitle>
+            <CardDescription>Choisissez le type de produit pour afficher les options appropriées</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-6">
+              <button
+                type="button"
+                onClick={() => setProductType('simple')}
+                className={`flex-1 p-4 rounded-lg border-2 transition-all ${
+                  productType === 'simple'
+                    ? 'border-[#d4af37] bg-[#d4af37]/10 shadow-md'
+                    : 'border-gray-200 hover:border-[#d4af37]/50'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    productType === 'simple' ? 'border-[#d4af37]' : 'border-gray-300'
+                  }`}>
+                    {productType === 'simple' && (
+                      <div className="w-3 h-3 rounded-full bg-[#d4af37]"></div>
+                    )}
+                  </div>
+                  <span className={`font-semibold ${
+                    productType === 'simple' ? 'text-[#d4af37]' : 'text-gray-600'
+                  }`}>
+                    Produit Simple
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Attributs uniques (couleurs, tailles) sans variations de prix/stock
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setProductType('variable')}
+                className={`flex-1 p-4 rounded-lg border-2 transition-all ${
+                  productType === 'variable'
+                    ? 'border-[#d4af37] bg-[#d4af37]/10 shadow-md'
+                    : 'border-gray-200 hover:border-[#d4af37]/50'
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    productType === 'variable' ? 'border-[#d4af37]' : 'border-gray-300'
+                  }`}>
+                    {productType === 'variable' && (
+                      <div className="w-3 h-3 rounded-full bg-[#d4af37]"></div>
+                    )}
+                  </div>
+                  <span className={`font-semibold ${
+                    productType === 'variable' ? 'text-[#d4af37]' : 'text-gray-600'
+                  }`}>
+                    Produit Variable
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Variations avec prix/stock/images différents par combinaison
+                </p>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Informations de base */}
         <Card className="bg-white">
           <CardHeader>
@@ -689,66 +813,78 @@ export default function ProductEditForm({
           </CardContent>
         </Card>
 
-        {/* Attributs de Produit (Couleurs, Tailles, etc.) */}
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle className="text-[#d4af37]">Attributs de Produit</CardTitle>
-            <CardDescription>
-              Sélectionnez les attributs disponibles pour ce produit (couleurs, tailles, etc.)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ProductAttributesSelector
-              selectedTerms={selectedAttributeTerms}
-              onChange={setSelectedAttributeTerms}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Variations de Couleurs et Tailles */}
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle className="text-[#d4af37]">Variations de Produit</CardTitle>
-            <CardDescription>
-              Créez des variations de produit par couleur et taille avec leurs propres images et prix
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {attributes.find(attr => attr.slug === "couleurs-principales") ? (
-              <ProductVariationsManager
-                colorTerms={
-                  attributes
-                    .find(attr => attr.slug === "couleurs-principales")
-                    ?.terms?.map(term => ({
-                      id: term.id,
-                      name: term.name,
-                      color_code: term.color_code,
-                    })) || []
-                }
-                sizeTerms={
-                  attributes
-                    .find(attr => attr.slug === "taille")
-                    ?.terms?.map(term => ({
-                      id: term.id,
-                      name: term.name,
-                      value: term.value,
-                    })) || []
-                }
-                initialVariations={colorVariations}
-                onChange={handleColorVariationsChange}
+        {/* Attributs de Produit (Couleurs, Tailles, etc.) - Affichage conditionnel */}
+        {productType === 'simple' && (
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle className="text-[#d4af37]">Attributs de Produit</CardTitle>
+              <CardDescription>
+                Sélectionnez les attributs disponibles pour ce produit simple (couleurs, tailles, etc.)
+                <br />
+                <span className="text-xs text-[#d4af37] font-medium">
+                  Ces attributs seront affichés sur la page produit mais sans variations de prix/stock
+                </span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ProductAttributesSelector
+                selectedTerms={selectedAttributeTerms}
+                onChange={setSelectedAttributeTerms}
               />
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <p className="text-sm">
-                  Aucune couleur disponible. Ajoutez des couleurs dans la section{" "}
-                  <Link href="/admin/product-attributes" className="text-[#d4af37] hover:underline">
-                    Attributs Produits
-                  </Link>
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Variations de Couleurs et Tailles - Affichage conditionnel */}
+        {productType === 'variable' && (
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle className="text-[#d4af37]">Variations de Produit</CardTitle>
+              <CardDescription>
+                Créez des variations de produit par couleur et taille avec leurs propres images et prix
+                <br />
+                <span className="text-xs text-[#d4af37] font-medium">
+                  Chaque variation peut avoir son propre prix, stock et image
+                </span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {attributes.find(attr => attr.slug === "couleurs-principales") ? (
+                <ProductVariationsManager
+                  colorTerms={
+                    attributes
+                      .find(attr => attr.slug === "couleurs-principales")
+                      ?.terms?.map(term => ({
+                        id: term.id,
+                        name: term.name,
+                        color_code: term.color_code,
+                      })) || []
+                  }
+                  sizeTerms={
+                    attributes
+                      .find(attr => attr.slug === "taille")
+                      ?.terms?.map(term => ({
+                        id: term.id,
+                        name: term.name,
+                        value: term.value,
+                      })) || []
+                  }
+                  initialVariations={colorVariations}
+                  onChange={handleColorVariationsChange}
+                />
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p className="text-sm">
+                    Aucune couleur disponible. Ajoutez des couleurs dans la section{" "}
+                    <Link href="/admin/product-attributes" className="text-[#d4af37] hover:underline">
+                      Attributs Produits
+                    </Link>
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* SEO */}
         <Card className="bg-white">

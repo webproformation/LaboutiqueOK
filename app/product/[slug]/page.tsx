@@ -170,6 +170,48 @@ export default function ProductPage() {
           productData.variations = formattedVariations;
           productData.type = "VARIABLE";
         }
+      } else if (productData.attributes && typeof productData.attributes === 'object') {
+        // Produit simple avec attributs dans products.attributes
+        const simpleAttributes = productData.attributes;
+
+        // Charger les noms des termes d'attributs depuis la base
+        const attributeTermIds: string[] = [];
+        Object.values(simpleAttributes).forEach((termIds: any) => {
+          if (Array.isArray(termIds)) {
+            attributeTermIds.push(...termIds);
+          }
+        });
+
+        if (attributeTermIds.length > 0) {
+          const { data: attributeTerms } = await supabase
+            .from("product_attribute_terms")
+            .select("id, name, slug, color_code, attribute_id, product_attributes!inner(name, slug)")
+            .in("id", attributeTermIds);
+
+          if (attributeTerms) {
+            const attributesMap = new Map<string, { options: string[], colorCodes?: string[] }>();
+
+            attributeTerms.forEach((term: any) => {
+              const attrName = term.product_attributes?.name || "Attribut";
+              if (!attributesMap.has(attrName)) {
+                attributesMap.set(attrName, { options: [], colorCodes: [] });
+              }
+              attributesMap.get(attrName)?.options.push(term.name);
+              if (term.color_code) {
+                attributesMap.get(attrName)?.colorCodes?.push(term.color_code);
+              }
+            });
+
+            const formattedAttributes = Array.from(attributesMap.entries()).map(([name, data]) => ({
+              name,
+              options: data.options,
+              colorCodes: data.colorCodes && data.colorCodes.length > 0 ? data.colorCodes : undefined,
+            }));
+
+            productData.attributes = formattedAttributes;
+            productData.type = "SIMPLE";
+          }
+        }
       }
 
       setProduct(productData);
@@ -433,6 +475,38 @@ export default function ProductPage() {
                 variations={product.variations}
                 onVariationChange={setSelectedVariation}
               />
+            )}
+
+            {!isVariable && product.attributes && product.attributes.length > 0 && (
+              <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                  Caractéristiques
+                </h3>
+                {product.attributes.map((attr: any, index: number) => (
+                  <div key={index} className="space-y-2">
+                    <Label className="text-gray-700">{attr.name}</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {attr.options.map((option: string, optionIndex: number) => {
+                        const colorCode = attr.colorCodes?.[optionIndex];
+                        return (
+                          <div
+                            key={optionIndex}
+                            className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md bg-white"
+                          >
+                            {colorCode && (
+                              <div
+                                className="w-5 h-5 rounded-full border-2 border-gray-300"
+                                style={{ backgroundColor: colorCode }}
+                              />
+                            )}
+                            <span className="text-sm text-gray-900">{option}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
 
             <div className="space-y-4">
