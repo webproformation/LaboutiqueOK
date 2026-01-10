@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     const logoUrl = 'https://qcqbtmvbvipsxwjlgjvk.supabase.co/storage/v1/object/public/product-images/products/1767606522580-6exr5j.webp';
 
     let imgHeight = 30;
-    const fullWidthImgWidth = pageWidth - (2 * margin);
+    const fullWidthImgWidth = pageWidth;
 
     try {
       const response = await fetch(logoUrl);
@@ -82,12 +82,12 @@ export async function POST(request: NextRequest) {
         img.onerror = () => resolve(null);
       });
 
-      doc.addImage(imageDataUrl, 'WEBP', margin, margin, fullWidthImgWidth, imgHeight, undefined, 'FAST');
+      doc.addImage(imageDataUrl, 'WEBP', 0, 0, fullWidthImgWidth, imgHeight, undefined, 'FAST');
     } catch (e) {
       console.log("Logo non chargé, continue sans logo:", e);
     }
 
-    let yPosition = margin + imgHeight + 15;
+    let yPosition = imgHeight + 15;
 
     doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
@@ -273,7 +273,7 @@ export async function POST(request: NextRequest) {
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("TOTAL TTC :", labelX, yPosition, { align: "right" });
-    const totalAmount = Number(order.total) || 0;
+    const totalAmount = Number(order.total_amount || order.total) || 0;
     doc.text(`${totalAmount.toFixed(2)} €`, valueX, yPosition, { align: "right" });
 
     yPosition += 10;

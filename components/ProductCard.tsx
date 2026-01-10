@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
+import { ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { WishlistButton } from '@/components/wishlist-button';
 import { toast } from 'sonner';
 
 interface ProductCardProps {
@@ -27,7 +28,6 @@ interface ProductCardProps {
 export function ProductCard({ product, showAddToCart = false }: ProductCardProps) {
   const { addToCart } = useCart();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
 
@@ -96,13 +96,6 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
     }, 1);
   };
 
-  const toggleFavorite = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsFavorite(!isFavorite);
-    toast.success(isFavorite ? 'Retiré des favoris' : 'Ajouté aux favoris');
-  };
-
   return (
     <Card className="group relative overflow-hidden rounded-xl shadow-md hover:shadow-2xl transition-all duration-300">
       <Link href={`/product/${product.slug}`}>
@@ -130,16 +123,7 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
             </div>
           )}
 
-          <button
-            onClick={toggleFavorite}
-            className="absolute top-3 right-3 bg-white hover:bg-gray-50 p-2.5 rounded-full shadow-lg transition-all duration-200 hover:scale-110 z-10"
-          >
-            <Heart
-              className={`h-5 w-5 transition-colors ${
-                isFavorite ? 'fill-pink-500 text-pink-500' : 'text-gray-600'
-              }`}
-            />
-          </button>
+          <WishlistButton productId={product.id} variant="card" />
 
           {images.length > 1 && (
             <>

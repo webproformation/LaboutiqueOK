@@ -222,7 +222,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
             <AccordionItem value="mode" className="border-b border-gray-700">
               <AccordionTrigger className="text-base font-medium hover:text-[#D4AF37] hover:no-underline">
-                Mode
+                Dressing (34-54)
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pl-4">
                 {modeCategories.map((cat) => (
@@ -255,7 +255,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
             <AccordionItem value="morgane" className="border-b border-gray-700">
               <AccordionTrigger className="text-base font-medium hover:text-[#D4AF37] hover:no-underline">
-                Les looks de Morgane
+                Sublimer le Look
               </AccordionTrigger>
               <AccordionContent className="space-y-2 pl-4">
                 {morganeCategories.map((cat) => (
@@ -273,7 +273,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
             <AccordionItem value="maison" className="border-b border-gray-700">
               <AccordionTrigger className="text-base font-medium hover:text-[#D4AF37] hover:no-underline">
-                Maison
+                Ambiance & Bien-être
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pl-4">
                 {maisonCategories.map((cat) => (
@@ -306,7 +306,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
             <AccordionItem value="beaute" className="border-b border-gray-700">
               <AccordionTrigger className="text-base font-medium hover:text-[#D4AF37] hover:no-underline">
-                Beauté et Senteurs
+                Soins, Make-up & Fragrances
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pl-4">
                 {beauteCategories.map((cat) => (
@@ -355,7 +355,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 className="block text-base font-medium hover:text-[#D4AF37] transition-colors"
                 onClick={onClose}
               >
-                Live & Replay
+                Live Shopping et Replay
               </Link>
             </div>
 

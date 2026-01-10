@@ -35,12 +35,13 @@ import { useCart } from '@/context/CartContext';
 
 const navigation = [
   { name: 'Nouveautés', href: '/category/nouveautes', hasMegaMenu: false },
-  { name: 'Mode', href: '/category/mode', hasMegaMenu: true, megaType: 'mode' as const },
-  { name: 'Les looks de Morgane', href: '/les-looks-de-morgane', hasMegaMenu: true, megaType: 'morgane' as const },
-  { name: 'Maison', href: '/category/maison', hasMegaMenu: true, megaType: 'maison' as const },
-  { name: 'Beauté et Senteurs', href: '/category/beaute-et-senteurs', hasMegaMenu: true, megaType: 'beaute' as const },
+  { name: 'Dressing (34-54)', href: '/category/dressing', hasMegaMenu: true, megaType: 'mode' as const },
+  { name: "L'atelier de Doudou", href: '/category/L-ATELIER-DE-DOUDOU', hasMegaMenu: false },
+  { name: 'Sublimer le Look', href: '/category/sublimer-le-look', hasMegaMenu: true, megaType: 'morgane' as const },
+  { name: 'Ambiance & Bien-être', href: '/category/ambiance-bien-etre', hasMegaMenu: true, megaType: 'maison' as const },
+  { name: 'Soins, Make-up & Fragrances', href: '/category/soins-make-up-&-fragrances', hasMegaMenu: true, megaType: 'beaute' as const },
   { name: 'Bonnes affaires', href: '/category/bonnes-affaires', hasMegaMenu: false },
-  { name: 'Live & Replay', href: '/live', hasMegaMenu: false },
+  { name: 'Live Shopping et Replay', href: '/live', hasMegaMenu: false },
   { name: 'Carte cadeau', href: '/carte-cadeau', hasMegaMenu: false },
   { name: 'Le carnet de Morgane', href: '/actualites', hasMegaMenu: false },
 ];
