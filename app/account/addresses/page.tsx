@@ -14,10 +14,16 @@ import { toast } from 'sonner';
 interface Address {
   id: string;
   address_type: string;
+  first_name: string;
+  last_name: string;
   street: string;
+  address_line1: string;
+  address_line2?: string;
   city: string;
   postal_code: string;
   country: string;
+  phone: string;
+  label?: string;
   is_default: boolean;
 }
 
@@ -29,10 +35,15 @@ export default function AddressesPage() {
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
 
   const [addressType, setAddressType] = useState('shipping');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [street, setStreet] = useState('');
+  const [addressLine2, setAddressLine2] = useState('');
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
   const [country, setCountry] = useState('France');
+  const [phone, setPhone] = useState('');
+  const [label, setLabel] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -63,10 +74,15 @@ export default function AddressesPage() {
 
   const resetForm = () => {
     setAddressType('shipping');
+    setFirstName('');
+    setLastName('');
     setStreet('');
+    setAddressLine2('');
     setCity('');
     setPostalCode('');
     setCountry('France');
+    setPhone('');
+    setLabel('');
     setIsDefault(false);
     setEditingAddress(null);
   };
@@ -75,10 +91,15 @@ export default function AddressesPage() {
     if (address) {
       setEditingAddress(address);
       setAddressType(address.address_type);
-      setStreet(address.street);
+      setFirstName(address.first_name || '');
+      setLastName(address.last_name || '');
+      setStreet(address.street || address.address_line1 || '');
+      setAddressLine2(address.address_line2 || '');
       setCity(address.city);
       setPostalCode(address.postal_code);
       setCountry(address.country);
+      setPhone(address.phone || '');
+      setLabel(address.label || '');
       setIsDefault(address.is_default);
     } else {
       resetForm();
@@ -89,7 +110,7 @@ export default function AddressesPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!street || !city || !postalCode) {
+    if (!firstName || !lastName || !street || !city || !postalCode || !phone) {
       toast.error('Veuillez remplir tous les champs obligatoires');
       return;
     }
@@ -97,17 +118,25 @@ export default function AddressesPage() {
     setSaving(true);
 
     try {
+      const addressData = {
+        address_type: addressType,
+        first_name: firstName,
+        last_name: lastName,
+        street,
+        address_line1: street,
+        address_line2: addressLine2 || null,
+        city,
+        postal_code: postalCode,
+        country,
+        phone,
+        label: label || `${firstName} ${lastName}`,
+        is_default: isDefault,
+      };
+
       if (editingAddress) {
         const { error } = await supabase
           .from('addresses')
-          .update({
-            address_type: addressType,
-            street,
-            city,
-            postal_code: postalCode,
-            country,
-            is_default: isDefault,
-          })
+          .update(addressData)
           .eq('id', editingAddress.id);
 
         if (error) throw error;
@@ -121,12 +150,7 @@ export default function AddressesPage() {
         const { error } = await supabase.from('addresses').insert({
           id: newAddressId,
           user_id: user?.id,
-          address_type: addressType,
-          street,
-          city,
-          postal_code: postalCode,
-          country,
-          is_default: isDefault,
+          ...addressData,
         });
 
         if (error) throw error;
@@ -136,6 +160,7 @@ export default function AddressesPage() {
         });
       }
 
+      await loadAddresses();
       setDialogOpen(false);
       resetForm();
       loadAddresses();
@@ -203,6 +228,46 @@ export default function AddressesPage() {
             </DialogHeader>
             <form onSubmit={handleSave} className="space-y-4">
               <div className="space-y-2">
+                <Label htmlFor="label">
+                  Nom de l'adresse
+                </Label>
+                <Input
+                  id="label"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="Domicile, Travail, etc."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">
+                    Prénom <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="firstName"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Jean"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">
+                    Nom <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="lastName"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Dupont"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="street">
                   Adresse <span className="text-red-500">*</span>
                 </Label>
@@ -210,8 +275,20 @@ export default function AddressesPage() {
                   id="street"
                   value={street}
                   onChange={(e) => setStreet(e.target.value)}
-                  placeholder="123 rue de la Paix"
+                  placeholder="27, rue de l'abbé Doudermy"
                   required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="addressLine2">
+                  Complément d'adresse
+                </Label>
+                <Input
+                  id="addressLine2"
+                  value={addressLine2}
+                  onChange={(e) => setAddressLine2(e.target.value)}
+                  placeholder="Appartement, bâtiment, étage..."
                 />
               </div>
 
@@ -244,12 +321,29 @@ export default function AddressesPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="country">Pays</Label>
+                <Label htmlFor="country">
+                  Pays <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="country"
                   value={country}
                   onChange={(e) => setCountry(e.target.value)}
                   placeholder="France"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">
+                  Téléphone <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="06 12 34 56 78"
+                  required
                 />
               </div>
 
@@ -312,7 +406,7 @@ export default function AddressesPage() {
                   <div className="flex items-center gap-2">
                     <Home className="h-5 w-5 text-[#D4AF37]" />
                     <CardTitle className="text-lg">
-                      {address.address_type === 'shipping' ? 'Livraison' : 'Facturation'}
+                      {address.label || `${address.first_name} ${address.last_name}`}
                     </CardTitle>
                   </div>
                   {address.is_default && (
@@ -324,11 +418,14 @@ export default function AddressesPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-1 mb-4">
-                  <p className="text-sm">{address.street}</p>
+                  <p className="font-medium text-sm">{address.first_name} {address.last_name}</p>
+                  <p className="text-sm">{address.street || address.address_line1}</p>
+                  {address.address_line2 && <p className="text-sm">{address.address_line2}</p>}
                   <p className="text-sm">
                     {address.postal_code} {address.city}
                   </p>
                   <p className="text-sm">{address.country}</p>
+                  <p className="text-sm text-gray-600">Tél: {address.phone}</p>
                 </div>
                 <div className="flex gap-2">
                   <Button

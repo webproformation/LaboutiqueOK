@@ -258,7 +258,7 @@ export default function OrdersPage() {
                       {selectedOrder.shipping_address.first_name} {selectedOrder.shipping_address.last_name}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
-                      {selectedOrder.shipping_address.address_line1}
+                      {(selectedOrder as any).shipping_street || selectedOrder.shipping_address.address_line1}
                     </p>
                     {selectedOrder.shipping_address.address_line2 && (
                       <p className="text-sm text-gray-600">
@@ -268,7 +268,9 @@ export default function OrdersPage() {
                     <p className="text-sm text-gray-600">
                       {selectedOrder.shipping_address.postal_code} {selectedOrder.shipping_address.city}
                     </p>
-                    <p className="text-sm text-gray-600">{selectedOrder.shipping_address.phone}</p>
+                    <p className="text-sm text-gray-600">
+                      Tél: {(selectedOrder as any).shipping_phone || selectedOrder.shipping_address.phone}
+                    </p>
                   </div>
                 ) : (
                   <p className="text-gray-600">Adresse non disponible</p>
