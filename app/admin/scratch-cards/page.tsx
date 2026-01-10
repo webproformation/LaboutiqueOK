@@ -64,8 +64,48 @@ export default function ScratchCardsPage() {
   });
 
   useEffect(() => {
-    loadGames();
-    loadCoupons();
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        const [gamesResult, couponsResult] = await Promise.all([
+          supabase
+            .from('scratch_card_games')
+            .select('*')
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('coupons')
+            .select('id, code, discount_type, discount_value, is_active')
+            .eq('is_active', true)
+            .order('code')
+        ]);
+
+        if (isMounted) {
+          if (gamesResult.error) {
+            toast.error('Erreur lors du chargement des jeux');
+          } else {
+            setGames(gamesResult.data || []);
+          }
+
+          if (!couponsResult.error) {
+            setCoupons(couponsResult.data || []);
+          }
+
+          setLoading(false);
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error loading data:', error);
+          setLoading(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const loadGames = async () => {

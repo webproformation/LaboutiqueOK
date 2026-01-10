@@ -75,8 +75,43 @@ export default function CardFlipAdminPage() {
   });
 
   useEffect(() => {
-    loadGames();
-    loadCoupons();
+    let isMounted = true;
+
+    const loadData = async () => {
+      setLoading(true);
+      const supabase = createClient();
+
+      const { data: gamesData, error: gamesError } = await supabase
+        .from('card_flip_games')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      const { data: couponsData, error: couponsError } = await supabase
+        .from('coupons')
+        .select('id, code, discount_type, discount_value')
+        .eq('is_active', true)
+        .order('code');
+
+      if (isMounted) {
+        if (gamesError) {
+          toast.error('Erreur lors du chargement des jeux');
+        } else {
+          setGames(gamesData || []);
+        }
+
+        if (!couponsError && couponsData) {
+          setCoupons(couponsData);
+        }
+
+        setLoading(false);
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const loadGames = async () => {
