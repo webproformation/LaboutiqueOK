@@ -1,20 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lock, ShieldCheck, CreditCard, ShoppingBag } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 export default function TransactionsProtegeesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-[#F2F2E8]">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto space-y-8">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Réglez vos achats en toute sérénité
-            </h1>
-            <p className="text-lg text-gray-700 max-w-2xl mx-auto">
-              Votre sécurité est notre priorité. Toutes vos transactions sont cryptées et protégées
-              selon les normes les plus strictes.
-            </p>
-          </div>
+          <PageHeader
+            icon={Lock}
+            title="Transactions Protégées"
+            description="Votre sécurité est notre priorité. Toutes vos transactions sont cryptées et protégées selon les normes les plus strictes."
+          />
 
           <Card className="bg-gradient-to-br from-[#D4AF37]/20 to-[#b8933d]/20 border-l-4 border-[#C6A15B]">
             <CardHeader>

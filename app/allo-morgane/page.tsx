@@ -1,19 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, Phone, MessageCircle, HelpCircle, Package, Shirt } from 'lucide-react';
+import { Mail, Phone, MessageCircle, HelpCircle, Package, Shirt, PhoneCall } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 export default function AlloMorganePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-[#F2F2E8]">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto space-y-8">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Besoin d'un conseil ?
-            </h1>
-            <h2 className="text-2xl text-[#C6A15B] font-semibold mb-6">
-              Morgane vous répond.
-            </h2>
-          </div>
+          <PageHeader
+            icon={PhoneCall}
+            title="Allo Morgane"
+            description="Besoin d'un conseil ? Morgane et André sont là pour vous conseiller, vous rassurer, et surtout... pour vous faire sourire !"
+          />
 
           <Card className="bg-gradient-to-br from-[#D4AF37] to-[#b8933d] text-white">
             <CardContent className="p-8 text-center space-y-4">

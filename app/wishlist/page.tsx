@@ -10,6 +10,7 @@ import { Heart, Trash2, ShoppingCart, Loader2, ChevronLeft, ChevronRight } from 
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import PageHeader from '@/components/PageHeader';
 
 interface Product {
   id: string;
@@ -288,13 +289,14 @@ export default function WishlistPage() {
   if (products.length === 0) {
     return (
       <div className="container mx-auto px-4 py-12">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-6">
-            <Heart className="h-10 w-10 text-gray-400" />
-          </div>
-          <h1 className="text-3xl font-bold mb-4">Vos coups de cœur sont en attente !</h1>
-          <p className="text-gray-600 mb-8">
-            Ajoutez vos pépites préférées pour les retrouver facilement
+        <div className="max-w-2xl mx-auto">
+          <PageHeader
+            icon={Heart}
+            title="Ma Liste de Souhaits"
+            description="Ajoutez vos pépites préférées pour les retrouver facilement"
+          />
+          <p className="text-center text-gray-600 mb-8">
+            Votre liste de souhaits est vide pour le moment
           </p>
           <Button asChild size="lg" className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white">
             <Link href="/">
@@ -309,12 +311,11 @@ export default function WishlistPage() {
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold mb-2" style={{ color: '#C6A15B' }}>Mes coups de cœur !</h1>
-            <p className="text-gray-600">{products.length} pépite{products.length > 1 ? 's' : ''}</p>
-          </div>
-        </div>
+        <PageHeader
+          icon={Heart}
+          title="Ma Liste de Souhaits"
+          description={`${products.length} pépite${products.length > 1 ? 's' : ''} sauvegardée${products.length > 1 ? 's' : ''}`}
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {products.map((product) => (

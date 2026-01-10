@@ -13,6 +13,7 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { WalletSelector } from '@/components/WalletSelector';
 import { GiftProgressBar } from '@/components/GiftProgressBar';
+import PageHeader from '@/components/PageHeader';
 
 const MINIMUM_ORDER_AMOUNT = 10;
 
@@ -85,13 +86,14 @@ export default function CartPage() {
   if (cart.length === 0) {
     return (
       <div className="container mx-auto px-4 py-16">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-gray-100 rounded-full mb-6">
-            <ShoppingBag className="h-12 w-12 text-gray-300" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Votre panier est vide</h1>
-          <p className="text-lg text-gray-600 mb-8">
-            Commencez vos achats dès maintenant et découvrez nos produits exclusifs !
+        <div className="max-w-2xl mx-auto">
+          <PageHeader
+            icon={ShoppingBag}
+            title="Mon Panier"
+            description="Commencez vos achats dès maintenant et découvrez nos produits exclusifs !"
+          />
+          <p className="text-center text-gray-600 mb-8">
+            Votre panier est vide pour le moment
           </p>
           <Link href="/">
             <Button className="bg-[#b8933d] hover:bg-[#a07c2f]" size="lg">
@@ -106,8 +108,12 @@ export default function CartPage() {
   return (
     <div className="container mx-auto px-4 py-16">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Mon Panier</h1>
+        <PageHeader
+          icon={ShoppingBag}
+          title="Mon Panier"
+          description={`${cartItemCount} article${cartItemCount > 1 ? 's' : ''} dans votre panier`}
+        />
+        <div className="flex justify-end mb-4">
           <Button
             variant="ghost"
             onClick={clearCart}

@@ -54,17 +54,19 @@ export async function POST(request: NextRequest) {
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
 
-    const logoPath = process.env.NODE_ENV === 'production'
-      ? '/la_boutique_d_emorgane_-_logo.png'
-      : '/la_boutique_d_emorgane_-_logo.png';
+    const logoUrl = 'https://qcqbtmvbvipsxwjlgjvk.supabase.co/storage/v1/object/public/media/LBDM-LogoBDC.png';
 
     const imgWidth = pageWidth - (margin * 2);
     const imgHeight = 30;
 
     try {
-      doc.addImage(logoPath, 'PNG', margin, margin, imgWidth, imgHeight);
+      const response = await fetch(logoUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const base64 = Buffer.from(arrayBuffer).toString('base64');
+      const imageDataUrl = `data:image/png;base64,${base64}`;
+      doc.addImage(imageDataUrl, 'PNG', margin, margin, imgWidth, imgHeight);
     } catch (e) {
-      console.log("Logo non chargé, continue sans logo");
+      console.log("Logo non chargé, continue sans logo:", e);
     }
 
     let yPosition = margin + imgHeight + 15;
@@ -151,12 +153,25 @@ export async function POST(request: NextRequest) {
 
     yPosition = Math.max(yPosition + (sellerInfo.length * 4), tempY) + 10;
 
-    const tableData = (order.items || []).map((item: any) => [
-      item.product_name || 'Produit',
-      `${item.quantity || 1}`,
-      `${(item.price || 0).toFixed(2)} €`,
-      `${((item.quantity || 1) * (item.price || 0)).toFixed(2)} €`,
-    ]);
+    const tableData = (order.items || []).map((item: any) => {
+      let productName = item.product_name || 'Produit';
+
+      if (item.variation_data && item.variation_data.attributes) {
+        const attributes = Object.entries(item.variation_data.attributes)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(', ');
+        if (attributes) {
+          productName += `\n(${attributes})`;
+        }
+      }
+
+      return [
+        productName,
+        `${item.quantity || 1}`,
+        `${(item.price || 0).toFixed(2)} €`,
+        `${((item.quantity || 1) * (item.price || 0)).toFixed(2)} €`,
+      ];
+    });
 
     autoTable(doc, {
       startY: yPosition,
@@ -201,6 +216,17 @@ export async function POST(request: NextRequest) {
 
     if (order.wallet_amount_used && order.wallet_amount_used > 0) {
       totals.push(["Cagnotte utilisée :", `- ${(order.wallet_amount_used || 0).toFixed(2)} €`]);
+    }
+
+    if (order.coupon_code) {
+      totals.push(["Code coupon :", order.coupon_code]);
+    }
+
+    if (order.referral_code) {
+      totals.push(["Code de parrainage :", order.referral_code]);
+      if (order.referral_discount && order.referral_discount > 0) {
+        totals.push(["Réduction parrainage :", `- ${(order.referral_discount || 0).toFixed(2)} €`]);
+      }
     }
 
     totals.forEach(([label, value]) => {

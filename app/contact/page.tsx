@@ -8,9 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { GDPRConsent } from '@/components/gdpr-consent';
-import { MapPin, Phone, Mail, Clock, Send, Loader2, CheckCircle2 } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, Send, Loader2, CheckCircle2, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import PageHeader from '@/components/PageHeader';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -94,14 +95,11 @@ export default function ContactPage() {
     <div className="min-h-screen bg-gradient-to-b from-white to-[#F2F2E8]">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Contactez-nous
-            </h1>
-            <p className="text-lg text-gray-700 max-w-2xl mx-auto">
-              Une question, un conseil, une demande particulière ? Nous sommes là pour vous répondre.
-            </p>
-          </div>
+          <PageHeader
+            icon={MessageSquare}
+            title="Contactez-nous"
+            description="Une question, un conseil, une demande particulière ? Nous sommes là pour vous répondre."
+          />
 
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">

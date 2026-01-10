@@ -5,12 +5,13 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, SlidersHorizontal, DollarSign } from 'lucide-react';
+import { Loader2, SlidersHorizontal, DollarSign, Package } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { decodeHtmlEntities } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
+import PageHeader from '@/components/PageHeader';
 
 interface Product {
   id: string;
@@ -313,12 +314,11 @@ export default function CategoryPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8 text-center md:text-left">
-        <h1 className="page-title mb-2">{decodeHtmlEntities(category.name)}</h1>
-        {category.description && (
-          <p className="text-gray-600 max-w-3xl md:mx-0 mx-auto">{decodeHtmlEntities(category.description)}</p>
-        )}
-      </div>
+      <PageHeader
+        icon={Package}
+        title={decodeHtmlEntities(category.name)}
+        description={category.description ? decodeHtmlEntities(category.description) : undefined}
+      />
 
       {products.length === 0 ? (
         <div className="text-center py-12">

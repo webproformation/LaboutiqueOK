@@ -1,24 +1,17 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Truck, Package, MapPin, Mail, Check } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 export default function FraisDePortPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-[#F2F2E8]">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-5xl mx-auto space-y-8">
-          <div className="text-center mb-12">
-            <div className="flex justify-center mb-4">
-              <div className="bg-gradient-to-br from-[#D4AF37] to-[#b8933d] p-4 rounded-full">
-                <Truck className="h-12 w-12 text-white" />
-              </div>
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Frais de port offerts
-            </h1>
-            <p className="text-lg text-gray-700 max-w-2xl mx-auto">
-              Profitez de la livraison gratuite en Point Relais pour toutes vos commandes à partir de 80€ d'achat.
-            </p>
-          </div>
+          <PageHeader
+            icon={Truck}
+            title="Frais de Port"
+            description="Profitez de la livraison gratuite en Point Relais pour toutes vos commandes à partir de 80€ d'achat."
+          />
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Card className="bg-gradient-to-br from-[#D4AF37]/20 to-[#b8933d]/20 border-[#C6A15B] border-2">

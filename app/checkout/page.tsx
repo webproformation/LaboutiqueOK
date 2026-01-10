@@ -15,13 +15,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ShoppingBag, ArrowLeft, CreditCard, MapPin, Truck, Wallet, Package, AlertCircle, Info, Gift } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, CreditCard, MapPin, Truck, Wallet, Package, AlertCircle, Info, Gift, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useOpenPackage } from '@/hooks/use-open-package';
 import { useUserCoupons } from '@/hooks/use-user-coupons';
 import { PayPalButtons } from '@/components/PayPalButtons';
 import { RelayPointSelector } from '@/components/RelayPointSelector';
+import PageHeader from '@/components/PageHeader';
 
 interface Address {
   id: string;
@@ -95,6 +96,7 @@ export default function CheckoutPage() {
   const [rgpdConsent, setRgpdConsent] = useState(false);
   const [shippingInsurance, setShippingInsurance] = useState('0');
   const [bankDialogOpen, setBankDialogOpen] = useState(false);
+  const [createPendingPackage, setCreatePendingPackage] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -409,10 +411,60 @@ export default function CheckoutPage() {
           </Link>
         </div>
 
-        <h1 className="text-4xl font-bold text-gray-900 mb-8 flex items-center gap-3">
-          <ShoppingBag className="h-10 w-10 text-[#D4AF37]" />
-          Finaliser ma commande
-        </h1>
+        <PageHeader
+          icon={ShoppingBag}
+          title="Finaliser ma commande"
+          description="Complétez les informations ci-dessous pour valider votre commande"
+        />
+
+        <div className="max-w-4xl mx-auto mb-6">
+          <Card className="border-2 border-[#D4AF37]/30 bg-gradient-to-br from-[#D4AF37]/5 to-white">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-[#D4AF37]" />
+                Mettre ma commande en attente
+              </CardTitle>
+              <CardDescription>
+                Payez les frais de livraison maintenant, mais l'expédition sera effectuée dans 5 jours (ou validée manuellement avant).
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-start space-x-3">
+                <Checkbox
+                  id="createPendingPackage"
+                  checked={createPendingPackage}
+                  onCheckedChange={(checked) => setCreatePendingPackage(checked as boolean)}
+                />
+                <div className="space-y-2 flex-1">
+                  <label
+                    htmlFor="createPendingPackage"
+                    className="text-sm font-medium leading-none cursor-pointer"
+                  >
+                    Créer un colis en attente pour cette commande
+                  </label>
+                  {createPendingPackage && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <ul className="text-sm text-blue-800 space-y-1">
+                        <li className="flex items-start gap-2">
+                          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span>Les frais de livraison seront payés aujourd'hui</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span>Votre colis sera expédié automatiquement dans 5 jours</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <span>Vous pouvez valider l'expédition manuellement depuis votre compte avant cette date</span>
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
           <div className="space-y-6">

@@ -10,9 +10,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { Gem, Heart, Loader2, Crown, Upload, CheckCircle2 } from 'lucide-react'
+import { Gem, Heart, Loader2, Crown, Upload, CheckCircle2, BookHeart } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
+import PageHeader from '@/components/PageHeader'
 
 export default function LivreDorPage() {
   const { entries, loading, refetch } = useGuestbook(50, 'approved')
@@ -135,12 +136,18 @@ export default function LivreDorPage() {
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="max-w-6xl mx-auto">
+        <PageHeader
+          icon={BookHeart}
+          title="Livre d'Or"
+          description="Partagez votre expérience et devenez notre Ambassadrice de la Semaine !"
+        />
+
         <div className="bg-gradient-to-r from-[#C6A15B]/10 to-pink-50 rounded-3xl p-8 mb-12">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full mb-4 shadow-lg">
               <Crown className="h-10 w-10 text-[#C6A15B]" />
             </div>
-            <h1 className="text-4xl font-bold mb-4">Devenez notre Ambassadrice de la Semaine !</h1>
+            <h2 className="text-3xl font-bold mb-4">Challenge de la Semaine</h2>
           </div>
 
           <div className="prose prose-lg max-w-4xl mx-auto text-gray-700 space-y-4">

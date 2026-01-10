@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Video, Calendar, Bell, Eye, Clock } from 'lucide-react';
 import Link from 'next/link';
+import PageHeader from '@/components/PageHeader';
 
 interface LiveStream {
   id: string;
@@ -64,15 +65,11 @@ export default function LivePage() {
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-[#C6A15B]/10 rounded-full mb-6">
-            <Video className="h-10 w-10 text-[#C6A15B]" />
-          </div>
-          <h1 className="text-4xl font-bold mb-4">Lives Shopping</h1>
-          <p className="text-xl text-gray-600">
-            Rejoignez Morgane en direct pour découvrir nos nouveautés et profiter d'offres exclusives
-          </p>
-        </div>
+        <PageHeader
+          icon={Video}
+          title="Lives Shopping"
+          description="Rejoignez Morgane en direct pour découvrir nos nouveautés et profiter d'offres exclusives"
+        />
 
         {loading ? (
           <div className="text-center py-12">

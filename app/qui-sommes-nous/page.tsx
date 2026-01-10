@@ -1,24 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, Sparkles, ShoppingBag, Tv, Phone, Users, Facebook } from 'lucide-react';
+import { Heart, Sparkles, ShoppingBag, Tv, Phone, Users, Facebook, UserCircle } from 'lucide-react';
 import Link from 'next/link';
+import PageHeader from '@/components/PageHeader';
 
 export default function QuiSommesNousPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-[#F2F2E8]">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto space-y-8">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Bienvenue dans la famille
-            </h1>
-            <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#b8933d] to-[#C6A15B] bg-clip-text text-transparent mb-6">
-              La Boutique de Morgane
-            </h2>
-            <p className="text-lg text-gray-700 max-w-2xl mx-auto">
-              Découvrez notre histoire, celle d'une passion devenue entreprise, d'un rêve partagé avec des milliers de clientes heureuses.
-            </p>
-          </div>
+          <PageHeader
+            icon={UserCircle}
+            title="Qui Sommes-Nous ?"
+            description="Découvrez notre histoire, celle d'une passion devenue entreprise, d'un rêve partagé avec des milliers de clientes heureuses."
+          />
 
           <Card className="bg-gradient-to-br from-[#D4AF37]/20 to-[#b8933d]/20 border-[#C6A15B]">
             <CardHeader>

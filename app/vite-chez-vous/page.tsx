@@ -1,20 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Truck, Package, Clock, Gift, MapPin } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
 
 export default function ViteChezVousPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-[#F2F2E8]">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto space-y-8">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Votre colis, préparé avec amour
-            </h1>
-            <p className="text-lg text-gray-700 max-w-2xl mx-auto">
-              Chez nous, chaque commande est traitée avec soin. Découvrez nos modes de livraison
-              et nos délais pour recevoir vos pépites rapidement.
-            </p>
-          </div>
+          <PageHeader
+            icon={Truck}
+            title="Vite chez Vous"
+            description="Chez nous, chaque commande est traitée avec soin. Découvrez nos modes de livraison et nos délais pour recevoir vos pépites rapidement."
+          />
 
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Nos modes de livraison</h2>

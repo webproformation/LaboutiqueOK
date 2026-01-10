@@ -1,23 +1,18 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, AlertTriangle, Gift } from 'lucide-react';
+import { Package, AlertTriangle, Gift, RotateCcw } from 'lucide-react';
 import Image from 'next/image';
+import PageHeader from '@/components/PageHeader';
 
 export default function LeDroitALErreurPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-[#F2F2E8]">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto space-y-8">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Retourner un article ?
-            </h1>
-            <p className="text-2xl text-[#C6A15B] font-semibold">
-              On s'arrange en douceur.
-            </p>
-            <p className="text-lg text-gray-700 mt-4 max-w-2xl mx-auto">
-              Pas satisfaite ? Ça arrive. Nous avons deux solutions simples pour que vous repartiez heureuse.
-            </p>
-          </div>
+          <PageHeader
+            icon={RotateCcw}
+            title="Le Droit à l'Erreur"
+            description="Pas satisfaite ? Ça arrive. Nous avons deux solutions simples pour que vous repartiez heureuse."
+          />
 
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Vos options de retour</h2>
