@@ -48,7 +48,6 @@ const categories = [
 const informations = [
   { name: 'Qui sommes-nous', href: '/qui-sommes-nous' },
   { name: 'Contact', href: '/contact' },
-  { name: 'Frais de port', href: '/frais-de-port' },
   { name: 'Le droit à l\'erreur', href: '/le-droit-a-lerreur' },
   { name: 'Vite chez vous', href: '/vite-chez-vous' },
   { name: 'Transactions protégées', href: '/transactions-protegees' },

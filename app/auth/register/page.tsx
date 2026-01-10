@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Mail, Lock, User, Phone, Calendar, AlertCircle } from 'lucide-react';
+import { Loader2, Mail, Lock, User, Phone, Calendar, AlertCircle, Gift } from 'lucide-react';
 import { toast } from 'sonner';
+import { PasswordInput } from '@/components/PasswordInput';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function RegisterPage() {
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [birthDate, setBirthDate] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -182,23 +184,44 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="birthDate">Date de naissance</Label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  id="birthDate"
-                  type="date"
-                  value={birthDate}
-                  onChange={(e) => setBirthDate(e.target.value)}
-                  max={getTodayDate()}
-                  className="pl-10"
-                  disabled={loading}
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="birthDate">Date de naissance</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="birthDate"
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    max={getTodayDate()}
+                    className="pl-10"
+                    disabled={loading}
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  Recevez un cadeau spécial pour votre anniversaire
+                </p>
               </div>
-              <p className="text-xs text-gray-500">
-                Recevez un cadeau spécial pour votre anniversaire
-              </p>
+
+              <div className="space-y-2">
+                <Label htmlFor="referralCode">Code de parrainage</Label>
+                <div className="relative">
+                  <Gift className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="referralCode"
+                    type="text"
+                    placeholder="MORGANE2025"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                    className="pl-10 uppercase"
+                    disabled={loading}
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  Bénéficiez d'avantages en utilisant un code
+                </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -207,14 +230,12 @@ export default function RegisterPage() {
                   Mot de passe <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+                  <PasswordInput
                     id="password"
-                    type="password"
-                    placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 pr-10"
                     required
                     disabled={loading}
                   />
@@ -227,14 +248,12 @@ export default function RegisterPage() {
                   Confirmer le mot de passe <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+                  <PasswordInput
                     id="confirmPassword"
-                    type="password"
-                    placeholder="••••••••"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 pr-10"
                     required
                     disabled={loading}
                   />

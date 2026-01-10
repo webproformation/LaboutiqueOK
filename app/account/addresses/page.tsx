@@ -217,8 +217,8 @@ export default function AddressesPage() {
               Ajouter une adresse
             </Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
+          <DialogContent className="max-h-[85vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>
                 {editingAddress ? 'Modifier l\'adresse' : 'Nouvelle adresse'}
               </DialogTitle>
@@ -226,7 +226,7 @@ export default function AddressesPage() {
                 Remplissez les informations de votre adresse
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSave} className="space-y-4">
+            <form id="address-form" onSubmit={handleSave} className="space-y-4 overflow-y-auto flex-1 pr-2">
               <div className="space-y-2">
                 <Label htmlFor="label">
                   Nom de l'adresse
@@ -360,31 +360,37 @@ export default function AddressesPage() {
                 </Label>
               </div>
 
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setDialogOpen(false)}
-                  className="flex-1"
-                >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enregistrement...
-                    </>
-                  ) : (
-                    'Enregistrer'
-                  )}
-                </Button>
-              </div>
             </form>
+            <div className="flex gap-2 mt-4 flex-shrink-0 border-t pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+                className="flex-1"
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                form="address-form"
+                disabled={saving}
+                className="flex-1 bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const form = document.getElementById('address-form') as HTMLFormElement;
+                  if (form) form.requestSubmit();
+                }}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  'Enregistrer'
+                )}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
