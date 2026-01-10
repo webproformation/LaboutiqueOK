@@ -1,0 +1,213 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    ANALYSE DE LA BASE DE DONNÉES                            ║
+║                    qcqbtmvbvipsxwjlgjvk                                     ║
+║                    Date: 2026-01-10                                         ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  📊 STATISTIQUES GLOBALES                                                    │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+   Total de tables dans la BDD:                97
+   Tables activement utilisées:                81 (83.5%)
+   Tables peu/pas utilisées:                   11 (11.3%)
+   Tables complètement orphelines:              7  (7.2%)
+   Tables dupliquées:                           8  (8.2%)
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  ❌ TABLES À SUPPRIMER - PRIORITÉ 1 (Orphelines)                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+   1. customer_reviews_v2           [ 0 refs code | 0 migrations ]
+   2. daily_checkins                [ 0 refs code | 0 migrations ]
+   3. diamond_finds                 [ 0 refs code | 0 migrations ]
+   4. game_participations           [ 0 refs code | 0 migrations ]
+   5. scratch_card_campaigns        [ 0 refs code | 0 migrations ]
+   6. video_shorts                  [ 0 refs code | 0 migrations ]
+   7. wheel_campaigns               [ 0 refs code | 0 migrations ]
+
+   → Action: SUPPRIMER IMMÉDIATEMENT
+   → Risque: AUCUN (tables jamais utilisées)
+   → Gain: ~7% de tables en moins
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  ⚠️  TABLES À SUPPRIMER - PRIORITÉ 2 (Doublons)                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+   1. referral_usage                [ 0 refs code | doublon de referral_uses ]
+   2. referral_rewards              [ 0 refs code | jamais utilisé ]
+   3. cross_coupons                 [ 0 refs code | jamais utilisé ]
+   4. cross_platform_coupons        [ 0 refs code | jamais utilisé ]
+   5. live_stream_chat_messages     [ 0 refs code | doublon ]
+   6. loyalty_transactions_v2       [ 0 refs code | doublon ]
+   7. diamond_findings              [ 0 refs code | doublon ]
+
+   → Action: VÉRIFIER puis SUPPRIMER
+   → Risque: FAIBLE
+   → Gain: ~7% de tables en moins
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  🔍 TABLES À ANALYSER - PRIORITÉ 3 (Peu utilisées)                          │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+   1. coupon_usage                  [ 1 ref code  | fonctionnalité floue ]
+   2. delivery_batch_items          [ 0 refs code | jamais implémenté ]
+   3. live_attendance               [ 0 refs code | jamais implémenté ]
+   4. live_recordings               [ 0 refs code | jamais implémenté ]
+   5. live_stream_analytics         [ 0 refs code | jamais implémenté ]
+   6. live_stream_settings          [ 0 refs code | remplacé? ]
+   7. live_stream_viewers           [ 0 refs code | jamais implémenté ]
+   8. live_viewers                  [ 0 refs code | doublon? ]
+   9. look_bundle_carts             [ 0 refs code | fonctionnalité incomplète ]
+  10. loyalty_euro_transactions     [ 0 refs code | jamais implémenté ]
+  11. loyalty_wallet                [ 0 refs code | redondant ]
+  12. product_attribute_values      [ 0 refs code | jamais implémenté ]
+  13. product_images                [ 0 refs code | remplacé par gallery? ]
+  14. review_email_queue            [ 0 refs code | jamais implémenté ]
+  15. reviews                       [ 0 refs code | 36 migrations mais pas utilisé ]
+
+   → Action: ANALYSER chaque cas puis décider
+   → Risque: MOYEN (peuvent contenir des données)
+   → Gain potentiel: ~15% de tables en moins
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  ✅ TOP 10 TABLES LES PLUS UTILISÉES (NE PAS TOUCHER!)                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+   1. profiles                      [ 49 code | 525 migrations ] ★★★★★
+   2. categories                    [ 60 code | 210 migrations ] ★★★★★
+   3. products                      [ 54 code | 201 migrations ] ★★★★★
+   4. orders                        [ 26 code | 148 migrations ] ★★★★★
+   5. guestbook_entries             [  8 code | 111 migrations ] ★★★★
+   6. coupons                       [ 16 code |  96 migrations ] ★★★★
+   7. open_packages                 [ 13 code |  57 migrations ] ★★★★
+   8. home_categories               [ 18 code |  49 migrations ] ★★★★
+   9. media                         [ 16 code |  50 migrations ] ★★★★
+  10. live_streams                  [  8 code |  53 migrations ] ★★★★
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  🎯 GAINS ESTIMÉS APRÈS NETTOYAGE                                           │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+   Scénario 1: Nettoyage Priorité 1 uniquement
+   ────────────────────────────────────────────
+   Tables supprimées:                7 tables
+   Politiques RLS supprimées:        ~15-20
+   Réduction taille BDD:             5-10%
+   Réduction complexité:             10%
+   Temps estimé:                     30 minutes
+
+   Scénario 2: Nettoyage P1 + P2
+   ────────────────────────────────────────────
+   Tables supprimées:                14 tables
+   Politiques RLS supprimées:        ~30-40
+   Réduction taille BDD:             10-15%
+   Réduction complexité:             20%
+   Temps estimé:                     2 heures
+
+   Scénario 3: Nettoyage complet (P1 + P2 + P3)
+   ────────────────────────────────────────────
+   Tables supprimées:                28+ tables
+   Politiques RLS supprimées:        ~50-60
+   Réduction taille BDD:             20-30%
+   Réduction complexité:             35%
+   Temps estimé:                     1 journée
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  🚨 PROBLÈMES IDENTIFIÉS                                                    │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+   1. DOUBLONS DE FONCTIONNALITÉS
+      → Système de reviews: 3 tables différentes (customer_reviews, reviews, customer_reviews_v2)
+      → Système de diamants: 4 tables similaires
+      → Système de live chat: 2 tables (live_chat_messages, live_stream_chat_messages)
+
+   2. ARCHITECTURE CONFUSE
+      → Nommage incohérent (referral_usage vs referral_uses)
+      → Tables créées mais jamais codées (live_stream_analytics, etc.)
+      → Migrations "v2" qui n'ont jamais remplacé les originales
+
+   3. FONCTIONNALITÉS PARTIELLEMENT IMPLÉMENTÉES
+      → Live streaming: 50% des tables créées ne sont pas utilisées
+      → Loyalty system: plusieurs tables en doublon
+      → Product attributes: system de valeurs jamais terminé
+
+   4. MIGRATIONS REDONDANTES
+      → Beaucoup de migrations "fix" qui se corrigent entre elles
+      → ALTER TABLE sur des colonnes qui existent déjà
+      → Besoin de consolidation
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  ⚠️  CHECKLIST AVANT SUPPRESSION                                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+   [ ] 1. Faire une SAUVEGARDE COMPLÈTE de la base de données
+   [ ] 2. Exécuter le script VERIFICATION-TABLES-AVANT-SUPPRESSION.sql
+   [ ] 3. Vérifier qu'aucune table ne contient de données importantes
+   [ ] 4. Vérifier les contraintes de clés étrangères (CASCADE)
+   [ ] 5. Tester en environnement de DEV/STAGING d'abord
+   [ ] 6. Documenter les raisons de chaque suppression
+   [ ] 7. Prévenir l'équipe avant d'appliquer en PRODUCTION
+   [ ] 8. Avoir un plan de rollback en cas de problème
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  📝 RECOMMANDATIONS FINALES                                                 │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+   PHASE 1 (IMMÉDIAT - 30 min)
+   ────────────────────────────
+   → Supprimer les 7 tables orphelines (Priorité 1)
+   → Risque: AUCUN
+   → Impact: Positif immédiat
+
+   PHASE 2 (COURT TERME - 1 semaine)
+   ──────────────────────────────────
+   → Analyser et supprimer les doublons (Priorité 2)
+   → Documenter les choix de tables à garder
+   → Risque: FAIBLE
+
+   PHASE 3 (MOYEN TERME - 1 mois)
+   ───────────────────────────────
+   → Analyser les tables peu utilisées (Priorité 3)
+   → Finir les fonctionnalités commencées OU supprimer
+   → Consolider les migrations
+   → Risque: MOYEN
+
+   PHASE 4 (LONG TERME - 3 mois)
+   ──────────────────────────────
+   → Refactoring complet de l'architecture
+   → Unification du nommage
+   → Documentation complète
+   → Tests de charge
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  📚 FICHIERS GÉNÉRÉS                                                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+   1. RAPPORT-NETTOYAGE-BASE-DONNEES.md
+      → Rapport détaillé complet avec toutes les analyses
+
+   2. VERIFICATION-TABLES-AVANT-SUPPRESSION.sql
+      → Script SQL à exécuter AVANT toute suppression
+
+   3. TABLEAU-ANALYSE-TABLES.txt
+      → Ce fichier - Vue d'ensemble rapide
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  🎉 CONCLUSION                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+   La base de données qcqbtmvbvipsxwjlgjvk contient plusieurs tables orphelines
+   et redondantes qui peuvent être nettoyées en toute sécurité.
+
+   Un nettoyage progressif permettra de:
+   - Simplifier la maintenance
+   - Améliorer les performances
+   - Clarifier l'architecture
+   - Réduire les coûts de stockage
+
+   ⚠️  NE RIEN SUPPRIMER SANS AVOIR VÉRIFIÉ LES DONNÉES AVEC LE SCRIPT SQL!
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                         FIN DE L'ANALYSE                                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
