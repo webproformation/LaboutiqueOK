@@ -175,6 +175,8 @@ export default function AdminLivesPage() {
           user_id: user.id,
           status: 'active',
           shipping_cost_paid: 0,
+          shipping_method_id: null,
+          shipping_address_id: null,
           opened_at: new Date().toISOString(),
           closes_at: closesAt.toISOString()
         }]);

@@ -38,7 +38,7 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
       const parentSlugs: Record<string, string> = {
         mode: 'mode',
         maison: 'maison',
-        beaute: 'beaute-et-senteurs'
+        beaute: 'beaute-senteurs'
       };
 
       const { data: parentCategory } = await supabase
