@@ -61,15 +61,28 @@ export async function POST(request: NextRequest) {
 
     const logoUrl = 'https://qcqbtmvbvipsxwjlgjvk.supabase.co/storage/v1/object/public/media/LBDM-LogoBDC.png';
 
-    const imgWidth = 60;
-    const imgHeight = 20;
+    let imgHeight = 30;
+    const fullWidthImgWidth = pageWidth - (2 * margin);
 
     try {
       const response = await fetch(logoUrl);
       const arrayBuffer = await response.arrayBuffer();
       const base64 = Buffer.from(arrayBuffer).toString('base64');
       const imageDataUrl = `data:image/png;base64,${base64}`;
-      doc.addImage(imageDataUrl, 'PNG', margin, margin, imgWidth, imgHeight, undefined, 'FAST');
+
+      const img = new Image();
+      img.src = imageDataUrl;
+
+      await new Promise((resolve) => {
+        img.onload = () => {
+          const aspectRatio = img.height / img.width;
+          imgHeight = fullWidthImgWidth * aspectRatio;
+          resolve(null);
+        };
+        img.onerror = () => resolve(null);
+      });
+
+      doc.addImage(imageDataUrl, 'PNG', margin, margin, fullWidthImgWidth, imgHeight, undefined, 'FAST');
     } catch (e) {
       console.log("Logo non chargé, continue sans logo:", e);
     }

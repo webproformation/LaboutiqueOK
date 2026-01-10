@@ -242,6 +242,39 @@ export async function POST(request: NextRequest) {
 </html>
     `;
 
+    if (order.newsletter_consent && process.env.BREVO_API_KEY) {
+      console.log('[SEND-EMAIL] Inscription à la newsletter Brevo...');
+      try {
+        const brevoResponse = await fetch('https://api.brevo.com/v3/contacts', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'api-key': process.env.BREVO_API_KEY
+          },
+          body: JSON.stringify({
+            email: profile.email,
+            attributes: {
+              PRENOM: profile.first_name || '',
+              NOM: profile.last_name || ''
+            },
+            updateEnabled: true
+          })
+        });
+
+        if (brevoResponse.ok) {
+          console.log('[SEND-EMAIL] Contact ajouté à Brevo avec succès');
+        } else if (brevoResponse.status === 409) {
+          console.log('[SEND-EMAIL] Contact déjà présent dans Brevo (409), on continue');
+        } else {
+          const brevoError = await brevoResponse.text();
+          console.warn('[SEND-EMAIL] Erreur Brevo (non bloquante):', brevoResponse.status, brevoError);
+        }
+      } catch (brevoError: any) {
+        console.warn('[SEND-EMAIL] Erreur Brevo (non bloquante):', brevoError.message);
+      }
+    }
+
     console.log('[SEND-EMAIL] Envoi de l\'email...');
     const mailOptions = {
       from: process.env.EMAIL_FROM || '"La Boutique de Morgane" <email@laboutiquedemorgane.com>',

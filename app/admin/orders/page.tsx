@@ -622,7 +622,7 @@ export default function OrdersPage() {
                           {selectedOrder.shipping_address.first_name}{" "}
                           {selectedOrder.shipping_address.last_name}
                         </p>
-                        <p>{selectedOrder.shipping_address.address_line1}</p>
+                        <p>{(selectedOrder as any).shipping_street || selectedOrder.shipping_address.address_line1 || selectedOrder.shipping_address.street}</p>
                         {selectedOrder.shipping_address.address_line2 && (
                           <p>{selectedOrder.shipping_address.address_line2}</p>
                         )}
@@ -631,7 +631,7 @@ export default function OrdersPage() {
                           {selectedOrder.shipping_address.city}
                         </p>
                         <p>{selectedOrder.shipping_address.country}</p>
-                        <p className="mt-2">Tél: {selectedOrder.shipping_address.phone}</p>
+                        <p className="mt-2">Tél: {(selectedOrder as any).shipping_phone || selectedOrder.shipping_address.phone}</p>
                       </div>
                     ) : (
                       <p className="text-gray-500 text-sm">Adresse non disponible</p>

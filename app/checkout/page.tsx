@@ -234,7 +234,7 @@ export default function CheckoutPage() {
         tax_amount: tvaAmount.toFixed(2),
         discount_amount: discountAmount.toFixed(2),
         wallet_amount_used: walletAmountToUse.toFixed(2),
-        total_amount: totalAfterWallet.toFixed(2),
+        total: totalAfterWallet.toFixed(2),
         shipping_address: selectedAddress,
         shipping_street: selectedAddress?.address_line1 || '',
         shipping_phone: selectedAddress?.phone || '',
