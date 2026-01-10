@@ -14,6 +14,7 @@ export interface Profile {
   avatar_url: string;
   birth_date: string | null;
   wallet_balance: number;
+  loyalty_points: number;
   is_admin: boolean;
   blocked: boolean;
   blocked_reason: string | null;

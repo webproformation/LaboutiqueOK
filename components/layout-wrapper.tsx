@@ -13,6 +13,7 @@ import OpenPackageCountdownBanner from '@/components/OpenPackageCountdownBanner'
 import { AdminBanner } from '@/components/AdminBanner';
 import { CookieConsent } from '@/components/CookieConsent';
 import { FloatingButtons } from '@/components/FloatingButtons';
+import { LoyaltyBanner } from '@/components/LoyaltyBanner';
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -36,6 +37,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
           {showHeaderFooter && (
             <>
               <SiteHeader />
+              <LoyaltyBanner />
             </>
           )}
           {children}

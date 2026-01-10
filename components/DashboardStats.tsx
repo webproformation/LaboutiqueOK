@@ -44,21 +44,21 @@ export function DashboardStats() {
   const statsData = [
     {
       icon: Diamond,
-      value: stats.diamonds_found,
+      value: stats?.diamonds_found || 0,
       label: 'Diamants dénichés',
       color: 'text-[#D4AF37]',
       bgColor: 'bg-[#D4AF37]/10',
     },
     {
       icon: MessageCircleHeart,
-      value: stats.reviews_validated,
+      value: stats?.reviews_validated || 0,
       label: 'Mots doux reçus',
       color: 'text-pink-500',
       bgColor: 'bg-pink-500/10',
     },
     {
       icon: Package,
-      value: stats.packages_sent,
+      value: stats?.packages_sent || 0,
       label: 'Colis chouchoutés et expédiés',
       color: 'text-emerald-500',
       bgColor: 'bg-emerald-500/10',
@@ -106,7 +106,7 @@ export function DashboardStats() {
                 </div>
                 <div className="space-y-2">
                   <div className={`text-4xl font-bold ${stat.color}`}>
-                    {stat.value.toLocaleString('fr-FR')}
+                    {(stat.value || 0).toLocaleString('fr-FR')}
                   </div>
                   <div className="text-sm font-medium text-gray-700">
                     {stat.label}

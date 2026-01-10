@@ -92,23 +92,27 @@ export default function AccountPage() {
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-[#D4AF37]/10 to-[#C6A15B]/10 border border-[#D4AF37]/20 rounded-xl p-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-start gap-4">
           {avatarUrl ? (
             <img
               src={avatarUrl}
               alt={`${firstName} ${lastName}`}
-              className="h-16 w-16 rounded-full object-cover border-2 border-[#D4AF37]"
+              className="h-16 w-16 rounded-full object-cover border-2 border-[#D4AF37] flex-shrink-0"
             />
           ) : (
-            <div className="h-16 w-16 rounded-full bg-[#D4AF37] flex items-center justify-center text-white text-2xl font-semibold">
+            <div className="h-16 w-16 rounded-full bg-[#D4AF37] flex items-center justify-center text-white text-2xl font-semibold flex-shrink-0">
               {firstName.charAt(0)}{lastName.charAt(0)}
             </div>
           )}
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Bonjour {firstName}, ravie de te revoir !
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              Bienvenue, {firstName} !
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-700 leading-relaxed mb-2">
+              Ici, chaque visite, chaque échange en live et chaque coup de cœur te rapproche de ta prochaine pépite.
+              Ta fidélité a de la valeur, et je suis ravie de la récompenser chaque jour.
+            </p>
+            <p className="text-sm text-gray-600">
               Membre depuis le {formatMemberSince(profile.created_at)}
             </p>
           </div>
