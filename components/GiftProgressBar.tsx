@@ -10,17 +10,10 @@ interface GiftProgressBarProps {
 }
 
 export function GiftProgressBar({ cartTotal, deliveryBatchId }: GiftProgressBarProps) {
-  const giftThresholds = [
-    { amount: 50, gift: 'Un échantillon surprise' },
-    { amount: 100, gift: 'Un produit cadeau premium' },
-    { amount: 150, gift: 'Un coffret exclusif' },
-  ];
+  const GIFT_THRESHOLD = 69;
+  const GIFT_NAME = 'Cadeau Surprise de Morgane';
 
-  const currentThresholdIndex = giftThresholds.findIndex(t => cartTotal < t.amount);
-  const currentThreshold = currentThresholdIndex >= 0 ? giftThresholds[currentThresholdIndex] : null;
-  const previousThreshold = currentThresholdIndex > 0 ? giftThresholds[currentThresholdIndex - 1] : { amount: 0 };
-
-  if (!currentThreshold) {
+  if (cartTotal >= GIFT_THRESHOLD) {
     return (
       <Card className="border-[#b8933d] bg-gradient-to-r from-[#b8933d]/10 to-[#d4a853]/10">
         <CardContent className="p-4">
@@ -30,7 +23,10 @@ export function GiftProgressBar({ cartTotal, deliveryBatchId }: GiftProgressBarP
             </div>
             <div className="flex-1">
               <p className="font-semibold text-[#b8933d]">
-                Félicitations ! Vous avez débloqué tous les cadeaux ! 🎉
+                Félicitations ! Vous avez débloqué le {GIFT_NAME} ! 🎉
+              </p>
+              <p className="text-xs text-gray-600 mt-1">
+                Cumulable avec l'option "Colis ouvert"
               </p>
             </div>
           </div>
@@ -39,8 +35,8 @@ export function GiftProgressBar({ cartTotal, deliveryBatchId }: GiftProgressBarP
     );
   }
 
-  const remaining = currentThreshold.amount - cartTotal;
-  const progress = ((cartTotal - previousThreshold.amount) / (currentThreshold.amount - previousThreshold.amount)) * 100;
+  const remaining = GIFT_THRESHOLD - cartTotal;
+  const progress = (cartTotal / GIFT_THRESHOLD) * 100;
 
   return (
     <Card className="border-[#b8933d] bg-gradient-to-r from-[#b8933d]/5 to-transparent">
@@ -49,10 +45,10 @@ export function GiftProgressBar({ cartTotal, deliveryBatchId }: GiftProgressBarP
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Gift className="h-5 w-5 text-[#b8933d]" />
-              <p className="font-semibold text-gray-900">Prochain cadeau</p>
+              <p className="font-semibold text-gray-900">Cadeau offert à {GIFT_THRESHOLD}€</p>
             </div>
             <p className="text-sm font-medium text-gray-600">
-              {cartTotal.toFixed(2)} € / {currentThreshold.amount} €
+              {cartTotal.toFixed(2)} € / {GIFT_THRESHOLD} €
             </p>
           </div>
 
@@ -60,14 +56,15 @@ export function GiftProgressBar({ cartTotal, deliveryBatchId }: GiftProgressBarP
 
           <p className="text-sm text-gray-700">
             Plus que <span className="font-bold text-[#b8933d]">{remaining.toFixed(2)} €</span> pour débloquer :{' '}
-            <span className="font-semibold">{currentThreshold.gift}</span> 🎁
+            <span className="font-semibold">{GIFT_NAME}</span> 🎁
           </p>
 
-          {deliveryBatchId && (
-            <p className="text-xs text-gray-500 italic">
-              Ce cadeau sera ajouté à votre colis ouvert lors de la validation
-            </p>
-          )}
+          <p className="text-xs text-gray-500 italic mt-1">
+            {deliveryBatchId
+              ? 'Ce cadeau sera ajouté à votre colis ouvert (cumulable)'
+              : 'Cumulable avec l\'option "Colis ouvert"'
+            }
+          </p>
         </div>
       </CardContent>
     </Card>

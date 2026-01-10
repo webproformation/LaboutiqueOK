@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("email, first_name, last_name")
+      .select("email, first_name, last_name, phone")
       .eq("id", order.user_id)
       .maybeSingle();
 
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
       `${order.shipping_address?.postal_code || ''} ${order.shipping_address?.city || ''}`,
       order.shipping_address?.country || 'France',
       '',
-      `Tél: ${order.shipping_phone || order.shipping_address?.phone || ''}`,
+      `Tél: ${order.shipping_phone || order.shipping_address?.phone || profile?.phone || ''}`,
       profile?.email || ''
     ];
 

@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProfilePictureUpload } from '@/components/profile-picture-upload';
-import { User, Mail, Phone, Calendar, Save, Loader2, PiggyBank } from 'lucide-react';
+import { PasswordInput } from '@/components/PasswordInput';
+import { User, Mail, Phone, Calendar, Save, Loader2, PiggyBank, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export default function AccountPage() {
-  const { profile, updateProfile } = useAuth();
+  const { profile, updateProfile, updatePassword } = useAuth();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -21,6 +22,10 @@ export default function AccountPage() {
   const [birthDate, setBirthDate] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -79,6 +84,41 @@ export default function AccountPage() {
 
     toast.success('Profil mis à jour avec succès!', { id: toastId });
     setIsUpdating(false);
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newPassword || !confirmPassword) {
+      toast.error('Veuillez remplir tous les champs');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('Les mots de passe ne correspondent pas');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      toast.error('Le mot de passe doit contenir au moins 8 caractères');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    const toastId = toast.loading('Mise à jour du mot de passe...');
+
+    const { error } = await updatePassword(newPassword);
+
+    if (error) {
+      toast.error(error.message || 'Erreur lors de la mise à jour', { id: toastId });
+      setIsUpdatingPassword(false);
+      return;
+    }
+
+    toast.success('Mot de passe mis à jour avec succès!', { id: toastId });
+    setNewPassword('');
+    setConfirmPassword('');
+    setIsUpdatingPassword(false);
   };
 
   if (!profile) {
@@ -259,6 +299,71 @@ export default function AccountPage() {
                 <>
                   <Save className="h-4 w-4" />
                   Enregistrer
+                </>
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Lock className="h-5 w-5 text-[#D4AF37]" />
+            <CardTitle>Sécurité</CardTitle>
+          </div>
+          <CardDescription>Modifier votre mot de passe</CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">
+                Nouveau mot de passe <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+                <PasswordInput
+                  id="newPassword"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="pl-10 pr-10"
+                  disabled={isUpdatingPassword}
+                />
+              </div>
+              <p className="text-xs text-gray-500">Minimum 8 caractères</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">
+                Confirmer le mot de passe <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+                <PasswordInput
+                  id="confirmPassword"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="pl-10 pr-10"
+                  disabled={isUpdatingPassword}
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isUpdatingPassword}
+              className="w-full bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white gap-2"
+            >
+              {isUpdatingPassword ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Mise à jour...
+                </>
+              ) : (
+                <>
+                  <Lock className="h-4 w-4" />
+                  Changer le mot de passe
                 </>
               )}
             </Button>

@@ -166,10 +166,43 @@ export function GamePopupManager() {
     }
   };
 
-  const handleWin = (couponCode: string) => {
-    toast.success(`Félicitations ! Vous avez gagné le code : ${couponCode}`, {
-      duration: 5000,
-    });
+  const handleWin = async (couponCode: string) => {
+    if (!user) return;
+
+    try {
+      const { data: coupon } = await supabase
+        .from('coupons')
+        .select('id, code')
+        .eq('code', couponCode)
+        .maybeSingle();
+
+      if (coupon) {
+        const { data: existingAssignment } = await supabase
+          .from('user_coupons')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('coupon_code', coupon.code)
+          .maybeSingle();
+
+        if (!existingAssignment) {
+          await supabase.from('user_coupons').insert({
+            user_id: user.id,
+            coupon_id: coupon.id,
+            coupon_code: coupon.code,
+            is_used: false,
+          });
+        }
+      }
+
+      toast.success(`Félicitations ! Vous avez gagné le code : ${couponCode}`, {
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error('Error creating user coupon:', error);
+      toast.success(`Félicitations ! Vous avez gagné le code : ${couponCode}`, {
+        duration: 5000,
+      });
+    }
   };
 
   return (

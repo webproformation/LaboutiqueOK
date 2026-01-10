@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Mail, Lock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { PasswordInput } from '@/components/PasswordInput';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -122,14 +123,12 @@ export default function LoginPage() {
             <div className="space-y-2">
               <Label htmlFor="password">Mot de passe</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+                <PasswordInput
                   id="password"
-                  type="password"
-                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 pr-10"
                   required
                   disabled={loading}
                 />

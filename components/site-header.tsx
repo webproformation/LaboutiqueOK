@@ -34,13 +34,11 @@ import { useWishlist } from '@/context/WishlistContext';
 import { useCart } from '@/context/CartContext';
 
 const navigation = [
-  { name: 'Nouveautés', href: '/category/nouveautes', hasMegaMenu: false },
   { name: 'Dressing (34-54)', href: '/category/dressing', hasMegaMenu: true, megaType: 'mode' as const },
   { name: "L'atelier de Doudou", href: '/category/L-ATELIER-DE-DOUDOU', hasMegaMenu: false },
   { name: 'Sublimer le Look', href: '/category/sublimer-le-look', hasMegaMenu: true, megaType: 'morgane' as const },
-  { name: 'Ambiance & Bien-être', href: '/category/ambiance-bien-etre', hasMegaMenu: true, megaType: 'maison' as const },
   { name: 'Soins, Make-up & Fragrances', href: '/category/soins-make-up-et-fragrances', hasMegaMenu: true, megaType: 'beaute' as const },
-  { name: 'Bonnes affaires', href: '/category/bonnes-affaires', hasMegaMenu: false },
+  { name: 'Ambiance & Bien-être', href: '/category/ambiance-bien-etre', hasMegaMenu: true, megaType: 'maison' as const },
   { name: 'Live Shopping et Replay', href: '/live', hasMegaMenu: false },
   { name: 'Carte cadeau', href: '/carte-cadeau', hasMegaMenu: false },
   { name: 'Le carnet de Morgane', href: '/actualites', hasMegaMenu: false },
@@ -290,6 +288,15 @@ export function SiteHeader() {
           </div>
         )}
       </header>
+
+      {user && profile && (
+        <div className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white py-2 px-4">
+          <div className="container mx-auto flex items-center justify-center gap-2 text-sm font-medium">
+            <span>Ma Cagnotte :</span>
+            <span className="font-bold text-lg">{(profile.wallet_balance || 0).toFixed(2)} €</span>
+          </div>
+        </div>
+      )}
 
       <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
       <SearchModal isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)} />
