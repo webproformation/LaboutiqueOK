@@ -8,6 +8,7 @@ import { decodeHtmlEntities } from '@/lib/utils';
 interface MegaMenuProps {
   isOpen: boolean;
   type: 'mode' | 'morgane' | 'maison' | 'beaute';
+  categorySlug: string;
   onClose: () => void;
 }
 
@@ -15,36 +16,22 @@ interface CategoryWithChildren extends ProductCategory {
   children?: CategoryWithChildren[];
 }
 
-const morganeCategories = [
-  { name: "Les coups de cœur de Morgane", slug: "les-coups-de-coeur-de-morgane" },
-  { name: "L'ambiance de la semaine", slug: "l-ambiance-de-la-semaine" },
-  { name: "Le look de la semaine by Morgane", slug: "le-look-de-la-semaine-by-morgane" }
-];
-
-export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
+export function MegaMenu({ isOpen, type, categorySlug, onClose }: MegaMenuProps) {
   const [categories, setCategories] = useState<CategoryWithChildren[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isOpen && type !== 'morgane') {
+    if (isOpen) {
       loadCategories();
-    } else {
-      setLoading(false);
     }
-  }, [isOpen, type]);
+  }, [isOpen, categorySlug]);
 
   async function loadCategories() {
     try {
-      const parentSlugs: Record<string, string> = {
-        mode: 'mode',
-        maison: 'maison',
-        beaute: 'beaute-senteurs'
-      };
-
       const { data: parentCategory } = await supabase
         .from('categories')
         .select('id')
-        .eq('slug', parentSlugs[type])
+        .eq('slug', categorySlug)
         .maybeSingle();
 
       if (parentCategory) {
@@ -101,32 +88,6 @@ export function MegaMenu({ isOpen, type, onClose }: MegaMenuProps) {
   }
 
   if (!isOpen) return null;
-
-  if (type === 'morgane') {
-    return (
-      <div
-        className="absolute left-0 right-0 top-full bg-[#F2F2E8] border-t border-gray-200 shadow-xl z-50"
-        onMouseLeave={onClose}
-      >
-        <div className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-3 gap-8">
-            {morganeCategories.map((category) => (
-              <Link
-                key={category.slug}
-                href={`/category/${category.slug}`}
-                className="block p-4 rounded-lg hover:bg-white/50 transition-colors"
-                onClick={onClose}
-              >
-                <h3 className="font-semibold text-gray-900 hover:text-[#D4AF37] transition-colors">
-                  {category.name}
-                </h3>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div

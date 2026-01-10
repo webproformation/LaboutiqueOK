@@ -32,17 +32,28 @@ import { useAuth } from '@/context/AuthContext';
 import { useAuthStore } from '@/stores/auth-store';
 import { useWishlist } from '@/context/WishlistContext';
 import { useCart } from '@/context/CartContext';
+import { supabase } from '@/lib/supabase';
+import { decodeHtmlEntities } from '@/lib/utils';
 
-const navigation = [
-  { name: 'Dressing (34-54)', href: '/category/dressing', hasMegaMenu: true, megaType: 'mode' as const },
-  { name: "L'atelier de Doudou", href: '/category/L-ATELIER-DE-DOUDOU', hasMegaMenu: false },
-  { name: 'Sublimer le Look', href: '/category/sublimer-le-look', hasMegaMenu: true, megaType: 'morgane' as const },
-  { name: 'Soins, Make-up & Fragrances', href: '/category/soins-make-up-et-fragrances', hasMegaMenu: true, megaType: 'beaute' as const },
-  { name: 'Ambiance & Bien-être', href: '/category/ambiance-bien-etre', hasMegaMenu: true, megaType: 'maison' as const },
-  { name: 'Live Shopping et Replay', href: '/live', hasMegaMenu: false },
-  { name: 'Carte cadeau', href: '/carte-cadeau', hasMegaMenu: false },
-  { name: 'Le carnet de Morgane', href: '/actualites', hasMegaMenu: false },
+const STATIC_LINKS = [
+  { name: 'Live Shopping et Replay', href: '/live', slug: 'live', hasMegaMenu: false },
+  { name: 'Carte cadeau', href: '/carte-cadeau', slug: 'carte-cadeau', hasMegaMenu: false },
+  { name: 'Le carnet de Morgane', href: '/actualites', slug: 'actualites', hasMegaMenu: false },
 ];
+
+const MEGA_MENU_CATEGORIES = {
+  'dressing': 'mode' as const,
+  'sublimer-le-look': 'morgane' as const,
+  'ambiance-bien-etre': 'maison' as const,
+};
+
+interface NavigationItem {
+  name: string;
+  href: string;
+  slug: string;
+  hasMegaMenu: boolean;
+  megaType?: 'mode' | 'morgane' | 'maison' | 'beaute';
+}
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -52,9 +63,48 @@ export function SiteHeader() {
   const { cartItemCount } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
-  const [openMegaMenu, setOpenMegaMenu] = useState<'mode' | 'morgane' | 'maison' | 'beaute' | null>(null);
+  const [openMegaMenu, setOpenMegaMenu] = useState<{ type: 'mode' | 'morgane' | 'maison' | 'beaute'; slug: string } | null>(null);
+  const [navigation, setNavigation] = useState<NavigationItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    loadNavigationCategories();
+  }, []);
+
+  async function loadNavigationCategories() {
+    try {
+      const { data: level1Categories } = await supabase
+        .from('categories')
+        .select('id, name, slug, display_order')
+        .is('parent_id', null)
+        .eq('is_visible', true)
+        .order('display_order', { ascending: true });
+
+      if (level1Categories) {
+        const dynamicNav: NavigationItem[] = level1Categories.map((cat) => {
+          const slug = cat.slug.toLowerCase();
+          const hasMegaMenu = slug in MEGA_MENU_CATEGORIES;
+
+          return {
+            name: decodeHtmlEntities(cat.name),
+            href: `/category/${cat.slug}`,
+            slug: cat.slug,
+            hasMegaMenu,
+            megaType: hasMegaMenu ? MEGA_MENU_CATEGORIES[slug as keyof typeof MEGA_MENU_CATEGORIES] : undefined,
+          };
+        });
+
+        setNavigation([...dynamicNav, ...STATIC_LINKS]);
+      }
+    } catch (error) {
+      console.error('Error loading navigation categories:', error);
+      setNavigation(STATIC_LINKS);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     console.log("🔍 SiteHeader - État Auth:", {
@@ -68,12 +118,12 @@ export function SiteHeader() {
     router.push('/');
   };
 
-  const handleMouseEnter = (megaType: 'mode' | 'morgane' | 'maison' | 'beaute') => {
+  const handleMouseEnter = (megaType: 'mode' | 'morgane' | 'maison' | 'beaute', slug: string) => {
     if (closeTimerRef.current) {
       clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
     }
-    setOpenMegaMenu(megaType);
+    setOpenMegaMenu({ type: megaType, slug });
   };
 
   const handleMouseLeave = () => {
@@ -107,25 +157,29 @@ export function SiteHeader() {
             </div>
 
             <nav className="hidden md:flex items-center gap-3 lg:gap-4 flex-1 justify-center">
-              {navigation.map((item) => (
-                <div
-                  key={item.name}
-                  className="relative"
-                  onMouseEnter={() => item.hasMegaMenu && handleMouseEnter(item.megaType!)}
-                  onMouseLeave={handleMouseLeave}
-                >
-                  <Link
-                    href={item.href}
-                    className={`text-xs lg:text-sm font-medium transition-colors ${
-                      pathname === item.href || pathname.startsWith(item.href + '/')
-                        ? 'text-[#D4AF37]'
-                        : 'text-white hover:text-[#D4AF37]'
-                    }`}
+              {loading ? (
+                <div className="text-white text-xs">Chargement...</div>
+              ) : (
+                navigation.map((item) => (
+                  <div
+                    key={item.slug}
+                    className="relative"
+                    onMouseEnter={() => item.hasMegaMenu && item.megaType && handleMouseEnter(item.megaType, item.slug)}
+                    onMouseLeave={handleMouseLeave}
                   >
-                    {item.name}
-                  </Link>
-                </div>
-              ))}
+                    <Link
+                      href={item.href}
+                      className={`text-xs lg:text-sm font-medium transition-colors ${
+                        pathname === item.href || pathname.startsWith(item.href + '/')
+                          ? 'text-[#D4AF37]'
+                          : 'text-white hover:text-[#D4AF37]'
+                      }`}
+                    >
+                      {item.name}
+                    </Link>
+                  </div>
+                ))
+              )}
             </nav>
 
             <div className="flex items-center gap-2 md:gap-3">
@@ -282,7 +336,8 @@ export function SiteHeader() {
           >
             <MegaMenu
               isOpen={true}
-              type={openMegaMenu}
+              type={openMegaMenu.type}
+              categorySlug={openMegaMenu.slug}
               onClose={() => setOpenMegaMenu(null)}
             />
           </div>
