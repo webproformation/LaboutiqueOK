@@ -41,10 +41,9 @@ const STATIC_LINKS = [
   { name: 'Le carnet de Morgane', href: '/actualites', slug: 'actualites', hasMegaMenu: false },
 ];
 
-const MEGA_MENU_CATEGORIES = {
-  'dressing': 'mode' as const,
-  'sublimer-le-look': 'morgane' as const,
-  'ambiance-bien-etre': 'maison' as const,
+const MEGA_MENU_TYPE_BY_SLUG: Record<string, 'mode' | 'morgane' | 'maison' | 'beaute'> = {
+  'dressing': 'mode',
+  'ambiance-bien-etre': 'maison',
 };
 
 interface NavigationItem {
@@ -83,18 +82,27 @@ export function SiteHeader() {
         .order('display_order', { ascending: true });
 
       if (level1Categories) {
-        const dynamicNav: NavigationItem[] = level1Categories.map((cat) => {
-          const slug = cat.slug.toLowerCase();
-          const hasMegaMenu = slug in MEGA_MENU_CATEGORIES;
+        const dynamicNav: NavigationItem[] = await Promise.all(
+          level1Categories.map(async (cat) => {
+            const { count } = await supabase
+              .from('categories')
+              .select('id', { count: 'exact', head: true })
+              .eq('parent_id', cat.id)
+              .eq('is_visible', true);
 
-          return {
-            name: decodeHtmlEntities(cat.name),
-            href: `/category/${cat.slug}`,
-            slug: cat.slug,
-            hasMegaMenu,
-            megaType: hasMegaMenu ? MEGA_MENU_CATEGORIES[slug as keyof typeof MEGA_MENU_CATEGORIES] : undefined,
-          };
-        });
+            const hasSubCategories = (count || 0) > 0;
+            const slug = cat.slug.toLowerCase();
+            const hasMegaMenu = hasSubCategories && (slug in MEGA_MENU_TYPE_BY_SLUG);
+
+            return {
+              name: decodeHtmlEntities(cat.name),
+              href: `/category/${cat.slug}`,
+              slug: cat.slug,
+              hasMegaMenu,
+              megaType: hasMegaMenu ? MEGA_MENU_TYPE_BY_SLUG[slug] : undefined,
+            };
+          })
+        );
 
         setNavigation([...dynamicNav, ...STATIC_LINKS]);
       }

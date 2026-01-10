@@ -16,22 +16,18 @@ interface MobileMenuProps {
   onClose: () => void;
 }
 
-const morganeCategories = [
-  { name: "Les coups de cœur de Morgane", slug: "les-coups-de-coeur-de-morgane" },
-  { name: "L'ambiance de la semaine", slug: "l-ambiance-de-la-semaine" },
-  { name: "Le look de la semaine by Morgane", slug: "le-look-de-la-semaine-by-morgane" }
-];
+interface CategoryLevel1 extends ProductCategory {
+  children?: CategoryLevel2[];
+}
 
-interface CategoryWithChildren extends ProductCategory {
+interface CategoryLevel2 extends ProductCategory {
   children?: ProductCategory[];
 }
 
 export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const router = useRouter();
   const { user, profile, signOut } = useAuth();
-  const [modeCategories, setModeCategories] = useState<CategoryWithChildren[]>([]);
-  const [maisonCategories, setMaisonCategories] = useState<CategoryWithChildren[]>([]);
-  const [beauteCategories, setBeauteCategories] = useState<CategoryWithChildren[]>([]);
+  const [categories, setCategories] = useState<CategoryLevel1[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -47,91 +43,50 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
   async function loadCategories() {
     try {
-      const { data: modeParent } = await supabase
+      const { data: level1Categories } = await supabase
         .from('categories')
-        .select('id')
-        .eq('slug', 'mode')
-        .maybeSingle();
+        .select('*')
+        .is('parent_id', null)
+        .eq('is_visible', true)
+        .order('display_order', { ascending: true });
 
-      if (modeParent) {
-        const { data: level1 } = await supabase
-          .from('categories')
-          .select('*')
-          .eq('parent_id', modeParent.id)
-          .order('display_order');
+      if (level1Categories) {
+        const categoriesWithChildren = await Promise.all(
+          level1Categories.map(async (cat1) => {
+            const { data: level2 } = await supabase
+              .from('categories')
+              .select('*')
+              .eq('parent_id', cat1.id)
+              .eq('is_visible', true)
+              .order('display_order', { ascending: true });
 
-        if (level1) {
-          const withChildren = await Promise.all(
-            level1.map(async (cat) => {
-              const { data: children } = await supabase
-                .from('categories')
-                .select('*')
-                .eq('parent_id', cat.id)
-                .order('display_order');
-              return { ...cat, children: children || [] };
-            })
-          );
-          setModeCategories(withChildren);
-        }
-      }
+            const level2WithChildren = level2 ? await Promise.all(
+              level2.map(async (cat2) => {
+                const { data: level3 } = await supabase
+                  .from('categories')
+                  .select('*')
+                  .eq('parent_id', cat2.id)
+                  .eq('is_visible', true)
+                  .order('display_order', { ascending: true });
 
-      const { data: maisonParent } = await supabase
-        .from('categories')
-        .select('id')
-        .eq('slug', 'maison')
-        .maybeSingle();
+                return {
+                  ...cat2,
+                  children: level3 || []
+                };
+              })
+            ) : [];
 
-      if (maisonParent) {
-        const { data: level1 } = await supabase
-          .from('categories')
-          .select('*')
-          .eq('parent_id', maisonParent.id)
-          .order('display_order');
+            return {
+              ...cat1,
+              children: level2WithChildren
+            };
+          })
+        );
 
-        if (level1) {
-          const withChildren = await Promise.all(
-            level1.map(async (cat) => {
-              const { data: children } = await supabase
-                .from('categories')
-                .select('*')
-                .eq('parent_id', cat.id)
-                .order('display_order');
-              return { ...cat, children: children || [] };
-            })
-          );
-          setMaisonCategories(withChildren);
-        }
-      }
-
-      const { data: beauteParent } = await supabase
-        .from('categories')
-        .select('id')
-        .eq('slug', 'beaute-et-senteurs')
-        .maybeSingle();
-
-      if (beauteParent) {
-        const { data: level1 } = await supabase
-          .from('categories')
-          .select('*')
-          .eq('parent_id', beauteParent.id)
-          .order('display_order');
-
-        if (level1) {
-          const withChildren = await Promise.all(
-            level1.map(async (cat) => {
-              const { data: children } = await supabase
-                .from('categories')
-                .select('*')
-                .eq('parent_id', cat.id)
-                .order('display_order');
-              return { ...cat, children: children || [] };
-            })
-          );
-          setBeauteCategories(withChildren);
-        }
+        setCategories(categoriesWithChildren);
       }
     } catch (error) {
-      // Silently handle category loading errors
+      console.error('Error loading mobile menu categories:', error);
     }
   }
 
@@ -210,142 +165,58 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
           )}
 
           <Accordion type="multiple" className="space-y-2">
-            <div className="py-3">
-              <Link
-                href="/category/nouveautes"
-                className="block text-base font-medium hover:text-[#D4AF37] transition-colors"
-                onClick={onClose}
-              >
-                Nouveautés
-              </Link>
-            </div>
+            {categories.map((category) => {
+              const hasChildren = category.children && category.children.length > 0;
 
-            <AccordionItem value="mode" className="border-b border-gray-700">
-              <AccordionTrigger className="text-base font-medium hover:text-[#D4AF37] hover:no-underline">
-                Dressing (34-54)
-              </AccordionTrigger>
-              <AccordionContent className="space-y-3 pl-4">
-                {modeCategories.map((cat) => (
-                  <div key={cat.id} className="space-y-2">
+              if (!hasChildren) {
+                return (
+                  <div key={category.id} className="py-3">
                     <Link
-                      href={`/category/${cat.slug}`}
-                      className="block py-1 text-sm font-semibold hover:text-[#D4AF37] transition-colors"
+                      href={`/category/${category.slug}`}
+                      className="block text-base font-medium hover:text-[#D4AF37] transition-colors"
                       onClick={onClose}
                     >
-                      {decodeHtmlEntities(cat.name)}
+                      {decodeHtmlEntities(category.name)}
                     </Link>
-                    {cat.children && cat.children.length > 0 && (
-                      <div className="pl-3 space-y-1">
-                        {cat.children.map((child) => (
-                          <Link
-                            key={child.id}
-                            href={`/category/${child.slug}`}
-                            className="block py-1 text-xs text-gray-300 hover:text-[#D4AF37] transition-colors"
-                            onClick={onClose}
-                          >
-                            • {decodeHtmlEntities(child.name)}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
                   </div>
-                ))}
-              </AccordionContent>
-            </AccordionItem>
+                );
+              }
 
-            <AccordionItem value="morgane" className="border-b border-gray-700">
-              <AccordionTrigger className="text-base font-medium hover:text-[#D4AF37] hover:no-underline">
-                Sublimer le Look
-              </AccordionTrigger>
-              <AccordionContent className="space-y-2 pl-4">
-                {morganeCategories.map((cat) => (
-                  <Link
-                    key={cat.slug}
-                    href={`/category/${cat.slug}`}
-                    className="block py-2 text-sm hover:text-[#D4AF37] transition-colors"
-                    onClick={onClose}
-                  >
-                    {cat.name}
-                  </Link>
-                ))}
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="maison" className="border-b border-gray-700">
-              <AccordionTrigger className="text-base font-medium hover:text-[#D4AF37] hover:no-underline">
-                Ambiance & Bien-être
-              </AccordionTrigger>
-              <AccordionContent className="space-y-3 pl-4">
-                {maisonCategories.map((cat) => (
-                  <div key={cat.id} className="space-y-2">
-                    <Link
-                      href={`/category/${cat.slug}`}
-                      className="block py-1 text-sm font-semibold hover:text-[#D4AF37] transition-colors"
-                      onClick={onClose}
-                    >
-                      {decodeHtmlEntities(cat.name)}
-                    </Link>
-                    {cat.children && cat.children.length > 0 && (
-                      <div className="pl-3 space-y-1">
-                        {cat.children.map((child) => (
-                          <Link
-                            key={child.id}
-                            href={`/category/${child.slug}`}
-                            className="block py-1 text-xs text-gray-300 hover:text-[#D4AF37] transition-colors"
-                            onClick={onClose}
-                          >
-                            • {decodeHtmlEntities(child.name)}
-                          </Link>
-                        ))}
+              return (
+                <AccordionItem key={category.id} value={category.id} className="border-b border-gray-700">
+                  <AccordionTrigger className="text-base font-medium hover:text-[#D4AF37] hover:no-underline">
+                    {decodeHtmlEntities(category.name)}
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-3 pl-4">
+                    {category.children?.map((cat2) => (
+                      <div key={cat2.id} className="space-y-2">
+                        <Link
+                          href={`/category/${cat2.slug}`}
+                          className="block py-1 text-sm font-semibold hover:text-[#D4AF37] transition-colors"
+                          onClick={onClose}
+                        >
+                          {decodeHtmlEntities(cat2.name)}
+                        </Link>
+                        {cat2.children && cat2.children.length > 0 && (
+                          <div className="pl-3 space-y-1">
+                            {cat2.children.map((cat3) => (
+                              <Link
+                                key={cat3.id}
+                                href={`/category/${cat3.slug}`}
+                                className="block py-1 text-xs text-gray-300 hover:text-[#D4AF37] transition-colors"
+                                onClick={onClose}
+                              >
+                                • {decodeHtmlEntities(cat3.name)}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="beaute" className="border-b border-gray-700">
-              <AccordionTrigger className="text-base font-medium hover:text-[#D4AF37] hover:no-underline">
-                Soins, Make-up & Fragrances
-              </AccordionTrigger>
-              <AccordionContent className="space-y-3 pl-4">
-                {beauteCategories.map((cat) => (
-                  <div key={cat.id} className="space-y-2">
-                    <Link
-                      href={`/category/${cat.slug}`}
-                      className="block py-1 text-sm font-semibold hover:text-[#D4AF37] transition-colors"
-                      onClick={onClose}
-                    >
-                      {decodeHtmlEntities(cat.name)}
-                    </Link>
-                    {cat.children && cat.children.length > 0 && (
-                      <div className="pl-3 space-y-1">
-                        {cat.children.map((child) => (
-                          <Link
-                            key={child.id}
-                            href={`/category/${child.slug}`}
-                            className="block py-1 text-xs text-gray-300 hover:text-[#D4AF37] transition-colors"
-                            onClick={onClose}
-                          >
-                            • {decodeHtmlEntities(child.name)}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </AccordionContent>
-            </AccordionItem>
-
-            <div className="py-3">
-              <Link
-                href="/category/bonnes-affaires"
-                className="block text-base font-medium hover:text-[#D4AF37] transition-colors"
-                onClick={onClose}
-              >
-                Bonnes affaires
-              </Link>
-            </div>
+                    ))}
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
 
             <div className="border-t border-gray-700 my-4"></div>
 
