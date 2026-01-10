@@ -80,15 +80,16 @@ export function SiteFooter() {
 
       if (error) {
         if (error.code === '23505') {
-          toast.error('Cette adresse email est déjà inscrite');
+          toast.success('Vous faites déjà partie de nos abonnés ! Merci de votre fidélité.');
         } else {
           toast.error('Une erreur est survenue');
         }
       } else {
         toast.success('Merci pour votre inscription !');
-        setEmail('');
-        setGdprConsent(false);
       }
+
+      setEmail('');
+      setGdprConsent(false);
     } catch (error) {
       toast.error('Une erreur est survenue');
     } finally {

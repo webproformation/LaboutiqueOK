@@ -246,12 +246,12 @@ export function WheelGame({ game, onClose, onWin }: WheelGameProps) {
                         }}
                       />
                       <div
-                        className="absolute top-[20%] left-1/2 -translate-x-1/2 text-center"
+                        className="absolute top-[20%] left-1/2 -translate-x-1/2 text-center max-w-[80px]"
                         style={{
                           transform: `rotate(${angle / 2}deg)`,
                         }}
                       >
-                        <p className="text-white font-bold text-sm drop-shadow-lg whitespace-nowrap">
+                        <p className="text-white font-bold text-xs drop-shadow-lg leading-tight break-words">
                           {segment.label || segment.coupon_code}
                         </p>
                       </div>

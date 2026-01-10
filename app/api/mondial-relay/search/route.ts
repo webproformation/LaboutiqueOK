@@ -1,23 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
-  try {
-    const { postalCode, city, deliveryMode = '24R' } = await request.json();
+  console.log('Requête reçue sur Mondial Relay Search');
 
-    if (!postalCode || !city) {
+  try {
+    const body = await request.json();
+    const { postalCode, city, deliveryMode = '24R' } = body;
+
+    console.log('Données reçues:', { postalCode, city, deliveryMode });
+
+    if (!postalCode) {
       return NextResponse.json(
-        { error: 'Code postal et ville requis' },
+        { error: 'Code postal requis' },
         { status: 400 }
       );
     }
 
+    const searchCity = city || '';
+
     const mondialRelayId = process.env.MONDIAL_RELAY_ID;
     const mondialRelayKey = process.env.MONDIAL_RELAY_KEY;
+
+    console.log('Identifiants Mondial Relay:', {
+      id: mondialRelayId ? 'présent' : 'manquant',
+      key: mondialRelayKey ? 'présent' : 'manquant'
+    });
 
     if (!mondialRelayId || !mondialRelayKey) {
       console.warn('Mondial Relay credentials not configured');
       return NextResponse.json({
         points: [],
+        relayPoints: [],
         message: 'Configuration Mondial Relay manquante'
       });
     }
@@ -37,7 +50,7 @@ export async function POST(request: NextRequest) {
       <Enseigne>${mondialRelayId}</Enseigne>
       <Pays>FR</Pays>
       <CP>${postalCode}</CP>
-      <Ville>${city}</Ville>
+      <Ville>${searchCity}</Ville>
       <NombreResultats>10</NombreResultats>
       <Security>${mondialRelayKey}</Security>
     </WSI4_PointRelais_Recherche>

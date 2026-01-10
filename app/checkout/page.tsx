@@ -418,44 +418,56 @@ export default function CheckoutPage() {
         />
 
         <div className="max-w-4xl mx-auto mb-6">
-          <Card className="border-2 border-[#D4AF37]/30 bg-gradient-to-br from-[#D4AF37]/5 to-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-[#D4AF37]" />
+          <Card className="border-4 border-[#D4AF37] bg-gradient-to-br from-[#D4AF37]/20 via-[#F2F2E8] to-white shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-[#D4AF37]/30 to-transparent rounded-full -mr-20 -mt-20" />
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-[#b8933d]/20 to-transparent rounded-full -ml-16 -mb-16" />
+
+            <CardHeader className="relative z-10">
+              <CardTitle className="flex items-center gap-3 text-2xl bg-gradient-to-r from-[#b8933d] to-[#d4af37] bg-clip-text text-transparent">
+                <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-[#b8933d] to-[#d4af37] rounded-full shadow-lg">
+                  <Clock className="h-6 w-6 text-white" />
+                </div>
                 Mettre ma commande en attente
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-base text-gray-700 ml-15">
                 Payez les frais de livraison maintenant, mais l'expédition sera effectuée dans 5 jours (ou validée manuellement avant).
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex items-start space-x-3">
+            <CardContent className="relative z-10">
+              <div className="flex items-start space-x-4 bg-white/80 backdrop-blur-sm rounded-xl p-5 border-2 border-[#D4AF37]/40 shadow-lg">
                 <Checkbox
                   id="createPendingPackage"
                   checked={createPendingPackage}
                   onCheckedChange={(checked) => setCreatePendingPackage(checked as boolean)}
+                  className="mt-1 border-[#D4AF37] data-[state=checked]:bg-[#D4AF37]"
                 />
-                <div className="space-y-2 flex-1">
+                <div className="space-y-3 flex-1">
                   <label
                     htmlFor="createPendingPackage"
-                    className="text-sm font-medium leading-none cursor-pointer"
+                    className="text-base font-semibold leading-none cursor-pointer text-gray-900"
                   >
                     Créer un colis en attente pour cette commande
                   </label>
                   {createPendingPackage && (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                      <ul className="text-sm text-blue-800 space-y-1">
-                        <li className="flex items-start gap-2">
-                          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                          <span>Les frais de livraison seront payés aujourd'hui</span>
+                    <div className="p-4 bg-gradient-to-br from-[#D4AF37]/10 to-[#b8933d]/5 border-2 border-[#D4AF37]/50 rounded-lg shadow-md">
+                      <ul className="text-sm text-gray-800 space-y-2">
+                        <li className="flex items-start gap-3">
+                          <div className="flex items-center justify-center w-6 h-6 bg-[#D4AF37] rounded-full flex-shrink-0 mt-0.5">
+                            <Info className="h-4 w-4 text-white" />
+                          </div>
+                          <span className="font-medium">Les frais de livraison seront payés aujourd'hui</span>
                         </li>
-                        <li className="flex items-start gap-2">
-                          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                          <span>Votre colis sera expédié automatiquement dans 5 jours</span>
+                        <li className="flex items-start gap-3">
+                          <div className="flex items-center justify-center w-6 h-6 bg-[#D4AF37] rounded-full flex-shrink-0 mt-0.5">
+                            <Info className="h-4 w-4 text-white" />
+                          </div>
+                          <span className="font-medium">Votre colis sera expédié automatiquement dans 5 jours</span>
                         </li>
-                        <li className="flex items-start gap-2">
-                          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                          <span>Vous pouvez valider l'expédition manuellement depuis votre compte avant cette date</span>
+                        <li className="flex items-start gap-3">
+                          <div className="flex items-center justify-center w-6 h-6 bg-[#D4AF37] rounded-full flex-shrink-0 mt-0.5">
+                            <Info className="h-4 w-4 text-white" />
+                          </div>
+                          <span className="font-medium">Vous pouvez valider l'expédition manuellement depuis votre compte avant cette date</span>
                         </li>
                       </ul>
                     </div>

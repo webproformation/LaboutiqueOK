@@ -191,7 +191,7 @@ export default function OrdersPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto z-[9999]">
           <DialogHeader>
             <DialogTitle>Détails de la commande #{selectedOrder?.order_number}</DialogTitle>
             <DialogDescription>

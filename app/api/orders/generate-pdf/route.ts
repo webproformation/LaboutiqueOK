@@ -26,6 +26,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Commande non trouvée" }, { status: 404 });
     }
 
+    const { data: orderItems } = await supabase
+      .from("order_items")
+      .select("*")
+      .eq("order_id", orderId);
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("email, first_name, last_name")
@@ -56,15 +61,15 @@ export async function POST(request: NextRequest) {
 
     const logoUrl = 'https://qcqbtmvbvipsxwjlgjvk.supabase.co/storage/v1/object/public/media/LBDM-LogoBDC.png';
 
-    const imgWidth = pageWidth - (margin * 2);
-    const imgHeight = 30;
+    const imgWidth = 60;
+    const imgHeight = 20;
 
     try {
       const response = await fetch(logoUrl);
       const arrayBuffer = await response.arrayBuffer();
       const base64 = Buffer.from(arrayBuffer).toString('base64');
       const imageDataUrl = `data:image/png;base64,${base64}`;
-      doc.addImage(imageDataUrl, 'PNG', margin, margin, imgWidth, imgHeight);
+      doc.addImage(imageDataUrl, 'PNG', margin, margin, imgWidth, imgHeight, undefined, 'FAST');
     } catch (e) {
       console.log("Logo non chargé, continue sans logo:", e);
     }
@@ -133,8 +138,8 @@ export async function POST(request: NextRequest) {
       `${order.shipping_address?.postal_code || ''} ${order.shipping_address?.city || ''}`,
       order.shipping_address?.country || 'France',
       '',
-      profile?.email || '',
-      order.shipping_address?.phone || ''
+      `Tél: ${order.shipping_address?.phone || ''}`,
+      profile?.email || ''
     ];
 
     let tempY = yPosition;
@@ -153,23 +158,32 @@ export async function POST(request: NextRequest) {
 
     yPosition = Math.max(yPosition + (sellerInfo.length * 4), tempY) + 10;
 
-    const tableData = (order.items || []).map((item: any) => {
+    const tableData = (orderItems || []).map((item: any) => {
       let productName = item.product_name || 'Produit';
 
-      if (item.variation_data && item.variation_data.attributes) {
-        const attributes = Object.entries(item.variation_data.attributes)
-          .map(([key, value]) => `${key}: ${value}`)
+      if (item.variation_data && typeof item.variation_data === 'object') {
+        const attributes = Object.entries(item.variation_data)
+          .filter(([key]) => key !== 'id' && key !== 'variation_id')
+          .map(([key, value]) => {
+            const displayValue = typeof value === 'object' && value !== null
+              ? (value as any)?.name || (value as any)?.option || String(value)
+              : String(value);
+            return `${key}: ${displayValue}`;
+          })
           .join(', ');
         if (attributes) {
           productName += `\n(${attributes})`;
         }
       }
 
+      const price = Number(item.price) || 0;
+      const quantity = item.quantity || 1;
+
       return [
         productName,
-        `${item.quantity || 1}`,
-        `${(item.price || 0).toFixed(2)} €`,
-        `${((item.quantity || 1) * (item.price || 0)).toFixed(2)} €`,
+        `${quantity}`,
+        `${price.toFixed(2)} €`,
+        `${(quantity * price).toFixed(2)} €`,
       ];
     });
 
@@ -205,17 +219,22 @@ export async function POST(request: NextRequest) {
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
 
+    const subtotal = Number(order.subtotal) || 0;
+    const shippingCost = Number(order.shipping_cost) || 0;
+    const discountAmount = Number(order.discount_amount) || 0;
+    const walletUsed = Number(order.wallet_amount_used) || 0;
+
     const totals = [
-      ["Sous-total :", `${(order.subtotal || 0).toFixed(2)} €`],
-      ["Frais de port :", `${(order.shipping_cost || 0).toFixed(2)} €`],
+      ["Sous-total :", `${subtotal.toFixed(2)} €`],
+      ["Frais de port :", `${shippingCost.toFixed(2)} €`],
     ];
 
-    if (order.discount_amount && order.discount_amount > 0) {
-      totals.push(["Remise :", `- ${(order.discount_amount || 0).toFixed(2)} €`]);
+    if (discountAmount > 0) {
+      totals.push(["Remise :", `- ${discountAmount.toFixed(2)} €`]);
     }
 
-    if (order.wallet_amount_used && order.wallet_amount_used > 0) {
-      totals.push(["Cagnotte utilisée :", `- ${(order.wallet_amount_used || 0).toFixed(2)} €`]);
+    if (walletUsed > 0) {
+      totals.push(["Cagnotte utilisée :", `- ${walletUsed.toFixed(2)} €`]);
     }
 
     if (order.coupon_code) {
@@ -224,9 +243,6 @@ export async function POST(request: NextRequest) {
 
     if (order.referral_code) {
       totals.push(["Code de parrainage :", order.referral_code]);
-      if (order.referral_discount && order.referral_discount > 0) {
-        totals.push(["Réduction parrainage :", `- ${(order.referral_discount || 0).toFixed(2)} €`]);
-      }
     }
 
     totals.forEach(([label, value]) => {
@@ -244,7 +260,8 @@ export async function POST(request: NextRequest) {
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("TOTAL TTC :", labelX, yPosition, { align: "right" });
-    doc.text(`${(order.total || 0).toFixed(2)} €`, valueX, yPosition, { align: "right" });
+    const totalAmount = Number(order.total_amount) || 0;
+    doc.text(`${totalAmount.toFixed(2)} €`, valueX, yPosition, { align: "right" });
 
     yPosition += 10;
 
