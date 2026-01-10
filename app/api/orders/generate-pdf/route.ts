@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
 
-    const logoUrl = 'https://qcqbtmvbvipsxwjlgjvk.supabase.co/storage/v1/object/public/media/LBDM-LogoBDC.png';
+    const logoUrl = 'https://qcqbtmvbvipsxwjlgjvk.supabase.co/storage/v1/object/public/product-images/products/1767606522580-6exr5j.webp';
 
     let imgHeight = 30;
     const fullWidthImgWidth = pageWidth - (2 * margin);
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       const response = await fetch(logoUrl);
       const arrayBuffer = await response.arrayBuffer();
       const base64 = Buffer.from(arrayBuffer).toString('base64');
-      const imageDataUrl = `data:image/png;base64,${base64}`;
+      const imageDataUrl = `data:image/webp;base64,${base64}`;
 
       const img = new Image();
       img.src = imageDataUrl;
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
         img.onerror = () => resolve(null);
       });
 
-      doc.addImage(imageDataUrl, 'PNG', margin, margin, fullWidthImgWidth, imgHeight, undefined, 'FAST');
+      doc.addImage(imageDataUrl, 'WEBP', margin, margin, fullWidthImgWidth, imgHeight, undefined, 'FAST');
     } catch (e) {
       console.log("Logo non chargé, continue sans logo:", e);
     }
@@ -273,7 +273,7 @@ export async function POST(request: NextRequest) {
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.text("TOTAL TTC :", labelX, yPosition, { align: "right" });
-    const totalAmount = Number(order.total_amount) || 0;
+    const totalAmount = Number(order.total) || 0;
     doc.text(`${totalAmount.toFixed(2)} €`, valueX, yPosition, { align: "right" });
 
     yPosition += 10;
