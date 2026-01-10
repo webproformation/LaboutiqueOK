@@ -42,8 +42,10 @@ const STATIC_LINKS = [
 ];
 
 const MEGA_MENU_TYPE_BY_SLUG: Record<string, 'mode' | 'morgane' | 'maison' | 'beaute'> = {
-  'dressing': 'mode',
+  'dressing-34-54': 'mode',
+  'sublimer-le-look': 'morgane',
   'ambiance-bien-etre': 'maison',
+  'soins-make-up-et-fragrances': 'beaute',
 };
 
 interface NavigationItem {
