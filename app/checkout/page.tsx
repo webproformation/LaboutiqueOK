@@ -236,6 +236,8 @@ export default function CheckoutPage() {
         wallet_amount_used: walletAmountToUse.toFixed(2),
         total_amount: totalAfterWallet.toFixed(2),
         shipping_address: selectedAddress,
+        shipping_street: selectedAddress?.address_line1 || '',
+        shipping_phone: selectedAddress?.phone || '',
         shipping_method_id: selectedShippingMethodId || null,
         payment_method_id: selectedPaymentMethodId,
         relay_point_data: relayPointData,
@@ -364,7 +366,7 @@ export default function CheckoutPage() {
       toast.success(`Commande ${orderNumber} validée avec succès !`, {
         position: 'bottom-right'
       });
-      router.push(`/checkout/confirmation?order=${newOrder.id}`);
+      router.push(`/order-confirmation/${newOrder.id}`);
     } catch (error) {
       console.error('Error processing order:', error);
       toast.error('Erreur lors du traitement de la commande');

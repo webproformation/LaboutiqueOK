@@ -133,12 +133,12 @@ export async function POST(request: NextRequest) {
 
     const clientInfo = [
       `${order.shipping_address?.first_name || ''} ${order.shipping_address?.last_name || ''}`,
-      order.shipping_address?.address_line1 || '',
+      order.shipping_street || order.shipping_address?.address_line1 || '',
       order.shipping_address?.address_line2 || '',
       `${order.shipping_address?.postal_code || ''} ${order.shipping_address?.city || ''}`,
       order.shipping_address?.country || 'France',
       '',
-      `Tél: ${order.shipping_address?.phone || ''}`,
+      `Tél: ${order.shipping_phone || order.shipping_address?.phone || ''}`,
       profile?.email || ''
     ];
 
