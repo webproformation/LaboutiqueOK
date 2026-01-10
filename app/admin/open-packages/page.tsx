@@ -23,10 +23,21 @@ interface OpenPackageAdmin {
   };
 }
 
+interface PackageOrderDetails {
+  id: string;
+  order: {
+    order_number: string;
+    total: number;
+    status: string;
+    created_at: string;
+  };
+}
+
 export default function AdminOpenPackagesPage() {
   const [packages, setPackages] = useState<OpenPackageAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'closed' | 'shipped'>('active');
+  const [packageOrders, setPackageOrders] = useState<Record<string, PackageOrderDetails[]>>({});
 
   useEffect(() => {
     loadPackages();
@@ -50,6 +61,23 @@ export default function AdminOpenPackagesPage() {
 
       if (error) throw error;
       setPackages(data || []);
+
+      const ordersMap: Record<string, PackageOrderDetails[]> = {};
+      for (const pkg of data || []) {
+        const { data: orders, error: ordersError } = await supabase
+          .from('open_package_orders')
+          .select(`
+            id,
+            order:orders(order_number, total, status, created_at)
+          `)
+          .eq('open_package_id', pkg.id);
+
+        if (!ordersError && orders) {
+          ordersMap[pkg.id] = orders as unknown as PackageOrderDetails[];
+        }
+      }
+
+      setPackageOrders(ordersMap);
     } catch (error) {
       console.error('Error loading packages:', error);
       toast.error('Erreur lors du chargement');
@@ -213,6 +241,33 @@ export default function AdminOpenPackagesPage() {
                     )}
                   </div>
                 </div>
+
+                {packageOrders[pkg.id] && packageOrders[pkg.id].length > 0 && (
+                  <div className="mt-6 pt-6 border-t">
+                    <h4 className="font-semibold mb-4 flex items-center gap-2">
+                      <Package className="w-5 h-5 text-[#D4AF37]" />
+                      Commandes dans ce colis ({packageOrders[pkg.id].length})
+                    </h4>
+                    <div className="space-y-2">
+                      {packageOrders[pkg.id].map((orderItem) => (
+                        <div key={orderItem.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="font-medium">#{orderItem.order.order_number}</p>
+                            <p className="text-sm text-gray-600">
+                              {new Date(orderItem.order.created_at).toLocaleDateString('fr-FR')}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{orderItem.order.total.toFixed(2)}€</p>
+                            <Badge className="text-xs">
+                              {orderItem.order.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

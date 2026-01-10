@@ -9,7 +9,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
 import { WishlistProvider } from '@/context/WishlistContext';
 import { useAuthStore } from '@/stores/auth-store';
-import { OpenPackageBanner } from '@/components/OpenPackageBanner';
+import OpenPackageCountdownBanner from '@/components/OpenPackageCountdownBanner';
 import { AdminBanner } from '@/components/AdminBanner';
 import { CookieConsent } from '@/components/CookieConsent';
 import { FloatingButtons } from '@/components/FloatingButtons';
@@ -32,9 +32,9 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
       <WishlistProvider>
         <CartProvider>
           <AdminBanner />
+          <OpenPackageCountdownBanner />
           {showHeaderFooter && (
             <>
-              <OpenPackageBanner />
               <SiteHeader />
             </>
           )}

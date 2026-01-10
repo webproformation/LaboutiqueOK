@@ -14,7 +14,7 @@ const accountNavItems = [
   { href: '/account/orders', label: 'Mes commandes', icon: Package },
   { href: '/account/coupons', label: 'Mes coupons', icon: Ticket },
   { href: '/account/gift-cards', label: 'Mes cartes cadeaux', icon: CreditCard },
-  { href: '/account/my-packages', label: 'Mes paniers ouverts', icon: PackageOpen },
+  { href: '/account/my-packages', label: 'Mes colis ouverts', icon: PackageOpen },
   { href: '/account/addresses', label: 'Mes adresses', icon: MapPin },
   { href: '/account/measurements', label: 'Mes mensurations', icon: Ruler },
   { href: '/account/referral', label: 'Code parrainage', icon: Gift },

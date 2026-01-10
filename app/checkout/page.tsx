@@ -287,6 +287,39 @@ export default function CheckoutPage() {
         if (packageError) throw packageError;
       }
 
+      if (createPendingPackage && !addToOpenPackage) {
+        const openedAt = new Date();
+        const closesAt = new Date(openedAt.getTime() + (5 * 24 * 60 * 60 * 1000));
+
+        const { data: newPackage, error: packageError } = await supabase
+          .from('open_packages')
+          .insert([{
+            user_id: user.id,
+            status: 'active',
+            shipping_cost_paid: shippingCost,
+            shipping_method_id: selectedShippingMethodId || null,
+            shipping_address_id: selectedAddressId || null,
+            opened_at: openedAt.toISOString(),
+            closes_at: closesAt.toISOString(),
+          }])
+          .select()
+          .single();
+
+        if (packageError) throw packageError;
+
+        const { error: linkError } = await supabase
+          .from('open_package_orders')
+          .insert([{
+            open_package_id: newPackage.id,
+            order_id: newOrder.id,
+            is_paid: false,
+          }]);
+
+        if (linkError) throw linkError;
+
+        toast.success('Colis ouvert créé avec succès ! Expédition dans 5 jours.');
+      }
+
       if (newsletterConsent && profile?.email) {
         const { error: newsletterError } = await supabase
           .from('newsletter_subscriptions')

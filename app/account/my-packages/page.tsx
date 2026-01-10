@@ -23,21 +23,29 @@ interface OpenPackage {
   created_at: string;
 }
 
-interface PackageItem {
+interface PackageOrder {
   id: string;
-  package_id: string;
-  product_id: string;
-  product_name: string;
-  quantity: number;
-  price: number;
-  image_url: string | null;
+  open_package_id: string;
+  order_id: string;
+  is_paid: boolean;
+  added_at: string;
+  order: {
+    order_number: string;
+    total: number;
+    created_at: string;
+    order_items: Array<{
+      product_name: string;
+      quantity: number;
+      price: number;
+    }>;
+  };
 }
 
 export default function MyPackagesPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [packages, setPackages] = useState<OpenPackage[]>([]);
-  const [packageItems, setPackageItems] = useState<Record<string, PackageItem[]>>({});
+  const [packageOrders, setPackageOrders] = useState<Record<string, PackageOrder[]>>({});
 
   useEffect(() => {
     if (user) {
@@ -61,19 +69,27 @@ export default function MyPackagesPage() {
       const packages = packagesData || [];
       setPackages(packages);
 
-      const itemsMap: Record<string, PackageItem[]> = {};
+      const ordersMap: Record<string, PackageOrder[]> = {};
       for (const pkg of packages) {
-        const { data: items, error: itemsError } = await supabase
-          .from('package_items')
-          .select('*')
-          .eq('package_id', pkg.id);
+        const { data: orders, error: ordersError } = await supabase
+          .from('open_package_orders')
+          .select(`
+            *,
+            order:orders(
+              order_number,
+              total,
+              created_at,
+              order_items(product_name, quantity, price)
+            )
+          `)
+          .eq('open_package_id', pkg.id);
 
-        if (!itemsError && items) {
-          itemsMap[pkg.id] = items;
+        if (!ordersError && orders) {
+          ordersMap[pkg.id] = orders as unknown as PackageOrder[];
         }
       }
 
-      setPackageItems(itemsMap);
+      setPackageOrders(ordersMap);
     } catch (error) {
       console.error('Error loading packages:', error);
       toast.error('Erreur lors du chargement des colis');
@@ -125,13 +141,16 @@ export default function MyPackagesPage() {
   }
 
   function calculateTotalItems(packageId: string) {
-    const items = packageItems[packageId] || [];
-    return items.reduce((sum, item) => sum + item.quantity, 0);
+    const orders = packageOrders[packageId] || [];
+    return orders.reduce((sum, order) => {
+      const orderTotal = order.order?.order_items?.reduce((s, item) => s + item.quantity, 0) || 0;
+      return sum + orderTotal;
+    }, 0);
   }
 
   function calculateTotalValue(packageId: string) {
-    const items = packageItems[packageId] || [];
-    return items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const orders = packageOrders[packageId] || [];
+    return orders.reduce((sum, order) => sum + (order.order?.total || 0), 0);
   }
 
   if (loading) {
@@ -151,7 +170,7 @@ export default function MyPackagesPage() {
               <Package className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Mes Paniers Ouverts</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Mes Colis Ouverts</h1>
               <p className="text-gray-600 mt-1">
                 Gérez vos colis en attente de regroupement
               </p>
@@ -197,7 +216,7 @@ export default function MyPackagesPage() {
 
           <div className="grid gap-6">
             {packages.map((pkg) => {
-              const items = packageItems[pkg.id] || [];
+              const orders = packageOrders[pkg.id] || [];
               const totalItems = calculateTotalItems(pkg.id);
               const totalValue = calculateTotalValue(pkg.id);
 
@@ -287,34 +306,37 @@ export default function MyPackagesPage() {
                       </div>
                     </div>
 
-                    {items.length > 0 && (
+                    {orders.length > 0 && (
                       <div className="border-t pt-6">
                         <h4 className="font-semibold mb-4 flex items-center gap-2">
                           <ShoppingBag className="h-5 w-5 text-[#D4AF37]" />
-                          Contenu du colis
+                          Commandes dans ce colis ({orders.length})
                         </h4>
                         <div className="space-y-3">
-                          {items.map((item) => (
-                            <div key={item.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                              {item.image_url ? (
-                                <img
-                                  src={item.image_url}
-                                  alt={item.product_name}
-                                  className="w-16 h-16 object-cover rounded"
-                                />
-                              ) : (
-                                <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
-                                  <Package className="h-6 w-6 text-gray-400" />
+                          {orders.map((orderItem) => (
+                            <div key={orderItem.id} className="p-4 bg-gray-50 rounded-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="font-medium text-gray-900">
+                                  Commande #{orderItem.order?.order_number}
+                                </p>
+                                <Badge className={orderItem.is_paid ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}>
+                                  {orderItem.is_paid ? 'Payée' : 'En attente'}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-gray-600 mb-2">
+                                Ajoutée le {formatDate(orderItem.added_at)}
+                              </p>
+                              {orderItem.order?.order_items && orderItem.order.order_items.length > 0 && (
+                                <div className="mt-3 space-y-1">
+                                  {orderItem.order.order_items.map((item, idx) => (
+                                    <p key={idx} className="text-sm text-gray-700">
+                                      • {item.product_name} × {item.quantity}
+                                    </p>
+                                  ))}
                                 </div>
                               )}
-                              <div className="flex-1">
-                                <p className="font-medium text-gray-900">{item.product_name}</p>
-                                <p className="text-sm text-gray-500">
-                                  Quantité: {item.quantity} × {item.price.toFixed(2)}€
-                                </p>
-                              </div>
-                              <p className="font-semibold text-gray-900">
-                                {(item.quantity * item.price).toFixed(2)}€
+                              <p className="text-sm font-semibold text-gray-900 mt-2">
+                                Total: {orderItem.order?.total.toFixed(2)}€
                               </p>
                             </div>
                           ))}
