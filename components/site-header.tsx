@@ -39,7 +39,7 @@ const navigation = [
   { name: "L'atelier de Doudou", href: '/category/L-ATELIER-DE-DOUDOU', hasMegaMenu: false },
   { name: 'Sublimer le Look', href: '/category/sublimer-le-look', hasMegaMenu: true, megaType: 'morgane' as const },
   { name: 'Ambiance & Bien-être', href: '/category/ambiance-bien-etre', hasMegaMenu: true, megaType: 'maison' as const },
-  { name: 'Soins, Make-up & Fragrances', href: '/category/soins-make-up-&-fragrances', hasMegaMenu: true, megaType: 'beaute' as const },
+  { name: 'Soins, Make-up & Fragrances', href: '/category/soins-make-up-et-fragrances', hasMegaMenu: true, megaType: 'beaute' as const },
   { name: 'Bonnes affaires', href: '/category/bonnes-affaires', hasMegaMenu: false },
   { name: 'Live Shopping et Replay', href: '/live', hasMegaMenu: false },
   { name: 'Carte cadeau', href: '/carte-cadeau', hasMegaMenu: false },

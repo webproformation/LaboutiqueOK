@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
                   <tr style="border-top: 2px solid #d4af37;">
                     <td style="color: #333333; font-size: 16px; font-weight: 700; padding: 12px 0;">Montant total :</td>
                     <td style="color: #d4af37; font-size: 18px; font-weight: 700; text-align: right; padding: 12px 0;">
-                      ${(order.total || 0).toFixed(2)} €
+                      ${(Number(order.total_amount) || Number(order.total) || 0).toFixed(2)} €
                     </td>
                   </tr>
                 </table>
