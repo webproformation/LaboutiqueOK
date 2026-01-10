@@ -189,13 +189,13 @@ export default function CardFlipAdminPage() {
     const supabase = createClient();
 
     const gameData = {
-      name: formData.name.trim(),
-      description: formData.description.trim(),
-      coupon_id: formData.coupon_id,
+      name: formData.name.trim() || null,
+      description: formData.description.trim() || null,
+      coupon_id: formData.coupon_id || null,
       is_active: formData.is_active,
-      start_date: formData.start_date,
-      end_date: formData.end_date || null,
-      max_plays_per_user: formData.max_plays_per_user,
+      start_date: formData.start_date ? new Date(formData.start_date).toISOString() : new Date().toISOString(),
+      end_date: formData.end_date ? new Date(formData.end_date).toISOString() : null,
+      max_plays_per_user: formData.max_plays_per_user || 1,
     };
 
     if (editingGame) {
@@ -205,16 +205,18 @@ export default function CardFlipAdminPage() {
         .eq('id', editingGame.id);
 
       if (error) {
-        toast.error('Erreur lors de la modification');
+        console.error('Erreur de modification:', error);
+        toast.error(`Erreur lors de la modification: ${error.message}`);
         return;
       }
 
       toast.success('Jeu modifié avec succès');
     } else {
-      const { error } = await supabase.from('card_flip_games').insert(gameData);
+      const { data, error } = await supabase.from('card_flip_games').insert(gameData).select();
 
       if (error) {
-        toast.error('Erreur lors de la création');
+        console.error('Erreur de création:', error);
+        toast.error(`Erreur lors de la création: ${error.message}`);
         return;
       }
 

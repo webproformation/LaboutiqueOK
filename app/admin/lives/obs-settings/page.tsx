@@ -72,38 +72,37 @@ export default function OBSSettingsPage() {
 
     setSaving(true);
     try {
-      if (settings.id) {
-        const { error } = await supabase
-          .from('obs_settings')
-          .update({
-            stream_server: settings.stream_server,
-            video_bitrate: settings.video_bitrate,
-            audio_bitrate: settings.audio_bitrate,
-            resolution: settings.resolution,
-            fps: settings.fps,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', settings.id);
+      const settingsData = {
+        user_id: user.id,
+        stream_key: settings.stream_key,
+        stream_server: settings.stream_server,
+        video_bitrate: settings.video_bitrate,
+        audio_bitrate: settings.audio_bitrate,
+        resolution: settings.resolution,
+        fps: settings.fps,
+      };
 
-        if (error) throw error;
-      } else {
-        const { data, error } = await supabase
-          .from('obs_settings')
-          .insert([{
-            user_id: user.id,
-            ...settings,
-          }])
-          .select()
-          .single();
+      const { data, error } = await supabase
+        .from('obs_settings')
+        .upsert(settingsData, {
+          onConflict: 'user_id',
+        })
+        .select()
+        .single();
 
-        if (error) throw error;
+      if (error) {
+        console.error('Error saving settings:', error);
+        throw error;
+      }
+
+      if (data) {
         setSettings(data);
       }
 
       toast.success('Paramètres sauvegardés');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving settings:', error);
-      toast.error('Erreur lors de la sauvegarde');
+      toast.error(`Erreur lors de la sauvegarde: ${error.message || 'Erreur inconnue'}`);
     } finally {
       setSaving(false);
     }

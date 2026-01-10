@@ -179,7 +179,7 @@ export function SiteHeader() {
                   >
                     <Link
                       href={item.href}
-                      className={`text-xs lg:text-sm font-medium transition-colors ${
+                      className={`block text-center text-xs lg:text-sm font-medium leading-tight transition-colors ${
                         pathname === item.href || pathname.startsWith(item.href + '/')
                           ? 'text-[#D4AF37]'
                           : 'text-white hover:text-[#D4AF37]'
@@ -354,14 +354,6 @@ export function SiteHeader() {
         )}
       </header>
 
-      {user && profile && (
-        <div className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white py-2 px-4">
-          <div className="container mx-auto flex items-center justify-center gap-2 text-sm font-medium">
-            <span>Ma Cagnotte :</span>
-            <span className="font-bold text-lg">{(profile.wallet_balance || 0).toFixed(2)} €</span>
-          </div>
-        </div>
-      )}
 
       <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
       <SearchModal isOpen={searchModalOpen} onClose={() => setSearchModalOpen(false)} />

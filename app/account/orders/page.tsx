@@ -28,11 +28,11 @@ interface Order {
   id: string;
   order_number: string;
   status: string;
-  total_amount: string;
-  subtotal: string;
-  shipping_cost: string;
-  tax_amount: string;
-  discount_amount: string;
+  total: number;
+  subtotal: number;
+  shipping_cost: number;
+  tax_amount: number;
+  discount_amount: number;
   created_at: string;
   shipping_address: any;
   order_items?: OrderItem[];
@@ -168,7 +168,7 @@ export default function OrdersPage() {
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-5 w-5 text-gray-400" />
                     <span className="text-lg font-semibold">
-                      {(Number(order.total_amount) || 0).toFixed(2)}€
+                      {(Number(order.total) || 0).toFixed(2)}€
                     </span>
                   </div>
                   <Button
@@ -322,7 +322,7 @@ export default function OrdersPage() {
                   <Separator />
                   <div className="flex justify-between font-semibold text-lg">
                     <span>Total</span>
-                    <span>{(Number(selectedOrder.total_amount) || 0).toFixed(2)}€</span>
+                    <span>{(Number(selectedOrder.total) || 0).toFixed(2)}€</span>
                   </div>
                 </div>
               </div>
