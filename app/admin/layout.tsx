@@ -23,6 +23,7 @@ import {
   X,
   ArrowLeft,
   Truck,
+  Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -77,6 +78,15 @@ const navSections: NavSection[] = [
       { href: "/admin/actualites", label: "Articles" },
       { href: "/admin/actualites/new", label: "Nouvel article" },
       { href: "/admin/actualites/categories", label: "Catégories" },
+    ],
+  },
+  {
+    title: "Les Lives",
+    icon: Video,
+    items: [
+      { href: "/admin/lives", label: "Tous les lives" },
+      { href: "/admin/lives/new", label: "Nouveau live" },
+      { href: "/admin/lives/obs-settings", label: "Paramètres OBS" },
     ],
   },
   {
