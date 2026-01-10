@@ -30,14 +30,27 @@ interface LiveStream {
   created_at: string;
 }
 
+interface OpenPackageInfo {
+  id: string;
+  closes_at: string;
+  status: string;
+}
+
 export default function AdminLivesPage() {
   const [lives, setLives] = useState<LiveStream[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'scheduled' | 'live' | 'completed'>('all');
+  const [activePackage, setActivePackage] = useState<OpenPackageInfo | null>(null);
 
   useEffect(() => {
     loadLives();
+    loadActivePackage();
   }, [filter]);
+
+  useEffect(() => {
+    const interval = setInterval(loadActivePackage, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function loadLives() {
     try {
@@ -60,6 +73,42 @@ export default function AdminLivesPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadActivePackage() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('open_packages')
+        .select('id, closes_at, status')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (!error && data) {
+        setActivePackage(data);
+      } else {
+        setActivePackage(null);
+      }
+    } catch (error) {
+      console.error('Error loading active package:', error);
+    }
+  }
+
+  function calculateTimeRemaining(closesAt: string) {
+    const now = new Date().getTime();
+    const closes = new Date(closesAt).getTime();
+    const diff = closes - now;
+
+    if (diff <= 0) return 'Expiré';
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    return `${days}j ${hours}h ${minutes}m`;
   }
 
   async function deleteLive(id: string) {
@@ -97,11 +146,65 @@ export default function AdminLivesPage() {
         .eq('id', live.id);
 
       if (error) throw error;
+
+      if (newStatus === 'live') {
+        await createOpenPackageForLive();
+      } else if (newStatus === 'completed') {
+        await closeActiveOpenPackages();
+      }
+
       toast.success(`Live ${newStatus === 'live' ? 'démarré' : 'terminé'} avec succès`);
       loadLives();
     } catch (error) {
       console.error('Error updating live status:', error);
       toast.error('Erreur lors de la mise à jour');
+    }
+  }
+
+  async function createOpenPackageForLive() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const closesAt = new Date();
+      closesAt.setDate(closesAt.getDate() + 5);
+
+      const { error } = await supabase
+        .from('open_packages')
+        .insert([{
+          user_id: user.id,
+          status: 'active',
+          shipping_cost_paid: 0,
+          opened_at: new Date().toISOString(),
+          closes_at: closesAt.toISOString()
+        }]);
+
+      if (error) {
+        console.error('Error creating open package:', error);
+      } else {
+        toast.success('Colis ouvert créé pour ce live (fermeture dans 5 jours)');
+      }
+    } catch (error) {
+      console.error('Error in createOpenPackageForLive:', error);
+    }
+  }
+
+  async function closeActiveOpenPackages() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('open_packages')
+        .update({ status: 'closed' })
+        .eq('user_id', user.id)
+        .eq('status', 'active');
+
+      if (error) {
+        console.error('Error closing packages:', error);
+      }
+    } catch (error) {
+      console.error('Error in closeActiveOpenPackages:', error);
     }
   }
 
@@ -161,6 +264,38 @@ export default function AdminLivesPage() {
           </Link>
         </div>
       </div>
+
+      {activePackage && (
+        <Card className="border-[#D4AF37] bg-gradient-to-r from-[#D4AF37]/5 to-transparent">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <ShoppingBag className="h-6 w-6 text-[#D4AF37]" />
+                <div>
+                  <p className="font-semibold text-gray-900">Colis ouvert actif</p>
+                  <p className="text-sm text-gray-600">
+                    Les clients peuvent commander avec frais de port uniques
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <p className="text-sm text-gray-600">Fermeture automatique dans</p>
+                  <p className="text-lg font-bold text-[#D4AF37]">
+                    <Clock className="inline h-4 w-4 mr-1" />
+                    {calculateTimeRemaining(activePackage.closes_at)}
+                  </p>
+                </div>
+                <Link href="/admin/open-packages">
+                  <Button variant="outline" size="sm">
+                    Gérer
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex gap-2">
         <Button

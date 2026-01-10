@@ -79,10 +79,11 @@ export function SiteFooter() {
         .insert([{ email }]);
 
       if (error) {
-        if (error.code === '23505') {
+        if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
           toast.success('Vous faites déjà partie de nos abonnés ! Merci de votre fidélité.');
         } else {
-          toast.error('Une erreur est survenue');
+          console.error('Newsletter subscription error:', error);
+          toast.error('Une erreur est survenue lors de l\'inscription');
         }
       } else {
         toast.success('Merci pour votre inscription !');
@@ -91,6 +92,7 @@ export function SiteFooter() {
       setEmail('');
       setGdprConsent(false);
     } catch (error) {
+      console.error('Newsletter subscription exception:', error);
       toast.error('Une erreur est survenue');
     } finally {
       setIsSubmitting(false);
