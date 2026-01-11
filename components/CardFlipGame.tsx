@@ -128,12 +128,19 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
           .maybeSingle();
 
         if (!existingAssignment && game?.coupon_id) {
+          const validUntil = new Date();
+          validUntil.setDate(validUntil.getDate() + 30);
+
           await supabase.from('user_coupons').insert({
             user_id: user.id,
-            coupon_id: game.coupon_id,
-            coupon_code: coupon.code,
+            coupon_type_id: game.coupon_id,
+            code: coupon.code,
+            source: 'card_flip_game',
             is_used: false,
+            valid_until: validUntil.toISOString(),
           });
+
+          toast.success(`Coupon ${coupon.code} ajouté à votre compte!`);
         }
       }
 

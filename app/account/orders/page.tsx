@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Package, Eye, Calendar, CreditCard, Truck, MapPin } from 'lucide-react';
+import { Loader2, Package, Eye, Calendar, CreditCard, Truck, MapPin, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -55,6 +55,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -112,6 +113,37 @@ export default function OrdersPage() {
       return format(new Date(dateString), 'd MMMM yyyy', { locale: fr });
     } catch {
       return dateString;
+    }
+  };
+
+  const handleDownloadPDF = async (order: Order) => {
+    setDownloadingPdf(true);
+    try {
+      const response = await fetch('/api/orders/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la génération du PDF');
+      }
+
+      const data = await response.json();
+
+      const link = document.createElement('a');
+      link.href = `data:application/pdf;base64,${data.pdf}`;
+      link.download = data.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      alert('Erreur lors du téléchargement du PDF');
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -193,10 +225,30 @@ export default function OrdersPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto z-[9999]">
           <DialogHeader>
-            <DialogTitle>Détails de la commande #{selectedOrder?.order_number}</DialogTitle>
-            <DialogDescription>
-              Commandée le {selectedOrder && formatDate(selectedOrder.created_at)}
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Détails de la commande #{selectedOrder?.order_number}</DialogTitle>
+                <DialogDescription>
+                  Commandée le {selectedOrder && formatDate(selectedOrder.created_at)}
+                </DialogDescription>
+              </div>
+              {selectedOrder && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDownloadPDF(selectedOrder)}
+                  disabled={downloadingPdf}
+                  className="gap-2"
+                >
+                  {downloadingPdf ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  {downloadingPdf ? 'Génération...' : 'Télécharger PDF'}
+                </Button>
+              )}
+            </div>
           </DialogHeader>
 
           {selectedOrder && (

@@ -111,10 +111,12 @@ export default function CategoryPage() {
                     const lowerKey = key.toLowerCase();
                     const stringValue = String(value || '');
 
-                    // Filtrer les codes hexadécimaux malformés (8 caractères hex)
-                    const isHexCode = /^[a-f0-9]{8}$/i.test(stringValue);
+                    // Filtrer les IDs (UUID, hex codes longs, ou IDs numériques)
+                    const isUUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(stringValue);
+                    const isHexCode = /^[a-f0-9]{8,}$/i.test(stringValue);
+                    const isNumericId = /^\d+$/.test(stringValue);
 
-                    if (!isHexCode && stringValue) {
+                    if (!isUUID && !isHexCode && !isNumericId && stringValue) {
                       if (lowerKey.includes('couleur') || lowerKey.includes('color')) {
                         if (!colorsMap.has(stringValue)) {
                           colorsMap.set(stringValue, { name: stringValue });

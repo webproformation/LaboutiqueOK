@@ -136,7 +136,30 @@ export function WheelGame({ game, onClose, onWin }: WheelGameProps) {
               coupon_id: segment.coupon_id,
             }]);
 
-          if (!isLosingSegment) {
+          if (!isLosingSegment && segment.coupon_id) {
+            const { data: existingCoupon } = await supabase
+              .from('user_coupons')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('code', segment.coupon_code)
+              .maybeSingle();
+
+            if (!existingCoupon) {
+              const validUntil = new Date();
+              validUntil.setDate(validUntil.getDate() + 30);
+
+              await supabase.from('user_coupons').insert({
+                user_id: user.id,
+                coupon_type_id: segment.coupon_id,
+                code: segment.coupon_code,
+                source: 'wheel_game',
+                is_used: false,
+                valid_until: validUntil.toISOString(),
+              });
+
+              toast.success(`Coupon ${segment.coupon_code} ajouté à votre compte!`);
+            }
+
             onWin(segment.coupon_code);
           }
           setRemainingPlays(prev => prev - 1);

@@ -4,11 +4,14 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useOpenPackage } from '@/hooks/use-open-package';
 import { supabase } from '@/lib/supabase';
-import { Package, Clock, ShoppingBag, Truck, CheckCircle, XCircle } from 'lucide-react';
+import { Package, Clock, ShoppingBag, Truck, CheckCircle, XCircle, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 interface PackageOrder {
   id: string;
@@ -21,6 +24,134 @@ interface PackageOrder {
     total: number;
     items: any[];
   };
+}
+
+function CreateOpenPackageForm() {
+  const { user } = useAuth();
+  const { createOpenPackage } = useOpenPackage();
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [shippingMethods, setShippingMethods] = useState<any[]>([]);
+  const [selectedAddress, setSelectedAddress] = useState('');
+  const [selectedMethod, setSelectedMethod] = useState('');
+
+  useEffect(() => {
+    loadAddresses();
+    loadShippingMethods();
+  }, []);
+
+  async function loadAddresses() {
+    if (!user) return;
+    const { data } = await supabase
+      .from('addresses')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('address_type', 'shipping');
+    setAddresses(data || []);
+  }
+
+  async function loadShippingMethods() {
+    const { data } = await supabase
+      .from('shipping_methods')
+      .select('*')
+      .eq('is_active', true)
+      .order('price', { ascending: true });
+    setShippingMethods(data || []);
+    if (data && data.length > 0) {
+      setSelectedMethod(data[0].id);
+    }
+  }
+
+  async function handleCreate() {
+    if (!selectedAddress || !selectedMethod) {
+      toast.error('Veuillez sélectionner une adresse et une méthode de livraison');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const method = shippingMethods.find(m => m.id === selectedMethod);
+      await createOpenPackage(method?.price || 0, selectedMethod, selectedAddress);
+      toast.success('Colis créé avec succès!');
+      router.refresh();
+    } catch (error) {
+      console.error('Error creating package:', error);
+      toast.error('Erreur lors de la création du colis');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-12">
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader className="text-center">
+          <Package className="w-16 h-16 mx-auto mb-4 text-[#D4AF37]" />
+          <CardTitle>Créer un nouveau colis ouvert</CardTitle>
+          <CardDescription>
+            Regroupez plusieurs achats en une seule livraison pour économiser sur les frais de port
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-900">
+              <strong>Comment ça fonctionne ?</strong><br />
+              Votre colis reste ouvert pendant 5 jours. Ajoutez autant de commandes que vous le souhaitez,
+              vous ne payez les frais de port qu'une seule fois !
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="address">Adresse de livraison</Label>
+              <Select value={selectedAddress} onValueChange={setSelectedAddress}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionnez une adresse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {addresses.map(addr => (
+                    <SelectItem key={addr.id} value={addr.id}>
+                      {addr.first_name} {addr.last_name} - {addr.address_line1}, {addr.city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {addresses.length === 0 && (
+                <p className="text-sm text-gray-500">
+                  Vous devez d'abord ajouter une adresse de livraison
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="method">Méthode de livraison</Label>
+              <Select value={selectedMethod} onValueChange={setSelectedMethod}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionnez une méthode" />
+                </SelectTrigger>
+                <SelectContent>
+                  {shippingMethods.map(method => (
+                    <SelectItem key={method.id} value={method.id}>
+                      {method.name} - {method.price.toFixed(2)}€
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Button
+            onClick={handleCreate}
+            disabled={loading || !selectedAddress || !selectedMethod || addresses.length === 0}
+            className="w-full bg-[#D4AF37] hover:bg-[#C6A15B]"
+          >
+            {loading ? 'Création...' : 'Créer le colis'}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 export default function OpenPackagePage() {
@@ -84,17 +215,7 @@ export default function OpenPackagePage() {
 
   if (!hasActivePackage) {
     return (
-      <div className="container mx-auto px-4 py-12">
-        <Card>
-          <CardHeader className="text-center">
-            <Package className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-            <CardTitle>Aucun colis ouvert</CardTitle>
-            <CardDescription>
-              Vous n'avez pas de colis ouvert actuellement. Passez une commande pour en créer un !
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+      <CreateOpenPackageForm />
     );
   }
 

@@ -225,7 +225,30 @@ export function ScratchCardGame({ game, onClose, onWin }: ScratchCardGameProps) 
             coupon_id: coupon?.coupon_id || null,
           }]);
 
-        if (!isLosingPrize) {
+        if (!isLosingPrize && coupon?.coupon_id) {
+          const { data: existingCoupon } = await supabase
+            .from('user_coupons')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('code', selectedPrize)
+            .maybeSingle();
+
+          if (!existingCoupon) {
+            const validUntil = new Date();
+            validUntil.setDate(validUntil.getDate() + 30);
+
+            await supabase.from('user_coupons').insert({
+              user_id: user.id,
+              coupon_type_id: coupon.coupon_id,
+              code: selectedPrize,
+              source: 'scratch_card_game',
+              is_used: false,
+              valid_until: validUntil.toISOString(),
+            });
+
+            toast.success(`Coupon ${selectedPrize} ajouté à votre compte!`);
+          }
+
           onWin(selectedPrize);
         }
       } catch (error) {

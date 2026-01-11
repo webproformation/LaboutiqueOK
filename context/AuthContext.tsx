@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -49,8 +49,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const loadingProfileRef = useRef(false);
+  const initializedRef = useRef(false);
 
-  const loadProfile = async (userId: string) => {
+  const loadProfile = async (userId: string, force = false) => {
+    if (loadingProfileRef.current && !force) {
+      return;
+    }
+
+    loadingProfileRef.current = true;
     try {
       const { data: profileData, error } = await supabase
         .from('profiles')
@@ -76,31 +83,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Error loading profile:', error);
+    } finally {
+      loadingProfileRef.current = false;
     }
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
+
       if (session?.user) {
-        loadProfile(session.user.id);
+        await loadProfile(session.user.id);
       }
+
+      initializedRef.current = true;
       setLoading(false);
-    });
+    };
+
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        (async () => {
-          setUser(session?.user ?? null);
+        if (!initializedRef.current) return;
 
-          if (session?.user) {
-            await loadProfile(session.user.id);
-          } else {
-            setProfile(null);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+            loadProfile(session.user.id);
           }
-
-          setLoading(false);
-        })();
+        } else {
+          setProfile(null);
+        }
       }
     );
 

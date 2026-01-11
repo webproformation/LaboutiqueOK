@@ -58,7 +58,7 @@ interface SharedProduct {
   products: {
     name: string;
     price: number;
-    image: any;
+    image_url: string | null;
   };
 }
 
@@ -137,7 +137,7 @@ export default function LiveManagementPage() {
     try {
       const { data, error } = await supabase
         .from('live_shared_products')
-        .select('*, products(name, price, image)')
+        .select('*, products(name, price, image_url)')
         .eq('live_stream_id', liveId)
         .order('shared_at', { ascending: false });
 
@@ -145,6 +145,7 @@ export default function LiveManagementPage() {
       setSharedProducts(data || []);
     } catch (error) {
       console.error('Error loading shared products:', error);
+      toast.error('Erreur lors du chargement des produits partagés');
     }
   }
 
@@ -220,14 +221,18 @@ export default function LiveManagementPage() {
           clicks: 0
         }]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error sharing product:', error);
+        console.error('Product ID type:', typeof productId, 'Value:', productId);
+        throw error;
+      }
       toast.success('Produit partagé avec les spectateurs');
       loadSharedProducts();
       setSearchProduct('');
       setAvailableProducts([]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sharing product:', error);
-      toast.error('Erreur lors du partage');
+      toast.error(`Erreur lors du partage: ${error.message || 'Erreur inconnue'}`);
     }
   }
 
@@ -256,11 +261,15 @@ export default function LiveManagementPage() {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, price, image')
+        .select('id, name, price, image_url')
         .ilike('name', `%${query}%`)
         .limit(10);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error searching products:', error);
+        toast.error('Erreur lors de la recherche de produits');
+        throw error;
+      }
       setAvailableProducts(data || []);
     } catch (error) {
       console.error('Error searching products:', error);

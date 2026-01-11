@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Search, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -68,6 +68,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl bg-black/95 border-[#D4AF37] p-0 overflow-hidden">
+        <DialogTitle className="sr-only">Rechercher un produit</DialogTitle>
         <div className="flex flex-col">
           <div className="flex items-center gap-4 p-6 border-b border-[#D4AF37]/30">
             <Link href="/" onClick={handleClose}>
