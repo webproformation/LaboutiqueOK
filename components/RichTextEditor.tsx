@@ -40,14 +40,29 @@ export default function RichTextEditor({
   const editorRef = useRef<HTMLDivElement>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
+  const [isUserEditing, setIsUserEditing] = useState(false);
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value;
+    if (!editorRef.current) return;
+
+    const currentContent = editorRef.current.innerHTML;
+    const newValue = value || '';
+
+    const normalizeHtml = (html: string) => {
+      return html.trim().replace(/\s+/g, ' ');
+    };
+
+    const isDifferent = normalizeHtml(currentContent) !== normalizeHtml(newValue);
+
+    if (isInitialMount.current || (!isUserEditing && isDifferent)) {
+      editorRef.current.innerHTML = newValue;
+      isInitialMount.current = false;
     }
-  }, [value]);
+  }, [value, isUserEditing]);
 
   const executeCommand = (command: string, value: string | undefined = undefined) => {
+    setIsUserEditing(true);
     document.execCommand(command, false, value);
     editorRef.current?.focus();
     updateContent();
@@ -55,8 +70,19 @@ export default function RichTextEditor({
 
   const updateContent = () => {
     if (editorRef.current) {
+      setIsUserEditing(true);
       onChange(editorRef.current.innerHTML);
     }
+  };
+
+  const handleEditorFocus = () => {
+    setIsFocused(true);
+    setIsUserEditing(true);
+  };
+
+  const handleEditorBlur = () => {
+    setIsFocused(false);
+    setTimeout(() => setIsUserEditing(false), 100);
   };
 
   const insertLink = () => {
@@ -222,8 +248,8 @@ export default function RichTextEditor({
             ref={editorRef}
             contentEditable
             onInput={updateContent}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
+            onFocus={handleEditorFocus}
+            onBlur={handleEditorBlur}
             className="min-h-[400px] p-8 focus:outline-none"
             style={{
               wordWrap: 'break-word',
