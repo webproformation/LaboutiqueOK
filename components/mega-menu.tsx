@@ -126,18 +126,18 @@ export function MegaMenu({ isOpen, categorySlug, onClose }: MegaMenuProps) {
                       <li key={child.id} className="space-y-1">
                         <Link
                           href={`/category/${child.slug}`}
-                          className="block text-sm font-medium text-gray-700 hover:text-[#D4AF37] hover:translate-x-1 transition-all duration-200"
+                          className="block text-sm font-medium text-gray-700 hover:text-[#D4AF37] transition-all duration-200 text-center"
                           onClick={onClose}
                         >
                           {decodeHtmlEntities(child.name)}
                         </Link>
                         {child.children && child.children.length > 0 && (
-                          <ul className="space-y-1 pl-3 mt-1">
+                          <ul className="space-y-1 pl-0 mt-1">
                             {child.children.map((grandchild) => (
                               <li key={grandchild.id}>
                                 <Link
                                   href={`/category/${grandchild.slug}`}
-                                  className="block text-xs text-gray-600 hover:text-[#D4AF37] hover:translate-x-1 transition-all duration-200"
+                                  className="block text-xs text-gray-600 hover:text-[#D4AF37] transition-all duration-200 text-center"
                                   onClick={onClose}
                                 >
                                   {decodeHtmlEntities(grandchild.name)}
