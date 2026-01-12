@@ -71,7 +71,7 @@ export default function NewProductPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [attributes, setAttributes] = useState<ProductAttribute[]>([]);
-  const [colorVariations, setColorVariations] = useState<any[]>([]);
+  const [variations, setVariations] = useState<any[]>([]);
   const [selectedAttributeTerms, setSelectedAttributeTerms] = useState<Record<string, string[]>>({});
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [seoData, setSeoData] = useState<SeoData>({
@@ -160,8 +160,8 @@ export default function NewProductPage() {
     );
   };
 
-  const handleColorVariationsChange = (variations: any[]) => {
-    setColorVariations(variations);
+  const handleVariationsChange = (newVariations: any[]) => {
+    setVariations(newVariations);
   };
 
   const handleSave = async () => {
@@ -188,7 +188,8 @@ export default function NewProductPage() {
         gallery_images: galleryImages.length > 0 ? galleryImages : null,
         is_diamond: isDiamond,
         is_featured: isFeatured,
-        is_variable_product: colorVariations.length > 0,
+        is_variable_product: true,
+        has_variations: true,
       };
 
       const { data: newProduct, error: productError } = await supabase
@@ -220,19 +221,17 @@ export default function NewProductPage() {
       }
 
       // 3. Ajouter les variations
-      if (colorVariations.length > 0) {
-        const variationsToInsert = colorVariations.map(v => ({
+      if (variations.length > 0) {
+        const variationsToInsert = variations.map(v => ({
           product_id: productId,
           sku: String(v.sku || ""),
-          attributes: {
-            couleur: v.color_id,
-            couleur_name: v.color_name,
-            color_code: v.color_code,
-          },
+          attributes: v.attributes || {},
           regular_price: v.regular_price ? parseFloat(String(v.regular_price)) : null,
           sale_price: v.sale_price ? parseFloat(String(v.sale_price)) : null,
-          stock_quantity: 0,
+          stock_quantity: v.stock_quantity ? parseInt(String(v.stock_quantity)) : null,
           image_url: v.image_url || null,
+          size_min: v.size_min ? parseInt(String(v.size_min)) : null,
+          size_max: v.size_max ? parseInt(String(v.size_max)) : null,
           stock_status: "instock",
           is_active: true,
         }));
@@ -576,48 +575,19 @@ export default function NewProductPage() {
           </CardContent>
         </Card>
 
-        {/* Variations de Couleurs */}
+        {/* Variations de Produit */}
         <Card className="bg-white">
           <CardHeader>
-            <CardTitle className="text-[#d4af37]">Variations de Couleurs</CardTitle>
+            <CardTitle className="text-[#d4af37]">Variations de Produit</CardTitle>
             <CardDescription>
-              Créez des variations de produit par couleur avec leurs propres images et prix
+              Tous les produits ont des variations. Sélectionnez les attributs pour générer automatiquement les combinaisons.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {attributes.find(attr => attr.slug === "couleurs-principales") ? (
-              <ProductVariationsManager
-                colorTerms={
-                  attributes
-                    .find(attr => attr.slug === "couleurs-principales")
-                    ?.terms?.map(term => ({
-                      id: term.id,
-                      name: term.name,
-                      color_code: term.color_code,
-                    })) || []
-                }
-                sizeTerms={
-                  attributes
-                    .find(attr => attr.slug === "taille")
-                    ?.terms?.map(term => ({
-                      id: term.id,
-                      name: term.name,
-                      value: term.value,
-                    })) || []
-                }
-                initialVariations={colorVariations}
-                onChange={handleColorVariationsChange}
-              />
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <p className="text-sm">
-                  Aucune couleur disponible. Ajoutez des couleurs dans la section{" "}
-                  <Link href="/admin/product-attributes" className="text-[#d4af37] hover:underline">
-                    Attributs Produits
-                  </Link>
-                </p>
-              </div>
-            )}
+            <ProductVariationsManager
+              initialVariations={variations}
+              onChange={handleVariationsChange}
+            />
           </CardContent>
         </Card>
 

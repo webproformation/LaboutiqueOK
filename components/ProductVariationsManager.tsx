@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProductMediaSelector } from "@/components/product-media-selector";
-import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Info } from "lucide-react";
 
 interface AttributeTerm {
   id: string;
@@ -15,6 +15,7 @@ interface AttributeTerm {
   slug: string;
   color_code: string | null;
   value: string;
+  attribute_id: string;
 }
 
 interface ProductAttribute {
@@ -25,66 +26,55 @@ interface ProductAttribute {
   terms?: AttributeTerm[];
 }
 
-interface ColorTerm {
-  id: string;
-  name: string;
-  color_code: string | null;
-}
-
-interface SizeTerm {
-  id: string;
-  name: string;
-  value: string;
-}
-
 interface Variation {
-  color_id: string;
-  color_name: string;
-  color_code: string | null;
-  size_id?: string;
-  size_name?: string;
+  attributes: Record<string, {id: string; name: string; color_code?: string | null}>;
   image_url: string | null;
   sku: string;
   regular_price: number | null;
   sale_price: number | null;
+  stock_quantity: number | null;
+  size_min: number | null;
+  size_max: number | null;
 }
 
 interface ProductVariationsManagerProps {
-  colorTerms: ColorTerm[];
-  sizeTerms?: SizeTerm[];
-  initialVariations?: Variation[];
+  initialVariations?: any[];
   onChange: (variations: Variation[]) => void;
 }
 
 export default function ProductVariationsManager({
-  colorTerms,
-  sizeTerms = [],
   initialVariations = [],
   onChange,
 }: ProductVariationsManagerProps) {
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
-  const [variations, setVariations] = useState<Variation[]>(initialVariations);
-  const [expandedVariationKey, setExpandedVariationKey] = useState<string | null>(null);
   const [allAttributes, setAllAttributes] = useState<ProductAttribute[]>([]);
   const [selectedAttributeTerms, setSelectedAttributeTerms] = useState<Record<string, string[]>>({});
+  const [variations, setVariations] = useState<Variation[]>([]);
+  const [expandedVariationKey, setExpandedVariationKey] = useState<string | null>(null);
 
   useEffect(() => {
     loadAllAttributes();
+    loadInitialVariations();
   }, []);
 
   useEffect(() => {
-    if (initialVariations.length > 0) {
-      const colors = new Set<string>();
-      const sizes = new Set<string>();
-      initialVariations.forEach(v => {
-        colors.add(v.color_id);
-        if (v.size_id) sizes.add(v.size_id);
-      });
-      setSelectedColors(Array.from(colors));
-      setSelectedSizes(Array.from(sizes));
+    generateVariations();
+  }, [selectedAttributeTerms, allAttributes]);
+
+  const loadInitialVariations = () => {
+    if (initialVariations && initialVariations.length > 0) {
+      const formattedVariations = initialVariations.map(v => ({
+        attributes: v.attributes || {},
+        image_url: v.image_url || null,
+        sku: v.sku || "",
+        regular_price: v.regular_price || null,
+        sale_price: v.sale_price || null,
+        stock_quantity: v.stock_quantity || null,
+        size_min: v.size_min || null,
+        size_max: v.size_max || null,
+      }));
+      setVariations(formattedVariations);
     }
-  }, []);
+  };
 
   const loadAllAttributes = async () => {
     try {
@@ -110,7 +100,7 @@ export default function ProductVariationsManager({
       if (attrs) {
         const formatted = attrs.map(attr => ({
           ...attr,
-          terms: attr.product_attribute_terms || []
+          terms: (attr.product_attribute_terms || []).sort((a: any, b: any) => (a.order_by || 0) - (b.order_by || 0))
         }));
         setAllAttributes(formatted as any);
       }
@@ -133,78 +123,67 @@ export default function ProductVariationsManager({
     });
   };
 
-  const generateVariations = (colors: string[], sizes: string[]) => {
-    const newVariations: Variation[] = [];
+  const generateVariations = () => {
+    const attributesWithSelections = Object.entries(selectedAttributeTerms).filter(
+      ([_, termIds]) => termIds.length > 0
+    );
 
-    if (colors.length === 0) {
+    if (attributesWithSelections.length === 0) {
       setVariations([]);
       onChange([]);
       return;
     }
 
-    if (sizes.length === 0) {
-      colors.forEach(colorId => {
-        const colorTerm = colorTerms.find(c => c.id === colorId);
-        if (!colorTerm) return;
+    const combinations: Array<Array<{attrSlug: string; termId: string}>> = [[]];
 
-        const existingVar = variations.find(v => v.color_id === colorId && !v.size_id);
-
-        newVariations.push(existingVar || {
-          color_id: colorId,
-          color_name: colorTerm.name,
-          color_code: colorTerm.color_code,
-          image_url: null,
-          sku: `VAR-${colorTerm.name.toLowerCase()}`,
-          regular_price: null,
-          sale_price: null,
+    attributesWithSelections.forEach(([attrSlug, termIds]) => {
+      const newCombinations: Array<Array<{attrSlug: string; termId: string}>> = [];
+      combinations.forEach(combo => {
+        termIds.forEach(termId => {
+          newCombinations.push([...combo, {attrSlug, termId}]);
         });
       });
-    } else {
-      colors.forEach(colorId => {
-        const colorTerm = colorTerms.find(c => c.id === colorId);
-        if (!colorTerm) return;
+      combinations.length = 0;
+      combinations.push(...newCombinations);
+    });
 
-        sizes.forEach(sizeId => {
-          const sizeTerm = sizeTerms.find(s => s.id === sizeId);
-          if (!sizeTerm) return;
+    const newVariations: Variation[] = combinations.map(combo => {
+      const attributes: Record<string, {id: string; name: string; color_code?: string | null}> = {};
+      let skuParts: string[] = [];
 
-          const existingVar = variations.find(v => v.color_id === colorId && v.size_id === sizeId);
-
-          newVariations.push(existingVar || {
-            color_id: colorId,
-            color_name: colorTerm.name,
-            color_code: colorTerm.color_code,
-            size_id: sizeId,
-            size_name: sizeTerm.name,
-            image_url: null,
-            sku: `VAR-${colorTerm.name.toLowerCase()}-${sizeTerm.name.toLowerCase()}`,
-            regular_price: null,
-            sale_price: null,
-          });
-        });
+      combo.forEach(({attrSlug, termId}) => {
+        const attr = allAttributes.find(a => a.slug === attrSlug);
+        const term = attr?.terms?.find(t => t.id === termId);
+        if (attr && term) {
+          attributes[attrSlug] = {
+            id: termId,
+            name: term.name,
+            color_code: term.color_code || null
+          };
+          skuParts.push(term.slug);
+        }
       });
-    }
+
+      const variationKey = combo.map(c => c.termId).sort().join('-');
+      const existingVar = variations.find(v => {
+        const existingKey = Object.values(v.attributes).map(a => a.id).sort().join('-');
+        return existingKey === variationKey;
+      });
+
+      return existingVar || {
+        attributes,
+        image_url: null,
+        sku: `VAR-${skuParts.join('-')}`,
+        regular_price: null,
+        sale_price: null,
+        stock_quantity: null,
+        size_min: null,
+        size_max: null,
+      };
+    });
 
     setVariations(newVariations);
     onChange(newVariations);
-  };
-
-  const toggleColor = (colorId: string) => {
-    const newColors = selectedColors.includes(colorId)
-      ? selectedColors.filter(id => id !== colorId)
-      : [...selectedColors, colorId];
-
-    setSelectedColors(newColors);
-    generateVariations(newColors, selectedSizes);
-  };
-
-  const toggleSize = (sizeId: string) => {
-    const newSizes = selectedSizes.includes(sizeId)
-      ? selectedSizes.filter(id => id !== sizeId)
-      : [...selectedSizes, sizeId];
-
-    setSelectedSizes(newSizes);
-    generateVariations(selectedColors, newSizes);
   };
 
   const updateVariation = (index: number, field: keyof Variation, value: any) => {
@@ -218,98 +197,86 @@ export default function ProductVariationsManager({
   };
 
   const getVariationKey = (variation: Variation) => {
-    return variation.size_id
-      ? `${variation.color_id}-${variation.size_id}`
-      : variation.color_id;
+    return Object.values(variation.attributes).map(a => a.id).sort().join('-');
   };
 
   const getVariationLabel = (variation: Variation) => {
-    return variation.size_name
-      ? `${variation.color_name} - ${variation.size_name}`
-      : variation.color_name;
+    return Object.values(variation.attributes).map(a => a.name).join(' - ');
   };
 
   const toggleExpanded = (key: string) => {
     setExpandedVariationKey(expandedVariationKey === key ? null : key);
   };
 
+  const getColorForAttribute = (attrSlug: string, attributes: Variation['attributes']) => {
+    const attrData = attributes[attrSlug];
+    return attrData?.color_code || null;
+  };
+
   return (
     <div className="space-y-6">
-      {/* Section pour les couleurs */}
-      <div className="space-y-4">
-        <div>
-          <Label className="text-lg font-semibold text-gray-900 mb-3 block">
-            Couleurs (pour variations de produit)
-          </Label>
-          <p className="text-sm text-gray-600 mb-4">
-            Sélectionnez les couleurs disponibles pour ce produit
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {colorTerms.map((colorTerm) => {
-              const isSelected = selectedColors.includes(colorTerm.id);
-              return (
-                <button
-                  key={colorTerm.id}
-                  type="button"
-                  onClick={() => toggleColor(colorTerm.id)}
-                  className={`flex items-center justify-between gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
-                    isSelected
-                      ? "border-[#d4af37] bg-[#d4af37]/10"
-                      : "border-gray-300 hover:border-[#d4af37] bg-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 flex-1">
-                    <div
-                      className="w-6 h-6 rounded-full border-2 border-gray-300 flex-shrink-0"
-                      style={{ backgroundColor: colorTerm.color_code || "#gray" }}
-                    />
-                    <span className="text-sm font-medium text-gray-900 truncate">
-                      {colorTerm.name}
-                    </span>
-                  </div>
-                  {isSelected && <Check className="h-5 w-5 text-[#d4af37] flex-shrink-0" />}
-                </button>
-              );
-            })}
-          </div>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+        <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <div className="text-sm text-blue-900">
+          <p className="font-semibold mb-1">Tous les produits ont des variations</p>
+          <p>Sélectionnez les attributs (couleur, taille, etc.) pour générer automatiquement toutes les combinaisons possibles. Les champs image, prix, etc. des variations sont optionnels.</p>
         </div>
+      </div>
 
-        {sizeTerms.length > 0 && (
-          <div>
-            <Label className="text-lg font-semibold text-gray-900 mb-3 block">
-              Tailles (pour variations de produit)
-            </Label>
-            <p className="text-sm text-gray-600 mb-4">
-              Sélectionnez les tailles disponibles (optionnel)
-            </p>
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-              {sizeTerms.map((sizeTerm) => {
-                const isSelected = selectedSizes.includes(sizeTerm.id);
-                return (
-                  <button
-                    key={sizeTerm.id}
-                    type="button"
-                    onClick={() => toggleSize(sizeTerm.id)}
-                    className={`px-4 py-3 rounded-lg border-2 transition-all text-center ${
-                      isSelected
-                        ? "border-[#d4af37] bg-[#d4af37]/10 text-[#d4af37] font-semibold"
-                        : "border-gray-300 hover:border-[#d4af37] bg-white"
-                    }`}
-                  >
-                    {sizeTerm.name}
-                  </button>
-                );
-              })}
+      <div className="space-y-6">
+        {allAttributes.map((attribute) => (
+          <div key={attribute.id} className="space-y-4">
+            <div>
+              <Label className="text-lg font-semibold text-gray-900 mb-2 block">
+                {attribute.name}
+              </Label>
+              <p className="text-sm text-gray-600 mb-4">
+                Sélectionnez les {attribute.name.toLowerCase()} disponibles pour ce produit
+              </p>
+
+              <div className={`grid gap-3 ${attribute.type === 'color' || attribute.slug.includes('couleur') ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-3 md:grid-cols-6'}`}>
+                {attribute.terms?.map((term) => {
+                  const isSelected = (selectedAttributeTerms[attribute.slug] || []).includes(term.id);
+                  const hasColorCode = term.color_code !== null;
+
+                  return (
+                    <button
+                      key={term.id}
+                      type="button"
+                      onClick={() => toggleAttributeTerm(attribute.slug, term.id)}
+                      className={`flex items-center ${hasColorCode ? 'justify-between' : 'justify-center'} gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                        isSelected
+                          ? "border-[#d4af37] bg-[#d4af37]/10 font-semibold"
+                          : "border-gray-300 hover:border-[#d4af37] bg-white"
+                      }`}
+                    >
+                      {hasColorCode && (
+                        <div
+                          className="w-6 h-6 rounded-full border-2 border-gray-300 flex-shrink-0"
+                          style={{ backgroundColor: term.color_code || undefined }}
+                        />
+                      )}
+                      <span className="text-sm font-medium text-gray-900 truncate flex-1 text-left">
+                        {term.name}
+                      </span>
+                      {isSelected && <Check className="h-5 w-5 text-[#d4af37] flex-shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        )}
+        ))}
       </div>
 
       {variations.length > 0 && (
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-900">
-              <strong>{variations.length}</strong> variation(s) générée(s) automatiquement
+              <strong>{variations.length}</strong> variation(s) générée(s) automatiquement à partir des attributs sélectionnés
+            </p>
+            <p className="text-xs text-blue-800 mt-1">
+              Les champs image, prix, stock sont optionnels. Si non renseignés, les infos du produit de base seront utilisées.
             </p>
           </div>
 
@@ -317,17 +284,20 @@ export default function ProductVariationsManager({
             {variations.map((variation, index) => {
               const variationKey = getVariationKey(variation);
               const isExpanded = expandedVariationKey === variationKey;
+              const firstColorAttr = Object.entries(variation.attributes).find(([_, v]) => v.color_code)?.[1];
 
               return (
                 <Card key={variationKey} className="border-l-4 border-l-[#d4af37]">
                   <CardContent className="pt-4">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-full border-2 border-gray-300"
-                          style={{ backgroundColor: variation.color_code || "#gray" }}
-                        />
-                        <h3 className="text-lg font-semibold text-gray-900">
+                      <div className="flex items-center gap-3 flex-1">
+                        {firstColorAttr?.color_code && (
+                          <div
+                            className="w-8 h-8 rounded-full border-2 border-gray-300 flex-shrink-0"
+                            style={{ backgroundColor: firstColorAttr.color_code }}
+                          />
+                        )}
+                        <h3 className="text-lg font-semibold text-gray-900 truncate">
                           {getVariationLabel(variation)}
                         </h3>
                       </div>
@@ -344,7 +314,8 @@ export default function ProductVariationsManager({
                     {isExpanded && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t">
                         <div>
-                          <Label>Image de la variation</Label>
+                          <Label>Image de la variation (optionnel)</Label>
+                          <p className="text-xs text-gray-500 mb-2">Cette image apparaîtra dans la galerie du produit</p>
                           <ProductMediaSelector
                             currentImageUrl={variation.image_url || ""}
                             onSelect={(url) => updateVariation(index, "image_url", url)}
@@ -353,7 +324,7 @@ export default function ProductVariationsManager({
 
                         <div className="space-y-4">
                           <div>
-                            <Label>Référence (UGS)</Label>
+                            <Label>Référence (UGS) (optionnel)</Label>
                             <Input
                               value={variation.sku}
                               onChange={(e) => updateVariation(index, "sku", e.target.value)}
@@ -362,7 +333,7 @@ export default function ProductVariationsManager({
                           </div>
 
                           <div>
-                            <Label>Prix régulier (€)</Label>
+                            <Label>Prix régulier (€) (optionnel)</Label>
                             <Input
                               type="number"
                               step="0.01"
@@ -370,12 +341,12 @@ export default function ProductVariationsManager({
                               onChange={(e) =>
                                 updateVariation(index, "regular_price", e.target.value ? parseFloat(e.target.value) : null)
                               }
-                              placeholder="0.00"
+                              placeholder="Utilisera le prix du produit"
                             />
                           </div>
 
                           <div>
-                            <Label>Prix promo (€)</Label>
+                            <Label>Prix promo (€) (optionnel)</Label>
                             <Input
                               type="number"
                               step="0.01"
@@ -383,8 +354,45 @@ export default function ProductVariationsManager({
                               onChange={(e) =>
                                 updateVariation(index, "sale_price", e.target.value ? parseFloat(e.target.value) : null)
                               }
-                              placeholder="0.00"
+                              placeholder="Utilisera le prix promo du produit"
                             />
+                          </div>
+
+                          <div>
+                            <Label>Stock (optionnel)</Label>
+                            <Input
+                              type="number"
+                              value={variation.stock_quantity || ""}
+                              onChange={(e) =>
+                                updateVariation(index, "stock_quantity", e.target.value ? parseInt(e.target.value) : null)
+                              }
+                              placeholder="Utilisera le stock du produit"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label>Taille min (pour badge Match)</Label>
+                              <Input
+                                type="number"
+                                value={variation.size_min || ""}
+                                onChange={(e) =>
+                                  updateVariation(index, "size_min", e.target.value ? parseInt(e.target.value) : null)
+                                }
+                                placeholder="Ex: 38"
+                              />
+                            </div>
+                            <div>
+                              <Label>Taille max (pour badge Match)</Label>
+                              <Input
+                                type="number"
+                                value={variation.size_max || ""}
+                                onChange={(e) =>
+                                  updateVariation(index, "size_max", e.target.value ? parseInt(e.target.value) : null)
+                                }
+                                placeholder="Ex: 42"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>

@@ -71,13 +71,12 @@ function CreateOpenPackageForm() {
 
     setLoading(true);
     try {
-      const method = shippingMethods.find(m => m.id === selectedMethod);
-      await createOpenPackage(method?.price || 0, selectedMethod, selectedAddress);
+      await createOpenPackage(true, selectedMethod, selectedAddress);
       toast.success('Colis créé avec succès!');
       router.refresh();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating package:', error);
-      toast.error('Erreur lors de la création du colis');
+      toast.error('Erreur lors de la création du colis: ' + (error.message || 'Erreur inconnue'));
     } finally {
       setLoading(false);
     }
@@ -280,11 +279,11 @@ export default function OpenPackagePage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">
-                {openPackage!.shipping_cost_paid.toFixed(2)}€
+              <div className="text-2xl font-bold text-green-600">
+                {openPackage!.shipping_cost_paid ? 'Frais payés ✓' : 'Non payés'}
               </div>
               <p className="text-sm text-gray-600 mt-2">
-                Payés une seule fois
+                {openPackage!.shipping_cost_paid ? 'Une seule fois pour tout le colis' : 'À payer lors de la fermeture'}
               </p>
             </CardContent>
           </Card>

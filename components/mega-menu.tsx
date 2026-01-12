@@ -26,6 +26,17 @@ export function MegaMenu({ isOpen, type, categorySlug, onClose }: MegaMenuProps)
     }
   }, [isOpen, categorySlug]);
 
+  async function hasProductsInStock(categoryId: string): Promise<boolean> {
+    const { count } = await supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('category_id', categoryId)
+      .eq('is_active', true)
+      .gt('stock_quantity', 0);
+
+    return (count || 0) > 0;
+  }
+
   async function loadCategories() {
     try {
       const { data: parentCategory } = await supabase
@@ -63,12 +74,22 @@ export function MegaMenu({ isOpen, type, categorySlug, onClose }: MegaMenuProps)
                     .eq('is_visible', true)
                     .order('display_order', { ascending: true });
 
-                  return {
+                  const level3Filtered = level3Children ? await Promise.all(
+                    level3Children.map(async (grandchild) => {
+                      const hasProducts = await hasProductsInStock(grandchild.id);
+                      return hasProducts ? grandchild : null;
+                    })
+                  ).then(items => items.filter(Boolean) as ProductCategory[]) : [];
+
+                  const hasLevel2Products = await hasProductsInStock(child.id);
+                  const hasAnyProducts = hasLevel2Products || level3Filtered.length > 0;
+
+                  return hasAnyProducts ? {
                     ...child,
-                    children: level3Children || []
-                  };
+                    children: level3Filtered
+                  } : null;
                 })
-              ) : [];
+              ).then(items => items.filter(Boolean) as CategoryWithChildren[]) : [];
 
               return {
                 ...cat,
@@ -77,7 +98,11 @@ export function MegaMenu({ isOpen, type, categorySlug, onClose }: MegaMenuProps)
             })
           );
 
-          setCategories(categoriesWithChildren);
+          const filteredCategories = categoriesWithChildren.filter(cat =>
+            cat.children && cat.children.length > 0
+          );
+
+          setCategories(filteredCategories);
         }
       }
     } catch (error) {

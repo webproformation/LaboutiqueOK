@@ -13,7 +13,8 @@ import {
   Package,
   MapPin,
   LogOut,
-  Settings
+  Settings,
+  Play
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -180,12 +181,15 @@ export function SiteHeader() {
                   >
                     <Link
                       href={item.href}
-                      className={`block text-center text-xs lg:text-sm font-medium leading-tight transition-colors ${
-                        pathname === item.href || pathname.startsWith(item.href + '/')
+                      className={`flex items-center gap-1.5 text-center text-xs lg:text-sm font-medium leading-tight transition-colors ${
+                        item.slug === 'live'
+                          ? 'text-[#D4AF37] hover:text-[#C5A028] font-bold'
+                          : pathname === item.href || pathname.startsWith(item.href + '/')
                           ? 'text-[#D4AF37]'
                           : 'text-white hover:text-[#D4AF37]'
                       }`}
                     >
+                      {item.slug === 'live' && <Play className="h-3.5 w-3.5 lg:h-4 lg:w-4 fill-current" />}
                       {item.name}
                     </Link>
                   </div>

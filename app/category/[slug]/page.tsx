@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, SlidersHorizontal, DollarSign, Package } from 'lucide-react';
+import { Loader2, SlidersHorizontal, DollarSign, Package, ArrowUpDown } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
@@ -26,6 +26,7 @@ interface Product {
   color?: string;
   size?: string;
   attributes?: any;
+  created_at?: string;
 }
 
 interface Category {
@@ -49,6 +50,7 @@ export default function CategoryPage() {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [minPrice, setMinPrice] = useState<number>(0);
   const [maxPrice, setMaxPrice] = useState<number>(1000);
+  const [sortBy, setSortBy] = useState<'newest' | 'price-asc' | 'price-desc' | 'name'>('newest');
 
   const [availableColors, setAvailableColors] = useState<Array<{ name: string; color_code?: string }>>([]);
   const [availableSizes, setAvailableSizes] = useState<string[]>([]);
@@ -282,11 +284,30 @@ export default function CategoryPage() {
         result = result.filter(p => filteredIds.has(p.id));
       }
 
+      result.sort((a, b) => {
+        switch (sortBy) {
+          case 'newest':
+            return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+          case 'price-asc':
+            const priceA = a.sale_price || a.regular_price || 0;
+            const priceB = b.sale_price || b.regular_price || 0;
+            return priceA - priceB;
+          case 'price-desc':
+            const priceA2 = a.sale_price || a.regular_price || 0;
+            const priceB2 = b.sale_price || b.regular_price || 0;
+            return priceB2 - priceA2;
+          case 'name':
+            return a.name.localeCompare(b.name);
+          default:
+            return 0;
+        }
+      });
+
       setFilteredProducts(result);
     };
 
     filterProducts();
-  }, [products, priceRange, filterColor, filterSize]);
+  }, [products, priceRange, filterColor, filterSize, sortBy]);
 
   if (loading) {
     return (
@@ -459,14 +480,38 @@ export default function CategoryPage() {
           </aside>
 
           <div className="lg:col-span-3">
-            <div className="mb-4 text-sm text-gray-600">
-              {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''}
+            <div className="flex items-center justify-between mb-6">
+              <p className="text-sm text-gray-600">
+                {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''}
+              </p>
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className="h-4 w-4 text-gray-600" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
+                >
+                  <option value="newest">Nouveautés</option>
+                  <option value="price-asc">Prix croissant</option>
+                  <option value="price-desc">Prix décroissant</option>
+                  <option value="name">Nom A-Z</option>
+                </select>
+              </div>
             </div>
+
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-6">
               {filteredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} showAddToCart={true} />
               ))}
             </div>
+
+            {filteredProducts.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-600">
+                  Aucun produit ne correspond à vos critères de filtrage.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

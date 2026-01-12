@@ -8,7 +8,7 @@ export interface OpenPackage {
   id: string;
   user_id: string;
   status: 'active' | 'closed' | 'shipped';
-  shipping_cost_paid: number;
+  shipping_cost_paid: boolean;
   shipping_method_id: string | null;
   shipping_address_id: string | null;
   opened_at: string;
@@ -96,13 +96,17 @@ export function useOpenPackage() {
     setTimeRemaining({ days, hours, minutes, seconds });
   }
 
-  async function createOpenPackage(shippingCost: number, shippingMethodId: string, addressId: string) {
+  async function createOpenPackage(shippingCostPaid: boolean, shippingMethodId: string, addressId: string) {
     try {
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
       const { data, error } = await supabase
         .from('open_packages')
         .insert([{
-          user_id: user?.id,
-          shipping_cost_paid: shippingCost,
+          user_id: user.id,
+          shipping_cost_paid: shippingCostPaid,
           shipping_method_id: shippingMethodId,
           shipping_address_id: addressId,
           status: 'active'
@@ -110,7 +114,10 @@ export function useOpenPackage() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       setOpenPackage(data);
       return data;

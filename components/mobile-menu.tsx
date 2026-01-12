@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { User, LogOut, Shield } from 'lucide-react';
+import { User, LogOut, Shield, Play } from 'lucide-react';
 import { supabase, ProductCategory } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { decodeHtmlEntities } from '@/lib/utils';
@@ -41,6 +41,17 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     router.push('/');
   };
 
+  async function hasProductsInStock(categoryId: string): Promise<boolean> {
+    const { count } = await supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('category_id', categoryId)
+      .eq('is_active', true)
+      .gt('stock_quantity', 0);
+
+    return (count || 0) > 0;
+  }
+
   async function loadCategories() {
     try {
       const { data: level1Categories } = await supabase
@@ -69,12 +80,22 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   .eq('is_visible', true)
                   .order('display_order', { ascending: true });
 
-                return {
+                const level3Filtered = level3 ? await Promise.all(
+                  level3.map(async (cat3) => {
+                    const hasProducts = await hasProductsInStock(cat3.id);
+                    return hasProducts ? cat3 : null;
+                  })
+                ).then(items => items.filter(Boolean) as ProductCategory[]) : [];
+
+                const hasLevel2Products = await hasProductsInStock(cat2.id);
+                const hasAnyProducts = hasLevel2Products || level3Filtered.length > 0;
+
+                return hasAnyProducts ? {
                   ...cat2,
-                  children: level3 || []
-                };
+                  children: level3Filtered
+                } : null;
               })
-            ) : [];
+            ).then(items => items.filter(Boolean) as CategoryLevel2[]) : [];
 
             return {
               ...cat1,
@@ -223,9 +244,10 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             <div className="py-3">
               <Link
                 href="/live"
-                className="block text-base font-medium hover:text-[#D4AF37] transition-colors"
+                className="flex items-center gap-2 text-base font-bold text-[#D4AF37] hover:text-[#C5A028] transition-colors"
                 onClick={onClose}
               >
+                <Play className="h-4 w-4 fill-current" />
                 Live Shopping et Replay
               </Link>
             </div>
