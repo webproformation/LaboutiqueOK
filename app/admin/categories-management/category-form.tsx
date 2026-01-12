@@ -139,9 +139,9 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
     }
   };
 
-  const availableParentCategories = categories.filter(
-    c => !category || c.id !== category.id
-  );
+  const availableParentCategories = categories
+    .filter(c => !category || c.id !== category.id)
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -307,7 +307,7 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                     <SelectItem value="none">Aucune (catégorie principale)</SelectItem>
                     {availableParentCategories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
+                        {cat.name} ({cat.slug})
                       </SelectItem>
                     ))}
                   </SelectContent>
