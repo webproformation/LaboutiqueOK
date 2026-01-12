@@ -43,19 +43,11 @@ const STATIC_LINKS = [
   { name: 'Le carnet de Morgane', href: '/actualites', slug: 'actualites', hasMegaMenu: false },
 ];
 
-const MEGA_MENU_TYPE_BY_SLUG: Record<string, 'mode' | 'morgane' | 'maison' | 'beaute'> = {
-  'dressing-34-54': 'mode',
-  'sublimer-le-look': 'morgane',
-  'ambiance-bien-etre': 'maison',
-  'soins-make-up-et-fragrances': 'beaute',
-};
-
 interface NavigationItem {
   name: string;
   href: string;
   slug: string;
   hasMegaMenu: boolean;
-  megaType?: 'mode' | 'morgane' | 'maison' | 'beaute';
 }
 
 export function SiteHeader() {
@@ -66,7 +58,7 @@ export function SiteHeader() {
   const { cartItemCount } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
-  const [openMegaMenu, setOpenMegaMenu] = useState<{ type: 'mode' | 'morgane' | 'maison' | 'beaute'; slug: string } | null>(null);
+  const [openMegaMenu, setOpenMegaMenu] = useState<string | null>(null);
   const [navigation, setNavigation] = useState<NavigationItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -96,15 +88,12 @@ export function SiteHeader() {
               .eq('is_visible', true);
 
             const hasSubCategories = (count || 0) > 0;
-            const slug = cat.slug.toLowerCase();
-            const hasMegaMenu = hasSubCategories && (slug in MEGA_MENU_TYPE_BY_SLUG);
 
             return {
               name: decodeHtmlEntities(cat.name),
               href: `/category/${cat.slug}`,
               slug: cat.slug,
-              hasMegaMenu,
-              megaType: hasMegaMenu ? MEGA_MENU_TYPE_BY_SLUG[slug] : undefined,
+              hasMegaMenu: hasSubCategories,
             };
           })
         );
@@ -131,12 +120,12 @@ export function SiteHeader() {
     router.push('/');
   };
 
-  const handleMouseEnter = (megaType: 'mode' | 'morgane' | 'maison' | 'beaute', slug: string) => {
+  const handleMouseEnter = (slug: string) => {
     if (closeTimerRef.current) {
       clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
     }
-    setOpenMegaMenu({ type: megaType, slug });
+    setOpenMegaMenu(slug);
   };
 
   const handleMouseLeave = () => {
@@ -177,7 +166,7 @@ export function SiteHeader() {
                   <div
                     key={item.slug}
                     className="relative"
-                    onMouseEnter={() => item.hasMegaMenu && item.megaType && handleMouseEnter(item.megaType, item.slug)}
+                    onMouseEnter={() => item.hasMegaMenu && handleMouseEnter(item.slug)}
                     onMouseLeave={handleMouseLeave}
                   >
                     <Link
@@ -352,8 +341,7 @@ export function SiteHeader() {
           >
             <MegaMenu
               isOpen={true}
-              type={openMegaMenu.type}
-              categorySlug={openMegaMenu.slug}
+              categorySlug={openMegaMenu}
               onClose={() => setOpenMegaMenu(null)}
             />
           </div>

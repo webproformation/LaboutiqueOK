@@ -7,7 +7,6 @@ import { decodeHtmlEntities } from '@/lib/utils';
 
 interface MegaMenuProps {
   isOpen: boolean;
-  type: 'mode' | 'morgane' | 'maison' | 'beaute';
   categorySlug: string;
   onClose: () => void;
 }
@@ -16,7 +15,7 @@ interface CategoryWithChildren extends ProductCategory {
   children?: CategoryWithChildren[];
 }
 
-export function MegaMenu({ isOpen, type, categorySlug, onClose }: MegaMenuProps) {
+export function MegaMenu({ isOpen, categorySlug, onClose }: MegaMenuProps) {
   const [categories, setCategories] = useState<CategoryWithChildren[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -123,11 +122,7 @@ export function MegaMenu({ isOpen, type, categorySlug, onClose }: MegaMenuProps)
         {loading ? (
           <div className="text-center py-4">Chargement...</div>
         ) : categories.length > 0 ? (
-          <div className={`grid gap-8 ${
-            type === 'mode' ? 'grid-cols-2 md:grid-cols-5' :
-            type === 'maison' ? 'grid-cols-2 md:grid-cols-4' :
-            'grid-cols-2 md:grid-cols-4'
-          }`}>
+          <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {categories.map((category) => (
               <div key={category.id} className="space-y-3">
                 <Link
