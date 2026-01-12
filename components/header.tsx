@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { useAuthStore } from '@/stores/auth-store';
+import { MegaMenu } from '@/components/mega-menu';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,17 +17,18 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const navigationLinks = [
-  { name: 'Nouveautés', href: '/nouveautes' },
-  { name: 'Mode', href: '/categorie/mode' },
-  { name: 'Les looks de Morgane', href: '/looks' },
-  { name: 'Maison', href: '/categorie/maison' },
-  { name: 'Beauté', href: '/categorie/beaute' },
-  { name: 'Live & Replay', href: '/live' },
-  { name: 'Carte cadeau', href: '/carte-cadeau' },
+  { name: 'Nouveautés', href: '/category/nouveautes', slug: 'nouveautes', type: null },
+  { name: 'Mode', href: '/category/mode', slug: 'mode', type: 'mode' as const },
+  { name: 'Les looks de Morgane', href: '/looks', slug: 'looks', type: 'morgane' as const },
+  { name: 'Maison', href: '/category/maison', slug: 'maison', type: 'maison' as const },
+  { name: 'Beauté', href: '/category/beaute', slug: 'beaute', type: 'beaute' as const },
+  { name: 'Live & Replay', href: '/live', slug: 'live', type: null },
+  { name: 'Carte cadeau', href: '/carte-cadeau', slug: 'gift', type: null },
 ];
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const { user, isAdmin, initialize, signOut } = useAuthStore();
 
   useEffect(() => {
@@ -34,7 +36,10 @@ export function Header() {
   }, [initialize]);
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
+    <header
+      className="sticky top-0 z-50 bg-white border-b border-gray-200"
+      onMouseLeave={() => setActiveMenu(null)}
+    >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
@@ -60,44 +65,51 @@ export function Header() {
             </SheetContent>
           </Sheet>
 
-          <Link href="/" className="flex items-center gap-2">
-            <div className="text-2xl font-bold text-black">
-              La Boutique de <span className="text-[#D4AF37]">Morgane</span>
-            </div>
+          <Link href="/" className="flex-shrink-0">
+            <h1 className="text-2xl font-serif font-bold tracking-wider">
+              LA BOUTIQUE DE <span className="text-[#d4af37]">MORGANE</span>
+            </h1>
           </Link>
 
-          <nav className="hidden lg:flex items-center gap-6">
+          <nav className="hidden lg:flex items-center gap-8 h-full">
             {navigationLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-sm hover:text-[#D4AF37] transition-smooth"
+              <div
+                key={link.name}
+                className="h-full flex items-center relative"
+                onMouseEnter={() => link.type && setActiveMenu(link.slug)}
               >
-                {link.name}
-              </Link>
+                <Link
+                  href={link.href}
+                  className={`text-sm font-medium uppercase tracking-wide transition-colors duration-200 border-b-2 border-transparent py-2
+                    ${activeMenu === link.slug ? 'text-[#d4af37] border-[#d4af37]' : 'text-gray-900 hover:text-[#d4af37]'}
+                  `}
+                >
+                  {link.name}
+                </Link>
+              </div>
             ))}
           </nav>
 
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="hover:text-[#D4AF37]">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="hover:text-[#d4af37]">
               <Search className="h-5 w-5" />
             </Button>
 
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="hover:text-[#D4AF37]">
+                  <Button variant="ghost" size="icon" className="hover:text-[#d4af37]">
                     <User className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {isAdmin && (
                     <>
                       <DropdownMenuItem asChild>
-                        <Link href="/admin" className="flex items-center gap-2">
-                          <Shield className="h-4 w-4" />
+                        <Link href="/admin" className="flex items-center text-[#d4af37]">
+                          <Shield className="mr-2 h-4 w-4" />
                           Administration
                         </Link>
                       </DropdownMenuItem>
@@ -122,20 +134,37 @@ export function Header() {
               </DropdownMenu>
             ) : (
               <Link href="/auth/login">
-                <Button variant="ghost" size="icon" className="hover:text-[#D4AF37]">
+                <Button variant="ghost" size="icon" className="hover:text-[#d4af37]">
                   <User className="h-5 w-5" />
                 </Button>
               </Link>
             )}
 
             <Link href="/cart">
-              <Button variant="ghost" size="icon" className="hover:text-[#D4AF37]">
+              <Button variant="ghost" size="icon" className="hover:text-[#d4af37]">
                 <ShoppingCart className="h-5 w-5" />
               </Button>
             </Link>
           </div>
         </div>
       </div>
+
+      {navigationLinks.map((link) => (
+        link.type && (
+          <div
+            key={`${link.slug}-menu`}
+            onMouseEnter={() => setActiveMenu(link.slug)}
+            onMouseLeave={() => setActiveMenu(null)}
+          >
+            <MegaMenu
+              isOpen={activeMenu === link.slug}
+              type={link.type}
+              categorySlug={link.slug}
+              onClose={() => setActiveMenu(null)}
+            />
+          </div>
+        )
+      ))}
     </header>
   );
 }
