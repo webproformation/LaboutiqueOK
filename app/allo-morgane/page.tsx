@@ -1,17 +1,38 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, Phone, MessageCircle, HelpCircle, Package, Shirt, PhoneCall } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import PageContentDisplay from '@/components/PageContentDisplay';
+import { supabase } from '@/lib/supabase';
 
-export default function AlloMorganePage() {
+async function getPageContent() {
+  const { data } = await supabase
+    .from('pages_seo')
+    .select('content, title, meta_description')
+    .eq('slug', 'allo-morgane')
+    .eq('is_published', true)
+    .maybeSingle();
+
+  return data;
+}
+
+export default async function AlloMorganePage() {
+  const pageData = await getPageContent();
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-[#F2F2E8]">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto space-y-8">
           <PageHeader
             icon={PhoneCall}
-            title="Allo Morgane"
-            description="Besoin d'un conseil ? Morgane et André sont là pour vous conseiller, vous rassurer, et surtout... pour vous faire sourire !"
+            title={pageData?.title || "Allo Morgane"}
+            description={pageData?.meta_description || "Besoin d'un conseil ? Morgane et André sont là pour vous conseiller, vous rassurer, et surtout... pour vous faire sourire !"}
           />
+
+          {pageData?.content && (
+            <div className="bg-white rounded-lg shadow-lg p-8">
+              <PageContentDisplay content={pageData.content} />
+            </div>
+          )}
 
           <Card className="bg-gradient-to-br from-[#D4AF37] to-[#b8933d] text-white">
             <CardContent className="p-8 text-center space-y-4">

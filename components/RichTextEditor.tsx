@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Bold,
   Italic,
@@ -19,6 +20,8 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  Eye,
+  Edit as EditIcon,
 } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -36,6 +39,7 @@ export default function RichTextEditor({
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
@@ -170,87 +174,128 @@ export default function RichTextEditor({
     <div className={`border rounded-lg overflow-hidden bg-white transition-colors ${
       isFocused ? 'border-[#d4af37] ring-1 ring-[#d4af37]' : 'border-[#d4af37]/30'
     }`}>
-      <div className="bg-gray-50 border-b border-[#d4af37]/30 p-2 flex flex-wrap gap-1">
-        {toolbarButtons.map((button, index) => {
-          if ('separator' in button && button.separator) {
-            return (
-              <Separator
-                key={`separator-${index}`}
-                orientation="vertical"
-                className="mx-1 h-6 bg-[#d4af37]/30"
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'edit' | 'preview')} className="w-full">
+        <div className="bg-gray-50 border-b border-[#d4af37]/30 p-2 flex items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-1 flex-1">
+            {toolbarButtons.map((button, index) => {
+              if ('separator' in button && button.separator) {
+                return (
+                  <Separator
+                    key={`separator-${index}`}
+                    orientation="vertical"
+                    className="mx-1 h-6 bg-[#d4af37]/30"
+                  />
+                );
+              }
+
+              const Icon = button.icon!;
+              return (
+                <Button
+                  key={index}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={button.command}
+                  title={button.title}
+                  className="h-8 w-8 p-0 hover:bg-[#d4af37]/20 hover:text-[#d4af37] text-gray-600"
+                >
+                  <Icon className="h-4 w-4" />
+                </Button>
+              );
+            })}
+          </div>
+
+          <TabsList className="bg-[#d4af37]/10">
+            <TabsTrigger value="edit" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-white">
+              <EditIcon className="h-4 w-4 mr-2" />
+              Édition
+            </TabsTrigger>
+            <TabsTrigger value="preview" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-white">
+              <Eye className="h-4 w-4 mr-2" />
+              Prévisualisation
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="edit" className="m-0">
+          <div
+            ref={editorRef}
+            contentEditable
+            onInput={updateContent}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            className="min-h-[400px] p-8 focus:outline-none"
+            style={{
+              wordWrap: 'break-word',
+              overflowWrap: 'break-word',
+            }}
+            data-placeholder={placeholder}
+          />
+        </TabsContent>
+
+        <TabsContent value="preview" className="m-0">
+          <div className="min-h-[400px] p-8 bg-gradient-to-b from-white to-[#F2F2E8]">
+            <div className="max-w-4xl mx-auto">
+              <div
+                className="page-content prose prose-lg max-w-none"
+                dangerouslySetInnerHTML={{ __html: value }}
               />
-            );
-          }
-
-          const Icon = button.icon!;
-          return (
-            <Button
-              key={index}
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={button.command}
-              title={button.title}
-              className="h-8 w-8 p-0 hover:bg-[#d4af37]/20 hover:text-[#d4af37] text-gray-600"
-            >
-              <Icon className="h-4 w-4" />
-            </Button>
-          );
-        })}
-      </div>
-
-      <div
-        ref={editorRef}
-        contentEditable
-        onInput={updateContent}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        className="min-h-[300px] p-4 prose max-w-none focus:outline-none text-gray-900"
-        style={{
-          wordWrap: 'break-word',
-          overflowWrap: 'break-word',
-        }}
-        data-placeholder={placeholder}
-      />
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <style jsx global>{`
         [contenteditable][data-placeholder]:empty:before {
           content: attr(data-placeholder);
-          color: #6b7280;
+          color: #9ca3af;
           pointer-events: none;
           position: absolute;
+          font-style: italic;
         }
 
         [contenteditable] h1 {
-          font-size: 2em;
-          font-weight: bold;
-          margin: 0.67em 0;
+          font-size: 2.5rem;
+          font-weight: 800;
+          line-height: 1.2;
+          margin: 1.5rem 0 1rem 0;
           color: #d4af37;
+          font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+          text-align: center;
         }
 
         [contenteditable] h2 {
-          font-size: 1.5em;
-          font-weight: bold;
-          margin: 0.75em 0;
+          font-size: 2rem;
+          font-weight: 700;
+          line-height: 1.3;
+          margin: 1.25rem 0 0.875rem 0;
           color: #d4af37;
+          font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
         }
 
         [contenteditable] h3 {
-          font-size: 1.17em;
-          font-weight: bold;
-          margin: 0.83em 0;
+          font-size: 1.5rem;
+          font-weight: 600;
+          line-height: 1.4;
+          margin: 1rem 0 0.75rem 0;
           color: #d4af37;
+          font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
         }
 
         [contenteditable] p {
-          margin: 1em 0;
-          color: #1f2937;
+          font-size: 1.125rem;
+          line-height: 1.75;
+          margin: 1.25rem 0;
+          color: #374151;
         }
 
         [contenteditable] ul,
         [contenteditable] ol {
-          margin: 1em 0;
-          padding-left: 2em;
+          margin: 1.25rem 0;
+          padding-left: 2rem;
+          font-size: 1.125rem;
+          line-height: 1.75;
+          color: #374151;
         }
 
         [contenteditable] ul {
@@ -261,39 +306,55 @@ export default function RichTextEditor({
           list-style-type: decimal;
         }
 
+        [contenteditable] li {
+          margin: 0.5rem 0;
+        }
+
         [contenteditable] blockquote {
           border-left: 4px solid #d4af37;
-          padding-left: 1em;
-          margin: 1em 0;
+          padding-left: 1.5rem;
+          margin: 1.5rem 0;
           color: #6b7280;
           font-style: italic;
+          font-size: 1.125rem;
+          line-height: 1.75;
         }
 
         [contenteditable] pre {
-          background: #f3f4f6;
-          border: 1px solid #d1d5db;
-          border-radius: 0.375rem;
-          padding: 1em;
+          background: #f9fafb;
+          border: 1px solid #e5e7eb;
+          border-radius: 0.5rem;
+          padding: 1.25rem;
           overflow-x: auto;
-          font-family: monospace;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 0.875rem;
           color: #1f2937;
+          margin: 1.5rem 0;
         }
 
         [contenteditable] a {
           color: #d4af37;
           text-decoration: underline;
+          font-weight: 500;
+          transition: color 0.2s;
+        }
+
+        [contenteditable] a:hover {
+          color: #b8933d;
         }
 
         [contenteditable] img {
           max-width: 100%;
           height: auto;
-          border-radius: 0.375rem;
-          margin: 1em 0;
+          border-radius: 0.5rem;
+          margin: 1.5rem 0;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         [contenteditable] strong,
         [contenteditable] b {
-          font-weight: bold;
+          font-weight: 700;
+          color: #111827;
         }
 
         [contenteditable] em,
