@@ -45,72 +45,105 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
   const [availableColorFamilies, setAvailableColorFamilies] = useState<string[]>([]);
   const [confortOptions, setConfortOptions] = useState<FilterOption[]>([]);
   const [coupeOptions, setCoupeOptions] = useState<FilterOption[]>([]);
-  const [isClothing, setIsClothing] = useState(false);
+  const [enabledFilters, setEnabledFilters] = useState<string[]>([]);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
 
   useEffect(() => {
-    checkCategory();
-    loadFilterOptions();
+    loadCategoryConfig();
   }, [categorySlug]);
 
   useEffect(() => {
     onFiltersChange(filters);
   }, [filters]);
 
-  const checkCategory = async () => {
+  const loadCategoryConfig = async () => {
     if (!categorySlug) {
-      setIsClothing(true);
+      setEnabledFilters(['size', 'color', 'comfort', 'fit', 'live']);
+      loadFilterOptions(['size', 'color', 'comfort', 'fit', 'live']);
       return;
     }
 
     try {
-      const { data, error } = await supabase
-        .from('product_categories')
-        .select('name, slug, parent_id')
+      const { data: category } = await supabase
+        .from('categories')
+        .select('id')
         .eq('slug', categorySlug)
         .maybeSingle();
 
-      if (error) throw error;
+      if (!category) {
+        setEnabledFilters(['size', 'color', 'comfort', 'fit', 'live']);
+        loadFilterOptions(['size', 'color', 'comfort', 'fit', 'live']);
+        return;
+      }
 
-      const clothingKeywords = ['pret-a-porter', 'vetement', 'mode', 'dressing'];
-      const isClothingCategory = clothingKeywords.some(
-        keyword => data?.name.toLowerCase().includes(keyword) || data?.slug.toLowerCase().includes(keyword)
-      );
+      setCategoryId(category.id);
 
-      setIsClothing(isClothingCategory);
+      const { data: config } = await supabase
+        .from('category_filter_config')
+        .select('enabled_filters')
+        .eq('category_id', category.id)
+        .maybeSingle();
+
+      const filters = config?.enabled_filters || ['size', 'color', 'comfort', 'fit', 'live'];
+      setEnabledFilters(filters);
+      loadFilterOptions(filters);
     } catch (error) {
-      console.error('Error checking category:', error);
-      setIsClothing(true);
+      console.error('Error loading category config:', error);
+      setEnabledFilters(['size', 'color', 'comfort', 'fit', 'live']);
+      loadFilterOptions(['size', 'color', 'comfort', 'fit', 'live']);
     }
   };
 
-  const loadFilterOptions = async () => {
+  const loadFilterOptions = async (filters: string[]) => {
     try {
-      const [colorResult, confortResult, coupeResult] = await Promise.all([
-        supabase
-          .from('product_attribute_terms')
-          .select('color_family')
-          .not('color_family', 'is', null)
-          .order('color_family'),
-        supabase
-          .from('product_attributes')
-          .select('id, name, slug')
-          .eq('slug', 'confort')
-          .maybeSingle(),
-        supabase
-          .from('product_attributes')
-          .select('id, name, slug')
-          .eq('slug', 'coupe')
-          .maybeSingle()
-      ]);
+      const promises = [];
 
-      if (colorResult.data) {
+      if (filters.includes('color')) {
+        promises.push(
+          supabase
+            .from('product_attribute_terms')
+            .select('color_family')
+            .not('color_family', 'is', null)
+            .order('color_family')
+        );
+      } else {
+        promises.push(Promise.resolve({ data: null }));
+      }
+
+      if (filters.includes('comfort')) {
+        promises.push(
+          supabase
+            .from('product_attributes')
+            .select('id, name, slug')
+            .eq('slug', 'confort')
+            .maybeSingle()
+        );
+      } else {
+        promises.push(Promise.resolve({ data: null }));
+      }
+
+      if (filters.includes('fit')) {
+        promises.push(
+          supabase
+            .from('product_attributes')
+            .select('id, name, slug')
+            .eq('slug', 'coupe')
+            .maybeSingle()
+        );
+      } else {
+        promises.push(Promise.resolve({ data: null }));
+      }
+
+      const [colorResult, confortResult, coupeResult] = await Promise.all(promises);
+
+      if (colorResult.data && Array.isArray(colorResult.data)) {
         const uniqueFamilies = Array.from(new Set(
-          colorResult.data.map(item => item.color_family).filter(Boolean)
+          colorResult.data.map((item: any) => item.color_family).filter(Boolean)
         )) as string[];
         setAvailableColorFamilies(uniqueFamilies);
       }
 
-      if (confortResult.data) {
+      if (confortResult.data && 'id' in confortResult.data) {
         const { data: terms } = await supabase
           .from('product_attribute_terms')
           .select('id, name, slug')
@@ -122,7 +155,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
         }
       }
 
-      if (coupeResult.data) {
+      if (coupeResult.data && 'id' in coupeResult.data) {
         const { data: terms } = await supabase
           .from('product_attribute_terms')
           .select('id, name, slug')
@@ -210,7 +243,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {profile?.user_size && isClothing && (
+        {profile?.user_size && enabledFilters.includes('size') && (
           <>
             <div className="space-y-3">
               <h3 className="font-semibold text-sm text-gray-900">Ma taille ({profile.user_size})</h3>
@@ -229,7 +262,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
           </>
         )}
 
-        {isClothing && (
+        {enabledFilters.includes('size') && (
           <>
             <div className="space-y-3">
               <h3 className="font-semibold text-sm text-gray-900">Tailles</h3>
@@ -253,27 +286,31 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
           </>
         )}
 
-        <div className="space-y-3">
-          <h3 className="font-semibold text-sm text-gray-900">Couleurs</h3>
-          <div className="space-y-2">
-            {availableColorFamilies.map(family => (
-              <div key={family} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`color-${family}`}
-                  checked={filters.colorFamilies.includes(family)}
-                  onCheckedChange={() => handleColorFamilyToggle(family)}
-                />
-                <Label htmlFor={`color-${family}`} className="text-sm cursor-pointer">
-                  {family}
-                </Label>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {isClothing && confortOptions.length > 0 && (
+        {enabledFilters.includes('color') && availableColorFamilies.length > 0 && (
           <>
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm text-gray-900">Couleurs</h3>
+              <div className="space-y-2">
+                {availableColorFamilies.map(family => (
+                  <div key={family} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`color-${family}`}
+                      checked={filters.colorFamilies.includes(family)}
+                      onCheckedChange={() => handleColorFamilyToggle(family)}
+                    />
+                    <Label htmlFor={`color-${family}`} className="text-sm cursor-pointer">
+                      {family}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
             <Separator />
+          </>
+        )}
+
+        {enabledFilters.includes('comfort') && confortOptions.length > 0 && (
+          <>
             <div className="space-y-3">
               <h3 className="font-semibold text-sm text-gray-900">Confort</h3>
               <div className="space-y-2">
@@ -291,12 +328,12 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
                 ))}
               </div>
             </div>
+            <Separator />
           </>
         )}
 
-        {isClothing && coupeOptions.length > 0 && (
+        {enabledFilters.includes('fit') && coupeOptions.length > 0 && (
           <>
-            <Separator />
             <div className="space-y-3">
               <h3 className="font-semibold text-sm text-gray-900">Coupe</h3>
               <div className="space-y-2">
@@ -314,35 +351,40 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
                 ))}
               </div>
             </div>
+            <Separator />
           </>
         )}
 
-        <Separator />
-        <div className="space-y-3">
-          <h3 className="font-semibold text-sm text-gray-900">Autres</h3>
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="filter-live"
-                checked={filters.live}
-                onCheckedChange={(checked) => setFilters(prev => ({ ...prev, live: !!checked }))}
-              />
-              <Label htmlFor="filter-live" className="text-sm cursor-pointer">
-                Vu dans le dernier Live
-              </Label>
+        {enabledFilters.includes('live') && (
+          <>
+            <Separator />
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm text-gray-900">Autres</h3>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="filter-live"
+                    checked={filters.live}
+                    onCheckedChange={(checked) => setFilters(prev => ({ ...prev, live: !!checked }))}
+                  />
+                  <Label htmlFor="filter-live" className="text-sm cursor-pointer">
+                    Vu dans le dernier Live
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="filter-nouveautes"
+                    checked={filters.nouveautes}
+                    onCheckedChange={(checked) => setFilters(prev => ({ ...prev, nouveautes: !!checked }))}
+                  />
+                  <Label htmlFor="filter-nouveautes" className="text-sm cursor-pointer">
+                    Nouveautés
+                  </Label>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="filter-nouveautes"
-                checked={filters.nouveautes}
-                onCheckedChange={(checked) => setFilters(prev => ({ ...prev, nouveautes: !!checked }))}
-              />
-              <Label htmlFor="filter-nouveautes" className="text-sm cursor-pointer">
-                Nouveautés
-              </Label>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
 
         {hasActiveFilters && (
           <>

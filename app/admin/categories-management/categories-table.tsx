@@ -14,7 +14,8 @@ import {
   ChevronDown,
   Trash2,
   FolderTree,
-  ShoppingBag
+  ShoppingBag,
+  Menu
 } from "lucide-react";
 import {
   AlertDialog,
@@ -42,6 +43,7 @@ interface Category {
   display_order: number;
   meta_title: string | null;
   is_visible: boolean;
+  show_in_main_menu: boolean;
 }
 
 interface CategoriesTableProps {
@@ -166,17 +168,39 @@ export default function CategoriesTable({
     }
   };
 
+  const toggleMainMenu = async (categoryId: string, currentValue: boolean, categoryName: string) => {
+    try {
+      const { error } = await supabase
+        .from('categories')
+        .update({ show_in_main_menu: !currentValue })
+        .eq('id', categoryId);
+
+      if (error) throw error;
+
+      toast.success(
+        !currentValue
+          ? `"${categoryName}" ajoutée au menu principal`
+          : `"${categoryName}" retirée du menu principal`
+      );
+      router.refresh();
+    } catch (error) {
+      console.error('Error toggling main menu:', error);
+      toast.error('Erreur lors de la mise à jour');
+    }
+  };
+
   const renderCategory = (node: CategoryNode, level: number = 0) => {
     const isExpanded = expandedCategories.has(node.id);
     const hasChildren = node.children.length > 0;
     const indent = level * 2;
     const isVisible = node.is_visible !== false;
+    const isRootCategory = !node.parent_id;
 
     return (
       <div key={node.id}>
         <div className={`flex items-center w-full border-b hover:bg-gray-50 transition-colors ${!isVisible ? 'opacity-50' : ''}`}>
-          {/* Colonne Nom de la catégorie - 35% */}
-          <div className="w-[35%] py-4 px-4" style={{ paddingLeft: `${indent + 1}rem` }}>
+          {/* Colonne Nom de la catégorie - 30% */}
+          <div className="w-[30%] py-4 px-4" style={{ paddingLeft: `${indent + 1}rem` }}>
             <div className="flex items-center gap-3">
               {hasChildren && (
                 <button
@@ -215,11 +239,30 @@ export default function CategoriesTable({
             </div>
           </div>
 
-          {/* Colonne Slug - 25% */}
-          <div className="w-[25%] py-4 px-4">
+          {/* Colonne Slug - 20% */}
+          <div className="w-[20%] py-4 px-4">
             <code className="text-sm text-gray-600 font-mono bg-gray-50 px-2 py-1 rounded">
               {node.slug}
             </code>
+          </div>
+
+          {/* Colonne Menu principal - 10% */}
+          <div className="w-[10%] py-4 px-4 text-center">
+            {isRootCategory && (
+              <button
+                onClick={() => toggleMainMenu(node.id, node.show_in_main_menu, node.name)}
+                className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all ${
+                  node.show_in_main_menu
+                    ? 'bg-[#d4af37] border-[#d4af37] hover:bg-[#b8933d]'
+                    : 'bg-white border-gray-300 hover:border-[#d4af37]'
+                }`}
+                title={node.show_in_main_menu ? 'Retirer du menu principal' : 'Ajouter au menu principal'}
+              >
+                {node.show_in_main_menu && (
+                  <Menu className="h-4 w-4 text-white" />
+                )}
+              </button>
+            )}
           </div>
 
           {/* Colonne Produits - 15% */}
@@ -363,13 +406,19 @@ export default function CategoriesTable({
             <div className="w-full overflow-x-auto">
               {/* En-têtes du tableau */}
               <div className="flex items-center w-full bg-gray-50 border-b-2 border-[#d4af37]/20 font-semibold text-gray-700 text-sm">
-                <div className="w-[35%] py-3 px-4">
+                <div className="w-[30%] py-3 px-4">
                   <div className="flex items-center gap-2">
                     <FolderTree className="h-4 w-4 text-[#d4af37]" />
                     Catégorie
                   </div>
                 </div>
-                <div className="w-[25%] py-3 px-4">Slug</div>
+                <div className="w-[20%] py-3 px-4">Slug</div>
+                <div className="w-[10%] py-3 px-4 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <Menu className="h-4 w-4 text-[#d4af37]" />
+                    Menu
+                  </div>
+                </div>
                 <div className="w-[15%] py-3 px-4 text-center">
                   <div className="flex items-center justify-center gap-2">
                     <ShoppingBag className="h-4 w-4 text-[#d4af37]" />

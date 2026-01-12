@@ -30,8 +30,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Plus, Edit, Trash2, Palette, Type } from 'lucide-react';
+import { Plus, Edit, Trash2, Palette, Type, Settings } from 'lucide-react';
 import { toast } from 'sonner';
+import { ColorSwatchManager } from '@/components/ColorSwatchManager';
 
 interface ProductAttribute {
   id: string;
@@ -50,6 +51,9 @@ interface ProductAttributeTerm {
   slug: string;
   value: string | null;
   color_code: string | null;
+  color_family: string | null;
+  swatch_type: string | null;
+  swatch_image: string | null;
   order_by: number;
   is_active: boolean;
   created_at: string;
@@ -79,6 +83,7 @@ export default function ProductAttributesPage() {
   });
 
   const [editingColorTermId, setEditingColorTermId] = useState<string | null>(null);
+  const [expandedColorTermId, setExpandedColorTermId] = useState<string | null>(null);
 
   const handleQuickColorChange = async (termId: string, newColor: string) => {
     try {
@@ -552,61 +557,56 @@ export default function ProductAttributesPage() {
                 Aucun terme pour cet attribut
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nom</TableHead>
-                    <TableHead>Slug</TableHead>
-                    {(selectedAttribute.slug.includes('couleur') || selectedAttribute.name.toLowerCase().includes('couleur')) && <TableHead>Couleur</TableHead>}
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {terms.map((term) => (
-                    <TableRow key={term.id}>
-                      <TableCell className="font-medium">{term.name}</TableCell>
-                      <TableCell><code className="text-xs bg-gray-100 px-2 py-1 rounded">{term.slug}</code></TableCell>
-                      {(selectedAttribute.slug.includes('couleur') || selectedAttribute.name.toLowerCase().includes('couleur')) && (
-                        <TableCell>
-                          <div className="flex items-center gap-3">
+              <div className="space-y-4">
+                {terms.map((term) => {
+                  const isColorAttribute = selectedAttribute.slug.includes('couleur') || selectedAttribute.name.toLowerCase().includes('couleur');
+                  const isExpanded = expandedColorTermId === term.id;
+
+                  return (
+                    <div key={term.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="flex items-center justify-between p-4 bg-white hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center gap-4 flex-1">
+                          {isColorAttribute && (
                             <div className="relative">
-                              <div
-                                className="w-10 h-10 rounded-full border-2 border-gray-300 shadow-sm cursor-pointer hover:scale-110 transition-all hover:shadow-md"
-                                style={{ backgroundColor: term.color_code || '#gray' }}
-                                title="Cliquer pour changer la couleur"
-                              />
-                              <input
-                                type="color"
-                                value={term.color_code || '#000000'}
-                                onChange={(e) => handleQuickColorChange(term.id, e.target.value)}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                title="Sélecteur de couleur"
-                              />
+                              {term.swatch_type === 'image' && term.swatch_image ? (
+                                <img
+                                  src={term.swatch_image}
+                                  alt={term.name}
+                                  className="w-12 h-12 rounded-full border-2 border-gray-300 object-cover"
+                                />
+                              ) : (
+                                <div
+                                  className="w-12 h-12 rounded-full border-2 border-gray-300 shadow-sm"
+                                  style={{ backgroundColor: term.color_code || '#cccccc' }}
+                                />
+                              )}
                             </div>
-                            <div className="flex flex-col">
-                              <Input
-                                value={term.color_code || '#000000'}
-                                onChange={(e) => {
-                                  const color = e.target.value;
-                                  if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
-                                    handleQuickColorChange(term.id, color);
-                                  }
-                                }}
-                                onBlur={(e) => {
-                                  const color = e.target.value;
-                                  if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
-                                    handleQuickColorChange(term.id, color);
-                                  }
-                                }}
-                                className="w-24 h-8 text-xs font-mono"
-                                placeholder="#000000"
-                              />
+                          )}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-gray-900">{term.name}</p>
+                              <code className="text-xs bg-gray-100 px-2 py-1 rounded">{term.slug}</code>
                             </div>
+                            {isColorAttribute && term.color_family && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                Famille : <span className="font-medium">{term.color_family}</span>
+                                {term.color_code && <span className="ml-2 font-mono text-xs">({term.color_code})</span>}
+                              </p>
+                            )}
                           </div>
-                        </TableCell>
-                      )}
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isColorAttribute && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setExpandedColorTermId(isExpanded ? null : term.id)}
+                              className="text-[#C6A15B] border-[#C6A15B] hover:bg-[#C6A15B] hover:text-white"
+                            >
+                              <Settings className="h-4 w-4 mr-1" />
+                              {isExpanded ? 'Masquer' : 'Config'}
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -622,11 +622,27 @@ export default function ProductAttributesPage() {
                             <Trash2 className="h-4 w-4 text-red-600" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                      {isColorAttribute && isExpanded && (
+                        <div className="border-t border-gray-200">
+                          <ColorSwatchManager
+                            termId={term.id}
+                            termName={term.name}
+                            currentColorCode={term.color_code}
+                            currentColorFamily={term.color_family}
+                            currentSwatchType={term.swatch_type}
+                            currentSwatchImage={term.swatch_image}
+                            onUpdate={() => {
+                              loadTerms(selectedAttribute.id);
+                              setExpandedColorTermId(null);
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </CardContent>
         </Card>

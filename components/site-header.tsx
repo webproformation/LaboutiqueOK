@@ -83,6 +83,7 @@ export function SiteHeader() {
         .select('id, name, slug, display_order')
         .is('parent_id', null)
         .eq('is_visible', true)
+        .eq('show_in_main_menu', true)
         .order('display_order', { ascending: true });
 
       if (level1Categories) {

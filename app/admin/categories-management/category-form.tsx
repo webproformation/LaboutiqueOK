@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardContent,
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Menu } from "lucide-react";
 import Link from "next/link";
 import { ProductMediaSelector } from "@/components/product-media-selector";
 
@@ -37,6 +38,7 @@ interface Category {
   meta_title: string | null;
   meta_description: string | null;
   seo_keywords: string | null;
+  show_in_main_menu: boolean;
 }
 
 interface CategoryFormProps {
@@ -58,6 +60,7 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
     meta_title: category?.meta_title ?? "",
     meta_description: category?.meta_description ?? "",
     seo_keywords: category?.seo_keywords ?? "",
+    show_in_main_menu: category?.show_in_main_menu ?? false,
   });
 
   const generateSlug = (name: string) => {
@@ -97,6 +100,7 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
         meta_title: formData.meta_title || null,
         meta_description: formData.meta_description || null,
         seo_keywords: formData.seo_keywords || null,
+        show_in_main_menu: formData.parent_id === null ? formData.show_in_main_menu : false,
       };
 
       if (category) {
@@ -294,7 +298,7 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                 <Label htmlFor="parent_id" className="text-[#d4af37]">Catégorie parente</Label>
                 <Select
                   value={formData.parent_id || "none"}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, parent_id: value === "none" ? null : value }))}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, parent_id: value === "none" ? null : value, show_in_main_menu: value === "none" ? prev.show_in_main_menu : false }))}
                 >
                   <SelectTrigger id="parent_id">
                     <SelectValue placeholder="Aucune (catégorie principale)" />
@@ -309,6 +313,28 @@ export default function CategoryForm({ category, categories }: CategoryFormProps
                   </SelectContent>
                 </Select>
               </div>
+
+              {!formData.parent_id && (
+                <div className="flex items-center justify-between p-4 bg-[#d4af37]/5 border border-[#d4af37]/20 rounded-lg">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Menu className="h-4 w-4 text-[#d4af37]" />
+                      <Label htmlFor="show_in_main_menu" className="text-[#d4af37] font-semibold cursor-pointer">
+                        Afficher dans le menu principal
+                      </Label>
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      Cette catégorie apparaîtra dans le bandeau noir de navigation. Si elle a des sous-catégories, un méga-menu s'affichera au survol.
+                    </p>
+                  </div>
+                  <Switch
+                    id="show_in_main_menu"
+                    checked={formData.show_in_main_menu}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, show_in_main_menu: checked }))}
+                    className="data-[state=checked]:bg-[#d4af37]"
+                  />
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="display_order" className="text-[#d4af37]">Ordre d'affichage</Label>

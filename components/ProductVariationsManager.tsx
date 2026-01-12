@@ -109,7 +109,7 @@ export default function ProductVariationsManager({
     }
   };
 
-  const toggleAttributeTerm = (attributeSlug: string, termId: string) => {
+  const toggleAttributeTerm = (attributeSlug: string, termId: string, termValue: string, termName: string) => {
     setSelectedAttributeTerms(prev => {
       const currentTerms = prev[attributeSlug] || [];
       const newTerms = currentTerms.includes(termId)
@@ -121,6 +121,33 @@ export default function ProductVariationsManager({
         [attributeSlug]: newTerms
       };
     });
+
+    const attribute = allAttributes.find(a => a.slug === attributeSlug);
+    const isSizeAttribute = attribute?.slug === 'taille' || attribute?.slug === 'size';
+
+    if (isSizeAttribute) {
+      const numericValue = parseInt(termValue);
+
+      if (!isNaN(numericValue)) {
+        setTimeout(() => {
+          setVariations(prevVariations => {
+            const updatedVariations = prevVariations.map(v => {
+              const hasThisTerm = v.attributes[attributeSlug]?.id === termId;
+              if (hasThisTerm && v.size_min === null && v.size_max === null) {
+                return {
+                  ...v,
+                  size_min: numericValue,
+                  size_max: numericValue
+                };
+              }
+              return v;
+            });
+            onChange(updatedVariations);
+            return updatedVariations;
+          });
+        }, 100);
+      }
+    }
   };
 
   const generateVariations = () => {
@@ -243,7 +270,7 @@ export default function ProductVariationsManager({
                     <button
                       key={term.id}
                       type="button"
-                      onClick={() => toggleAttributeTerm(attribute.slug, term.id)}
+                      onClick={() => toggleAttributeTerm(attribute.slug, term.id, term.value, term.name)}
                       className={`flex items-center ${hasColorCode ? 'justify-between' : 'justify-center'} gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
                         isSelected
                           ? "border-[#d4af37] bg-[#d4af37]/10 font-semibold"
@@ -370,29 +397,61 @@ export default function ProductVariationsManager({
                             />
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <Label>Taille min (pour badge Match)</Label>
-                              <Input
-                                type="number"
-                                value={variation.size_min || ""}
-                                onChange={(e) =>
-                                  updateVariation(index, "size_min", e.target.value ? parseInt(e.target.value) : null)
+                          <div>
+                            <Label className="mb-2 flex items-center gap-2">
+                              <span>Intervalle de tailles (pour badge Match)</span>
+                              <Info className="h-4 w-4 text-gray-400" />
+                            </Label>
+                            <p className="text-xs text-gray-500 mb-3">
+                              {(() => {
+                                const tailleAttr = Object.entries(variation.attributes).find(([slug]) => slug === 'taille' || slug === 'size');
+                                const tailleName = tailleAttr?.[1]?.name;
+                                const isTailleUnique = tailleName?.toLowerCase().includes('unique');
+
+                                if (isTailleUnique) {
+                                  return "Taille Unique : Indiquez de quelle taille à quelle taille ce produit convient (ex: du 38 au 44)";
                                 }
-                                placeholder="Ex: 38"
-                              />
-                            </div>
-                            <div>
-                              <Label>Taille max (pour badge Match)</Label>
-                              <Input
-                                type="number"
-                                value={variation.size_max || ""}
-                                onChange={(e) =>
-                                  updateVariation(index, "size_max", e.target.value ? parseInt(e.target.value) : null)
+
+                                const tailleValue = parseInt(tailleAttr?.[1]?.name || '0');
+                                if (!isNaN(tailleValue) && tailleValue > 0) {
+                                  return `Taille ${tailleValue} : Les valeurs ont été pré-remplies automatiquement. Modifiez si nécessaire.`;
                                 }
-                                placeholder="Ex: 42"
-                              />
+
+                                return "Définissez l'intervalle de tailles pour afficher le badge Match aux clientes";
+                              })()}
+                            </p>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <Label className="text-xs text-gray-600">De (taille min)</Label>
+                                <Input
+                                  type="number"
+                                  value={variation.size_min || ""}
+                                  onChange={(e) =>
+                                    updateVariation(index, "size_min", e.target.value ? parseInt(e.target.value) : null)
+                                  }
+                                  placeholder="Ex: 38"
+                                  className="mt-1"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs text-gray-600">À (taille max)</Label>
+                                <Input
+                                  type="number"
+                                  value={variation.size_max || ""}
+                                  onChange={(e) =>
+                                    updateVariation(index, "size_max", e.target.value ? parseInt(e.target.value) : null)
+                                  }
+                                  placeholder="Ex: 42"
+                                  className="mt-1"
+                                />
+                              </div>
                             </div>
+                            {variation.size_min && variation.size_max && (
+                              <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                                <Check className="h-3 w-3" />
+                                Convient aux tailles {variation.size_min} à {variation.size_max}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
