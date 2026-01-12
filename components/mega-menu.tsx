@@ -88,6 +88,17 @@ export function MegaMenu({ isOpen, categorySlug, onClose }: MegaMenuProps) {
 
   if (!isOpen) return null;
 
+  const getGridColsClass = (count: number): string => {
+    if (count === 1) return 'grid-cols-1';
+    if (count === 2) return 'grid-cols-2';
+    if (count === 3) return 'grid-cols-3';
+    if (count === 4) return 'grid-cols-4';
+    return 'grid-cols-5';
+  };
+
+  const gridColsClass = getGridColsClass(categories.length);
+  const maxWidthClass = categories.length < 5 ? 'max-w-6xl' : '';
+
   return (
     <div
       className="absolute left-0 right-0 top-full bg-[#F2F2E8] border-t border-gray-200 shadow-xl z-50"
@@ -97,15 +108,15 @@ export function MegaMenu({ isOpen, categorySlug, onClose }: MegaMenuProps) {
         {loading ? (
           <div className="text-center py-4">Chargement...</div>
         ) : categories.length > 0 ? (
-          <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className={`grid gap-8 ${gridColsClass} ${maxWidthClass} mx-auto justify-items-center`}>
             {categories.map((category) => (
-              <div key={category.id} className="space-y-3">
+              <div key={category.id} className="space-y-3 w-full">
                 <Link
                   href={`/category/${category.slug}`}
-                  className="block group"
+                  className="block group w-full"
                   onClick={onClose}
                 >
-                  <h3 className="font-bold text-base text-gray-900 group-hover:text-[#D4AF37] transition-colors mb-3 border-b border-gray-300 pb-2">
+                  <h3 className="font-bold text-base text-gray-900 group-hover:text-[#D4AF37] transition-colors mb-3 border-b border-gray-300 pb-2 text-center w-full">
                     {decodeHtmlEntities(category.name)}
                   </h3>
                 </Link>
