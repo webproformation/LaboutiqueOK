@@ -34,6 +34,7 @@ import { useWishlist } from '@/context/WishlistContext';
 import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabase';
 import { decodeHtmlEntities } from '@/lib/utils';
+import { CUSTOM_TEXTS } from '@/lib/texts';
 
 const STATIC_LINKS = [
   { name: 'Live Shopping et Replay', href: '/live', slug: 'live', hasMegaMenu: false },
@@ -319,12 +320,12 @@ export function SiteHeader() {
               <Link href="/cart">
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="relative text-white hover:text-[#D4AF37] hover:bg-transparent"
+                  className="relative text-white hover:text-[#D4AF37] hover:bg-transparent gap-2"
                 >
                   <ShoppingCart className="h-5 w-5" />
+                  <span className="hidden md:inline text-sm">{CUSTOM_TEXTS.buttons.cart}</span>
                   {cartItemCount > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 bg-[#D4AF37] text-black text-xs">
+                    <Badge className="absolute -top-2 -right-2 md:relative md:top-0 md:right-0 h-5 w-5 flex items-center justify-center p-0 bg-[#D4AF37] text-black text-xs">
                       {cartItemCount}
                     </Badge>
                   )}

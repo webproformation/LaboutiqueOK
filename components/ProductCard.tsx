@@ -1,13 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import { WishlistButton } from '@/components/wishlist-button';
+import { supabase } from '@/lib/supabase';
+import { CUSTOM_TEXTS } from '@/lib/texts';
 import { toast } from 'sonner';
 
 interface ProductCardProps {
@@ -27,9 +30,11 @@ interface ProductCardProps {
 
 export function ProductCard({ product, showAddToCart = false }: ProductCardProps) {
   const { addToCart } = useCart();
+  const { user, profile } = useAuth();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
+  const [sizeMatch, setSizeMatch] = useState(false);
 
   const images = [
     product.image_url,
@@ -39,6 +44,37 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
   const displayPrice = product.sale_price || product.regular_price || 0;
   const hasDiscount = product.sale_price && product.sale_price < (product.regular_price || 0);
   const isInStock = !product.stock_quantity || product.stock_quantity > 0;
+  const isLowStock = product.stock_quantity && product.stock_quantity > 0 && product.stock_quantity <= 5;
+
+  useEffect(() => {
+    if (user && profile?.user_size && product.is_variable_product) {
+      checkSizeCompatibility();
+    }
+  }, [user, profile, product.id]);
+
+  const checkSizeCompatibility = async () => {
+    if (!profile?.user_size) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('product_variations')
+        .select('size_min, size_max')
+        .eq('product_id', product.id)
+        .not('size_min', 'is', null)
+        .not('size_max', 'is', null);
+
+      if (error) throw error;
+
+      const userSize = profile.user_size;
+      const hasMatch = data?.some(
+        (variation: any) => userSize >= variation.size_min && userSize <= variation.size_max
+      );
+
+      setSizeMatch(hasMatch || false);
+    } catch (error) {
+      console.error('Error checking size compatibility:', error);
+    }
+  };
 
   const handlePrevImage = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -123,6 +159,12 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
             </div>
           )}
 
+          {sizeMatch && (
+            <div className="absolute top-3 right-3 bg-gradient-to-r from-[#D4AF37] to-[#C6A15B] text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
+              ✨ {CUSTOM_TEXTS.size.matchBadge}
+            </div>
+          )}
+
           <WishlistButton productId={product.id} variant="card" />
 
           {images.length > 1 && (
@@ -167,7 +209,7 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
                 ) : (
                   <>
                     <ShoppingCart className="h-4 w-4 mr-2" />
-                    Ajouter au panier
+                    {CUSTOM_TEXTS.buttons.addToCart}
                   </>
                 )}
               </Button>
@@ -181,14 +223,19 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
           </h3>
 
           <div className="flex items-center gap-2">
-            {isInStock ? (
-              <Badge variant="outline" className="text-xs border-green-200 bg-green-50 text-green-700">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>
-                Disponible
+            {!isInStock ? (
+              <Badge variant="outline" className="text-xs border-pink-200 bg-pink-50 text-pink-700">
+                {CUSTOM_TEXTS.stock.outOfStock}
+              </Badge>
+            ) : isLowStock ? (
+              <Badge variant="outline" className="text-xs border-orange-200 bg-orange-50 text-orange-700">
+                <span className="w-1.5 h-1.5 bg-orange-500 rounded-full mr-1.5"></span>
+                {CUSTOM_TEXTS.stock.lowStock}
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-xs border-pink-200 bg-pink-50 text-pink-700">
-                Rupture
+              <Badge variant="outline" className="text-xs border-green-200 bg-green-50 text-green-700">
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>
+                {CUSTOM_TEXTS.stock.inStock}
               </Badge>
             )}
           </div>

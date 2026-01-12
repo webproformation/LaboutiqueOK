@@ -13,6 +13,7 @@ export interface Profile {
   phone: string;
   avatar_url: string;
   birth_date: string | null;
+  user_size: number | null;
   wallet_balance: number;
   loyalty_points: number;
   is_admin: boolean;
