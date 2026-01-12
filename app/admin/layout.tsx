@@ -103,6 +103,7 @@ const navSections: NavSection[] = [
     title: "Site",
     icon: Users,
     items: [
+      { href: "/admin/site-pages", label: "Gestion des Pages SEO" },
       { href: "/admin/clients", label: "Clients" },
       { href: "/admin/guestbook", label: "Livre d'Or" },
       { href: "/admin/ambassador", label: "Ambassadrice" },
