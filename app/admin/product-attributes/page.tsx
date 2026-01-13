@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Plus, Edit, Trash2, Palette, Type, Settings } from 'lucide-react';
+import { Plus, Edit, Trash2, Palette, Type, Settings, Upload, X as XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { ColorSwatchManager } from '@/components/ColorSwatchManager';
 
@@ -81,6 +81,7 @@ export default function ProductAttributesPage() {
     value: '',
     color_code: '#000000',
     color_family: '',
+    swatch_image: '',
   });
 
   const [editingColorTermId, setEditingColorTermId] = useState<string | null>(null);
@@ -102,6 +103,33 @@ export default function ProductAttributesPage() {
     } catch (error: any) {
       console.error('Error updating color:', error);
       toast.error(error.message || 'Erreur lors de la mise à jour');
+    }
+  };
+
+  const handleSwatchImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `swatches/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('products')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('products')
+        .getPublicUrl(filePath);
+
+      setTermForm({ ...termForm, swatch_image: publicUrl });
+      toast.success('Image téléchargée avec succès');
+    } catch (error: any) {
+      console.error('Error uploading swatch image:', error);
+      toast.error(error.message || 'Erreur lors du téléchargement');
     }
   };
 
@@ -210,6 +238,7 @@ export default function ProductAttributesPage() {
         value: termForm.value || termForm.name,
         color_code: termForm.color_code || null,
         color_family: termForm.color_family || null,
+        swatch_image: termForm.swatch_image || null,
         order_by: terms.length + 1,
       };
 
@@ -230,7 +259,7 @@ export default function ProductAttributesPage() {
         toast.success('Terme créé avec succès');
       }
 
-      setTermForm({ name: '', slug: '', value: '', color_code: '#000000', color_family: '' });
+      setTermForm({ name: '', slug: '', value: '', color_code: '#000000', color_family: '', swatch_image: '' });
       setEditingTerm(null);
       setIsTermDialogOpen(false);
       loadTerms(selectedAttribute.id);
@@ -300,6 +329,7 @@ export default function ProductAttributesPage() {
       value: term.value || '',
       color_code: term.color_code || '#000000',
       color_family: term.color_family || '',
+      swatch_image: term.swatch_image || '',
     });
     setIsTermDialogOpen(true);
   };
@@ -469,7 +499,7 @@ export default function ProductAttributesPage() {
                   <Button
                     onClick={() => {
                       setEditingTerm(null);
-                      setTermForm({ name: '', slug: '', value: '', color_code: '#000000', color_family: '' });
+                      setTermForm({ name: '', slug: '', value: '', color_code: '#000000', color_family: '', swatch_image: '' });
                     }}
                     disabled={!selectedAttribute}
                     size="sm"
@@ -565,6 +595,40 @@ export default function ProductAttributesPage() {
                           <p className="text-xs text-gray-500 mt-1">
                             Ce code sera utilisé pour afficher la pastille de couleur
                           </p>
+                        </div>
+                        <div>
+                          <Label htmlFor="term-swatch-image">Image de texture (optionnel)</Label>
+                          <div className="space-y-2">
+                            {termForm.swatch_image && (
+                              <div className="relative inline-block">
+                                <img
+                                  src={termForm.swatch_image}
+                                  alt="Aperçu"
+                                  className="w-20 h-20 rounded-lg border-2 border-gray-300 object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setTermForm({ ...termForm, swatch_image: '' })}
+                                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                                >
+                                  <XIcon className="h-3 w-3" />
+                                </button>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <Input
+                                id="term-swatch-image"
+                                type="file"
+                                accept="image/*"
+                                onChange={handleSwatchImageUpload}
+                                className="flex-1"
+                              />
+                              <Upload className="h-4 w-4 text-gray-400" />
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              Pour les textures (ex: léopard, paillettes). Prioritaire sur le code couleur.
+                            </p>
+                          </div>
                         </div>
                       </>
                     )}
