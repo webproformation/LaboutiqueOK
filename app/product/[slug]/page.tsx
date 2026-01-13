@@ -60,6 +60,7 @@ export default function ProductPage() {
   const [selectedVariation, setSelectedVariation] = useState<any>(null);
   const [notifyEmail, setNotifyEmail] = useState("");
   const [showNotifyDialog, setShowNotifyDialog] = useState(false);
+  const [activeImageUrl, setActiveImageUrl] = useState<string | undefined>(undefined);
   const [diamondPosition] = useState<"title" | "image" | "description">(() =>
     diamondPositions[Math.floor(Math.random() * diamondPositions.length)]
   );
@@ -253,6 +254,13 @@ export default function ProductPage() {
     setQuantity((prev) => Math.max(1, prev + delta));
   };
 
+  const handleVariationChange = (variation: any) => {
+    setSelectedVariation(variation);
+    if (variation?.image?.src) {
+      setActiveImageUrl(variation.image.src);
+    }
+  };
+
   const handleAddToCart = () => {
     if (!product) return;
 
@@ -381,6 +389,18 @@ export default function ProductPage() {
       });
     }
 
+    if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
+      product.variations.forEach((variation: any, idx: number) => {
+        if (variation.image?.src && !images.some(i => i.src === variation.image.src)) {
+          images.push({
+            id: `variation-${idx}`,
+            src: variation.image.src,
+            alt: variation.image.alt || product.name,
+          });
+        }
+      });
+    }
+
     return images.length > 0 ? images : [{ id: "placeholder", src: "/placeholder.png", alt: product.name }];
   })();
 
@@ -437,7 +457,11 @@ export default function ProductPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
           <div className="relative">
-            <ProductGallery images={galleryImages} productName={decodeHtmlEntities(product.name)} />
+            <ProductGallery
+              images={galleryImages}
+              productName={decodeHtmlEntities(product.name)}
+              selectedImageUrl={activeImageUrl}
+            />
             {product.is_diamond && (
               <div className="mt-4">
                 <HiddenDiamond productId={product.id} position="image" selectedPosition={diamondPosition} />
@@ -500,7 +524,7 @@ export default function ProductPage() {
               <ProductVariationSelector
                 attributes={product.attributes}
                 variations={product.variations}
-                onVariationChange={setSelectedVariation}
+                onVariationChange={handleVariationChange}
               />
             )}
 

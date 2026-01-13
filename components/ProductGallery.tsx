@@ -14,9 +14,10 @@ interface ProductImage {
 interface ProductGalleryProps {
   images: ProductImage[];
   productName: string;
+  selectedImageUrl?: string;
 }
 
-export function ProductGallery({ images, productName }: ProductGalleryProps) {
+export function ProductGallery({ images, productName, selectedImageUrl }: ProductGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
@@ -67,6 +68,15 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goToPrevious, goToNext]);
+
+  useEffect(() => {
+    if (selectedImageUrl) {
+      const imageIndex = validImages.findIndex(img => img.src === selectedImageUrl);
+      if (imageIndex !== -1) {
+        setCurrentIndex(imageIndex);
+      }
+    }
+  }, [selectedImageUrl, validImages]);
 
   return (
     <div className="space-y-4">
