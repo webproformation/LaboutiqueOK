@@ -231,7 +231,7 @@ export function ProductVariationSelector({
           <Label className="text-base font-semibold">{attribute.name}</Label>
 
           {isColorAttribute(attribute.name) ? (
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-4">
               {sortOptions(attribute.options, attribute.name).map((option) => {
                 const displayValue = typeof option === 'object' && option !== null ? (option as any).name || String(option) : String(option);
                 const optionStr = safeString(option);
@@ -244,33 +244,46 @@ export function ProductVariationSelector({
                 const shouldShowLetter = !hasColorCode && colorValue === "#9CA3AF";
 
                 return (
-                  <button
-                    key={optionStr}
-                    onClick={() => handleAttributeSelect(attribute.name, optionStr)}
-                    disabled={!isAvailable}
-                    className={`relative w-8 h-8 rounded-full border-2 transition-all ${
-                      isSelected
-                        ? "border-[#b8933d] ring-2 ring-[#b8933d] ring-offset-2"
-                        : "border-gray-300 hover:border-gray-400"
-                    } ${!isAvailable ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
-                    title={displayValue}
-                  >
-                    <div
-                      className="w-full h-full rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: colorValue }}
+                  <div key={optionStr} className="flex flex-col items-center gap-1.5">
+                    <button
+                      onClick={() => handleAttributeSelect(attribute.name, optionStr)}
+                      disabled={!isAvailable}
+                      className={`relative w-12 h-12 rounded-full border-3 transition-all ${
+                        isSelected
+                          ? "border-[#D4AF37] ring-3 ring-[#D4AF37] ring-offset-2 shadow-lg"
+                          : "border-gray-300 hover:border-[#D4AF37] hover:shadow-md"
+                      } ${!isAvailable ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                      title={displayValue}
                     >
-                      {shouldShowLetter && (
-                        <span className="text-xs font-semibold text-white uppercase">
-                          {displayValue.charAt(0)}
-                        </span>
-                      )}
-                    </div>
-                    {!isAvailable && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-full h-0.5 bg-gray-400 rotate-45" />
+                      <div
+                        className="w-full h-full rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: colorValue }}
+                      >
+                        {shouldShowLetter && (
+                          <span className="text-xs font-bold text-white uppercase">
+                            {displayValue.charAt(0)}
+                          </span>
+                        )}
+                        {isSelected && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Check className="h-5 w-5 text-white drop-shadow-lg" style={{
+                              filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))'
+                            }} />
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </button>
+                      {!isAvailable && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-full h-0.5 bg-red-500 rotate-45" />
+                        </div>
+                      )}
+                    </button>
+                    <span className={`text-xs text-center max-w-[60px] leading-tight ${
+                      isSelected ? 'font-semibold text-[#D4AF37]' : 'text-gray-600'
+                    }`}>
+                      {displayValue}
+                    </span>
+                  </div>
                 );
               })}
             </div>

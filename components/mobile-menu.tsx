@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { User, LogOut, Shield, Play } from 'lucide-react';
+import { User, LogOut, Shield, Play, ChevronRight } from 'lucide-react';
 import { supabase, ProductCategory } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { decodeHtmlEntities } from '@/lib/utils';
@@ -209,32 +209,43 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   <AccordionTrigger className="text-base font-medium hover:text-[#D4AF37] hover:no-underline">
                     {decodeHtmlEntities(category.name)}
                   </AccordionTrigger>
-                  <AccordionContent className="space-y-3 pl-4">
-                    {category.children?.map((cat2) => (
-                      <div key={cat2.id} className="space-y-2">
-                        <Link
-                          href={`/category/${cat2.slug}`}
-                          className="block py-1 text-sm font-semibold hover:text-[#D4AF37] transition-colors"
-                          onClick={onClose}
-                        >
-                          {decodeHtmlEntities(cat2.name)}
-                        </Link>
-                        {cat2.children && cat2.children.length > 0 && (
-                          <div className="pl-3 space-y-1">
-                            {cat2.children.map((cat3) => (
-                              <Link
-                                key={cat3.id}
-                                href={`/category/${cat3.slug}`}
-                                className="block py-1 text-xs text-gray-300 hover:text-[#D4AF37] transition-colors"
-                                onClick={onClose}
-                              >
-                                • {decodeHtmlEntities(cat3.name)}
-                              </Link>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                  <AccordionContent className="space-y-3 pl-2">
+                    {category.children?.map((cat2) => {
+                      const hasLevel3 = cat2.children && cat2.children.length > 0;
+
+                      return (
+                        <div key={cat2.id} className="space-y-2">
+                          <Link
+                            href={`/category/${cat2.slug}`}
+                            className="flex items-center gap-2 py-2 px-3 rounded-md text-sm font-semibold hover:text-[#D4AF37] hover:bg-gray-800/50 transition-all group"
+                            onClick={onClose}
+                          >
+                            <ChevronRight className={`h-4 w-4 transition-transform ${hasLevel3 ? 'text-[#D4AF37]' : 'text-gray-500'}`} />
+                            <span className="flex-1">{decodeHtmlEntities(cat2.name)}</span>
+                            {hasLevel3 && (
+                              <span className="text-xs text-gray-400 bg-gray-800 px-2 py-0.5 rounded-full">
+                                {cat2.children?.length || 0}
+                              </span>
+                            )}
+                          </Link>
+                          {hasLevel3 && (
+                            <div className="pl-6 pr-2 space-y-1.5 border-l-2 border-gray-700 ml-4">
+                              {cat2.children?.map((cat3) => (
+                                <Link
+                                  key={cat3.id}
+                                  href={`/category/${cat3.slug}`}
+                                  className="flex items-center gap-2 py-1.5 px-2 rounded text-xs text-gray-300 hover:text-[#D4AF37] hover:bg-gray-800/30 transition-all"
+                                  onClick={onClose}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]/60" />
+                                  <span>{decodeHtmlEntities(cat3.name)}</span>
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </AccordionContent>
                 </AccordionItem>
               );

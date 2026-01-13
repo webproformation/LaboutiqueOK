@@ -23,6 +23,7 @@ import { useUserCoupons } from '@/hooks/use-user-coupons';
 import { PayPalButtons } from '@/components/PayPalButtons';
 import { RelayPointSelector } from '@/components/RelayPointSelector';
 import PageHeader from '@/components/PageHeader';
+import { StripePaymentForm } from '@/components/StripePaymentForm';
 
 interface Address {
   id: string;
@@ -97,6 +98,9 @@ export default function CheckoutPage() {
   const [shippingInsurance, setShippingInsurance] = useState('0');
   const [bankDialogOpen, setBankDialogOpen] = useState(false);
   const [createPendingPackage, setCreatePendingPackage] = useState(false);
+  const [showStripePayment, setShowStripePayment] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [createdOrderNumber, setCreatedOrderNumber] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -344,53 +348,10 @@ export default function CheckoutPage() {
       }
 
       if (selectedPaymentMethod?.code === 'stripe') {
-        const stripeItems = cart.map(item => ({
-          name: item.name || 'Produit',
-          price: item.price,
-          quantity: item.quantity,
-          variation: item.selectedAttributes ? Object.entries(item.selectedAttributes).map(([k, v]) => {
-            const displayValue = typeof v === 'object' && v !== null
-              ? (v as any)?.name || (v as any)?.option || String(v || '')
-              : String(v || '');
-            return `${k}: ${displayValue}`;
-          }).join(', ') : undefined,
-          image: item.image?.sourceUrl || item.variationImage?.sourceUrl,
-        }));
-
-        const stripeResponse = await fetch('/api/stripe/create-checkout-session', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            orderId: newOrder.id,
-            userId: user.id,
-            items: stripeItems,
-            total: totalAfterWallet,
-            metadata: {
-              email: profile?.email || '',
-              orderNumber: orderNumber,
-            },
-          }),
-        });
-
-        if (!stripeResponse.ok) {
-          throw new Error('Erreur lors de la création de la session Stripe');
-        }
-
-        const { url } = await stripeResponse.json();
-
-        if (!url) {
-          throw new Error('URL de paiement Stripe introuvable');
-        }
-
-        clearCart();
-
-        toast.success('Redirection vers Stripe pour le paiement...', {
-          position: 'bottom-right'
-        });
-
-        window.location.href = url;
+        setCreatedOrderId(newOrder.id);
+        setCreatedOrderNumber(orderNumber);
+        setShowStripePayment(true);
+        setLoading(false);
         return;
       }
 
@@ -429,6 +390,47 @@ export default function CheckoutPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (showStripePayment && createdOrderId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-white via-[#F2F2E8] to-[#F2F2E8] py-8">
+        <div className="container mx-auto px-4">
+          <div className="mb-6">
+            <button
+              onClick={() => {
+                setShowStripePayment(false);
+                setCreatedOrderId(null);
+                setCreatedOrderNumber(null);
+              }}
+              className="inline-flex items-center text-gray-600 hover:text-[#D4AF37] transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour au récapitulatif
+            </button>
+          </div>
+
+          <PageHeader
+            icon={CreditCard}
+            title="Paiement sécurisé"
+            description="Finalisez votre paiement avec Stripe"
+          />
+
+          <div className="max-w-2xl mx-auto mt-8">
+            <StripePaymentForm
+              orderId={createdOrderId}
+              userId={user.id}
+              total={totalAfterWallet}
+              onSuccess={() => {
+                clearCart();
+              }}
+              customerEmail={profile?.email}
+              orderNumber={createdOrderNumber || undefined}
+            />
+          </div>
+        </div>
       </div>
     );
   }
