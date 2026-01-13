@@ -61,7 +61,8 @@ export default function ProductPage() {
   const [notifyEmail, setNotifyEmail] = useState("");
   const [showNotifyDialog, setShowNotifyDialog] = useState(false);
   const [activeImageUrl, setActiveImageUrl] = useState<string | undefined>(undefined);
-  const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
+  const [userSelectedGalleryImage, setUserSelectedGalleryImage] = useState<string | null>(null);
+  const [initialAttributes, setInitialAttributes] = useState<Record<string, string>>({});
   const [diamondPosition] = useState<"title" | "image" | "description">(() =>
     diamondPositions[Math.floor(Math.random() * diamondPositions.length)]
   );
@@ -91,6 +92,13 @@ export default function ProductPage() {
       );
 
       if (matchingVariation) {
+        // Extraire les attributs de la variation pour les passer au sélecteur
+        const variationAttributes: Record<string, string> = {};
+        matchingVariation.attributes?.forEach((attr: any) => {
+          variationAttributes[attr.name] = attr.option;
+        });
+
+        setInitialAttributes(variationAttributes);
         setSelectedVariation(matchingVariation);
         if (matchingVariation.image?.src) {
           setActiveImageUrl(matchingVariation.image.src);
@@ -285,14 +293,14 @@ export default function ProductPage() {
 
   const handleVariationChange = (variation: any) => {
     setSelectedVariation(variation);
-    setSelectedGalleryImage(null); // Réinitialiser la sélection manuelle
+    setUserSelectedGalleryImage(null); // Réinitialiser la sélection manuelle de galerie
     if (variation?.image?.src) {
       setActiveImageUrl(variation.image.src);
     }
   };
 
   const handleImageClick = (imageUrl: string) => {
-    setSelectedGalleryImage(imageUrl);
+    setUserSelectedGalleryImage(imageUrl);
   };
 
   const handleAddToCart = () => {
@@ -389,9 +397,9 @@ export default function ProductPage() {
 
   // Logique d'héritage d'image en cascade (4 priorités)
   const getCurrentImageUrl = (): string | undefined => {
-    // Priorité 1: Sélection manuelle dans la galerie
-    if (selectedGalleryImage) {
-      return selectedGalleryImage;
+    // Priorité 1: Sélection manuelle dans la galerie (PRIORITÉ ABSOLUE)
+    if (userSelectedGalleryImage) {
+      return userSelectedGalleryImage;
     }
 
     // Priorité 2: Image de la variation exacte sélectionnée
@@ -609,6 +617,7 @@ export default function ProductPage() {
                 attributes={product.attributes}
                 variations={product.variations}
                 onVariationChange={handleVariationChange}
+                initialSelectedAttributes={initialAttributes}
               />
             )}
 

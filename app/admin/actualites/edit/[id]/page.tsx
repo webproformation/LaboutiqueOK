@@ -39,6 +39,7 @@ export default function NewsEditorPage() {
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<NewsCategory[]>([]);
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
+  const [showSocialMediaLibrary, setShowSocialMediaLibrary] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -51,6 +52,9 @@ export default function NewsEditorPage() {
     category_ids: [] as string[],
     seo_title: '',
     meta_description: '',
+    meta_social_title: '',
+    meta_social_description: '',
+    meta_social_image: '',
   });
 
   useEffect(() => {
@@ -110,6 +114,9 @@ export default function NewsEditorPage() {
         category_ids: postData.news_post_categories.map((pc: any) => pc.category_id),
         seo_title: postData.seo_title || '',
         meta_description: postData.meta_description || '',
+        meta_social_title: postData.meta_social_title || '',
+        meta_social_description: postData.meta_social_description || '',
+        meta_social_image: postData.meta_social_image || '',
       });
     } catch (error) {
       console.error('Error loading post:', error);
@@ -171,6 +178,9 @@ export default function NewsEditorPage() {
         published_at: formData.published_at || (formData.status === 'publish' ? new Date().toISOString() : null),
         seo_title: formData.seo_title || null,
         meta_description: formData.meta_description || null,
+        meta_social_title: formData.meta_social_title || null,
+        meta_social_description: formData.meta_social_description || null,
+        meta_social_image: formData.meta_social_image || null,
       };
 
       let savedPostId = postId;
@@ -332,6 +342,84 @@ export default function NewsEditorPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="bg-white border-[#d4af37]/30">
+            <CardHeader>
+              <CardTitle className="text-[#d4af37]">Partage Réseaux Sociaux</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="meta_social_title" className="text-gray-700">Titre Social</Label>
+                <Input
+                  id="meta_social_title"
+                  value={formData.meta_social_title}
+                  onChange={(e) => setFormData({ ...formData, meta_social_title: e.target.value })}
+                  placeholder={formData.title || 'Titre pour Facebook, Twitter, etc.'}
+                  className="bg-white border-[#d4af37]/30 text-gray-900 placeholder:text-gray-400"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Titre affiché lors du partage sur les réseaux sociaux
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="meta_social_description" className="text-gray-700">Description Sociale</Label>
+                <Textarea
+                  id="meta_social_description"
+                  value={formData.meta_social_description}
+                  onChange={(e) => setFormData({ ...formData, meta_social_description: e.target.value })}
+                  placeholder={formData.excerpt || 'Description pour les réseaux sociaux'}
+                  rows={3}
+                  className="bg-white border-[#d4af37]/30 text-gray-900 placeholder:text-gray-400"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Description affichée lors du partage
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-gray-700">Image Sociale</Label>
+                {formData.meta_social_image ? (
+                  <div className="space-y-3">
+                    <img
+                      src={formData.meta_social_image}
+                      alt="Image sociale"
+                      className="w-full h-auto rounded-lg border border-[#d4af37]/30"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowSocialMediaLibrary(true)}
+                        className="flex-1 border-[#d4af37]/30 text-[#d4af37] hover:bg-[#d4af37]/10"
+                      >
+                        Changer
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, meta_social_image: '' })}
+                        className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
+                      >
+                        Supprimer
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSocialMediaLibrary(true)}
+                    className="w-full border-[#d4af37]/30 text-[#d4af37] hover:bg-[#d4af37]/10"
+                  >
+                    Sélectionner une image
+                  </Button>
+                )}
+                <p className="text-xs text-gray-500 mt-2">
+                  Image affichée lors du partage (recommandé : 1200x630px)
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-6">
@@ -466,7 +554,7 @@ export default function NewsEditorPage() {
       <Dialog open={showMediaLibrary} onOpenChange={setShowMediaLibrary}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0">
           <DialogHeader className="p-6 pb-0 shrink-0">
-            <DialogTitle>Sélectionner une image</DialogTitle>
+            <DialogTitle>Sélectionner une image à la une</DialogTitle>
           </DialogHeader>
           <div className="p-6 pt-4 overflow-y-auto flex-1">
             <MediaLibrary
@@ -476,6 +564,24 @@ export default function NewsEditorPage() {
                 setShowMediaLibrary(false);
               }}
               onClose={() => setShowMediaLibrary(false)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSocialMediaLibrary} onOpenChange={setShowSocialMediaLibrary}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="p-6 pb-0 shrink-0">
+            <DialogTitle>Sélectionner une image sociale</DialogTitle>
+          </DialogHeader>
+          <div className="p-6 pt-4 overflow-y-auto flex-1">
+            <MediaLibrary
+              bucket="media"
+              onSelect={(url) => {
+                setFormData({ ...formData, meta_social_image: url });
+                setShowSocialMediaLibrary(false);
+              }}
+              onClose={() => setShowSocialMediaLibrary(false)}
             />
           </div>
         </DialogContent>

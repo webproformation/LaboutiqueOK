@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, Calendar, Tag, Share2, Facebook, Twitter, Link2, Check } from 'lucide-react';
+import { ArrowLeft, Calendar, Tag, Share2, Facebook, Twitter, Link2, Check, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -27,6 +27,9 @@ interface NewsPost {
   published_at: string;
   seo_title: string | null;
   meta_description: string | null;
+  meta_social_title: string | null;
+  meta_social_description: string | null;
+  meta_social_image: string | null;
   news_post_categories: Array<{
     news_categories: NewsCategory | NewsCategory[];
   }>;
@@ -62,6 +65,9 @@ export default function NewsDetailPage() {
           published_at,
           seo_title,
           meta_description,
+          meta_social_title,
+          meta_social_description,
+          meta_social_image,
           news_post_categories (
             news_categories (
               id,
@@ -209,26 +215,31 @@ export default function NewsDetailPage() {
           Retour aux actualités
         </Link>
 
-        <div className="mb-6 flex items-center gap-3 flex-wrap">
-          {post.news_post_categories.map(({ news_categories }, idx) => {
-            const category = Array.isArray(news_categories) ? news_categories[0] : news_categories;
-            return (
-              <Badge
-                key={category.id || idx}
-                className="text-white font-semibold"
-                style={{ backgroundColor: category.color }}
-              >
-                {category.name}
-              </Badge>
-            );
-          })}
+        <div className="mb-8 flex justify-center">
+          <div className="flex items-center gap-3 flex-wrap">
+            {post.news_post_categories.map(({ news_categories }, idx) => {
+              const category = Array.isArray(news_categories) ? news_categories[0] : news_categories;
+              return (
+                <Badge
+                  key={category.id || idx}
+                  className="text-white font-semibold"
+                  style={{ backgroundColor: category.color }}
+                >
+                  {category.name}
+                </Badge>
+              );
+            })}
+          </div>
         </div>
 
-        <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
-          {post.title}
-        </h1>
+        <div className="flex flex-col items-center text-center mb-8">
+          <BookOpen className="w-8 h-8 text-[#D4AF37] mb-4" />
+          <h1 className="text-4xl md:text-5xl font-bold text-[#D4AF37] leading-tight">
+            {post.title}
+          </h1>
+        </div>
 
-        <div className="flex items-center gap-6 text-gray-600 mb-8">
+        <div className="flex items-center justify-center gap-6 text-gray-600 mb-8">
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
             <span>{formatDate(post.published_at)}</span>
@@ -254,7 +265,7 @@ export default function NewsDetailPage() {
         )}
 
         <div
-          className="prose prose-lg max-w-none mb-12"
+          className="news-content mb-12"
           dangerouslySetInnerHTML={{ __html: post.content || '' }}
         />
 

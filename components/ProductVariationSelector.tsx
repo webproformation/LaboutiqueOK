@@ -39,6 +39,7 @@ interface ProductVariationSelectorProps {
   }>;
   variations: Variation[];
   onVariationChange: (variation: Variation | null) => void;
+  initialSelectedAttributes?: Record<string, string>;
 }
 
 const sizeOrder = ["xs", "s", "m", "l", "xl", "xxl", "xxxl"];
@@ -47,9 +48,10 @@ export function ProductVariationSelector({
   attributes,
   variations,
   onVariationChange,
+  initialSelectedAttributes,
 }: ProductVariationSelectorProps) {
   const { profile } = useAuth();
-  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
+  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>(initialSelectedAttributes || {});
   const [colorCodes, setColorCodes] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -82,6 +84,12 @@ export function ProductVariationSelector({
 
     fetchColorCodes();
   }, []);
+
+  useEffect(() => {
+    if (initialSelectedAttributes && Object.keys(initialSelectedAttributes).length > 0) {
+      setSelectedAttributes(initialSelectedAttributes);
+    }
+  }, [initialSelectedAttributes]);
 
   const safeString = (value: any): string => {
     if (typeof value === 'object' && value !== null) {
