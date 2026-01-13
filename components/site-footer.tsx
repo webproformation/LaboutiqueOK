@@ -219,7 +219,7 @@ export function SiteFooter() {
                   <MapPin className="h-5 w-5 flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="font-semibold text-white">En boutique sur rendez-vous</div>
-                    <div>Le mercredi de 09h à 19h</div>
+                    <div>Le mercredi de 9h à 19h</div>
                   </div>
                 </div>
 
@@ -227,7 +227,7 @@ export function SiteFooter() {
                   <Phone className="h-5 w-5 flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="font-semibold text-white">Par téléphone</div>
-                    <div>Du lundi au vendredi de 09h à 18h</div>
+                    <div>Du lundi au vendredi de 9h à 18h</div>
                   </div>
                 </div>
 
