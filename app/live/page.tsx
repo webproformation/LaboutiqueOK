@@ -67,7 +67,7 @@ export default function LivePage() {
       <div className="max-w-4xl mx-auto">
         <PageHeader
           icon={Video}
-          title="Lives Shopping"
+          title="Live Shopping & Replay"
           description="Rejoignez Morgane en direct pour découvrir nos nouveautés et profiter d'offres exclusives"
         />
 

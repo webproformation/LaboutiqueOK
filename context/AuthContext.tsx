@@ -16,6 +16,7 @@ export interface Profile {
   user_size: number | null;
   wallet_balance: number;
   loyalty_points: number;
+  loyalty_euros: number;
   is_admin: boolean;
   blocked: boolean;
   blocked_reason: string | null;

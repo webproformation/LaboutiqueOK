@@ -185,7 +185,7 @@ export default function NewsDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-gradient-to-b from-white via-[#FBF8F1] to-[#F2F2E8]">
         <div className="container mx-auto px-4 py-12 max-w-4xl">
           <div className="animate-pulse space-y-8">
             <div className="h-8 bg-gray-200 rounded w-1/4" />
@@ -208,7 +208,7 @@ export default function NewsDetailPage() {
   const primaryCategory = Array.isArray(primaryCategoryData) ? primaryCategoryData[0] : primaryCategoryData;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-b from-white via-[#FBF8F1] to-[#F2F2E8]">
       <article className="container mx-auto px-4 py-8 max-w-4xl">
         <Link href="/actualites" className="inline-flex items-center text-gray-600 hover:text-[#C6A15B] mb-6 transition-colors">
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -257,17 +257,19 @@ export default function NewsDetailPage() {
         )}
 
         {post.excerpt && (
-          <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-l-4 border-[#C6A15B] p-6 rounded-lg mb-8">
-            <p className="text-lg text-gray-700 italic leading-relaxed">
+          <div className="bg-gradient-to-r from-[#D4AF37]/10 to-[#C6A15B]/10 border-l-4 border-[#D4AF37] p-6 rounded-lg mb-8 backdrop-blur-sm">
+            <p className="text-lg text-gray-800 italic leading-relaxed">
               {post.excerpt}
             </p>
           </div>
         )}
 
-        <div
-          className="news-content mb-12"
-          dangerouslySetInnerHTML={{ __html: post.content || '' }}
-        />
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl p-8 mb-12 shadow-sm border border-gray-100">
+          <div
+            className="news-content"
+            dangerouslySetInnerHTML={{ __html: post.content || '' }}
+          />
+        </div>
 
         <Separator className="my-8" />
 

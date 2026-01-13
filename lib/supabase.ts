@@ -94,6 +94,8 @@ export type Profile = {
   first_name: string | null;
   last_name: string | null;
   wallet_balance: number;
+  loyalty_points: number;
+  loyalty_euros: number;
   created_at: string;
   is_admin?: boolean;
 };

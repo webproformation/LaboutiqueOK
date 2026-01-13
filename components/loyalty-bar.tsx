@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { supabase, Profile } from '@/lib/supabase';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Star, Coins } from 'lucide-react';
 
 const LOYALTY_TIERS = [
-  { name: 'Bronze', minBalance: 0, color: '#CD7F32' },
-  { name: 'Argent', minBalance: 50, color: '#C0C0C0' },
-  { name: 'Or', minBalance: 100, color: '#D4AF37' },
-  { name: 'Platine', minBalance: 200, color: '#E5E4E2' },
+  { name: 'Bronze', minPoints: 0, color: '#CD7F32' },
+  { name: 'Argent', minPoints: 500, color: '#C0C0C0' },
+  { name: 'Or', minPoints: 1000, color: '#D4AF37' },
+  { name: 'Platine', minPoints: 2000, color: '#E5E4E2' },
 ];
 
 export function LoyaltyBar() {
@@ -32,31 +32,47 @@ export function LoyaltyBar() {
 
   if (!profile) return null;
 
+  const loyaltyPoints = profile.loyalty_points || 0;
+  const loyaltyEuros = profile.loyalty_euros || 0;
+
   const currentTier = LOYALTY_TIERS.reduce((prev, curr) =>
-    profile.wallet_balance >= curr.minBalance ? curr : prev
+    loyaltyPoints >= curr.minPoints ? curr : prev
   );
 
-  const nextTier = LOYALTY_TIERS.find(tier => tier.minBalance > profile.wallet_balance);
+  const nextTier = LOYALTY_TIERS.find(tier => tier.minPoints > loyaltyPoints);
   const progressToNext = nextTier
-    ? ((profile.wallet_balance - currentTier.minBalance) / (nextTier.minBalance - currentTier.minBalance)) * 100
+    ? ((loyaltyPoints - currentTier.minPoints) / (nextTier.minPoints - currentTier.minPoints)) * 100
     : 100;
 
   return (
-    <div className="sticky top-20 z-40 bg-gradient-to-r from-[#F8B4C1] to-[#D4AF37] py-3 shadow-soft">
+    <div className="sticky top-20 z-40 bg-gradient-to-r from-[#D4AF37] to-[#b8933d] py-3 shadow-lg">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Sparkles className="h-5 w-5 text-white" />
-            <span className="text-white font-medium">
-              Tier {currentTier.name}
-            </span>
-            <span className="text-white/90 text-sm">
-              {profile.wallet_balance.toFixed(2)}€
-            </span>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Star className="h-5 w-5 text-white fill-white" />
+              <span className="text-white font-semibold">
+                {currentTier.name}
+              </span>
+            </div>
+            <div className="h-6 w-px bg-white/30" />
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-white" />
+              <span className="text-white font-medium">
+                {loyaltyPoints} points
+              </span>
+            </div>
+            <div className="h-6 w-px bg-white/30" />
+            <div className="flex items-center gap-2">
+              <Coins className="h-4 w-4 text-white" />
+              <span className="text-white font-medium">
+                {loyaltyEuros.toFixed(2)}€
+              </span>
+            </div>
           </div>
 
           {nextTier && (
-            <div className="flex items-center gap-3 flex-1 max-w-md ml-8">
+            <div className="flex items-center gap-3 flex-1 max-w-md">
               <div className="flex-1 bg-white/30 rounded-full h-2 overflow-hidden">
                 <div
                   className="bg-white h-full transition-all duration-500 rounded-full"
@@ -64,7 +80,7 @@ export function LoyaltyBar() {
                 />
               </div>
               <span className="text-white text-sm whitespace-nowrap">
-                {(nextTier.minBalance - profile.wallet_balance).toFixed(2)}€ vers {nextTier.name}
+                {(nextTier.minPoints - loyaltyPoints)} pts vers {nextTier.name}
               </span>
             </div>
           )}
