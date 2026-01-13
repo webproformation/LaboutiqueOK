@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Package, Eye, Calendar, CreditCard, Truck, MapPin, Download } from 'lucide-react';
+import { Loader2, Package, Eye, Calendar, CreditCard, Truck, MapPin, Store } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -225,30 +225,10 @@ export default function OrdersPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto z-[9999]">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle>Détails de la commande #{selectedOrder?.order_number}</DialogTitle>
-                <DialogDescription>
-                  Commandée le {selectedOrder && formatDate(selectedOrder.created_at)}
-                </DialogDescription>
-              </div>
-              {selectedOrder && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownloadPDF(selectedOrder)}
-                  disabled={downloadingPdf}
-                  className="gap-2"
-                >
-                  {downloadingPdf ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                  {downloadingPdf ? 'Génération...' : 'Télécharger PDF'}
-                </Button>
-              )}
-            </div>
+            <DialogTitle>Détails de la commande #{selectedOrder?.order_number}</DialogTitle>
+            <DialogDescription>
+              Commandée le {selectedOrder && formatDate(selectedOrder.created_at)}
+            </DialogDescription>
           </DialogHeader>
 
           {selectedOrder && (
@@ -301,10 +281,31 @@ export default function OrdersPage() {
 
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-[#D4AF37]" />
-                  Adresse de livraison
+                  {(selectedOrder as any).relay_point_data ? (
+                    <Store className="h-5 w-5 text-[#D4AF37]" />
+                  ) : (
+                    <MapPin className="h-5 w-5 text-[#D4AF37]" />
+                  )}
+                  {(selectedOrder as any).relay_point_data ? 'Point Relais' : 'Adresse de livraison'}
                 </h3>
-                {selectedOrder.shipping_address ? (
+                {(selectedOrder as any).relay_point_data ? (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <Store className="h-5 w-5 text-[#D4AF37] mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {(selectedOrder as any).relay_point_data.name}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {(selectedOrder as any).relay_point_data.address}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-2">
+                          ID: {(selectedOrder as any).relay_point_data.id}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : selectedOrder.shipping_address ? (
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="font-medium">
                       {selectedOrder.shipping_address.first_name} {selectedOrder.shipping_address.last_name}
