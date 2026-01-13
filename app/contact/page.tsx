@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,7 @@ import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
 
 export default function ContactPage() {
+  const { user, profile } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -24,6 +26,18 @@ export default function ContactPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+      setFormData(prev => ({
+        ...prev,
+        name: fullName || prev.name,
+        email: profile.email || prev.email,
+        phone: profile.phone || prev.phone,
+      }));
+    }
+  }, [profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

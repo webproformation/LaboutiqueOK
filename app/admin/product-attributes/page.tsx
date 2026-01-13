@@ -80,6 +80,7 @@ export default function ProductAttributesPage() {
     slug: '',
     value: '',
     color_code: '#000000',
+    color_family: '',
   });
 
   const [editingColorTermId, setEditingColorTermId] = useState<string | null>(null);
@@ -207,7 +208,8 @@ export default function ProductAttributesPage() {
         name: termForm.name,
         slug: termForm.slug,
         value: termForm.value || termForm.name,
-        color_code: selectedAttribute.type === 'select' && termForm.color_code ? termForm.color_code : null,
+        color_code: termForm.color_code || null,
+        color_family: termForm.color_family || null,
         order_by: terms.length + 1,
       };
 
@@ -228,7 +230,7 @@ export default function ProductAttributesPage() {
         toast.success('Terme créé avec succès');
       }
 
-      setTermForm({ name: '', slug: '', value: '', color_code: '#000000' });
+      setTermForm({ name: '', slug: '', value: '', color_code: '#000000', color_family: '' });
       setEditingTerm(null);
       setIsTermDialogOpen(false);
       loadTerms(selectedAttribute.id);
@@ -297,6 +299,7 @@ export default function ProductAttributesPage() {
       slug: term.slug,
       value: term.value || '',
       color_code: term.color_code || '#000000',
+      color_family: term.color_family || '',
     });
     setIsTermDialogOpen(true);
   };
@@ -466,7 +469,7 @@ export default function ProductAttributesPage() {
                   <Button
                     onClick={() => {
                       setEditingTerm(null);
-                      setTermForm({ name: '', slug: '', value: '', color_code: '#000000' });
+                      setTermForm({ name: '', slug: '', value: '', color_code: '#000000', color_family: '' });
                     }}
                     disabled={!selectedAttribute}
                     size="sm"
@@ -515,24 +518,55 @@ export default function ProductAttributesPage() {
                       />
                     </div>
                     {selectedAttribute && (selectedAttribute.slug.includes('couleur') || selectedAttribute.name.toLowerCase().includes('couleur')) && (
-                      <div>
-                        <Label htmlFor="term-color">Code couleur</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            id="term-color"
-                            type="color"
-                            value={termForm.color_code}
-                            onChange={(e) => setTermForm({ ...termForm, color_code: e.target.value })}
-                            className="w-20 h-10"
-                          />
-                          <Input
-                            value={termForm.color_code}
-                            onChange={(e) => setTermForm({ ...termForm, color_code: e.target.value })}
-                            placeholder="#000000"
-                            className="flex-1"
-                          />
+                      <>
+                        <div>
+                          <Label htmlFor="term-color-family">Famille de couleur</Label>
+                          <Select
+                            value={termForm.color_family}
+                            onValueChange={(value) => setTermForm({ ...termForm, color_family: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sélectionner une famille" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Rouge">Rouge</SelectItem>
+                              <SelectItem value="Rose">Rose</SelectItem>
+                              <SelectItem value="Orange">Orange</SelectItem>
+                              <SelectItem value="Jaune">Jaune</SelectItem>
+                              <SelectItem value="Vert">Vert</SelectItem>
+                              <SelectItem value="Bleu">Bleu</SelectItem>
+                              <SelectItem value="Violet">Violet</SelectItem>
+                              <SelectItem value="Marron">Marron</SelectItem>
+                              <SelectItem value="Beige">Beige</SelectItem>
+                              <SelectItem value="Gris">Gris</SelectItem>
+                              <SelectItem value="Noir">Noir</SelectItem>
+                              <SelectItem value="Blanc">Blanc</SelectItem>
+                              <SelectItem value="Multicolore">Multicolore</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                      </div>
+                        <div>
+                          <Label htmlFor="term-color">Code couleur (Hex)</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="term-color"
+                              type="color"
+                              value={termForm.color_code}
+                              onChange={(e) => setTermForm({ ...termForm, color_code: e.target.value })}
+                              className="w-20 h-10"
+                            />
+                            <Input
+                              value={termForm.color_code}
+                              onChange={(e) => setTermForm({ ...termForm, color_code: e.target.value })}
+                              placeholder="#000000"
+                              className="flex-1"
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Ce code sera utilisé pour afficher la pastille de couleur
+                          </p>
+                        </div>
+                      </>
                     )}
                     <DialogFooter>
                       <Button type="button" variant="outline" onClick={() => setIsTermDialogOpen(false)}>
