@@ -5,13 +5,17 @@ import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, SlidersHorizontal, DollarSign, Package, ArrowUpDown } from 'lucide-react';
+import { Loader2, SlidersHorizontal, Euro, Package, ArrowUpDown, X, User } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { decodeHtmlEntities } from '@/lib/utils';
 import { ProductCard } from '@/components/ProductCard';
 import PageHeader from '@/components/PageHeader';
+import { useAuth } from '@/context/AuthContext';
 
 interface Product {
   id: string;
@@ -40,6 +44,7 @@ interface Category {
 export default function CategoryPage() {
   const params = useParams();
   const slug = params.slug as string;
+  const { profile } = useAuth();
   const [category, setCategory] = useState<Category | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -47,6 +52,7 @@ export default function CategoryPage() {
 
   const [filterColor, setFilterColor] = useState<string>('all');
   const [filterSize, setFilterSize] = useState<string>('all');
+  const [mySizeOnly, setMySizeOnly] = useState<boolean>(false);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [minPrice, setMinPrice] = useState<number>(0);
   const [maxPrice, setMaxPrice] = useState<number>(1000);
@@ -199,6 +205,42 @@ export default function CategoryPage() {
         return price >= priceRange[0] && price <= priceRange[1];
       });
 
+      // Filtre "À ma taille"
+      if (mySizeOnly && profile?.user_size) {
+        const userSize = String(profile.user_size);
+        const filteredIds = new Set<string>();
+
+        for (const product of result) {
+          if (product.is_variable_product) {
+            const { data: variations } = await supabase
+              .from('product_variations')
+              .select('attributes, stock_quantity')
+              .eq('product_id', product.id)
+              .gt('stock_quantity', 0);
+
+            if (variations) {
+              const hasMatchingSize = variations.some((v: any) => {
+                if (!v.attributes) return false;
+                return Object.entries(v.attributes).some(([key, value]) => {
+                  const lowerKey = key.toLowerCase();
+                  if (lowerKey.includes('taille') || lowerKey.includes('size')) {
+                    const stringValue = String(value || '');
+                    return stringValue === userSize;
+                  }
+                  return false;
+                });
+              });
+
+              if (hasMatchingSize) {
+                filteredIds.add(product.id);
+              }
+            }
+          }
+        }
+
+        result = result.filter(p => filteredIds.has(p.id));
+      }
+
       if (filterColor !== 'all' || filterSize !== 'all') {
         const filteredIds = new Set<string>();
 
@@ -307,7 +349,7 @@ export default function CategoryPage() {
     };
 
     filterProducts();
-  }, [products, priceRange, filterColor, filterSize, sortBy]);
+  }, [products, priceRange, filterColor, filterSize, mySizeOnly, sortBy, profile]);
 
   if (loading) {
     return (
@@ -362,10 +404,36 @@ export default function CategoryPage() {
                 <Separator className="mb-4" />
 
                 <div className="space-y-6">
+                  {profile?.user_size && (
+                    <>
+                      <div className="bg-[#F2F2E8] p-4 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-[#D4AF37]" />
+                            <Label htmlFor="my-size-filter" className="font-medium cursor-pointer">
+                              À ma taille ({profile.user_size})
+                            </Label>
+                          </div>
+                          <Switch
+                            id="my-size-filter"
+                            checked={mySizeOnly}
+                            onCheckedChange={setMySizeOnly}
+                          />
+                        </div>
+                        {mySizeOnly && (
+                          <p className="text-xs text-gray-600 mt-2">
+                            Affiche uniquement les articles disponibles en taille {profile.user_size}
+                          </p>
+                        )}
+                      </div>
+                      <Separator />
+                    </>
+                  )}
+
                   <div>
                     <h4 className="font-medium mb-4 flex items-center gap-2">
-                      <DollarSign className="h-4 w-4" />
-                      Fourchette de prix
+                      <Euro className="h-4 w-4" />
+                      € Fourchette de prix
                     </h4>
                     <div className="space-y-4">
                       <div className="flex items-center justify-between text-sm">
@@ -498,6 +566,54 @@ export default function CategoryPage() {
                 </select>
               </div>
             </div>
+
+            {(mySizeOnly || filterColor !== 'all' || filterSize !== 'all' || priceRange[0] !== minPrice || priceRange[1] !== maxPrice) && (
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-900">Filtres actifs</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setMySizeOnly(false);
+                      setFilterColor('all');
+                      setFilterSize('all');
+                      setPriceRange([minPrice, maxPrice]);
+                    }}
+                    className="h-8 text-xs"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Tout effacer
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {mySizeOnly && (
+                    <Badge variant="secondary" className="gap-1">
+                      À ma taille
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => setMySizeOnly(false)} />
+                    </Badge>
+                  )}
+                  {filterColor !== 'all' && (
+                    <Badge variant="secondary" className="gap-1">
+                      {availableColors.find(c => c.name === filterColor)?.name || filterColor}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterColor('all')} />
+                    </Badge>
+                  )}
+                  {filterSize !== 'all' && (
+                    <Badge variant="secondary" className="gap-1">
+                      Taille {filterSize}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterSize('all')} />
+                    </Badge>
+                  )}
+                  {(priceRange[0] !== minPrice || priceRange[1] !== maxPrice) && (
+                    <Badge variant="secondary" className="gap-1">
+                      {priceRange[0]}€ - {priceRange[1]}€
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => setPriceRange([minPrice, maxPrice])} />
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-6">
               {filteredProducts.map((product) => (
