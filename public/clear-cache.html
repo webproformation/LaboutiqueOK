@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nettoyage Cache Admin - qcqbtmv</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .step {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        .success {
+            background: #10b981;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+        }
+        .warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            color: #92400e;
+        }
+        .code {
+            background: #1e293b;
+            color: #10b981;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: "Courier New", monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+        .badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Nettoyage Cache Admin</h1>
+        <p class="subtitle">
+            Projet: <strong>qcqbtmvbvipsxwjlgjvk</strong>
+            <span class="badge">VERROUILLÉ</span>
+        </p>
+
+        <div class="warning">
+            <strong>⚠️ Attention :</strong> Cette opération va vous déconnecter et effacer toutes les données en cache. Vous devrez vous reconnecter ensuite.
+        </div>
+
+        <div class="step">
+            <h3>Étape 1 : Nettoyage Complet</h3>
+            <p>Cliquez sur le bouton ci-dessous pour vider le cache et forcer la déconnexion.</p>
+            <button onclick="clearCache()">🗑️ Vider le Cache et Déconnecter</button>
+        </div>
+
+        <div class="step">
+            <h3>Étape 2 : Reconnexion Admin</h3>
+            <p>Après le rechargement, connectez-vous avec :</p>
+            <div class="code">
+                Email: contact@webproformation.fr<br>
+                Mot de passe: [votre mot de passe]
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>Étape 3 : Vérification</h3>
+            <p>Après reconnexion, vérifiez que le bandeau apparaît :</p>
+            <div class="code">
+                🛡️ SESSION ADMINISTRATEUR : WEBPRO<br>
+                (contact@webproformation.fr)
+            </div>
+        </div>
+
+        <div class="success" id="success">
+            ✅ Cache vidé avec succès !<br>
+            Rechargement dans 2 secondes...
+        </div>
+    </div>
+
+    <script>
+        async function clearCache() {
+            try {
+                // Vider localStorage
+                localStorage.clear();
+                console.log('✅ localStorage vidé');
+
+                // Vider sessionStorage
+                sessionStorage.clear();
+                console.log('✅ sessionStorage vidé');
+
+                // Vider les cookies Supabase
+                document.cookie.split(";").forEach(function(c) {
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                });
+                console.log('✅ Cookies vidés');
+
+                // Déconnexion Supabase si disponible
+                if (window.supabase && window.supabase.auth) {
+                    await window.supabase.auth.signOut();
+                    console.log('✅ Déconnexion Supabase effectuée');
+                }
+
+                // Afficher le message de succès
+                document.getElementById('success').style.display = 'block';
+
+                // Rediriger vers la page de login après 2 secondes
+                setTimeout(() => {
+                    window.location.href = '/auth/login';
+                }, 2000);
+
+            } catch (error) {
+                console.error('❌ Erreur lors du nettoyage:', error);
+                alert('Erreur lors du nettoyage. Vérifiez la console (F12).');
+            }
+        }
+
+        // Afficher les infos dans la console
+        console.log('%c🔒 PROJET VERROUILLÉ SUR qcqbtmv', 'background: #667eea; color: white; font-size: 16px; padding: 10px; border-radius: 5px;');
+        console.log('%c✅ Ancrage: qcqbtmvbvipsxwjlgjvk.supabase.co', 'color: #10b981; font-weight: bold;');
+        console.log('%c✅ Admin: contact@webproformation.fr', 'color: #10b981; font-weight: bold;');
+        console.log('%c❌ INTERDICTION de revenir à mcstv', 'color: #ef4444; font-weight: bold;');
+    </script>
+</body>
+</html>
