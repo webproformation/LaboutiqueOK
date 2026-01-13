@@ -163,8 +163,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       await loadProfile(authData.user.id);
 
-      toast.success('Bienvenue !', {
+      toast.success('Bienvenue ! 5€ ont été crédités sur votre cagnotte.', {
         position: 'bottom-right',
+        duration: 5000,
       });
 
       return { error: null };

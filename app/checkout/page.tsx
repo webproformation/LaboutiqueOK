@@ -241,8 +241,8 @@ export default function CheckoutPage() {
         shipping_method_id: selectedShippingMethodId || null,
         payment_method_id: selectedPaymentMethodId,
         relay_point_data: relayPointData,
-        insurance_type: shippingInsurance === '0' ? 'none' : shippingInsurance,
-        insurance_cost: insuranceCost.toFixed(2),
+        insurance_type: shippingInsurance === '0' ? 'none' : shippingInsurance === '1.00' ? 'serenity' : 'diamond',
+        insurance_cost: insuranceCost,
         coupon_code: couponCode || null,
         notes: notes || null,
         newsletter_consent: newsletterConsent,
@@ -825,31 +825,36 @@ export default function CheckoutPage() {
                       </div>
 
                       <div className="flex items-center space-x-3 border p-4 rounded-lg hover:border-[#D4AF37] transition-colors">
-                        <RadioGroupItem value="1.5" id="insurance-basic" />
-                        <label htmlFor="insurance-basic" className="flex-1 cursor-pointer">
+                        <RadioGroupItem value="1.00" id="insurance-serenity" />
+                        <label htmlFor="insurance-serenity" className="flex-1 cursor-pointer">
                           <div className="flex items-center justify-between">
                             <div>
-                              <span className="font-medium">Assurance de base</span>
+                              <span className="font-medium">Garantie Sérénité</span>
                               <p className="text-sm text-gray-600 mt-1">
-                                Couverture jusqu'à 100€
+                                Protection perte, remboursement après enquête (30 jours)
                               </p>
                             </div>
-                            <span className="font-semibold text-[#D4AF37]">1,50 €</span>
+                            <span className="font-semibold text-[#D4AF37]">1,00 €</span>
                           </div>
                         </label>
                       </div>
 
-                      <div className="flex items-center space-x-3 border p-4 rounded-lg hover:border-[#D4AF37] transition-colors">
-                        <RadioGroupItem value="3" id="insurance-premium" />
-                        <label htmlFor="insurance-premium" className="flex-1 cursor-pointer">
+                      <div className="flex items-center space-x-3 border-2 border-[#D4AF37]/40 p-4 rounded-lg bg-gradient-to-br from-[#F2F2E8] to-white relative">
+                        <RadioGroupItem value="2.90" id="insurance-diamond" />
+                        <Badge
+                          className="absolute -top-2 right-4 bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white px-2 py-0.5 text-xs"
+                        >
+                          La plus choisie
+                        </Badge>
+                        <label htmlFor="insurance-diamond" className="flex-1 cursor-pointer">
                           <div className="flex items-center justify-between">
                             <div>
-                              <span className="font-medium">Assurance premium</span>
-                              <p className="text-sm text-gray-600 mt-1">
-                                Couverture jusqu'à 300€ + remplacement prioritaire
+                              <span className="font-semibold text-[#D4AF37]">Protection Diamant</span>
+                              <p className="text-sm text-gray-700 mt-1 font-medium">
+                                Remboursement ou renvoi immédiat sous 48h (Perte/Casse), sans enquête
                               </p>
                             </div>
-                            <span className="font-semibold text-[#D4AF37]">3,00 €</span>
+                            <span className="font-bold text-[#D4AF37] text-lg">2,90 €</span>
                           </div>
                         </label>
                       </div>
