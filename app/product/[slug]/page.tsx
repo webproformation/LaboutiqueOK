@@ -111,26 +111,41 @@ export default function ProductPage() {
         if (!variationsError && variations) {
           const attributesMap = new Map<string, Set<string>>();
 
-          variations.forEach((variation) => {
-            if (variation.attributes) {
-              // Ne garder que les attributs d'affichage (pas les codes techniques)
-              if (variation.attributes.couleur_name) {
-                if (!attributesMap.has("Couleur")) {
-                  attributesMap.set("Couleur", new Set());
-                }
-                attributesMap.get("Couleur")?.add(variation.attributes.couleur_name as string);
-              }
+          const extractValue = (value: any): string => {
+            if (typeof value === 'object' && value !== null) {
+              return value.name || value.value || String(value);
+            }
+            return String(value);
+          };
 
-              // Ajouter d'autres attributs (taille, etc.) sauf couleur, color_code
+          const normalizeAttributeName = (key: string): string => {
+            const lowerKey = key.toLowerCase();
+            if (lowerKey.includes('couleur') || lowerKey === 'couleur_name') {
+              return 'Couleur';
+            }
+            if (lowerKey.includes('taille') || lowerKey.includes('size')) {
+              return 'Taille';
+            }
+            return key.charAt(0).toUpperCase() + key.slice(1);
+          };
+
+          variations.forEach((variation) => {
+            if (variation.attributes && typeof variation.attributes === 'object') {
               Object.entries(variation.attributes).forEach(([key, value]) => {
                 const lowerKey = key.toLowerCase();
-                // Ignorer les champs techniques de couleur
-                if (!lowerKey.includes('couleur') && !lowerKey.includes('color')) {
-                  const displayName = key.charAt(0).toUpperCase() + key.slice(1);
+
+                if (lowerKey.includes('color_code') || lowerKey.includes('id')) {
+                  return;
+                }
+
+                const displayName = normalizeAttributeName(key);
+                const displayValue = extractValue(value);
+
+                if (displayValue && displayValue.trim()) {
                   if (!attributesMap.has(displayName)) {
                     attributesMap.set(displayName, new Set());
                   }
-                  attributesMap.get(displayName)?.add(value as string);
+                  attributesMap.get(displayName)?.add(displayValue);
                 }
               });
             }
@@ -141,30 +156,42 @@ export default function ProductPage() {
             options: Array.from(options),
           }));
 
-          const formattedVariations = variations.map((v) => ({
-            id: v.id,
-            attributes: Object.entries(v.attributes || {})
-              .filter(([key]) => {
+          const formattedVariations = variations.map((v) => {
+            const variationAttributes: Array<{name: string; option: string}> = [];
+
+            if (v.attributes && typeof v.attributes === 'object') {
+              Object.entries(v.attributes).forEach(([key, value]) => {
                 const lowerKey = key.toLowerCase();
-                // Pour les couleurs, ne garder que couleur_name
-                if (lowerKey.includes('couleur') || lowerKey.includes('color')) {
-                  return key === 'couleur_name';
+
+                if (lowerKey.includes('color_code') || lowerKey.includes('id')) {
+                  return;
                 }
-                return true; // Garder les autres attributs
-              })
-              .map(([name, option]) => ({
-                name: name === 'couleur_name' ? 'Couleur' : (name.charAt(0).toUpperCase() + name.slice(1)),
-                option: option as string,
-              })),
-            price: v.sale_price || v.regular_price || productData.sale_price || productData.regular_price || "0",
-            regular_price: v.regular_price || productData.regular_price || "0",
-            sale_price: v.sale_price || (v.regular_price ? null : productData.sale_price),
-            stock_status: v.stock_status || "outofstock",
-            stock_quantity: v.stock_quantity,
-            image: v.image_url
-              ? { src: v.image_url, alt: productData.name }
-              : (productData.image_url ? { src: productData.image_url, alt: productData.name } : undefined),
-          }));
+
+                const displayName = normalizeAttributeName(key);
+                const displayValue = extractValue(value);
+
+                if (displayValue && displayValue.trim()) {
+                  variationAttributes.push({
+                    name: displayName,
+                    option: displayValue
+                  });
+                }
+              });
+            }
+
+            return {
+              id: v.id,
+              attributes: variationAttributes,
+              price: v.sale_price || v.regular_price || productData.sale_price || productData.regular_price || "0",
+              regular_price: v.regular_price || productData.regular_price || "0",
+              sale_price: v.sale_price || (v.regular_price ? null : productData.sale_price),
+              stock_status: v.stock_status || "outofstock",
+              stock_quantity: v.stock_quantity,
+              image: v.image_url
+                ? { src: v.image_url, alt: productData.name }
+                : (productData.image_url ? { src: productData.image_url, alt: productData.name } : undefined),
+            };
+          });
 
           productData.attributes = attributes;
           productData.variations = formattedVariations;
