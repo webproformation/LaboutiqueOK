@@ -15,7 +15,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ShoppingBag, ArrowLeft, CreditCard, MapPin, Truck, Wallet, Package, AlertCircle, Info, Gift, Clock } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, CreditCard, MapPin, Truck, Wallet, Package, AlertCircle, Info, Gift, Clock, PiggyBank } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useOpenPackage } from '@/hooks/use-open-package';
@@ -83,6 +83,8 @@ export default function CheckoutPage() {
 
   const [useWallet, setUseWallet] = useState(false);
   const [walletAmountToUse, setWalletAmountToUse] = useState(0);
+  const [useLoyalty, setUseLoyalty] = useState(false);
+  const [loyaltyAmountToUse, setLoyaltyAmountToUse] = useState(0);
   const [couponCode, setCouponCode] = useState('');
   const [selectedUserCouponId, setSelectedUserCouponId] = useState<string>('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
@@ -185,7 +187,7 @@ export default function CheckoutPage() {
 
   const totalBeforeDiscount = subtotal + shippingCost + insuranceCost + paymentFee;
   const totalAfterDiscount = Math.max(0, totalBeforeDiscount - discountAmount - referralDiscount);
-  const totalAfterWallet = Math.max(0, totalAfterDiscount - walletAmountToUse);
+  const totalAfterWallet = Math.max(0, totalAfterDiscount - walletAmountToUse - loyaltyAmountToUse);
   const tvaAmount = totalAfterWallet * TVA_RATE / (1 + TVA_RATE);
   const totalHT = totalAfterWallet - tvaAmount;
 
@@ -237,7 +239,7 @@ export default function CheckoutPage() {
         shipping_cost: shippingCost.toFixed(2),
         tax_amount: tvaAmount.toFixed(2),
         discount_amount: discountAmount.toFixed(2),
-        wallet_amount_used: walletAmountToUse.toFixed(2),
+        wallet_amount_used: (walletAmountToUse + loyaltyAmountToUse).toFixed(2),
         total: totalAfterWallet.toFixed(2),
         shipping_address: selectedAddress,
         shipping_street: selectedAddress?.address_line1 || '',
@@ -340,6 +342,14 @@ export default function CheckoutPage() {
         await supabase
           .from('profiles')
           .update({ wallet_balance: newBalance })
+          .eq('id', user.id);
+      }
+
+      if (useLoyalty && loyaltyAmountToUse > 0) {
+        const newLoyaltyBalance = (profile?.loyalty_euros || 0) - loyaltyAmountToUse;
+        await supabase
+          .from('profiles')
+          .update({ loyalty_euros: newLoyaltyBalance })
           .eq('id', user.id);
       }
 
@@ -932,6 +942,62 @@ export default function CheckoutPage() {
 
                 <Separator />
 
+                {/* Cagnotte fidélité */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <PiggyBank className="h-5 w-5 text-[#D4AF37]" />
+                      <Label className="text-base font-semibold">Ma cagnotte fidélité</Label>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="bg-[#D4AF37]/10 text-[#D4AF37] border-[#D4AF37]/30 font-semibold px-3 py-1"
+                    >
+                      {(profile?.loyalty_euros || 0).toFixed(2)} € disponible
+                    </Badge>
+                  </div>
+
+                  {(profile?.loyalty_euros || 0) > 0 ? (
+                    <div className="border border-[#D4AF37]/20 rounded-lg p-4 bg-gradient-to-br from-[#F2F2E8] to-white hover:border-[#D4AF37]/40 transition-all">
+                      <div className="flex items-start space-x-3">
+                        <Checkbox
+                          id="useLoyalty"
+                          checked={useLoyalty}
+                          onCheckedChange={(checked) => {
+                            setUseLoyalty(checked as boolean);
+                            if (!checked) {
+                              setLoyaltyAmountToUse(0);
+                            } else {
+                              const afterWallet = Math.max(0, totalAfterDiscount - walletAmountToUse);
+                              const maxAmount = Math.min(profile?.loyalty_euros || 0, afterWallet);
+                              setLoyaltyAmountToUse(maxAmount);
+                            }
+                          }}
+                          className="mt-1 border-[#D4AF37] data-[state=checked]:bg-[#D4AF37]"
+                        />
+                        <div className="flex-1">
+                          <label htmlFor="useLoyalty" className="cursor-pointer">
+                            <p className="font-medium text-gray-900">
+                              Utiliser ma cagnotte de {(profile?.loyalty_euros || 0).toFixed(2)} €
+                            </p>
+                            <p className="text-sm text-gray-600 mt-1">
+                              Économisez jusqu'à {Math.min(profile?.loyalty_euros || 0, Math.max(0, totalAfterDiscount - walletAmountToUse)).toFixed(2)} € sur cette commande
+                            </p>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <p className="text-sm text-gray-600 text-center">
+                        Votre cagnotte est vide. Gagnez des euros en participant à nos jeux, lives et achats !
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
                 {/* Coupons gagnés */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 mb-2">
@@ -1213,8 +1279,15 @@ export default function CheckoutPage() {
 
                   {walletAmountToUse > 0 && (
                     <div className="flex justify-between text-sm text-purple-600">
-                      <span>Portefeuille utilisé</span>
+                      <span>Avoirs utilisés</span>
                       <span className="font-medium">-{walletAmountToUse.toFixed(2)} €</span>
+                    </div>
+                  )}
+
+                  {loyaltyAmountToUse > 0 && (
+                    <div className="flex justify-between text-sm text-[#D4AF37] font-semibold">
+                      <span>Cagnotte fidélité utilisée</span>
+                      <span className="font-medium">-{loyaltyAmountToUse.toFixed(2)} €</span>
                     </div>
                   )}
                 </div>

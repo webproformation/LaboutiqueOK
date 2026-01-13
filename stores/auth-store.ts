@@ -10,6 +10,8 @@ interface Profile {
   wallet_balance: number;
   loyalty_points: number;
   loyalty_euros: number;
+  current_tier: number;
+  tier_multiplier: number;
   created_at: string;
   is_admin?: boolean;
 }

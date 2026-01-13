@@ -6,12 +6,13 @@ import { PiggyBank, TrendingUp, Sparkles } from 'lucide-react';
 
 export function LoyaltyBanner() {
   const { profile } = useAuth();
-  const multiplier = 1;
+  const multiplier = profile?.tier_multiplier || 1;
 
   if (!profile) {
     return null;
   }
 
+  const loyaltyEuros = Number(profile.loyalty_euros) || 0;
   const walletBalance = Number(profile.wallet_balance) || 0;
   const loyaltyPoints = Number(profile.loyalty_points) || 0;
 
@@ -19,13 +20,22 @@ export function LoyaltyBanner() {
     <div className="bg-gradient-to-r from-[#D4AF37] via-[#C6A15B] to-[#D4AF37] border-b border-[#C6A15B]">
       <div className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-between gap-4 text-white">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 md:gap-6 flex-wrap">
             <div className="flex items-center gap-2">
               <PiggyBank className="h-4 w-4" />
               <span className="text-sm font-medium">
-                Cagnotte: <span className="font-bold">{walletBalance.toFixed(2)}€</span>
+                Cagnotte: <span className="font-bold">{loyaltyEuros.toFixed(2)}€</span>
               </span>
             </div>
+
+            {walletBalance > 0 && (
+              <div className="flex items-center gap-2">
+                <PiggyBank className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  Avoirs: <span className="font-bold">{walletBalance.toFixed(2)}€</span>
+                </span>
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />

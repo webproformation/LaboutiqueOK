@@ -17,6 +17,8 @@ export interface Profile {
   wallet_balance: number;
   loyalty_points: number;
   loyalty_euros: number;
+  current_tier: number;
+  tier_multiplier: number;
   is_admin: boolean;
   blocked: boolean;
   blocked_reason: string | null;
