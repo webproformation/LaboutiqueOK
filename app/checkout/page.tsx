@@ -24,6 +24,7 @@ import { PayPalButtons } from '@/components/PayPalButtons';
 import { RelayPointSelector } from '@/components/RelayPointSelector';
 import PageHeader from '@/components/PageHeader';
 import { StripePaymentForm } from '@/components/StripePaymentForm';
+import { CUSTOM_TEXTS } from '@/lib/texts';
 
 interface Address {
   id: string;
@@ -1429,7 +1430,7 @@ export default function CheckoutPage() {
                     ) : (
                       <>
                         <CreditCard className="h-4 w-4 mr-2" />
-                        Valider la commande
+                        {CUSTOM_TEXTS.buttons.checkout}
                       </>
                     )}
                   </Button>

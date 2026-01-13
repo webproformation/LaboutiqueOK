@@ -168,8 +168,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               <div className="flex flex-col space-y-2">
                 <Link href="/auth/login" onClick={onClose}>
                   <Button
-                    variant="outline"
-                    className="w-full justify-center bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white border-[#b8933d] hover:bg-[#9a7a2f]"
+                    className="w-full justify-center bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white border-2 border-[#d4af37] hover:from-[#d4af37] hover:to-[#b8933d] font-semibold shadow-lg"
                   >
                     Se connecter
                   </Button>
@@ -177,7 +176,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 <Link href="/auth/register" onClick={onClose}>
                   <Button
                     variant="outline"
-                    className="w-full justify-center text-white border-gray-600 hover:bg-gray-800"
+                    className="w-full justify-center bg-white text-gray-900 border-2 border-white hover:bg-gray-100 font-semibold shadow-md"
                   >
                     Créer un compte
                   </Button>

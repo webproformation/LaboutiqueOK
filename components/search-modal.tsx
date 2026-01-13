@@ -7,6 +7,7 @@ import { Search, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { decodeHtmlEntities } from '@/lib/utils';
+import { CUSTOM_TEXTS } from '@/lib/texts';
 
 interface SearchResult {
   id: string;
@@ -82,7 +83,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#D4AF37]" />
               <Input
                 type="text"
-                placeholder="Rechercher un produit..."
+                placeholder={CUSTOM_TEXTS.search.placeholder}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-12 pr-4 py-6 bg-white/10 border-[#D4AF37]/30 text-white placeholder:text-gray-400 focus:border-[#D4AF37] text-lg"

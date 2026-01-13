@@ -33,12 +33,24 @@ export function ProductGallery({ images, productName, selectedImageUrl, onImageC
   const validImages = cleanImages.length > 0 ? cleanImages : [{ id: "placeholder", src: "/placeholder.png", alt: productName }];
 
   const goToPrevious = useCallback(() => {
-    setCurrentIndex((prevIndex) => (prevIndex === 0 ? validImages.length - 1 : prevIndex - 1));
-  }, [validImages.length]);
+    setCurrentIndex((prevIndex) => {
+      const newIndex = prevIndex === 0 ? validImages.length - 1 : prevIndex - 1;
+      if (onImageClick && validImages[newIndex]) {
+        onImageClick(validImages[newIndex].src);
+      }
+      return newIndex;
+    });
+  }, [validImages, onImageClick]);
 
   const goToNext = useCallback(() => {
-    setCurrentIndex((prevIndex) => (prevIndex === validImages.length - 1 ? 0 : prevIndex + 1));
-  }, [validImages.length]);
+    setCurrentIndex((prevIndex) => {
+      const newIndex = prevIndex === validImages.length - 1 ? 0 : prevIndex + 1;
+      if (onImageClick && validImages[newIndex]) {
+        onImageClick(validImages[newIndex].src);
+      }
+      return newIndex;
+    });
+  }, [validImages, onImageClick]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.targetTouches[0].clientX);

@@ -197,24 +197,6 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
             </>
           )}
 
-          {showAddToCart && (
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <Button
-                onClick={handleAddToCart}
-                disabled={!isInStock}
-                className="w-full bg-[#C6A15B] hover:bg-[#b8933d] text-white font-semibold rounded-xl shadow-lg"
-              >
-                {product.is_variable_product ? (
-                  <>Choisir vos options</>
-                ) : (
-                  <>
-                    <ShoppingCart className="h-4 w-4 mr-2" />
-                    {CUSTOM_TEXTS.buttons.addToCart}
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
         </div>
 
         <CardContent className="p-4 space-y-3">
@@ -256,6 +238,23 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
               </span>
             )}
           </div>
+
+          {showAddToCart && (
+            <Button
+              onClick={handleAddToCart}
+              disabled={!isInStock}
+              className="w-full bg-[#C6A15B] hover:bg-[#b8933d] text-white font-semibold rounded-lg shadow-md"
+            >
+              {product.is_variable_product ? (
+                <>{CUSTOM_TEXTS.buttons.chooseOptions}</>
+              ) : (
+                <>
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  {CUSTOM_TEXTS.buttons.addToCart}
+                </>
+              )}
+            </Button>
+          )}
         </CardContent>
       </Link>
     </Card>

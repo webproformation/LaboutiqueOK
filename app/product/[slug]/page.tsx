@@ -43,6 +43,7 @@ import { toast } from "sonner";
 import { decodeHtmlEntities } from "@/lib/utils";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { CUSTOM_TEXTS } from "@/lib/texts";
 
 const diamondPositions: Array<"title" | "image" | "description"> = ["title", "image", "description"];
 
@@ -301,6 +302,24 @@ export default function ProductPage() {
 
   const handleImageClick = (imageUrl: string) => {
     setUserSelectedGalleryImage(imageUrl);
+
+    // Sync bidirectionnelle: si l'image correspond à une variation, sélectionner cette variation
+    if (product?.variations && Array.isArray(product.variations)) {
+      const matchingVariation = product.variations.find((v: any) =>
+        v.image?.src === imageUrl
+      );
+
+      if (matchingVariation && matchingVariation.id !== selectedVariation?.id) {
+        // Extraire les attributs de la variation pour mettre à jour le sélecteur
+        const variationAttributes: Record<string, string> = {};
+        matchingVariation.attributes?.forEach((attr: any) => {
+          variationAttributes[attr.name] = attr.option;
+        });
+
+        setInitialAttributes(variationAttributes);
+        setSelectedVariation(matchingVariation);
+      }
+    }
   };
 
   const handleAddToCart = () => {
@@ -334,7 +353,7 @@ export default function ProductPage() {
       return;
     }
 
-    toast.success("Vous serez notifié quand le produit sera de nouveau en stock !");
+    toast.success(CUSTOM_TEXTS.stockAlert.success);
     setShowNotifyDialog(false);
     setNotifyEmail("");
   };
@@ -595,10 +614,28 @@ export default function ProductPage() {
                 <div className="flex items-center gap-2 mb-4">
                   {isInStock ? (
                     <>
-                      <div className="w-2 h-2 rounded-full bg-green-500" />
-                      <span className="text-green-600 font-medium">
-                        Produit disponible
-                      </span>
+                      {product.stock_quantity === 1 ? (
+                        <>
+                          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                          <span className="text-red-600 font-bold">
+                            Vite, dernière pièce ! ⚡
+                          </span>
+                        </>
+                      ) : product.stock_quantity && product.stock_quantity < 5 ? (
+                        <>
+                          <div className="w-2 h-2 rounded-full bg-orange-500" />
+                          <span className="text-orange-600 font-semibold">
+                            Stock limité !
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                          <span className="text-green-600 font-medium">
+                            En stock - Expédition rapide
+                          </span>
+                        </>
+                      )}
                     </>
                   ) : (
                     <>
@@ -693,7 +730,7 @@ export default function ProductPage() {
                     className="flex-1 bg-[#b8933d] hover:bg-[#a07c2f] text-white"
                   >
                     <ShoppingCart className="h-5 w-5 mr-2" />
-                    Ajouter au panier
+                    {CUSTOM_TEXTS.buttons.addToCart}
                   </Button>
                 ) : (
                   <Button
@@ -701,7 +738,7 @@ export default function ProductPage() {
                     className="flex-1 bg-[#B6914A] hover:bg-[#a07c2f] text-white"
                   >
                     <Bell className="h-5 w-5 mr-2" />
-                    Me notifier
+                    {CUSTOM_TEXTS.buttons.alertStock}
                   </Button>
                 )}
 
