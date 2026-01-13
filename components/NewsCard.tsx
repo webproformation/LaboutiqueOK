@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Calendar } from 'lucide-react';
+import { Calendar, BookOpen } from 'lucide-react';
 
 interface NewsCategory {
   id: string;
@@ -75,8 +75,9 @@ export default function NewsCard({ post }: NewsCardProps) {
           <span>{formatDate(post.published_at)}</span>
         </div>
 
-        <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-[#C6A15B] transition-colors min-h-[3.5rem]">
-          {post.title}
+        <h3 className="flex items-center gap-2 text-lg font-bold text-[#D4AF37] mb-2 line-clamp-2 group-hover:text-[#C6A15B] transition-colors min-h-[3.5rem]">
+          <BookOpen className="h-5 w-5 flex-shrink-0" />
+          <span className="line-clamp-2">{post.title}</span>
         </h3>
 
         <p className="text-sm text-gray-600 line-clamp-3 mb-4">

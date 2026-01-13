@@ -117,7 +117,16 @@ export default function CategoryPage() {
                 if (v.attributes) {
                   Object.entries(v.attributes).forEach(([key, value]) => {
                     const lowerKey = key.toLowerCase();
-                    const stringValue = String(value || '');
+
+                    // Extraire la valeur string depuis l'objet si nécessaire
+                    let stringValue = '';
+                    if (typeof value === 'object' && value !== null) {
+                      // Si c'est un objet, essayer d'extraire name, label, ou option
+                      const objValue = value as any;
+                      stringValue = String(objValue.name || objValue.label || objValue.option || '');
+                    } else {
+                      stringValue = String(value || '');
+                    }
 
                     // Filtrer les IDs (UUID, hex codes longs, ou IDs numériques)
                     const isUUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(stringValue);
@@ -224,7 +233,14 @@ export default function CategoryPage() {
                 return Object.entries(v.attributes).some(([key, value]) => {
                   const lowerKey = key.toLowerCase();
                   if (lowerKey.includes('taille') || lowerKey.includes('size')) {
-                    const stringValue = String(value || '');
+                    // Extraire la valeur string depuis l'objet si nécessaire
+                    let stringValue = '';
+                    if (typeof value === 'object' && value !== null) {
+                      const objValue = value as any;
+                      stringValue = String(objValue.name || objValue.label || objValue.option || '');
+                    } else {
+                      stringValue = String(value || '');
+                    }
                     return stringValue === userSize;
                   }
                   return false;
@@ -260,7 +276,16 @@ export default function CategoryPage() {
 
                 Object.entries(v.attributes).forEach(([key, value]) => {
                   const lowerKey = key.toLowerCase();
-                  const stringValue = String(value || '');
+
+                  // Extraire la valeur string depuis l'objet si nécessaire
+                  let stringValue = '';
+                  if (typeof value === 'object' && value !== null) {
+                    const objValue = value as any;
+                    stringValue = String(objValue.name || objValue.label || objValue.option || '');
+                  } else {
+                    stringValue = String(value || '');
+                  }
+
                   if ((lowerKey.includes('couleur') || lowerKey.includes('color')) && stringValue === filterColor) {
                     matchesColor = true;
                   }

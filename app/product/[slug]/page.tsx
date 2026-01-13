@@ -61,6 +61,7 @@ export default function ProductPage() {
   const [notifyEmail, setNotifyEmail] = useState("");
   const [showNotifyDialog, setShowNotifyDialog] = useState(false);
   const [activeImageUrl, setActiveImageUrl] = useState<string | undefined>(undefined);
+  const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
   const [diamondPosition] = useState<"title" | "image" | "description">(() =>
     diamondPositions[Math.floor(Math.random() * diamondPositions.length)]
   );
@@ -69,6 +70,34 @@ export default function ProductPage() {
     loadProduct();
     checkAdminStatus();
   }, [slug, user]);
+
+  // Auto-sélection de la première variation au chargement
+  useEffect(() => {
+    if (product && product.type === "VARIABLE" && product.attributes && product.variations && !selectedVariation) {
+      const firstSelections: Record<string, string> = {};
+
+      // Sélectionner la première option de chaque attribut
+      product.attributes.forEach((attr: any) => {
+        if (attr.options && attr.options.length > 0) {
+          firstSelections[attr.name] = attr.options[0];
+        }
+      });
+
+      // Trouver la variation correspondante
+      const matchingVariation = product.variations.find((variation: any) =>
+        variation.attributes?.every((attr: any) =>
+          firstSelections[attr.name]?.toLowerCase() === attr.option?.toLowerCase()
+        )
+      );
+
+      if (matchingVariation) {
+        setSelectedVariation(matchingVariation);
+        if (matchingVariation.image?.src) {
+          setActiveImageUrl(matchingVariation.image.src);
+        }
+      }
+    }
+  }, [product]);
 
   async function checkAdminStatus() {
     if (!user) return;
@@ -256,9 +285,14 @@ export default function ProductPage() {
 
   const handleVariationChange = (variation: any) => {
     setSelectedVariation(variation);
+    setSelectedGalleryImage(null); // Réinitialiser la sélection manuelle
     if (variation?.image?.src) {
       setActiveImageUrl(variation.image.src);
     }
+  };
+
+  const handleImageClick = (imageUrl: string) => {
+    setSelectedGalleryImage(imageUrl);
   };
 
   const handleAddToCart = () => {
@@ -352,6 +386,55 @@ export default function ProductPage() {
   const isInStock = isVariable
     ? selectedVariation?.stock_status === "instock"
     : product.stock_status === "instock" && (product.stock_quantity ?? 0) > 0;
+
+  // Logique d'héritage d'image en cascade (4 priorités)
+  const getCurrentImageUrl = (): string | undefined => {
+    // Priorité 1: Sélection manuelle dans la galerie
+    if (selectedGalleryImage) {
+      return selectedGalleryImage;
+    }
+
+    // Priorité 2: Image de la variation exacte sélectionnée
+    if (selectedVariation?.image?.src) {
+      return selectedVariation.image.src;
+    }
+
+    // Priorité 3: Image d'une autre variation avec la même couleur
+    if (selectedVariation && product?.variations) {
+      // Chercher l'attribut couleur dans la variation sélectionnée
+      const colorAttribute = selectedVariation.attributes?.find((attr: any) => {
+        const attrName = attr.name?.toLowerCase() || '';
+        return attrName.includes('couleur') || attrName.includes('color');
+      });
+
+      if (colorAttribute) {
+        const selectedColor = colorAttribute.option;
+
+        // Chercher une autre variation avec la même couleur qui a une image
+        const variationWithSameColor = product.variations.find((v: any) => {
+          if (!v.image?.src || v.id === selectedVariation.id) return false;
+
+          const vColorAttribute = v.attributes?.find((attr: any) => {
+            const attrName = attr.name?.toLowerCase() || '';
+            return attrName.includes('couleur') || attrName.includes('color');
+          });
+
+          return vColorAttribute?.option?.toLowerCase() === selectedColor?.toLowerCase();
+        });
+
+        if (variationWithSameColor?.image?.src) {
+          return variationWithSameColor.image.src;
+        }
+      }
+    }
+
+    // Priorité 4: Première image du produit parent
+    if (product?.image_url) {
+      return product.image_url;
+    }
+
+    return undefined;
+  };
 
   const galleryImages = (() => {
     const images: Array<{ id: string; src: string; alt: string }> = [];
@@ -460,7 +543,8 @@ export default function ProductPage() {
             <ProductGallery
               images={galleryImages}
               productName={decodeHtmlEntities(product.name)}
-              selectedImageUrl={activeImageUrl}
+              selectedImageUrl={getCurrentImageUrl()}
+              onImageClick={handleImageClick}
             />
             {product.is_diamond && (
               <div className="mt-4">

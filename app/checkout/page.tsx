@@ -399,7 +399,7 @@ export default function CheckoutPage() {
       toast.success(`Commande ${orderNumber} validée avec succès !`, {
         position: 'bottom-right'
       });
-      router.push(`/order-confirmation/${newOrder.id}`);
+      router.push(`/checkout/confirmation?order_id=${newOrder.id}`);
     } catch (error) {
       console.error('Error processing order:', error);
       toast.error('Erreur lors du traitement de la commande');

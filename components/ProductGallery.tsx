@@ -15,9 +15,10 @@ interface ProductGalleryProps {
   images: ProductImage[];
   productName: string;
   selectedImageUrl?: string;
+  onImageClick?: (imageUrl: string) => void;
 }
 
-export function ProductGallery({ images, productName, selectedImageUrl }: ProductGalleryProps) {
+export function ProductGallery({ images, productName, selectedImageUrl, onImageClick }: ProductGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
@@ -116,10 +117,15 @@ export function ProductGallery({ images, productName, selectedImageUrl }: Produc
             </Button>
 
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-              {validImages.map((_, index) => (
+              {validImages.map((image, index) => (
                 <button
                   key={index}
-                  onClick={() => setCurrentIndex(index)}
+                  onClick={() => {
+                    setCurrentIndex(index);
+                    if (onImageClick) {
+                      onImageClick(image.src);
+                    }
+                  }}
                   className={`h-2 rounded-full transition-all ${
                     index === currentIndex ? "w-8 bg-white" : "w-2 bg-white/50"
                   }`}
@@ -136,7 +142,12 @@ export function ProductGallery({ images, productName, selectedImageUrl }: Produc
           {validImages.map((image, index) => (
             <button
               key={image.id}
-              onClick={() => setCurrentIndex(index)}
+              onClick={() => {
+                setCurrentIndex(index);
+                if (onImageClick) {
+                  onImageClick(image.src);
+                }
+              }}
               className={`relative aspect-[3/4] overflow-hidden rounded-lg transition-all ${
                 index === currentIndex
                   ? "ring-2 ring-[#b8933d] ring-offset-2 opacity-100"

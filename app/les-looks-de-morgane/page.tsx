@@ -102,7 +102,15 @@ export default function LooksPage() {
                 if (v.attributes) {
                   Object.entries(v.attributes).forEach(([key, value]) => {
                     const lowerKey = key.toLowerCase();
-                    const stringValue = String(value || '');
+
+                    // Extraire la valeur string depuis l'objet si nécessaire
+                    let stringValue = '';
+                    if (typeof value === 'object' && value !== null) {
+                      const objValue = value as any;
+                      stringValue = String(objValue.name || objValue.label || objValue.option || '');
+                    } else {
+                      stringValue = String(value || '');
+                    }
 
                     const isHexCode = /^[a-f0-9]{8}$/i.test(stringValue);
 
@@ -203,7 +211,16 @@ export default function LooksPage() {
 
               Object.entries(v.attributes).forEach(([key, value]) => {
                 const lowerKey = key.toLowerCase();
-                const stringValue = String(value || '');
+
+                // Extraire la valeur string depuis l'objet si nécessaire
+                let stringValue = '';
+                if (typeof value === 'object' && value !== null) {
+                  const objValue = value as any;
+                  stringValue = String(objValue.name || objValue.label || objValue.option || '');
+                } else {
+                  stringValue = String(value || '');
+                }
+
                 if ((lowerKey.includes('couleur') || lowerKey.includes('color')) && stringValue === filterColor) {
                   matchesColor = true;
                 }
