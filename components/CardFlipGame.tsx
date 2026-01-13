@@ -120,27 +120,38 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
       if (won && coupon) {
         couponCode = coupon.code;
 
-        const { data: existingAssignment } = await supabase
-          .from('user_coupons')
+        // Trouver le coupon_type correspondant au code du coupon
+        const { data: couponType } = await supabase
+          .from('coupon_types')
           .select('id')
-          .eq('user_id', user.id)
-          .eq('coupon_code', coupon.code)
+          .eq('code', coupon.code)
           .maybeSingle();
 
-        if (!existingAssignment && game?.coupon_id) {
-          const validUntil = new Date();
-          validUntil.setDate(validUntil.getDate() + 30);
+        if (couponType) {
+          const { data: existingAssignment } = await supabase
+            .from('user_coupons')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('coupon_type_id', couponType.id)
+            .maybeSingle();
 
-          await supabase.from('user_coupons').insert({
-            user_id: user.id,
-            coupon_type_id: game.coupon_id,
-            code: coupon.code,
-            source: 'card_flip_game',
-            is_used: false,
-            valid_until: validUntil.toISOString(),
-          });
+          if (!existingAssignment) {
+            const validUntil = new Date();
+            validUntil.setDate(validUntil.getDate() + 30);
 
-          toast.success(`Coupon ${coupon.code} ajouté à votre compte!`);
+            await supabase.from('user_coupons').insert({
+              user_id: user.id,
+              coupon_type_id: couponType.id,
+              code: coupon.code,
+              source: 'card_flip_game',
+              is_used: false,
+              valid_until: validUntil.toISOString(),
+            });
+
+            toast.success(`Coupon ${coupon.code} ajouté à votre compte!`);
+          }
+        } else {
+          console.error('Coupon type not found for code:', coupon.code);
         }
       }
 

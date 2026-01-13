@@ -58,6 +58,7 @@ export function GamePopupManager() {
   const [showScratchGame, setShowScratchGame] = useState(false);
   const [showWheelGame, setShowWheelGame] = useState(false);
   const [showCardFlipGame, setShowCardFlipGame] = useState(false);
+  const [debugMode] = useState(true); // MODE DEBUG ACTIVÉ - Force l'affichage du jeu
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -71,6 +72,12 @@ export function GamePopupManager() {
         console.log('🎮 Force showing card flip game...');
         sessionStorage.removeItem('game-popup-seen-today');
         setShowCardFlipGame(true);
+      };
+
+      (window as any).enableDebugMode = () => {
+        console.log('🐛 DEBUG MODE ACTIVATED - Game will show unconditionally');
+        sessionStorage.removeItem('game-popup-seen-today');
+        loadActiveGames();
       };
     }
     loadActiveGames();
@@ -117,8 +124,6 @@ export function GamePopupManager() {
         .from('card_flip_games')
         .select('*')
         .eq('is_active', true)
-        .or(`start_date.is.null,start_date.lte.${now}`)
-        .or(`end_date.is.null,end_date.gte.${now}`)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -127,11 +132,21 @@ export function GamePopupManager() {
         console.error('❌ Error loading card flip games:', cardFlipError);
       } else {
         console.log('🃏 Card flip game found:', cardFlipData);
+        if (cardFlipData) {
+          console.log('🃏 Game details:', {
+            id: cardFlipData.id,
+            name: cardFlipData.name,
+            is_active: cardFlipData.is_active,
+            start_date: cardFlipData.start_date,
+            end_date: cardFlipData.end_date,
+            now: now
+          });
+        }
       }
 
-      const hasSeenToday = sessionStorage.getItem('game-popup-seen-today');
+      const hasSeenToday = debugMode ? null : sessionStorage.getItem('game-popup-seen-today');
       const today = new Date().toDateString();
-      console.log('📅 Session check:', { hasSeenToday, today, shouldShow: hasSeenToday !== today });
+      console.log('📅 Session check:', { hasSeenToday, today, shouldShow: hasSeenToday !== today, debugMode });
 
       if (scratchData && (!hasSeenToday || hasSeenToday !== today)) {
         const canPlay = await checkCanPlay('scratch_card', scratchData.id, scratchData.max_plays_per_user);
@@ -147,14 +162,17 @@ export function GamePopupManager() {
           setTimeout(() => setShowWheelGame(true), 2000);
           sessionStorage.setItem('game-popup-seen-today', today);
         }
-      } else if (cardFlipData && (!hasSeenToday || hasSeenToday !== today)) {
+      } else if (cardFlipData && (debugMode || !hasSeenToday || hasSeenToday !== today)) {
         console.log('🃏 Card flip game active, checking if user can play...');
 
         if (!user) {
           console.log('⚠️ No user logged in, showing game anyway (will prompt login on click)');
           setCardFlipGame(cardFlipData);
-          setTimeout(() => setShowCardFlipGame(true), 2000);
-          sessionStorage.setItem('game-popup-seen-today', today);
+          setTimeout(() => {
+            console.log('🎮 SHOWING CARD FLIP GAME NOW!');
+            setShowCardFlipGame(true);
+          }, debugMode ? 500 : 2000);
+          if (!debugMode) sessionStorage.setItem('game-popup-seen-today', today);
         } else {
           const { data: plays } = await supabase
             .from('card_flip_game_plays')
@@ -162,13 +180,16 @@ export function GamePopupManager() {
             .eq('user_id', user.id)
             .eq('game_id', cardFlipData.id);
 
-          const canPlay = (plays?.length || 0) < cardFlipData.max_plays_per_user;
-          console.log('✅ User play check:', { plays: plays?.length || 0, max: cardFlipData.max_plays_per_user, canPlay });
+          const canPlay = debugMode || (plays?.length || 0) < cardFlipData.max_plays_per_user;
+          console.log('✅ User play check:', { plays: plays?.length || 0, max: cardFlipData.max_plays_per_user, canPlay, debugMode });
 
           if (canPlay) {
             setCardFlipGame(cardFlipData);
-            setTimeout(() => setShowCardFlipGame(true), 2000);
-            sessionStorage.setItem('game-popup-seen-today', today);
+            setTimeout(() => {
+              console.log('🎮 SHOWING CARD FLIP GAME NOW!');
+              setShowCardFlipGame(true);
+            }, debugMode ? 500 : 2000);
+            if (!debugMode) sessionStorage.setItem('game-popup-seen-today', today);
           } else {
             console.log('❌ User has already played max times');
           }
@@ -177,7 +198,7 @@ export function GamePopupManager() {
         if (!cardFlipData) {
           console.log('❌ No card flip game found in database');
         } else if (hasSeenToday === today) {
-          console.log('⏩ Game popup already shown today, skipping');
+          console.log('⏩ Game popup already shown today, skipping (use window.enableDebugMode() to force)');
         }
       }
 
@@ -221,26 +242,34 @@ export function GamePopupManager() {
     if (!user) return;
 
     try {
-      const { data: coupon } = await supabase
-        .from('coupons')
+      // Chercher le coupon_type par son code
+      const { data: couponType } = await supabase
+        .from('coupon_types')
         .select('id, code')
         .eq('code', couponCode)
         .maybeSingle();
 
-      if (coupon) {
+      if (couponType) {
+        // Vérifier si l'utilisateur a déjà ce coupon
         const { data: existingAssignment } = await supabase
           .from('user_coupons')
           .select('id')
           .eq('user_id', user.id)
-          .eq('coupon_code', coupon.code)
+          .eq('coupon_type_id', couponType.id)
           .maybeSingle();
 
         if (!existingAssignment) {
+          // Créer une date d'expiration (30 jours)
+          const validUntil = new Date();
+          validUntil.setDate(validUntil.getDate() + 30);
+
           await supabase.from('user_coupons').insert({
             user_id: user.id,
-            coupon_id: coupon.id,
-            coupon_code: coupon.code,
+            coupon_type_id: couponType.id,
+            code: couponType.code,
+            source: 'game_popup',
             is_used: false,
+            valid_until: validUntil.toISOString(),
           });
         }
       }

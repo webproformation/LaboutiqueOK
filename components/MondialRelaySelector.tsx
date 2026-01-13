@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MapPin, Search, Loader2, CheckCircle2, Clock, Navigation, Package } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface RelayPoint {
   Id: string;
@@ -136,23 +137,23 @@ export function MondialRelaySelector({
     setError(null);
 
     try {
-      const response = await fetch('/api/mondial-relay/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const { data, error: functionError } = await supabase.functions.invoke('mondial-relay-search', {
+        body: {
           postalCode: codeToSearch,
           country,
           deliveryMode,
-        }),
+        },
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erreur lors de la recherche');
+      if (functionError) {
+        throw new Error(functionError.message || 'Erreur lors de la recherche');
       }
 
-      if (data.relayPoints && data.relayPoints.length > 0) {
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (data?.relayPoints && data.relayPoints.length > 0) {
         setRelayPoints(data.relayPoints);
         if (mapLoaded) {
           setTimeout(() => initializeMap(data.relayPoints), 100);

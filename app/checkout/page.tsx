@@ -912,9 +912,6 @@ export default function CheckoutPage() {
                             setUseWallet(checked as boolean);
                             if (!checked) {
                               setWalletAmountToUse(0);
-                            } else {
-                              const maxAmount = Math.min(profile?.wallet_balance || 0, totalAfterDiscount);
-                              setWalletAmountToUse(maxAmount);
                             }
                           }}
                           className="mt-1"
@@ -928,6 +925,45 @@ export default function CheckoutPage() {
                               Économisez jusqu'à {Math.min(profile?.wallet_balance || 0, totalAfterDiscount).toFixed(2)} € sur cette commande
                             </p>
                           </label>
+
+                          {useWallet && (
+                            <div className="mt-3 space-y-2">
+                              <Label htmlFor="walletAmount" className="text-sm font-medium text-gray-700">
+                                Montant à utiliser
+                              </Label>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  id="walletAmount"
+                                  type="number"
+                                  min="0"
+                                  max={Math.min(profile?.wallet_balance || 0, totalAfterDiscount)}
+                                  step="0.01"
+                                  value={walletAmountToUse}
+                                  onChange={(e) => {
+                                    const value = parseFloat(e.target.value) || 0;
+                                    const maxAmount = Math.min(profile?.wallet_balance || 0, totalAfterDiscount);
+                                    setWalletAmountToUse(Math.min(Math.max(0, value), maxAmount));
+                                  }}
+                                  className="flex-1 border-purple-300 focus:border-purple-500 focus:ring-purple-500"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const maxAmount = Math.min(profile?.wallet_balance || 0, totalAfterDiscount);
+                                    setWalletAmountToUse(maxAmount);
+                                  }}
+                                  className="border-purple-500 text-purple-600 hover:bg-purple-500 hover:text-white whitespace-nowrap"
+                                >
+                                  Tout utiliser
+                                </Button>
+                              </div>
+                              <p className="text-xs text-gray-500">
+                                Maximum disponible : {Math.min(profile?.wallet_balance || 0, totalAfterDiscount).toFixed(2)} €
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -967,10 +1003,6 @@ export default function CheckoutPage() {
                             setUseLoyalty(checked as boolean);
                             if (!checked) {
                               setLoyaltyAmountToUse(0);
-                            } else {
-                              const afterWallet = Math.max(0, totalAfterDiscount - walletAmountToUse);
-                              const maxAmount = Math.min(profile?.loyalty_euros || 0, afterWallet);
-                              setLoyaltyAmountToUse(maxAmount);
                             }
                           }}
                           className="mt-1 border-[#D4AF37] data-[state=checked]:bg-[#D4AF37]"
@@ -984,6 +1016,47 @@ export default function CheckoutPage() {
                               Économisez jusqu'à {Math.min(profile?.loyalty_euros || 0, Math.max(0, totalAfterDiscount - walletAmountToUse)).toFixed(2)} € sur cette commande
                             </p>
                           </label>
+
+                          {useLoyalty && (
+                            <div className="mt-3 space-y-2">
+                              <Label htmlFor="loyaltyAmount" className="text-sm font-medium text-gray-700">
+                                Montant à utiliser
+                              </Label>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  id="loyaltyAmount"
+                                  type="number"
+                                  min="0"
+                                  max={Math.min(profile?.loyalty_euros || 0, Math.max(0, totalAfterDiscount - walletAmountToUse))}
+                                  step="0.01"
+                                  value={loyaltyAmountToUse}
+                                  onChange={(e) => {
+                                    const value = parseFloat(e.target.value) || 0;
+                                    const afterWallet = Math.max(0, totalAfterDiscount - walletAmountToUse);
+                                    const maxAmount = Math.min(profile?.loyalty_euros || 0, afterWallet);
+                                    setLoyaltyAmountToUse(Math.min(Math.max(0, value), maxAmount));
+                                  }}
+                                  className="flex-1 border-[#D4AF37]/30 focus:border-[#D4AF37] focus:ring-[#D4AF37]"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const afterWallet = Math.max(0, totalAfterDiscount - walletAmountToUse);
+                                    const maxAmount = Math.min(profile?.loyalty_euros || 0, afterWallet);
+                                    setLoyaltyAmountToUse(maxAmount);
+                                  }}
+                                  className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white whitespace-nowrap"
+                                >
+                                  Tout utiliser
+                                </Button>
+                              </div>
+                              <p className="text-xs text-gray-500">
+                                Maximum disponible : {Math.min(profile?.loyalty_euros || 0, Math.max(0, totalAfterDiscount - walletAmountToUse)).toFixed(2)} €
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
