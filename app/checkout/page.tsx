@@ -632,7 +632,13 @@ export default function CheckoutPage() {
                     {selectedShippingMethod?.is_relay && (
                       <div className="mt-4">
                         <RelayPointSelector
-                          provider={selectedShippingMethod.code as 'mondial-relay' | 'chronopost' | 'gls'}
+                          provider={(() => {
+                            const code = selectedShippingMethod.code;
+                            if (code === 'mondial_relay') return 'mondial-relay';
+                            if (code === 'chronopost_relay') return 'chronopost';
+                            if (code === 'gls_relay') return 'gls';
+                            return code as 'mondial-relay' | 'chronopost' | 'gls';
+                          })()}
                           onSelect={(point) => {
                             setRelayPointData({
                               name: point.name,
