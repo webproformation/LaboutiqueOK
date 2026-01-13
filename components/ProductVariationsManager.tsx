@@ -8,12 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProductMediaSelector } from "@/components/product-media-selector";
 import { Check, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { HierarchicalColorSelector } from "@/components/HierarchicalColorSelector";
 
 interface AttributeTerm {
   id: string;
   name: string;
   slug: string;
   color_code: string | null;
+  color_family: string | null;
   value: string;
   attribute_id: string;
 }
@@ -123,6 +125,7 @@ export default function ProductVariationsManager({
             slug,
             value,
             color_code,
+            color_family,
             order_by,
             attribute_id
           )
@@ -286,49 +289,63 @@ export default function ProductVariationsManager({
       </div>
 
       <div className="space-y-6">
-        {allAttributes.map((attribute) => (
-          <div key={attribute.id} className="space-y-4">
-            <div>
-              <Label className="text-lg font-semibold text-gray-900 mb-2 block">
-                {attribute.name}
-              </Label>
-              <p className="text-sm text-gray-600 mb-4">
-                Sélectionnez les {attribute.name.toLowerCase()} disponibles pour ce produit
-              </p>
+        {allAttributes.map((attribute) => {
+          const isColorAttribute = attribute.type === 'color' || attribute.slug.includes('couleur');
 
-              <div className={`grid gap-3 ${attribute.type === 'color' || attribute.slug.includes('couleur') ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-3 md:grid-cols-6'}`}>
-                {attribute.terms?.map((term) => {
-                  const isSelected = (selectedAttributeTerms[attribute.slug] || []).includes(term.id);
-                  const hasColorCode = term.color_code !== null;
+          return (
+            <div key={attribute.id} className="space-y-4">
+              {isColorAttribute && attribute.terms && attribute.terms.length > 0 ? (
+                <HierarchicalColorSelector
+                  terms={attribute.terms as any}
+                  selectedTermIds={selectedAttributeTerms[attribute.slug] || []}
+                  onToggle={(termId, termValue, termName) =>
+                    toggleAttributeTerm(attribute.slug, termId, termValue, termName)
+                  }
+                />
+              ) : (
+                <div>
+                  <Label className="text-lg font-semibold text-gray-900 mb-2 block">
+                    {attribute.name}
+                  </Label>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Sélectionnez les {attribute.name.toLowerCase()} disponibles pour ce produit
+                  </p>
 
-                  return (
-                    <button
-                      key={term.id}
-                      type="button"
-                      onClick={() => toggleAttributeTerm(attribute.slug, term.id, term.value, term.name)}
-                      className={`flex items-center ${hasColorCode ? 'justify-between' : 'justify-center'} gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
-                        isSelected
-                          ? "border-[#d4af37] bg-[#d4af37]/10 font-semibold"
-                          : "border-gray-300 hover:border-[#d4af37] bg-white"
-                      }`}
-                    >
-                      {hasColorCode && (
-                        <div
-                          className="w-6 h-6 rounded-full border-2 border-gray-300 flex-shrink-0"
-                          style={{ backgroundColor: term.color_code || undefined }}
-                        />
-                      )}
-                      <span className="text-sm font-medium text-gray-900 truncate flex-1 text-left">
-                        {term.name}
-                      </span>
-                      {isSelected && <Check className="h-5 w-5 text-[#d4af37] flex-shrink-0" />}
-                    </button>
-                  );
-                })}
-              </div>
+                  <div className="grid gap-3 grid-cols-3 md:grid-cols-6">
+                    {attribute.terms?.map((term) => {
+                      const isSelected = (selectedAttributeTerms[attribute.slug] || []).includes(term.id);
+                      const hasColorCode = term.color_code !== null;
+
+                      return (
+                        <button
+                          key={term.id}
+                          type="button"
+                          onClick={() => toggleAttributeTerm(attribute.slug, term.id, term.value, term.name)}
+                          className={`flex items-center ${hasColorCode ? 'justify-between' : 'justify-center'} gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                            isSelected
+                              ? "border-[#d4af37] bg-[#d4af37]/10 font-semibold"
+                              : "border-gray-300 hover:border-[#d4af37] bg-white"
+                          }`}
+                        >
+                          {hasColorCode && (
+                            <div
+                              className="w-6 h-6 rounded-full border-2 border-gray-300 flex-shrink-0"
+                              style={{ backgroundColor: term.color_code || undefined }}
+                            />
+                          )}
+                          <span className="text-sm font-medium text-gray-900 truncate flex-1 text-left">
+                            {term.name}
+                          </span>
+                          {isSelected && <Check className="h-5 w-5 text-[#d4af37] flex-shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {variations.length > 0 && (

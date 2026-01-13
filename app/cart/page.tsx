@@ -161,6 +161,12 @@ export default function CartPage() {
                             </h3>
                           </Link>
 
+                          {item.sku && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Réf: {item.sku}
+                            </p>
+                          )}
+
                           {item.selectedAttributes && Object.keys(item.selectedAttributes).length > 0 && (
                             <div className="mt-2 space-y-1">
                               {Object.entries(item.selectedAttributes).map(([key, value]) => {

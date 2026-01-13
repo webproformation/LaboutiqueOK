@@ -1222,10 +1222,17 @@ export default function CheckoutPage() {
                 <div className="space-y-2">
                   {cart.map((item) => (
                     <div key={item.id} className="flex justify-between text-sm">
-                      <span className="text-gray-600">
-                        {item.name} × {item.quantity}
-                      </span>
-                      <span className="font-medium">
+                      <div className="flex-1">
+                        <div className="text-gray-600">
+                          {item.name} × {item.quantity}
+                        </div>
+                        {item.sku && (
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            Réf: {item.sku}
+                          </div>
+                        )}
+                      </div>
+                      <span className="font-medium ml-2">
                         {(parseFloat(item.price) * item.quantity).toFixed(2)} €
                       </span>
                     </div>

@@ -22,6 +22,7 @@ interface Product {
   id: string;
   name: string;
   slug: string;
+  sku?: string | null;
   description: string;
   regular_price: number;
   sale_price: number | null;
@@ -262,6 +263,7 @@ export default function ProductEditForm({
       const productUpdateData: any = {
         name: String(product.name).trim(),
         slug: String(product.slug).trim(),
+        sku: product.sku ? String(product.sku).trim() : null,
         description: product.description || "",
         regular_price: parseFloat(String(product.regular_price)) || 0,
         sale_price: product.sale_price ? parseFloat(String(product.sale_price)) : null,
@@ -522,6 +524,20 @@ export default function ProductEditForm({
                 id="slug"
                 value={product.slug}
                 onChange={(e) => setProduct({ ...product, slug: e.target.value })}
+                className="bg-white"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="sku">UGS / SKU (Référence produit)</Label>
+              <p className="text-xs text-gray-500 mb-2">
+                Cette référence sera affichée dans le panier, checkout et commandes
+              </p>
+              <Input
+                id="sku"
+                value={product.sku || ""}
+                onChange={(e) => setProduct({ ...product, sku: e.target.value })}
+                placeholder="Ex: PROD-001"
                 className="bg-white"
               />
             </div>

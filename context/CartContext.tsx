@@ -9,6 +9,7 @@ interface CartItem {
   id: string;
   name: string;
   slug: string;
+  sku?: string | null;
   price: string;
   image?: { sourceUrl: string };
   quantity: number;
@@ -219,6 +220,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           id: product.id,
           name: product.name,
           slug: product.slug,
+          sku: product.sku || null,
           price: product.price,
           image: product.image,
           quantity,
