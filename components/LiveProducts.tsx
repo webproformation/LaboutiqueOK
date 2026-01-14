@@ -23,6 +23,7 @@ interface SharedProduct {
   product_id: string;
   is_featured: boolean;
   special_offer: string | null;
+  expires_at: string | null;
   products: any;
 }
 
@@ -53,8 +54,19 @@ export function LiveProducts({ liveStreamId }: LiveProductsProps) {
       )
       .subscribe();
 
+    const expirationCheckInterval = setInterval(() => {
+      setProducts(prev => {
+        const now = new Date();
+        return prev.filter(product => {
+          if (!product.expires_at) return true;
+          return new Date(product.expires_at) > now;
+        });
+      });
+    }, 10000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(expirationCheckInterval);
     };
   }, [liveStreamId]);
 
@@ -66,6 +78,7 @@ export function LiveProducts({ liveStreamId }: LiveProductsProps) {
         product_id,
         is_featured,
         special_offer,
+        expires_at,
         products (
           id,
           name,
@@ -76,6 +89,7 @@ export function LiveProducts({ liveStreamId }: LiveProductsProps) {
         )
       `)
       .eq('live_stream_id', liveStreamId)
+      .eq('is_published', true)
       .order('shared_at', { ascending: false });
 
     if (error) {
@@ -83,7 +97,13 @@ export function LiveProducts({ liveStreamId }: LiveProductsProps) {
       return;
     }
 
-    setProducts(data || []);
+    const now = new Date();
+    const activeProducts = (data || []).filter((product: SharedProduct) => {
+      if (!product.expires_at) return true;
+      return new Date(product.expires_at) > now;
+    });
+
+    setProducts(activeProducts);
   }
 
   function getPrice(product: Product) {

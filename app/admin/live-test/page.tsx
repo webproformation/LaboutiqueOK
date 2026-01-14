@@ -149,7 +149,13 @@ export default function LiveTestPage() {
         .order('shared_at', { ascending: false });
 
       if (!error && data) {
-        setSharedProducts(data.map(p => ({
+        const now = new Date();
+        const activeProducts = data.filter(p => {
+          if (!p.expires_at) return true;
+          return new Date(p.expires_at) > now;
+        });
+
+        setSharedProducts(activeProducts.map(p => ({
           id: p.id,
           live_stream_id: p.live_stream_id,
           product_id: p.product_id,
@@ -308,7 +314,7 @@ export default function LiveTestPage() {
       const originalPrice = selectedProduct.sale_price || selectedProduct.regular_price;
 
       const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 2);
+      expiresAt.setSeconds(expiresAt.getSeconds() + 60);
 
       const { data: liveProductData, error: insertError } = await supabase
         .from('products')
