@@ -57,17 +57,20 @@ async function verifyDatabase() {
 
   const { data: liveProducts, error: liveError } = await supabase
     .from('live_shared_products')
-    .select('id, special_offer, is_published, expires_at, shared_at')
+    .select('id, product_id, is_published, expires_at, shared_at, original_price, promo_price, product:products(name, image_url, sku, regular_price)')
     .order('shared_at', { ascending: false })
-    .limit(5);
+    .limit(5) as any;
 
   if (liveError) {
     console.error('❌ Erreur:', liveError);
   } else {
     console.log(`✅ Nombre de produits live: ${liveProducts?.length || 0}`);
-    liveProducts?.forEach((prod, idx) => {
+    liveProducts?.forEach((prod: any, idx: number) => {
       const expired = prod.expires_at ? new Date(prod.expires_at) < new Date() : false;
-      console.log(`   ${idx + 1}. ${prod.special_offer || 'Sans nom'}`);
+      console.log(`   ${idx + 1}. Product ID: ${prod.product_id}`);
+      console.log(`      - Nom produit: ${prod.product?.name || '❌ NON RÉCUPÉRÉ'}`);
+      console.log(`      - Image: ${prod.product?.image_url ? '✅ Présente' : '❌ Manquante'}`);
+      console.log(`      - Prix: Original ${prod.original_price}€ → Promo ${prod.promo_price}€`);
       console.log(`      - Publié: ${prod.is_published ? '✅' : '❌'}`);
       console.log(`      - Expire: ${prod.expires_at || 'Jamais'} ${expired ? '(EXPIRÉ)' : ''}`);
     });

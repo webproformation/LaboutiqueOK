@@ -149,7 +149,7 @@ export default function LiveTestPage() {
     try {
       const { data, error } = await supabase
         .from('live_shared_products')
-        .select('*, product:products(name, image_url, sku)')
+        .select('*, product:products(name, image_url, sku, regular_price)')
         .eq('live_stream_id', liveStreamId)
         .order('shared_at', { ascending: false });
 
@@ -160,20 +160,23 @@ export default function LiveTestPage() {
           return new Date(p.expires_at) > now;
         });
 
-        setSharedProducts(activeProducts.map(p => ({
-          id: p.id,
-          live_stream_id: p.live_stream_id,
-          product_id: p.product_id,
-          live_product_id: p.live_product_id,
-          product_name: p.product?.name || 'Produit',
-          product_image: p.product?.image_url || '',
-          original_price: p.original_price || 0,
-          promo_price: p.promo_price || 0,
-          live_sku: p.live_sku || (p.product?.sku ? `${p.product.sku}-live` : ''),
-          is_published: p.is_published || false,
-          published_at: p.published_at ? new Date(p.published_at) : undefined,
-          expires_at: p.expires_at ? new Date(p.expires_at) : undefined,
-        })));
+        setSharedProducts(activeProducts.map(p => {
+          const regularPrice = p.product?.regular_price || 0;
+          return {
+            id: p.id,
+            live_stream_id: p.live_stream_id,
+            product_id: p.product_id,
+            live_product_id: p.live_product_id,
+            product_name: p.product?.name || 'Produit',
+            product_image: p.product?.image_url || '',
+            original_price: p.original_price || regularPrice,
+            promo_price: p.promo_price || regularPrice,
+            live_sku: p.live_sku || (p.product?.sku ? `${p.product.sku}-live` : ''),
+            is_published: p.is_published || false,
+            published_at: p.published_at ? new Date(p.published_at) : undefined,
+            expires_at: p.expires_at ? new Date(p.expires_at) : undefined,
+          };
+        }));
       }
     } catch (error) {
       console.error('Erreur chargement produits:', error);
@@ -940,11 +943,12 @@ export default function LiveTestPage() {
                   Chat en Direct
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 flex flex-col p-0">
+              <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
                 <div
                   ref={chatScrollRef}
                   onScroll={handleChatScroll}
-                  className="flex-1 px-4 overflow-y-auto h-64"
+                  className="flex-1 px-4 overflow-y-auto"
+                  style={{ maxHeight: '400px' }}
                 >
                   <div className="space-y-3 py-4">
                     {messages.length === 0 ? (
