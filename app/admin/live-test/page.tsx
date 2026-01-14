@@ -351,11 +351,8 @@ export default function LiveTestPage() {
 
     try {
       const originalSku = selectedProduct.sku || `prod-${selectedProduct.id}`;
-      const liveSku = `${originalSku}-live`;
+      const liveSku = `${originalSku}-live-${Date.now()}`;
       const originalPrice = selectedProduct.sale_price || selectedProduct.regular_price;
-
-      const expiresAt = new Date();
-      expiresAt.setSeconds(expiresAt.getSeconds() + 60);
 
       const { data: liveProductData, error: insertError } = await supabase
         .from('products')
@@ -380,6 +377,8 @@ export default function LiveTestPage() {
         return;
       }
 
+      console.log('[Frontend] Calling API to add product to live...');
+
       const apiResponse = await fetch('/api/live/add-product', {
         method: 'POST',
         headers: {
@@ -393,7 +392,6 @@ export default function LiveTestPage() {
           promo_price: priceValue,
           original_price: originalPrice,
           live_sku: liveSku,
-          expires_at: expiresAt.toISOString(),
           product_name: selectedProduct.name,
           product_image: selectedProduct.image_url
         })
