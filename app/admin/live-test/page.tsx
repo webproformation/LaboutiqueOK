@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Video,
@@ -18,11 +17,12 @@ import {
   Sparkles,
   ShoppingCart,
   Users,
-  TrendingUp,
   Play,
   Pause,
   Plus,
-  Eye
+  Eye,
+  Search,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -47,6 +47,13 @@ interface LiveProduct {
   price: number;
   image_url: string;
   added_at: Date;
+}
+
+interface EmotionAnimation {
+  id: string;
+  type: 'heart' | 'like' | 'sparkle';
+  x: number;
+  y: number;
 }
 
 const FAKE_USERS: FakeUser[] = [
@@ -83,8 +90,11 @@ export default function LiveTestPage() {
   const [emotions, setEmotions] = useState({ hearts: 0, likes: 0, sparkles: 0 });
   const [goalProgress, setGoalProgress] = useState(0);
   const [autoChat, setAutoChat] = useState(false);
-  const [allProducts, setAllProducts] = useState<any[]>([]);
   const [showProductSelector, setShowProductSelector] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [emotionAnimations, setEmotionAnimations] = useState<EmotionAnimation[]>([]);
 
   // Vérification admin
   useEffect(() => {
@@ -93,23 +103,6 @@ export default function LiveTestPage() {
       router.push('/');
     }
   }, [profile, router]);
-
-  // Charger les produits disponibles
-  useEffect(() => {
-    loadAvailableProducts();
-  }, []);
-
-  async function loadAvailableProducts() {
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, name, slug, image_url, regular_price, sale_price')
-      .eq('status', 'published')
-      .limit(20);
-
-    if (!error && data) {
-      setAllProducts(data);
-    }
-  }
 
   // Démarrer/arrêter le flux webcam
   async function toggleStream() {
@@ -146,6 +139,41 @@ export default function LiveTestPage() {
     }
   }
 
+  // Recherche de produits
+  async function searchProducts(query: string) {
+    if (!query || query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, slug, image_url, regular_price, sale_price')
+        .or(`name.ilike.%${query}%,slug.ilike.%${query}%`)
+        .eq('status', 'published')
+        .limit(10);
+
+      if (!error && data) {
+        setSearchResults(data);
+      }
+    } catch (error) {
+      console.error('Erreur recherche:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  }
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchProducts(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Simulation messages automatiques
   useEffect(() => {
     if (!autoChat) return;
@@ -161,7 +189,7 @@ export default function LiveTestPage() {
         const emotionType = ['hearts', 'likes', 'sparkles'][Math.floor(Math.random() * 3)];
         setEmotions(prev => ({ ...prev, [emotionType]: prev[emotionType as keyof typeof prev] + 1 }));
       }
-    }, 3000 + Math.random() * 4000); // Entre 3 et 7 secondes
+    }, 3000 + Math.random() * 4000);
 
     return () => clearInterval(interval);
   }, [autoChat]);
@@ -206,6 +234,8 @@ export default function LiveTestPage() {
 
     setProducts(prev => [liveProduct, ...prev]);
     setShowProductSelector(false);
+    setSearchQuery('');
+    setSearchResults([]);
 
     toast.success(`${product.name} ajouté au live !`);
 
@@ -213,11 +243,70 @@ export default function LiveTestPage() {
     setTimeout(() => {
       addFakeMessage(FAKE_USERS[0], `Oh j'adore ce modèle ! 😍`);
       setEmotions(prev => ({ ...prev, hearts: prev.hearts + 3 }));
+      triggerEmotionAnimation('heart');
     }, 1000);
+  }
+
+  // Animation des émotions
+  function triggerEmotionAnimation(type: 'heart' | 'like' | 'sparkle') {
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    const rect = videoElement.getBoundingClientRect();
+
+    if (type === 'sparkle') {
+      // Feux d'artifice multiples
+      for (let i = 0; i < 8; i++) {
+        setTimeout(() => {
+          const animation: EmotionAnimation = {
+            id: `${Date.now()}-${Math.random()}`,
+            type: 'sparkle',
+            x: rect.left + Math.random() * rect.width,
+            y: rect.top + Math.random() * rect.height
+          };
+          setEmotionAnimations(prev => [...prev, animation]);
+
+          setTimeout(() => {
+            setEmotionAnimations(prev => prev.filter(a => a.id !== animation.id));
+          }, 2000);
+        }, i * 150);
+      }
+    } else {
+      // Un gros pouce ou coeur
+      const animation: EmotionAnimation = {
+        id: `${Date.now()}-${Math.random()}`,
+        type,
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2
+      };
+
+      setEmotionAnimations(prev => [...prev, animation]);
+
+      setTimeout(() => {
+        setEmotionAnimations(prev => prev.filter(a => a.id !== animation.id));
+      }, 2000);
+    }
   }
 
   function sendEmotion(type: 'hearts' | 'likes' | 'sparkles') {
     setEmotions(prev => ({ ...prev, [type]: prev[type] + 1 }));
+
+    // Choisir un utilisateur aléatoire
+    const randomUser = FAKE_USERS[Math.floor(Math.random() * FAKE_USERS.length)];
+
+    // Message selon l'émotion
+    const emotionMessages = {
+      hearts: ['❤️', '💕', '💖', '😍'],
+      likes: ['👍', '👏', '🔥', '💪'],
+      sparkles: ['✨', '⭐', '🌟', '💫']
+    };
+
+    const randomEmoji = emotionMessages[type][Math.floor(Math.random() * emotionMessages[type].length)];
+    addFakeMessage(randomUser, randomEmoji);
+
+    // Animation visuelle
+    const animationType = type === 'hearts' ? 'heart' : type === 'likes' ? 'like' : 'sparkle';
+    triggerEmotionAnimation(animationType);
   }
 
   function simulateViewer() {
@@ -320,7 +409,7 @@ export default function LiveTestPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Colonne Gauche - Vidéo + Stats */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Vidéo */}
+            {/* Vidéo avec animations */}
             <Card className="overflow-hidden">
               <div className="relative w-full aspect-video bg-black">
                 <video
@@ -330,6 +419,35 @@ export default function LiveTestPage() {
                   muted
                   className="w-full h-full object-cover"
                 />
+
+                {/* Animations d'émotions */}
+                {emotionAnimations.map((anim) => (
+                  <div
+                    key={anim.id}
+                    className="fixed pointer-events-none z-50"
+                    style={{
+                      left: anim.x,
+                      top: anim.y,
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
+                    {anim.type === 'heart' && (
+                      <div className="animate-bounce-float text-8xl">
+                        ❤️
+                      </div>
+                    )}
+                    {anim.type === 'like' && (
+                      <div className="animate-bounce-float text-8xl">
+                        👍
+                      </div>
+                    )}
+                    {anim.type === 'sparkle' && (
+                      <div className="animate-firework text-6xl">
+                        ✨
+                      </div>
+                    )}
+                  </div>
+                ))}
 
                 {isStreaming && (
                   <>
@@ -344,7 +462,6 @@ export default function LiveTestPage() {
                       </Badge>
                     </div>
 
-                    {/* Barre de progression objectif */}
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-white text-sm">
@@ -554,43 +671,114 @@ export default function LiveTestPage() {
           </div>
         </div>
 
-        {/* Modal Sélecteur de Produits */}
+        {/* Modal Recherche de Produits */}
         {showProductSelector && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <Card className="w-full max-w-4xl max-h-[80vh] flex flex-col">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Ajouter un produit au live</CardTitle>
-                  <Button variant="ghost" size="icon" onClick={() => setShowProductSelector(false)}>
-                    ✕
+                  <CardTitle>Rechercher un produit</CardTitle>
+                  <Button variant="ghost" size="icon" onClick={() => {
+                    setShowProductSelector(false);
+                    setSearchQuery('');
+                    setSearchResults([]);
+                  }}>
+                    <X className="h-4 w-4" />
                   </Button>
+                </div>
+                <div className="relative mt-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Rechercher par nom ou slug..."
+                    className="pl-10"
+                    autoFocus
+                  />
                 </div>
               </CardHeader>
               <CardContent className="flex-1 overflow-auto">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {allProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      onClick={() => addProductToLive(product)}
-                      className="border rounded-lg p-3 cursor-pointer hover:border-[#d4af37] hover:shadow-md transition-all"
-                    >
-                      <img
-                        src={product.image_url || '/placeholder.png'}
-                        alt={product.name}
-                        className="w-full aspect-square object-cover rounded mb-2"
-                      />
-                      <h4 className="font-semibold text-sm line-clamp-2 mb-1">{product.name}</h4>
-                      <p className="text-lg font-bold text-[#d4af37]">
-                        {product.sale_price || product.regular_price}€
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                {isSearching ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <div className="animate-spin h-8 w-8 border-4 border-[#d4af37] border-t-transparent rounded-full mx-auto mb-2" />
+                    <p>Recherche en cours...</p>
+                  </div>
+                ) : searchQuery.length < 2 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Search className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>Tapez au moins 2 caractères pour rechercher</p>
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>Aucun produit trouvé</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {searchResults.map((product) => (
+                      <div
+                        key={product.id}
+                        onClick={() => addProductToLive(product)}
+                        className="border rounded-lg p-3 cursor-pointer hover:border-[#d4af37] hover:shadow-md transition-all"
+                      >
+                        <img
+                          src={product.image_url || '/placeholder.png'}
+                          alt={product.name}
+                          className="w-full aspect-square object-cover rounded mb-2"
+                        />
+                        <h4 className="font-semibold text-sm line-clamp-2 mb-1">{product.name}</h4>
+                        <p className="text-lg font-bold text-[#d4af37]">
+                          {product.sale_price || product.regular_price}€
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
         )}
       </div>
+
+      {/* Styles pour les animations */}
+      <style jsx global>{`
+        @keyframes bounce-float {
+          0% {
+            transform: translate(-50%, -50%) scale(0) rotate(0deg);
+            opacity: 1;
+          }
+          50% {
+            transform: translate(-50%, -100%) scale(1.2) rotate(10deg);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(-50%, -200%) scale(0.8) rotate(-10deg);
+            opacity: 0;
+          }
+        }
+
+        @keyframes firework {
+          0% {
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 1;
+          }
+          50% {
+            transform: translate(-50%, -50%) scale(2);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(-50%, -50%) scale(0.5);
+            opacity: 0;
+          }
+        }
+
+        .animate-bounce-float {
+          animation: bounce-float 2s ease-out forwards;
+        }
+
+        .animate-firework {
+          animation: firework 2s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 }
