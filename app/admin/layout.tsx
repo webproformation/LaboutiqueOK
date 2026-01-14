@@ -146,13 +146,13 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-blue-900 text-white flex items-center justify-between px-4 z-50">
-        <h1 className="text-xl font-bold">Admin - La Boutique de Morgane</h1>
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-blue-900 text-white flex items-center justify-between px-3 z-50 shadow-lg">
+        <h1 className="text-base font-bold truncate flex-1">Admin - LBDM</h1>
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="text-white hover:bg-blue-800"
+          className="text-white hover:bg-blue-800 h-11 w-11 flex-shrink-0"
         >
           {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </Button>
@@ -161,8 +161,8 @@ export default function AdminLayout({
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed top-0 left-0 h-full w-64 bg-blue-900 text-white transition-transform duration-300 z-40 overflow-y-auto",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          "fixed top-0 left-0 h-full w-72 bg-blue-900 text-white transition-transform duration-300 z-[9999] overflow-y-auto shadow-2xl",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0 lg:w-64"
         )}
       >
         <div className="p-6 border-b border-blue-800">
@@ -236,14 +236,14 @@ export default function AdminLayout({
       {/* Overlay for mobile */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          className="fixed inset-0 bg-black/70 z-[9998] lg:hidden backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Main content */}
-      <main className="lg:ml-64 min-h-screen pt-16 lg:pt-0">
-        <div className="p-6 max-w-[1800px] mx-auto w-full">{children}</div>
+      <main className="lg:ml-64 min-h-screen pt-14 lg:pt-0">
+        <div className="p-3 md:p-6 max-w-[1800px] mx-auto w-full">{children}</div>
       </main>
     </div>
   );

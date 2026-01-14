@@ -32,8 +32,8 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     <AuthProvider>
       <WishlistProvider>
         <CartProvider>
-          <AdminBanner />
-          <TopInfoBanner />
+          {!isAdminPage && <AdminBanner />}
+          {!isAdminPage && <TopInfoBanner />}
           {showHeaderFooter && (
             <>
               <SiteHeader />
@@ -42,8 +42,8 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
           )}
           {children}
           {showHeaderFooter && <SiteFooter />}
-          <CookieConsent />
-          <FloatingButtons />
+          {!isAdminPage && <CookieConsent />}
+          {!isAdminPage && <FloatingButtons />}
           <Toaster
             position="bottom-right"
             richColors

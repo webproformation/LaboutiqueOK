@@ -132,8 +132,8 @@ export default function ProductsTable({
     <div className="space-y-4">
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <CardContent className="pt-4 md:pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
@@ -189,8 +189,8 @@ export default function ProductsTable({
         {filteredProducts.length} produit(s) trouvé(s)
       </div>
 
-      {/* Products Table */}
-      <Card>
+      {/* Products Table - Desktop */}
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           {filteredProducts.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
@@ -343,6 +343,136 @@ export default function ProductsTable({
           )}
         </CardContent>
       </Card>
+
+      {/* Products Cards - Mobile */}
+      <div className="md:hidden space-y-3">
+        {filteredProducts.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-12 text-gray-500">
+              <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <p>Aucun produit trouvé</p>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredProducts.map((product) => (
+            <Card key={product.id} className="overflow-hidden">
+              <CardContent className="p-0">
+                <div className="flex gap-3 p-3">
+                  {/* Image */}
+                  <div className="flex-shrink-0">
+                    {product.image_url ? (
+                      <img
+                        src={product.image_url}
+                        alt={decodeHtmlEntities(product.name)}
+                        className="w-20 h-20 object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <Package className="h-8 w-8 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="font-semibold text-sm text-gray-900 line-clamp-2">
+                        {decodeHtmlEntities(product.name)}
+                      </h3>
+                      <div className="flex gap-1 flex-shrink-0">
+                        {product.is_diamond && (
+                          <Diamond className="h-4 w-4 text-[#D4AF37] fill-[#D4AF37]" />
+                        )}
+                        {product.is_featured && (
+                          <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Price & Stock */}
+                    <div className="flex items-center gap-3 mb-2">
+                      <div>
+                        {product.sale_price ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs line-through text-gray-400">
+                              {product.regular_price.toFixed(2)}€
+                            </span>
+                            <span className="font-bold text-red-600">
+                              {product.sale_price.toFixed(2)}€
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="font-bold text-gray-900">
+                            {product.regular_price.toFixed(2)}€
+                          </span>
+                        )}
+                      </div>
+                      <Badge
+                        variant={product.stock_quantity > 0 ? "default" : "destructive"}
+                        className="text-xs"
+                      >
+                        {product.stock_quantity > 0 ? `Stock: ${product.stock_quantity}` : "Rupture"}
+                      </Badge>
+                    </div>
+
+                    {/* Categories */}
+                    {product.category_ids && product.category_ids.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {product.category_ids.slice(0, 2).map((catId) => {
+                          const category = categories.find(c => c.id === catId);
+                          return category ? (
+                            <Badge key={catId} variant="outline" className="text-[10px] px-1.5 py-0">
+                              {decodeHtmlEntities(category.name)}
+                            </Badge>
+                          ) : null;
+                        })}
+                        {product.category_ids.length > 2 && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            +{product.category_ids.length - 2}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Status */}
+                    <Badge
+                      variant={product.status === "publish" ? "default" : "secondary"}
+                      className="text-xs mb-3"
+                    >
+                      {product.status === "publish" ? "Publié" : "Brouillon"}
+                    </Badge>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                      <Link href={`/product/${product.slug}`} className="flex-1">
+                        <Button variant="outline" size="sm" className="w-full h-11">
+                          <Eye className="h-4 w-4 mr-2" />
+                          Voir
+                        </Button>
+                      </Link>
+                      <Link href={`/admin/products/${product.id}`} className="flex-1">
+                        <Button variant="default" size="sm" className="w-full h-11 bg-blue-600 hover:bg-blue-700">
+                          <Edit className="h-4 w-4 mr-2" />
+                          Éditer
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteProduct(product.id, product.name)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 h-11 w-11 flex-shrink-0"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
     </div>
   );
 }

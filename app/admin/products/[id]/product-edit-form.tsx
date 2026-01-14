@@ -481,19 +481,31 @@ export default function ProductEditForm({
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <Link href="/admin/products" className="inline-flex items-center text-gray-600 hover:text-[#d4af37]">
+    <div className="space-y-4 md:space-y-6 max-w-7xl mx-auto pb-20 md:pb-0">
+      {/* Header - Responsive */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <Link href="/admin/products" className="inline-flex items-center text-gray-600 hover:text-[#d4af37] text-sm md:text-base">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour aux produits
         </Link>
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
+          className="hidden md:flex bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
         >
           <Save className="h-4 w-4 mr-2" />
+          {saving ? "Enregistrement..." : "Enregistrer"}
+        </Button>
+      </div>
+
+      {/* Mobile Save Button - Sticky */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 shadow-lg z-40">
+        <Button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full h-12 bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
+        >
+          <Save className="h-5 w-5 mr-2" />
           {saving ? "Enregistrement..." : "Enregistrer"}
         </Button>
       </div>
