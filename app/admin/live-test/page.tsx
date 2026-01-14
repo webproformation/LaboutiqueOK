@@ -97,7 +97,6 @@ const AUTO_MESSAGES = [
 ];
 
 const LIVE_REPLAY_CATEGORY_ID = '1768404743767-lfnpfit';
-const MOCK_LIVE_ID = 'test-live-' + Date.now();
 
 export default function LiveTestPage() {
   const { profile, loading } = useAuth();
@@ -105,6 +104,7 @@ export default function LiveTestPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
+  const [liveStreamId, setLiveStreamId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -134,19 +134,21 @@ export default function LiveTestPage() {
   }, [profile, loading, router]);
 
   useEffect(() => {
-    if (isStreaming) {
+    if (isStreaming && liveStreamId) {
       loadSharedProducts();
       const interval = setInterval(loadSharedProducts, 5000);
       return () => clearInterval(interval);
     }
-  }, [isStreaming]);
+  }, [isStreaming, liveStreamId]);
 
   async function loadSharedProducts() {
+    if (!liveStreamId) return;
+
     try {
       const { data, error } = await supabase
         .from('live_shared_products')
         .select('*')
-        .eq('live_stream_id', MOCK_LIVE_ID)
+        .eq('live_stream_id', liveStreamId)
         .order('shared_at', { ascending: false });
 
       if (!error && data) {
@@ -179,6 +181,27 @@ export default function LiveTestPage() {
   async function toggleStream() {
     if (!isStreaming) {
       try {
+        const liveId = `live_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        const { data: newLive, error: liveError } = await supabase
+          .from('live_streams')
+          .insert({
+            id: liveId,
+            title: `Live Test ${new Date().toLocaleString('fr-FR')}`,
+            status: 'live',
+            started_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (liveError) {
+          console.error('Erreur création live:', liveError);
+          toast.error('Impossible de créer le live');
+          return;
+        }
+
+        setLiveStreamId(liveId);
+
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true
@@ -202,8 +225,20 @@ export default function LiveTestPage() {
       if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
+
+      if (liveStreamId) {
+        await supabase
+          .from('live_streams')
+          .update({
+            status: 'ended',
+            ended_at: new Date().toISOString()
+          })
+          .eq('id', liveStreamId);
+      }
+
       setStream(null);
       setIsStreaming(false);
+      setLiveStreamId(null);
       toast.info('Live arrêté');
     }
   }
@@ -298,6 +333,11 @@ export default function LiveTestPage() {
   }
 
   async function addProductToLive() {
+    if (!liveStreamId) {
+      toast.error('Aucun live actif. Démarrez d\'abord le live.');
+      return;
+    }
+
     if (!selectedProduct || !promoPrice) {
       toast.error('Veuillez renseigner le prix promo');
       return;
@@ -340,22 +380,28 @@ export default function LiveTestPage() {
         return;
       }
 
-      const { error: sharedError } = await supabase
-        .from('live_shared_products')
-        .insert({
-          live_stream_id: MOCK_LIVE_ID,
+      const apiResponse = await fetch('/api/live/add-product', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          live_stream_id: liveStreamId,
           product_id: selectedProduct.id,
           live_product_id: liveProductData.id,
           special_offer: selectedProduct.name,
           promo_price: priceValue,
           original_price: originalPrice,
           live_sku: liveSku,
-          is_published: false,
-          expires_at: expiresAt.toISOString()
-        });
+          expires_at: expiresAt.toISOString(),
+          product_name: selectedProduct.name,
+          product_image: selectedProduct.image_url
+        })
+      });
 
-      if (sharedError) {
-        console.error('Erreur ajout produit partagé:', sharedError);
+      if (!apiResponse.ok) {
+        const errorData = await apiResponse.json();
+        console.error('Erreur API ajout produit partagé:', errorData);
         toast.error('Erreur lors de l\'ajout du produit');
         return;
       }
