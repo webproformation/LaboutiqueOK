@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
+import { LiveProductOverlay } from '@/components/LiveProductOverlay';
 import {
   Video,
   VideoOff,
@@ -114,6 +115,7 @@ export default function LiveTestPage() {
   const [emotions, setEmotions] = useState({ hearts: 0, likes: 0, sparkles: 0 });
   const [goalProgress, setGoalProgress] = useState(0);
   const [autoChat, setAutoChat] = useState(false);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
 
   const [showProductSelector, setShowProductSelector] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -147,7 +149,7 @@ export default function LiveTestPage() {
     try {
       const { data, error } = await supabase
         .from('live_shared_products')
-        .select('*')
+        .select('*, product:products(name, image_url, sku)')
         .eq('live_stream_id', liveStreamId)
         .order('shared_at', { ascending: false });
 
@@ -163,11 +165,11 @@ export default function LiveTestPage() {
           live_stream_id: p.live_stream_id,
           product_id: p.product_id,
           live_product_id: p.live_product_id,
-          product_name: p.special_offer || 'Produit',
-          product_image: '',
+          product_name: p.product?.name || p.special_offer || 'Produit',
+          product_image: p.product?.image_url || '',
           original_price: p.original_price || 0,
           promo_price: p.promo_price || 0,
-          live_sku: p.live_sku || '',
+          live_sku: p.live_sku || (p.product?.sku ? `${p.product.sku}-live` : ''),
           is_published: p.is_published || false,
           published_at: p.published_at ? new Date(p.published_at) : undefined,
           expires_at: p.expires_at ? new Date(p.expires_at) : undefined,
@@ -307,8 +309,19 @@ export default function LiveTestPage() {
     setMessages(prev => [...prev, newMsg]);
 
     setTimeout(() => {
-      chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' });
+      if (!isUserScrolling && chatScrollRef.current) {
+        chatScrollRef.current.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' });
+      }
     }, 100);
+  }
+
+  function handleChatScroll() {
+    if (!chatScrollRef.current) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = chatScrollRef.current;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+
+    setIsUserScrolling(!isAtBottom);
   }
 
   function sendMessage() {
@@ -706,6 +719,14 @@ export default function LiveTestPage() {
                   </div>
                 ))}
 
+                {publishedProducts.length > 0 && publishedProducts[0] && (
+                  <LiveProductOverlay
+                    product={publishedProducts[0]}
+                    showCloseButton={true}
+                    position="bottom-right"
+                  />
+                )}
+
                 <div className="absolute top-4 left-4 space-y-2">
                   <Badge className="bg-black/60 backdrop-blur text-white border-none">
                     <Eye className="h-4 w-4 mr-1" />
@@ -882,9 +903,9 @@ export default function LiveTestPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {FAKE_USERS.map((user) => (
-                    <div key={user.id} className="flex items-center gap-2 p-2 rounded hover:bg-gray-50">
+                <div className="h-48 overflow-y-auto space-y-2">
+                  {FAKE_USERS.slice(0, 3).map((user) => (
+                    <div key={user.id} className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 border-b border-gray-100 last:border-0">
                       <span className="text-2xl">{user.avatar}</span>
                       <div className="flex-1">
                         <div className="font-semibold text-sm">{user.name}</div>
@@ -892,6 +913,18 @@ export default function LiveTestPage() {
                       </div>
                       <div
                         className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: user.color }}
+                      />
+                    </div>
+                  ))}
+                  {FAKE_USERS.slice(3).map((user) => (
+                    <div key={user.id} className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 opacity-75">
+                      <span className="text-lg">{user.avatar}</span>
+                      <div className="flex-1">
+                        <div className="font-medium text-xs">{user.name}</div>
+                      </div>
+                      <div
+                        className="w-1.5 h-1.5 rounded-full"
                         style={{ backgroundColor: user.color }}
                       />
                     </div>
@@ -908,7 +941,11 @@ export default function LiveTestPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col p-0">
-                <ScrollArea ref={chatScrollRef} className="flex-1 px-4">
+                <div
+                  ref={chatScrollRef}
+                  onScroll={handleChatScroll}
+                  className="flex-1 px-4 overflow-y-auto h-64"
+                >
                   <div className="space-y-3 py-4">
                     {messages.length === 0 ? (
                       <div className="text-center text-gray-500 py-8">
@@ -937,7 +974,7 @@ export default function LiveTestPage() {
                       ))
                     )}
                   </div>
-                </ScrollArea>
+                </div>
 
                 <div className="border-t p-4 space-y-3">
                   <div className="flex gap-2 justify-around">
