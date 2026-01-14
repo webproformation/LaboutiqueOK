@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
 import {
   Video,
   VideoOff,
@@ -22,7 +23,11 @@ import {
   Plus,
   Eye,
   Search,
-  X
+  X,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Package
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -47,6 +52,21 @@ interface LiveProduct {
   price: number;
   image_url: string;
   added_at: Date;
+}
+
+interface LiveSharedProduct {
+  id: string;
+  live_stream_id: string;
+  product_id: string;
+  live_product_id?: string;
+  product_name: string;
+  product_image: string;
+  original_price: number;
+  promo_price: number;
+  live_sku: string;
+  is_published: boolean;
+  published_at?: Date;
+  expires_at?: Date;
 }
 
 interface EmotionAnimation {
@@ -75,6 +95,9 @@ const AUTO_MESSAGES = [
   "Je le veux ! 💕",
 ];
 
+const LIVE_REPLAY_CATEGORY_ID = '1768404743767-lfnpfit';
+const MOCK_LIVE_ID = 'test-live-' + Date.now();
+
 export default function LiveTestPage() {
   const { profile } = useAuth();
   const router = useRouter();
@@ -90,56 +113,94 @@ export default function LiveTestPage() {
   const [emotions, setEmotions] = useState({ hearts: 0, likes: 0, sparkles: 0 });
   const [goalProgress, setGoalProgress] = useState(0);
   const [autoChat, setAutoChat] = useState(false);
+
   const [showProductSelector, setShowProductSelector] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [promoPrice, setPromoPrice] = useState<string>('');
+  const [modalStep, setModalStep] = useState<1 | 2>(1);
+
+  const [sharedProducts, setSharedProducts] = useState<LiveSharedProduct[]>([]);
   const [emotionAnimations, setEmotionAnimations] = useState<EmotionAnimation[]>([]);
 
-  // Vérification admin
   useEffect(() => {
-    if (profile && !profile.is_admin) {
-      toast.error('Accès réservé aux administrateurs');
-      router.push('/');
+    if (!profile?.is_admin) {
+      router.push('/admin');
     }
   }, [profile, router]);
 
-  // Démarrer/arrêter le flux webcam
-  async function toggleStream() {
-    if (isStreaming && stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-      setIsStreaming(false);
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
+  useEffect(() => {
+    if (isStreaming) {
+      loadSharedProducts();
+      const interval = setInterval(loadSharedProducts, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [isStreaming]);
+
+  async function loadSharedProducts() {
+    try {
+      const { data, error } = await supabase
+        .from('live_shared_products')
+        .select('*')
+        .eq('live_stream_id', MOCK_LIVE_ID)
+        .order('shared_at', { ascending: false });
+
+      if (!error && data) {
+        setSharedProducts(data.map(p => ({
+          id: p.id,
+          live_stream_id: p.live_stream_id,
+          product_id: p.product_id,
+          live_product_id: p.live_product_id,
+          product_name: p.special_offer || 'Produit',
+          product_image: '',
+          original_price: p.original_price || 0,
+          promo_price: p.promo_price || 0,
+          live_sku: p.live_sku || '',
+          is_published: p.is_published || false,
+          published_at: p.published_at ? new Date(p.published_at) : undefined,
+          expires_at: p.expires_at ? new Date(p.expires_at) : undefined,
+        })));
       }
-    } else {
+    } catch (error) {
+      console.error('Erreur chargement produits:', error);
+    }
+  }
+
+  async function toggleStream() {
+    if (!isStreaming) {
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: 'user'
-          },
+          video: true,
           audio: true
         });
-
-        setStream(mediaStream);
-        setIsStreaming(true);
 
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
         }
 
-        toast.success('Webcam activée !');
+        setStream(mediaStream);
+        setIsStreaming(true);
+        toast.success('Live démarré ! La webcam est active.');
       } catch (error) {
-        console.error('Erreur accès webcam:', error);
         toast.error('Impossible d\'accéder à la webcam');
+        console.error(error);
       }
+    } else {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      setStream(null);
+      setIsStreaming(false);
+      toast.info('Live arrêté');
     }
   }
 
-  // Recherche de produits
   async function searchProducts(query: string) {
     if (!query || query.length < 2) {
       setSearchResults([]);
@@ -150,7 +211,7 @@ export default function LiveTestPage() {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, slug, image_url, regular_price, sale_price')
+        .select('id, name, slug, image_url, regular_price, sale_price, sku')
         .or(`name.ilike.%${query}%,slug.ilike.%${query}%`)
         .eq('status', 'publish')
         .limit(10);
@@ -167,7 +228,6 @@ export default function LiveTestPage() {
     }
   }
 
-  // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
       searchProducts(searchQuery);
@@ -176,7 +236,6 @@ export default function LiveTestPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Simulation messages automatiques
   useEffect(() => {
     if (!autoChat) return;
 
@@ -186,7 +245,6 @@ export default function LiveTestPage() {
 
       addFakeMessage(randomUser, randomMessage);
 
-      // Augmenter aléatoirement les émotions
       if (Math.random() > 0.5) {
         const emotionType = ['hearts', 'likes', 'sparkles'][Math.floor(Math.random() * 3)];
         setEmotions(prev => ({ ...prev, [emotionType]: prev[emotionType as keyof typeof prev] + 1 }));
@@ -225,31 +283,132 @@ export default function LiveTestPage() {
     setNewMessage('');
   }
 
-  function addProductToLive(product: any) {
-    const liveProduct: LiveProduct = {
-      id: product.id,
-      name: product.name,
-      price: product.sale_price || product.regular_price,
-      image_url: product.image_url || '/placeholder.png',
-      added_at: new Date()
-    };
-
-    setProducts(prev => [liveProduct, ...prev]);
-    setShowProductSelector(false);
-    setSearchQuery('');
-    setSearchResults([]);
-
-    toast.success(`${product.name} ajouté au live !`);
-
-    // Simuler des réactions
-    setTimeout(() => {
-      addFakeMessage(FAKE_USERS[0], `Oh j'adore ce modèle ! 😍`);
-      setEmotions(prev => ({ ...prev, hearts: prev.hearts + 3 }));
-      triggerEmotionAnimation('heart');
-    }, 1000);
+  function selectProductForConfig(product: any) {
+    setSelectedProduct(product);
+    const defaultPrice = product.sale_price || product.regular_price;
+    setPromoPrice(defaultPrice.toString());
+    setModalStep(2);
   }
 
-  // Animation des émotions
+  async function addProductToLive() {
+    if (!selectedProduct || !promoPrice) {
+      toast.error('Veuillez renseigner le prix promo');
+      return;
+    }
+
+    const priceValue = parseFloat(promoPrice);
+    if (isNaN(priceValue) || priceValue <= 0) {
+      toast.error('Prix promo invalide');
+      return;
+    }
+
+    try {
+      const originalSku = selectedProduct.sku || `prod-${selectedProduct.id}`;
+      const liveSku = `${originalSku}-live`;
+      const originalPrice = selectedProduct.sale_price || selectedProduct.regular_price;
+
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 2);
+
+      const { data: liveProductData, error: insertError } = await supabase
+        .from('products')
+        .insert({
+          name: `${selectedProduct.name} (LIVE)`,
+          slug: `${selectedProduct.slug}-live-${Date.now()}`,
+          description: selectedProduct.description,
+          regular_price: originalPrice,
+          sale_price: priceValue,
+          sku: liveSku,
+          status: 'publish',
+          category_id: LIVE_REPLAY_CATEGORY_ID,
+          image_url: selectedProduct.image_url,
+          stock_quantity: selectedProduct.stock_quantity || 10
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Erreur duplication produit:', insertError);
+        toast.error('Erreur lors de la duplication du produit');
+        return;
+      }
+
+      const { error: sharedError } = await supabase
+        .from('live_shared_products')
+        .insert({
+          live_stream_id: MOCK_LIVE_ID,
+          product_id: selectedProduct.id,
+          live_product_id: liveProductData.id,
+          special_offer: selectedProduct.name,
+          promo_price: priceValue,
+          original_price: originalPrice,
+          live_sku: liveSku,
+          is_published: false,
+          expires_at: expiresAt.toISOString()
+        });
+
+      if (sharedError) {
+        console.error('Erreur ajout produit partagé:', sharedError);
+        toast.error('Erreur lors de l\'ajout du produit');
+        return;
+      }
+
+      toast.success(`✅ ${selectedProduct.name} ajouté avec prix promo ${priceValue}€`);
+
+      setShowProductSelector(false);
+      setSearchQuery('');
+      setSearchResults([]);
+      setSelectedProduct(null);
+      setPromoPrice('');
+      setModalStep(1);
+
+      loadSharedProducts();
+
+      setTimeout(() => {
+        addFakeMessage(FAKE_USERS[0], `Wow, quel prix ! 😍`);
+        setEmotions(prev => ({ ...prev, hearts: prev.hearts + 3 }));
+        triggerEmotionAnimation('heart');
+      }, 1000);
+
+    } catch (error) {
+      console.error('Erreur:', error);
+      toast.error('Une erreur est survenue');
+    }
+  }
+
+  async function publishProductToViewers(sharedProduct: LiveSharedProduct) {
+    try {
+      const { error } = await supabase
+        .from('live_shared_products')
+        .update({
+          is_published: true,
+          published_at: new Date().toISOString()
+        })
+        .eq('id', sharedProduct.id);
+
+      if (error) {
+        console.error('Erreur publication:', error);
+        toast.error('Erreur lors de la publication');
+        return;
+      }
+
+      toast.success(`📢 ${sharedProduct.product_name} publié en live !`);
+
+      loadSharedProducts();
+
+      setTimeout(() => {
+        addFakeMessage(FAKE_USERS[1], `Je le prends tout de suite ! 🛒`);
+        addFakeMessage(FAKE_USERS[2], `Quelle promo incroyable ! 💝`);
+        setEmotions(prev => ({ ...prev, sparkles: prev.sparkles + 5 }));
+        triggerEmotionAnimation('sparkle');
+      }, 500);
+
+    } catch (error) {
+      console.error('Erreur:', error);
+      toast.error('Une erreur est survenue');
+    }
+  }
+
   function triggerEmotionAnimation(type: 'heart' | 'like' | 'sparkle') {
     const videoElement = videoRef.current;
     if (!videoElement) return;
@@ -257,7 +416,6 @@ export default function LiveTestPage() {
     const rect = videoElement.getBoundingClientRect();
 
     if (type === 'sparkle') {
-      // Feux d'artifice multiples
       for (let i = 0; i < 8; i++) {
         setTimeout(() => {
           const animation: EmotionAnimation = {
@@ -274,7 +432,6 @@ export default function LiveTestPage() {
         }, i * 150);
       }
     } else {
-      // Un gros pouce ou coeur
       const animation: EmotionAnimation = {
         id: `${Date.now()}-${Math.random()}`,
         type,
@@ -293,10 +450,8 @@ export default function LiveTestPage() {
   function sendEmotion(type: 'hearts' | 'likes' | 'sparkles') {
     setEmotions(prev => ({ ...prev, [type]: prev[type] + 1 }));
 
-    // Choisir un utilisateur aléatoire
     const randomUser = FAKE_USERS[Math.floor(Math.random() * FAKE_USERS.length)];
 
-    // Message selon l'émotion
     const emotionMessages = {
       hearts: ['❤️', '💕', '💖', '😍'],
       likes: ['👍', '👏', '🔥', '💪'],
@@ -306,7 +461,6 @@ export default function LiveTestPage() {
     const randomEmoji = emotionMessages[type][Math.floor(Math.random() * emotionMessages[type].length)];
     addFakeMessage(randomUser, randomEmoji);
 
-    // Animation visuelle
     const animationType = type === 'hearts' ? 'heart' : type === 'likes' ? 'like' : 'sparkle';
     triggerEmotionAnimation(animationType);
   }
@@ -317,14 +471,31 @@ export default function LiveTestPage() {
     toast.success('Un nouveau viewer a rejoint !');
   }
 
+  function closeModal() {
+    setShowProductSelector(false);
+    setSearchQuery('');
+    setSearchResults([]);
+    setSelectedProduct(null);
+    setPromoPrice('');
+    setModalStep(1);
+  }
+
+  function backToSearch() {
+    setSelectedProduct(null);
+    setPromoPrice('');
+    setModalStep(1);
+  }
+
   if (!profile?.is_admin) {
     return null;
   }
 
+  const pendingProducts = sharedProducts.filter(p => !p.is_published);
+  const publishedProducts = sharedProducts.filter(p => p.is_published);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
         <Card className="border-t-4 border-t-[#d4af37]">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -334,7 +505,7 @@ export default function LiveTestPage() {
                   Démo Live Streaming - Mode Test
                 </CardTitle>
                 <p className="text-sm text-gray-500 mt-1">
-                  Page de test avec capture webcam et simulation d'utilisateurs
+                  Page de test avec capture webcam et gestion produits live
                 </p>
               </div>
               <Badge variant={isStreaming ? "default" : "secondary"} className="text-lg px-4 py-2">
@@ -354,7 +525,6 @@ export default function LiveTestPage() {
           </CardHeader>
         </Card>
 
-        {/* Contrôles Rapides */}
         <Card>
           <CardContent className="pt-6">
             <div className="flex flex-wrap gap-3">
@@ -407,11 +577,8 @@ export default function LiveTestPage() {
           </CardContent>
         </Card>
 
-        {/* Layout Principal */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Colonne Gauche - Vidéo + Stats */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Vidéo avec animations */}
             <Card className="overflow-hidden">
               <div className="relative w-full aspect-video bg-black">
                 <video
@@ -421,144 +588,177 @@ export default function LiveTestPage() {
                   muted
                   className="w-full h-full object-cover"
                 />
+                {!isStreaming && (
+                  <div className="absolute inset-0 flex items-center justify-center text-white">
+                    <div className="text-center">
+                      <VideoOff className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                      <p className="text-lg">Webcam désactivée</p>
+                      <p className="text-sm opacity-75 mt-2">Cliquez sur &quot;Démarrer le Live&quot;</p>
+                    </div>
+                  </div>
+                )}
 
-                {/* Animations d'émotions */}
                 {emotionAnimations.map((anim) => (
                   <div
                     key={anim.id}
-                    className="fixed pointer-events-none z-50"
+                    className={anim.type === 'sparkle' ? 'animate-firework' : 'animate-bounce-float'}
                     style={{
+                      position: 'fixed',
                       left: anim.x,
                       top: anim.y,
-                      transform: 'translate(-50%, -50%)',
+                      fontSize: anim.type === 'sparkle' ? '6rem' : '8rem',
+                      pointerEvents: 'none',
+                      zIndex: 9999
                     }}
                   >
-                    {anim.type === 'heart' && (
-                      <div className="animate-bounce-float text-8xl">
-                        ❤️
-                      </div>
-                    )}
-                    {anim.type === 'like' && (
-                      <div className="animate-bounce-float text-8xl">
-                        👍
-                      </div>
-                    )}
-                    {anim.type === 'sparkle' && (
-                      <div className="animate-firework text-6xl">
-                        ✨
-                      </div>
-                    )}
+                    {anim.type === 'heart' && '❤️'}
+                    {anim.type === 'like' && '👍'}
+                    {anim.type === 'sparkle' && '✨'}
                   </div>
                 ))}
 
-                {isStreaming && (
-                  <>
-                    <div className="absolute top-4 left-4 flex items-center gap-3 z-10">
-                      <Badge className="bg-red-600 text-white px-3 py-1.5 animate-pulse shadow-lg">
-                        <span className="w-2 h-2 bg-white rounded-full mr-2" />
-                        EN DIRECT
-                      </Badge>
-                      <Badge className="bg-black/70 text-white px-3 py-1.5 backdrop-blur-sm">
-                        <Eye className="h-4 w-4 mr-2" />
-                        {viewerCount} viewers
-                      </Badge>
-                    </div>
-
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-white text-sm">
-                          <span>Objectif viewers: {viewerCount}/100</span>
-                          <span>{goalProgress}%</span>
-                        </div>
-                        <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-[#d4af37] to-[#b8933d] transition-all duration-500"
-                            style={{ width: `${goalProgress}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {!isStreaming && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center text-white">
-                      <VideoOff className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                      <p className="text-lg">Cliquez sur "Démarrer le Live" pour activer la webcam</p>
-                    </div>
+                <div className="absolute top-4 left-4 space-y-2">
+                  <Badge className="bg-black/60 backdrop-blur text-white border-none">
+                    <Eye className="h-4 w-4 mr-1" />
+                    {viewerCount} spectateurs
+                  </Badge>
+                  <div className="flex gap-2">
+                    <Badge className="bg-black/60 backdrop-blur text-white border-none">
+                      ❤️ {emotions.hearts}
+                    </Badge>
+                    <Badge className="bg-black/60 backdrop-blur text-white border-none">
+                      👍 {emotions.likes}
+                    </Badge>
+                    <Badge className="bg-black/60 backdrop-blur text-white border-none">
+                      ✨ {emotions.sparkles}
+                    </Badge>
                   </div>
-                )}
+                </div>
               </div>
             </Card>
 
-            {/* Stats en temps réel */}
-            <div className="grid grid-cols-3 gap-4">
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <Heart className="h-8 w-8 mx-auto mb-2 text-red-500" />
-                  <div className="text-3xl font-bold text-gray-900">{emotions.hearts}</div>
-                  <div className="text-sm text-gray-500">Coeurs</div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <ThumbsUp className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-                  <div className="text-3xl font-bold text-gray-900">{emotions.likes}</div>
-                  <div className="text-sm text-gray-500">Likes</div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <Sparkles className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
-                  <div className="text-3xl font-bold text-gray-900">{emotions.sparkles}</div>
-                  <div className="text-sm text-gray-500">Sparkles</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Produits du Live */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5" />
-                  Produits Partagés ({products.length})
+                  <Package className="h-5 w-5" />
+                  Produits Partagés ({sharedProducts.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {products.length === 0 ? (
+                {sharedProducts.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <ShoppingCart className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p>Aucun produit ajouté au live</p>
-                    <p className="text-sm mt-1">Cliquez sur "Ajouter Produit" pour commencer</p>
+                    <p>Aucun produit partagé</p>
+                    <p className="text-sm mt-1">Ajoutez des produits au live</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                    {products.map((product) => (
-                      <div key={product.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
-                        <img
-                          src={product.image_url}
-                          alt={product.name}
-                          className="w-full aspect-square object-cover rounded mb-2"
-                        />
-                        <h4 className="font-semibold text-sm line-clamp-2 mb-1">{product.name}</h4>
-                        <p className="text-lg font-bold text-[#d4af37]">{product.price}€</p>
-                        <Badge variant="outline" className="text-xs mt-2">
-                          Ajouté il y a {Math.floor((Date.now() - product.added_at.getTime()) / 1000)}s
-                        </Badge>
+                  <div className="space-y-4">
+                    {pendingProducts.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-600 mb-3">
+                          En attente de publication ({pendingProducts.length})
+                        </h3>
+                        <div className="space-y-2">
+                          {pendingProducts.map((product) => (
+                            <div
+                              key={product.id}
+                              className="border rounded-lg p-3 bg-yellow-50 border-yellow-200"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-16 h-16 bg-gray-200 rounded flex-shrink-0">
+                                  {product.product_image && (
+                                    <img
+                                      src={product.product_image}
+                                      alt={product.product_name}
+                                      className="w-full h-full object-cover rounded"
+                                    />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-semibold text-sm line-clamp-1">
+                                    {product.product_name}
+                                  </h4>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs text-gray-500 line-through">
+                                      {product.original_price}€
+                                    </span>
+                                    <span className="text-lg font-bold text-[#d4af37]">
+                                      {product.promo_price}€
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    SKU: {product.live_sku}
+                                  </p>
+                                </div>
+                                <Button
+                                  onClick={() => publishProductToViewers(product)}
+                                  size="sm"
+                                  className="bg-[#d4af37] hover:bg-[#b8941f] flex-shrink-0"
+                                >
+                                  <Send className="h-4 w-4 mr-1" />
+                                  Publier en live
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                    )}
+
+                    {publishedProducts.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-600 mb-3">
+                          Publiés ({publishedProducts.length})
+                        </h3>
+                        <div className="space-y-2">
+                          {publishedProducts.map((product) => (
+                            <div
+                              key={product.id}
+                              className="border rounded-lg p-3 bg-green-50 border-green-200"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-16 h-16 bg-gray-200 rounded flex-shrink-0">
+                                  {product.product_image && (
+                                    <img
+                                      src={product.product_image}
+                                      alt={product.product_name}
+                                      className="w-full h-full object-cover rounded"
+                                    />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-semibold text-sm line-clamp-1">
+                                    {product.product_name}
+                                  </h4>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs text-gray-500 line-through">
+                                      {product.original_price}€
+                                    </span>
+                                    <span className="text-lg font-bold text-green-600">
+                                      {product.promo_price}€
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    SKU: {product.live_sku}
+                                  </p>
+                                </div>
+                                <Badge variant="outline" className="border-green-600 text-green-600">
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Publié
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Colonne Droite - Chat + Actions */}
           <div className="space-y-6">
-            {/* Viewers Simulés */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -585,7 +785,6 @@ export default function LiveTestPage() {
               </CardContent>
             </Card>
 
-            {/* Chat en Direct */}
             <Card className="flex flex-col h-[600px]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -626,7 +825,6 @@ export default function LiveTestPage() {
                 </ScrollArea>
 
                 <div className="border-t p-4 space-y-3">
-                  {/* Boutons Émotions */}
                   <div className="flex gap-2 justify-around">
                     <Button
                       onClick={() => sendEmotion('hearts')}
@@ -654,7 +852,6 @@ export default function LiveTestPage() {
                     </Button>
                   </div>
 
-                  {/* Input Message */}
                   <div className="flex gap-2">
                     <Input
                       value={newMessage}
@@ -673,66 +870,137 @@ export default function LiveTestPage() {
           </div>
         </div>
 
-        {/* Modal Recherche de Produits */}
         {showProductSelector && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <Card className="w-full max-w-4xl max-h-[80vh] flex flex-col">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Rechercher un produit</CardTitle>
-                  <Button variant="ghost" size="icon" onClick={() => {
-                    setShowProductSelector(false);
-                    setSearchQuery('');
-                    setSearchResults([]);
-                  }}>
+                  <CardTitle>
+                    {modalStep === 1 ? 'Rechercher un produit' : 'Configurer le prix promo'}
+                  </CardTitle>
+                  <Button variant="ghost" size="icon" onClick={closeModal}>
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="relative mt-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Rechercher par nom ou slug..."
-                    className="pl-10"
-                    autoFocus
-                  />
-                </div>
+
+                {modalStep === 1 && (
+                  <div className="relative mt-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Rechercher par nom ou slug..."
+                      className="pl-10"
+                      autoFocus
+                    />
+                  </div>
+                )}
               </CardHeader>
+
               <CardContent className="flex-1 overflow-auto">
-                {isSearching ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <div className="animate-spin h-8 w-8 border-4 border-[#d4af37] border-t-transparent rounded-full mx-auto mb-2" />
-                    <p>Recherche en cours...</p>
-                  </div>
-                ) : searchQuery.length < 2 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Search className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p>Tapez au moins 2 caractères pour rechercher</p>
-                  </div>
-                ) : searchResults.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>Aucun produit trouvé</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {searchResults.map((product) => (
-                      <div
-                        key={product.id}
-                        onClick={() => addProductToLive(product)}
-                        className="border rounded-lg p-3 cursor-pointer hover:border-[#d4af37] hover:shadow-md transition-all"
-                      >
-                        <img
-                          src={product.image_url || '/placeholder.png'}
-                          alt={product.name}
-                          className="w-full aspect-square object-cover rounded mb-2"
-                        />
-                        <h4 className="font-semibold text-sm line-clamp-2 mb-1">{product.name}</h4>
-                        <p className="text-lg font-bold text-[#d4af37]">
-                          {product.sale_price || product.regular_price}€
-                        </p>
+                {modalStep === 1 ? (
+                  <>
+                    {isSearching ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <div className="animate-spin h-8 w-8 border-4 border-[#d4af37] border-t-transparent rounded-full mx-auto mb-2" />
+                        <p>Recherche en cours...</p>
                       </div>
-                    ))}
+                    ) : searchQuery.length < 2 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Search className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p>Tapez au moins 2 caractères pour rechercher</p>
+                      </div>
+                    ) : searchResults.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>Aucun produit trouvé</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {searchResults.map((product) => (
+                          <div
+                            key={product.id}
+                            onClick={() => selectProductForConfig(product)}
+                            className="border rounded-lg p-3 cursor-pointer hover:border-[#d4af37] hover:shadow-md transition-all"
+                          >
+                            <img
+                              src={product.image_url || '/placeholder.png'}
+                              alt={product.name}
+                              className="w-full aspect-square object-cover rounded mb-2"
+                            />
+                            <h4 className="font-semibold text-sm line-clamp-2 mb-1">{product.name}</h4>
+                            <p className="text-lg font-bold text-[#d4af37]">
+                              {product.sale_price || product.regular_price}€
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-6">
+                    {selectedProduct && (
+                      <>
+                        <div className="flex gap-4 p-4 border rounded-lg bg-gray-50">
+                          <img
+                            src={selectedProduct.image_url || '/placeholder.png'}
+                            alt={selectedProduct.name}
+                            className="w-24 h-24 object-cover rounded"
+                          />
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg">{selectedProduct.name}</h3>
+                            <p className="text-gray-600 text-sm mt-1">
+                              Prix actuel: {selectedProduct.sale_price || selectedProduct.regular_price}€
+                            </p>
+                            <p className="text-gray-500 text-xs mt-1">
+                              SKU: {selectedProduct.sku || `prod-${selectedProduct.id}`}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label htmlFor="promo-price" className="text-base font-semibold">
+                            Prix promo pour le live
+                          </Label>
+                          <Input
+                            id="promo-price"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={promoPrice}
+                            onChange={(e) => setPromoPrice(e.target.value)}
+                            placeholder="Ex: 19.99"
+                            className="text-lg"
+                          />
+                          <p className="text-sm text-gray-500">
+                            Ce produit sera dupliqué dans la catégorie &quot;LIVE & REPLAY&quot; avec le SKU{' '}
+                            <span className="font-mono text-[#d4af37]">
+                              {selectedProduct.sku || `prod-${selectedProduct.id}`}-live
+                            </span>
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            Il restera disponible au prix promo pendant <span className="font-semibold">2 heures</span> après le live.
+                          </p>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <Button
+                            variant="outline"
+                            onClick={backToSearch}
+                            className="flex-1"
+                          >
+                            <ArrowLeft className="h-4 w-4 mr-2" />
+                            Retour
+                          </Button>
+                          <Button
+                            onClick={addProductToLive}
+                            className="flex-1 bg-[#d4af37] hover:bg-[#b8941f]"
+                          >
+                            <Check className="h-4 w-4 mr-2" />
+                            Ajouter au live
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -741,7 +1009,6 @@ export default function LiveTestPage() {
         )}
       </div>
 
-      {/* Styles pour les animations */}
       <style jsx global>{`
         @keyframes bounce-float {
           0% {
