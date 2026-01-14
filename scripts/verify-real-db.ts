@@ -1,218 +1,80 @@
-/**
- * 🔒 SCRIPT DE VÉRIFICATION DIRECT DE LA BASE qcqbtmvbvipsxwjlgjvk
- * Table correcte : public.categories (PAS product_categories)
- */
-
-import * as dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
+import * as dotenv from 'dotenv';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+dotenv.config();
 
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+console.log('🔍 VÉRIFICATION BASE DE DONNÉES RÉELLE');
+console.log('=====================================');
+console.log(`📡 URL: ${supabaseUrl}`);
+console.log(`🔑 Projet: ${supabaseUrl.split('//')[1]?.split('.')[0]}`);
+console.log('');
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('❌ Variables d\'environnement manquantes');
-  process.exit(1);
-}
-
-const projectMatch = SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/);
-const projectId = projectMatch ? projectMatch[1] : 'INCONNU';
-
-console.log('\n🔍 DIAGNOSTIC - CONNEXION DIRECTE\n');
-console.log('═══════════════════════════════════════════════════════');
-console.log(`📊 Projet : ${projectId}`);
-console.log(`🔗 URL : ${SUPABASE_URL}`);
-console.log('═══════════════════════════════════════════════════════\n');
-
-if (projectId !== 'qcqbtmvbvipsxwjlgjvk') {
-  console.error(`🚨 ERREUR : Projet incorrect (${projectId})`);
-  process.exit(1);
-}
-
-console.log('✅ Verrouillage confirmé : qcqbtmvbvipsxwjlgjvk\n');
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function verifyDatabase() {
-  try {
-    // VÉRIFIER LA TABLE categories (la bonne table)
-    console.log('🔎 VÉRIFICATION TABLE: public.categories\n');
+  console.log('📊 VÉRIFICATION DES CATÉGORIES');
+  console.log('------------------------------');
 
-    const { data: categories, error: catError } = await supabase
-      .from('categories')
-      .select('*')
-      .order('id', { ascending: true });
+  const { data: categories, error: catError } = await supabase
+    .from('product_categories')
+    .select('id, name, slug, is_visible, created_at')
+    .order('created_at', { ascending: true });
 
-    if (catError) {
-      console.error('❌ Erreur categories:', catError);
-      return;
-    }
-
-    console.log(`📦 Catégories trouvées : ${categories?.length || 0}\n`);
-
-    if (categories && categories.length > 0) {
-      console.log('📋 LISTE DES CATÉGORIES :\n');
-      categories.forEach((cat, index) => {
-        console.log(`${index + 1}. ${cat.name || cat.title || 'SANS NOM'}`);
-        console.log(`   ID: ${cat.id}`);
-        console.log(`   Slug: ${cat.slug || 'N/A'}`);
-        const fields = Object.keys(cat).filter(k => !['id', 'name', 'slug', 'title'].includes(k));
-        console.log(`   Autres champs: ${fields.join(', ')}`);
-        console.log('');
-      });
-    }
-
-    // VÉRIFIER LES PRODUITS
-    console.log('\n🛍️  VÉRIFICATION DES PRODUITS\n');
-
-    const { data: products, error: prodError } = await supabase
-      .from('products')
-      .select('id, name, category_id, woocommerce_category_id')
-      .limit(10);
-
-    if (prodError) {
-      console.error('❌ Erreur produits:', prodError);
-      return;
-    }
-
-    console.log(`📦 Produits (échantillon) : ${products?.length || 0}\n`);
-
-    if (products && products.length > 0) {
-      console.log('EXEMPLES DE PRODUITS :');
-      products.slice(0, 3).forEach((p, i) => {
-        console.log(`\n${i + 1}. ${p.name}`);
-        console.log(`   category_id: ${p.category_id || 'NULL'}`);
-        console.log(`   woocommerce_category_id: ${p.woocommerce_category_id || 'NULL'}`);
-      });
-    }
-
-    // COMPTER TOUS LES PRODUITS
-    const { count } = await supabase
-      .from('products')
-      .select('*', { count: 'exact', head: true });
-
-    console.log(`\n📊 TOTAL PRODUITS : ${count || 0}`);
-
-    // ANALYSER LES CATÉGORIES RÉFÉRENCÉES
-    console.log('\n\n🔍 ANALYSE DES category_id DANS LES PRODUITS\n');
-
-    const { data: allProducts } = await supabase
-      .from('products')
-      .select('category_id, woocommerce_category_id, name');
-
-    if (allProducts) {
-      const uniqueCategoryIds = Array.from(new Set(allProducts.map(p => p.category_id).filter(Boolean)));
-      console.log(`📊 category_id uniques : ${uniqueCategoryIds.length}\n`);
-
-      uniqueCategoryIds.forEach((catId, index) => {
-        const productsWithCat = allProducts.filter(p => p.category_id === catId);
-        const wcIds = Array.from(new Set(productsWithCat.map(p => p.woocommerce_category_id)));
-        const catExists = categories?.find(c => c.id === catId);
-
-        console.log(`${index + 1}. UUID: ${catId}`);
-        console.log(`   Existe dans categories: ${catExists ? '✅ OUI' : '❌ NON (ORPHELIN)'}`);
-        if (catExists) {
-          console.log(`   Nom: ${catExists.name || catExists.title}`);
-        }
-        console.log(`   Produits: ${productsWithCat.length}`);
-        console.log(`   WooCommerce IDs: ${wcIds.join(', ')}`);
-        console.log('');
-      });
-    }
-
-    // VÉRIFIER PAYPAL
-    console.log('\n\n💳 VÉRIFICATION SYSTÈME DE PAIEMENT PAYPAL\n');
-    console.log('═══════════════════════════════════════════════════════\n');
-
-    const { data: paymentMethods, error: pmError } = await supabase
-      .from('payment_methods')
-      .select('*')
-      .order('name');
-
-    if (pmError) {
-      console.error('❌ Erreur payment_methods:', pmError);
-    } else {
-      console.log(`📦 Méthodes de paiement : ${paymentMethods?.length || 0}\n`);
-      paymentMethods?.forEach((pm) => {
-        console.log(`${pm.is_active ? '✅' : '❌'} ${pm.name} (${pm.code})`);
-        console.log(`   Type: ${pm.type}`);
-        console.log(`   Config: ${pm.config ? JSON.stringify(pm.config) : 'Aucune'}`);
-        console.log('');
-      });
-    }
-
-    const { data: paypal } = await supabase
-      .from('payment_methods')
-      .select('*')
-      .eq('code', 'paypal')
-      .maybeSingle();
-
-    console.log('\n🔍 ÉTAT PAYPAL DANS LA DB:\n');
-    if (paypal) {
-      console.log('✅ PayPal trouvé dans payment_methods');
-      console.log(`   Actif: ${paypal.is_active ? '✅ OUI' : '❌ NON'}`);
-      console.log(`   Config: ${paypal.config ? JSON.stringify(paypal.config, null, 2) : 'Aucune'}`);
-    } else {
-      console.log('❌ PayPal NON trouvé dans payment_methods');
-    }
-
-    console.log('\n\n🔑 VARIABLES D\'ENVIRONNEMENT PAYPAL:\n');
-    console.log(`PAYPAL_CLIENT_ID: ${process.env.PAYPAL_CLIENT_ID ? '✅ Défini' : '❌ Manquant'}`);
-    console.log(`PAYPAL_CLIENT_SECRET: ${process.env.PAYPAL_CLIENT_SECRET ? '✅ Défini' : '❌ Manquant'}`);
-    console.log(`NEXT_PUBLIC_PAYPAL_CLIENT_ID: ${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? '✅ Défini' : '❌ Manquant'}`);
-
-    console.log('\n\n🔍 INTÉGRATION CODE PAYPAL:\n');
-
-    const fs = await import('fs');
-    const filesToCheck = [
-      'app/api/paypal/create-order/route.ts',
-      'app/api/paypal/capture-order/route.ts',
-      'components/PayPalButtons.tsx',
-      'package.json'
-    ];
-
-    for (const file of filesToCheck) {
-      const fullPath = path.join(path.dirname(__dirname), file);
-      const exists = fs.existsSync(fullPath);
-      console.log(`${exists ? '✅' : '❌'} ${file}`);
-    }
-
-    const packageJsonPath = path.join(path.dirname(__dirname), 'package.json');
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-    const hasPayPalPackage = packageJson.dependencies['@paypal/react-paypal-js'];
-
-    console.log('\n\n📦 PACKAGE NPM PAYPAL:\n');
-    console.log(`${hasPayPalPackage ? '✅' : '❌'} @paypal/react-paypal-js: ${hasPayPalPackage || 'NON INSTALLÉ'}`);
-
-    console.log('\n\n🎯 CONCLUSION PAYPAL:\n');
-    const dbConfigured = paypal && paypal.is_active;
-    const envConfigured = process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET;
-    const codeIntegrated = hasPayPalPackage;
-
-    if (dbConfigured && envConfigured && codeIntegrated) {
-      console.log('✅ PayPal est COMPLÈTEMENT FONCTIONNEL');
-    } else if (dbConfigured && envConfigured) {
-      console.log('⚠️  PayPal est PARTIELLEMENT configuré (manque l\'intégration code)');
-    } else if (dbConfigured || envConfigured) {
-      console.log('⚠️  PayPal est EN COURS de configuration');
-    } else {
-      console.log('❌ PayPal N\'EST PAS configuré');
-    }
-
-    console.log('\n═══════════════════════════════════════════════════════');
-    console.log('✅ DIAGNOSTIC TERMINÉ');
-    console.log('═══════════════════════════════════════════════════════\n');
-
-  } catch (error) {
-    console.error('❌ ERREUR CRITIQUE:', error);
-    process.exit(1);
+  if (catError) {
+    console.error('❌ Erreur:', catError);
+  } else {
+    console.log(`✅ Nombre de catégories: ${categories?.length || 0}`);
+    categories?.forEach((cat, idx) => {
+      console.log(`   ${idx + 1}. ${cat.name} (${cat.slug}) - Visible: ${cat.is_visible}`);
+    });
   }
+
+  console.log('');
+  console.log('🎮 VÉRIFICATION DE LA TABLE live_shared_products');
+  console.log('------------------------------------------------');
+
+  const { data: columns, error: colError } = await supabase
+    .from('live_shared_products')
+    .select('*')
+    .limit(1);
+
+  if (colError) {
+    console.error('❌ Erreur:', colError);
+  } else {
+    if (columns && columns.length > 0) {
+      console.log('✅ Colonnes disponibles:', Object.keys(columns[0]).join(', '));
+    } else {
+      console.log('⚠️  Table vide, impossible de lister les colonnes');
+    }
+  }
+
+  console.log('');
+  console.log('📦 VÉRIFICATION DES PRODUITS LIVE PARTAGÉS');
+  console.log('------------------------------------------');
+
+  const { data: liveProducts, error: liveError } = await supabase
+    .from('live_shared_products')
+    .select('id, special_offer, is_published, expires_at, shared_at')
+    .order('shared_at', { ascending: false })
+    .limit(5);
+
+  if (liveError) {
+    console.error('❌ Erreur:', liveError);
+  } else {
+    console.log(`✅ Nombre de produits live: ${liveProducts?.length || 0}`);
+    liveProducts?.forEach((prod, idx) => {
+      const expired = prod.expires_at ? new Date(prod.expires_at) < new Date() : false;
+      console.log(`   ${idx + 1}. ${prod.special_offer || 'Sans nom'}`);
+      console.log(`      - Publié: ${prod.is_published ? '✅' : '❌'}`);
+      console.log(`      - Expire: ${prod.expires_at || 'Jamais'} ${expired ? '(EXPIRÉ)' : ''}`);
+    });
+  }
+
+  console.log('');
+  console.log('✅ VÉRIFICATION TERMINÉE');
 }
 
-verifyDatabase();
+verifyDatabase().catch(console.error);

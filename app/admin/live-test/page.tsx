@@ -22,6 +22,7 @@ import {
   Pause,
   Plus,
   Eye,
+  EyeOff,
   Search,
   X,
   ArrowLeft,
@@ -415,6 +416,33 @@ export default function LiveTestPage() {
     }
   }
 
+  async function toggleProductVisibility(sharedProduct: LiveSharedProduct) {
+    try {
+      const newVisibility = !sharedProduct.is_published;
+
+      const { error } = await supabase
+        .from('live_shared_products')
+        .update({
+          is_published: newVisibility
+        })
+        .eq('id', sharedProduct.id);
+
+      if (error) {
+        console.error('Erreur toggle visibilité:', error);
+        toast.error('Erreur lors du changement de visibilité');
+        return;
+      }
+
+      toast.success(newVisibility ? '👁️ Produit visible pour les spectateurs' : '🙈 Produit masqué aux spectateurs');
+
+      loadSharedProducts();
+
+    } catch (error) {
+      console.error('Erreur:', error);
+      toast.error('Une erreur est survenue');
+    }
+  }
+
   function triggerEmotionAnimation(type: 'heart' | 'like' | 'sparkle') {
     const videoElement = videoRef.current;
     if (!videoElement) return;
@@ -758,11 +786,37 @@ export default function LiveTestPage() {
                                   <p className="text-xs text-gray-500 mt-1">
                                     SKU: {product.live_sku}
                                   </p>
+                                  {product.expires_at && (
+                                    <p className="text-xs text-gray-400 mt-1">
+                                      Expire: {new Date(product.expires_at).toLocaleTimeString('fr-FR')}
+                                    </p>
+                                  )}
                                 </div>
-                                <Badge variant="outline" className="border-green-600 text-green-600">
-                                  <Check className="h-3 w-3 mr-1" />
-                                  Publié
-                                </Badge>
+                                <div className="flex flex-col gap-2">
+                                  <Badge variant="outline" className="border-green-600 text-green-600">
+                                    <Check className="h-3 w-3 mr-1" />
+                                    Publié
+                                  </Badge>
+                                  <Button
+                                    onClick={() => toggleProductVisibility(product)}
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-shrink-0"
+                                    title={product.is_published ? "Masquer aux spectateurs" : "Afficher aux spectateurs"}
+                                  >
+                                    {product.is_published ? (
+                                      <>
+                                        <EyeOff className="h-4 w-4 mr-1" />
+                                        Masquer
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Eye className="h-4 w-4 mr-1" />
+                                        Afficher
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           ))}
