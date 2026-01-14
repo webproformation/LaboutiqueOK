@@ -205,10 +205,13 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
               return (
                 <AccordionItem key={category.id} value={category.id} className="border-b border-gray-700">
-                  <AccordionTrigger className="text-base font-medium hover:text-[#D4AF37] hover:no-underline">
-                    {decodeHtmlEntities(category.name)}
+                  <AccordionTrigger className="text-base font-bold hover:text-[#D4AF37] hover:no-underline py-4 flex items-center justify-between group">
+                    <span className="flex items-center gap-2">
+                      <span className="w-1 h-6 bg-[#D4AF37] rounded-full group-hover:h-8 transition-all" />
+                      {decodeHtmlEntities(category.name)}
+                    </span>
                   </AccordionTrigger>
-                  <AccordionContent className="space-y-3 pl-2">
+                  <AccordionContent className="space-y-2 pl-4 pb-4">
                     {category.children?.map((cat2) => {
                       const hasLevel3 = cat2.children && cat2.children.length > 0;
 
@@ -216,27 +219,27 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                         <div key={cat2.id} className="space-y-2">
                           <Link
                             href={`/category/${cat2.slug}`}
-                            className="flex items-center gap-2 py-2 px-3 rounded-md text-sm font-semibold hover:text-[#D4AF37] hover:bg-gray-800/50 transition-all group"
+                            className="flex items-center gap-2 py-2.5 px-3 rounded-lg text-sm font-semibold hover:text-[#D4AF37] hover:bg-gray-800/70 transition-all group bg-gray-800/30"
                             onClick={onClose}
                           >
-                            <ChevronRight className={`h-4 w-4 transition-transform ${hasLevel3 ? 'text-[#D4AF37]' : 'text-gray-500'}`} />
+                            <ChevronRight className={`h-4 w-4 transition-transform group-hover:translate-x-1 ${hasLevel3 ? 'text-[#D4AF37]' : 'text-gray-500'}`} />
                             <span className="flex-1">{decodeHtmlEntities(cat2.name)}</span>
                             {hasLevel3 && (
-                              <span className="text-xs text-gray-400 bg-gray-800 px-2 py-0.5 rounded-full">
+                              <span className="text-xs font-bold text-white bg-[#D4AF37] px-2 py-1 rounded-full">
                                 {cat2.children?.length || 0}
                               </span>
                             )}
                           </Link>
                           {hasLevel3 && (
-                            <div className="pl-6 pr-2 space-y-1.5 border-l-2 border-gray-700 ml-4">
+                            <div className="pl-6 pr-2 space-y-1.5 border-l-2 border-[#D4AF37]/50 ml-4">
                               {cat2.children?.map((cat3) => (
                                 <Link
                                   key={cat3.id}
                                   href={`/category/${cat3.slug}`}
-                                  className="flex items-center gap-2 py-1.5 px-2 rounded text-xs text-gray-300 hover:text-[#D4AF37] hover:bg-gray-800/30 transition-all"
+                                  className="flex items-center gap-2 py-2 px-3 rounded-md text-xs text-gray-300 hover:text-[#D4AF37] hover:bg-gray-800/50 transition-all bg-gray-900/30"
                                   onClick={onClose}
                                 >
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]/60" />
+                                  <span className="w-2 h-2 rounded-full bg-[#D4AF37] flex-shrink-0" />
                                   <span>{decodeHtmlEntities(cat3.name)}</span>
                                 </Link>
                               ))}
