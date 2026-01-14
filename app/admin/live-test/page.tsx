@@ -99,7 +99,7 @@ const LIVE_REPLAY_CATEGORY_ID = '1768404743767-lfnpfit';
 const MOCK_LIVE_ID = 'test-live-' + Date.now();
 
 export default function LiveTestPage() {
-  const { profile } = useAuth();
+  const { profile, loading } = useAuth();
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -127,10 +127,10 @@ export default function LiveTestPage() {
   const [emotionAnimations, setEmotionAnimations] = useState<EmotionAnimation[]>([]);
 
   useEffect(() => {
-    if (!profile?.is_admin) {
+    if (!loading && !profile?.is_admin) {
       router.push('/admin');
     }
-  }, [profile, router]);
+  }, [profile, loading, router]);
 
   useEffect(() => {
     if (isStreaming) {
@@ -484,6 +484,17 @@ export default function LiveTestPage() {
     setSelectedProduct(null);
     setPromoPrice('');
     setModalStep(1);
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white p-4 md:p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-12 w-12 border-4 border-[#d4af37] border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!profile?.is_admin) {
