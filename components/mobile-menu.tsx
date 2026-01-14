@@ -41,72 +41,39 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     router.push('/');
   };
 
-  async function hasProductsInStock(categoryId: string): Promise<boolean> {
-    const { count } = await supabase
-      .from('products')
-      .select('id', { count: 'exact', head: true })
-      .eq('category_id', categoryId)
-      .eq('is_active', true)
-      .gt('stock_quantity', 0);
-
-    return (count || 0) > 0;
-  }
-
   async function loadCategories() {
     try {
-      const { data: level1Categories } = await supabase
+      const { data: allCategories } = await supabase
         .from('categories')
         .select('*')
-        .is('parent_id', null)
         .eq('is_visible', true)
-        .eq('show_in_main_menu', true)
         .order('display_order', { ascending: true });
 
-      if (level1Categories) {
-        const categoriesWithChildren = await Promise.all(
-          level1Categories.map(async (cat1) => {
-            const { data: level2 } = await supabase
-              .from('categories')
-              .select('*')
-              .eq('parent_id', cat1.id)
-              .eq('is_visible', true)
-              .order('display_order', { ascending: true });
+      if (!allCategories) return;
 
-            const level2WithChildren = level2 ? await Promise.all(
-              level2.map(async (cat2) => {
-                const { data: level3 } = await supabase
-                  .from('categories')
-                  .select('*')
-                  .eq('parent_id', cat2.id)
-                  .eq('is_visible', true)
-                  .order('display_order', { ascending: true });
+      const level1Categories = allCategories.filter(cat =>
+        cat.parent_id === null && cat.show_in_main_menu === true
+      );
 
-                const level3Filtered = level3 ? await Promise.all(
-                  level3.map(async (cat3) => {
-                    const hasProducts = await hasProductsInStock(cat3.id);
-                    return hasProducts ? cat3 : null;
-                  })
-                ).then(items => items.filter(Boolean) as ProductCategory[]) : [];
+      const categoriesWithChildren = level1Categories.map(cat1 => {
+        const level2 = allCategories.filter(cat => cat.parent_id === cat1.id);
 
-                const hasLevel2Products = await hasProductsInStock(cat2.id);
-                const hasAnyProducts = hasLevel2Products || level3Filtered.length > 0;
+        const level2WithChildren = level2.map(cat2 => {
+          const level3 = allCategories.filter(cat => cat.parent_id === cat2.id);
 
-                return hasAnyProducts ? {
-                  ...cat2,
-                  children: level3Filtered
-                } : null;
-              })
-            ).then(items => items.filter(Boolean) as CategoryLevel2[]) : [];
+          return {
+            ...cat2,
+            children: level3
+          };
+        });
 
-            return {
-              ...cat1,
-              children: level2WithChildren
-            };
-          })
-        );
+        return {
+          ...cat1,
+          children: level2WithChildren
+        };
+      });
 
-        setCategories(categoriesWithChildren);
-      }
+      setCategories(categoriesWithChildren);
     } catch (error) {
       console.error('Error loading mobile menu categories:', error);
     }
