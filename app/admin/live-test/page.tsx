@@ -152,11 +152,13 @@ export default function LiveTestPage() {
         .from('products')
         .select('id, name, slug, image_url, regular_price, sale_price')
         .or(`name.ilike.%${query}%,slug.ilike.%${query}%`)
-        .eq('status', 'published')
+        .eq('status', 'publish')
         .limit(10);
 
       if (!error && data) {
         setSearchResults(data);
+      } else if (error) {
+        console.error('Erreur recherche:', error);
       }
     } catch (error) {
       console.error('Erreur recherche:', error);
