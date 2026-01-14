@@ -311,7 +311,7 @@ export default function ProductVariationsManager({
                     Sélectionnez les {attribute.name.toLowerCase()} disponibles pour ce produit
                   </p>
 
-                  <div className="grid gap-3 grid-cols-3 md:grid-cols-6">
+                  <div className="grid gap-2 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
                     {attribute.terms?.map((term) => {
                       const isSelected = (selectedAttributeTerms[attribute.slug] || []).includes(term.id);
                       const hasColorCode = term.color_code !== null;
@@ -321,7 +321,7 @@ export default function ProductVariationsManager({
                           key={term.id}
                           type="button"
                           onClick={() => toggleAttributeTerm(attribute.slug, term.id, term.value, term.name)}
-                          className={`flex items-center ${hasColorCode ? 'justify-between' : 'justify-center'} gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                          className={`flex items-center ${hasColorCode ? 'justify-between' : 'justify-center'} gap-2 px-2 md:px-4 py-2 md:py-3 rounded-lg border-2 transition-all min-w-0 ${
                             isSelected
                               ? "border-[#d4af37] bg-[#d4af37]/10 font-semibold"
                               : "border-gray-300 hover:border-[#d4af37] bg-white"
@@ -329,14 +329,14 @@ export default function ProductVariationsManager({
                         >
                           {hasColorCode && (
                             <div
-                              className="w-6 h-6 rounded-full border-2 border-gray-300 flex-shrink-0"
+                              className="w-5 h-5 md:w-6 md:h-6 rounded-full border-2 border-gray-300 flex-shrink-0"
                               style={{ backgroundColor: term.color_code || undefined }}
                             />
                           )}
-                          <span className="text-sm font-medium text-gray-900 truncate flex-1 text-left">
+                          <span className="text-xs md:text-sm font-medium text-gray-900 truncate flex-1 text-left min-w-0">
                             {term.name}
                           </span>
-                          {isSelected && <Check className="h-5 w-5 text-[#d4af37] flex-shrink-0" />}
+                          {isSelected && <Check className="h-4 w-4 md:h-5 md:w-5 text-[#d4af37] flex-shrink-0" />}
                         </button>
                       );
                     })}
@@ -368,15 +368,15 @@ export default function ProductVariationsManager({
               return (
                 <Card key={variationKey} className="border-l-4 border-l-[#d4af37]">
                   <CardContent className="pt-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3 flex-1">
+                    <div className="flex items-center justify-between mb-2 gap-2">
+                      <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
                         {firstColorAttr?.color_code && (
                           <div
-                            className="w-8 h-8 rounded-full border-2 border-gray-300 flex-shrink-0"
+                            className="w-6 h-6 md:w-8 md:h-8 rounded-full border-2 border-gray-300 flex-shrink-0"
                             style={{ backgroundColor: firstColorAttr.color_code }}
                           />
                         )}
-                        <h3 className="text-lg font-semibold text-gray-900 truncate">
+                        <h3 className="text-sm md:text-lg font-semibold text-gray-900 truncate min-w-0">
                           {getVariationLabel(variation)}
                         </h3>
                       </div>
@@ -385,13 +385,14 @@ export default function ProductVariationsManager({
                         variant="outline"
                         size="sm"
                         onClick={() => toggleExpanded(variationKey)}
+                        className="flex-shrink-0"
                       >
                         {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </Button>
                     </div>
 
                     {isExpanded && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4 pt-4 border-t">
                         <div>
                           <Label>Image de la variation (optionnel)</Label>
                           <p className="text-xs text-gray-500 mb-2">Cette image apparaîtra dans la galerie du produit</p>

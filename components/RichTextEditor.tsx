@@ -201,15 +201,15 @@ export default function RichTextEditor({
       isFocused ? 'border-[#d4af37] ring-1 ring-[#d4af37]' : 'border-[#d4af37]/30'
     }`}>
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'edit' | 'preview')} className="w-full">
-        <div className="bg-gray-50 border-b border-[#d4af37]/30 p-2 flex items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-1 flex-1">
+        <div className="bg-gray-50 border-b border-[#d4af37]/30 p-2 flex flex-col md:flex-row md:items-center gap-2">
+          <div className="flex flex-wrap gap-1 flex-1 overflow-x-auto">
             {toolbarButtons.map((button, index) => {
               if ('separator' in button && button.separator) {
                 return (
                   <Separator
                     key={`separator-${index}`}
                     orientation="vertical"
-                    className="mx-1 h-6 bg-[#d4af37]/30"
+                    className="mx-1 h-6 bg-[#d4af37]/30 hidden md:block"
                   />
                 );
               }
@@ -223,7 +223,7 @@ export default function RichTextEditor({
                   size="sm"
                   onClick={button.command}
                   title={button.title}
-                  className="h-8 w-8 p-0 hover:bg-[#d4af37]/20 hover:text-[#d4af37] text-gray-600"
+                  className="h-8 w-8 p-0 hover:bg-[#d4af37]/20 hover:text-[#d4af37] text-gray-600 flex-shrink-0"
                 >
                   <Icon className="h-4 w-4" />
                 </Button>
@@ -231,14 +231,14 @@ export default function RichTextEditor({
             })}
           </div>
 
-          <TabsList className="bg-[#d4af37]/10">
-            <TabsTrigger value="edit" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-white">
-              <EditIcon className="h-4 w-4 mr-2" />
-              Édition
+          <TabsList className="bg-[#d4af37]/10 w-full md:w-auto">
+            <TabsTrigger value="edit" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-white flex-1 md:flex-initial">
+              <EditIcon className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Édition</span>
             </TabsTrigger>
-            <TabsTrigger value="preview" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-white">
-              <Eye className="h-4 w-4 mr-2" />
-              Prévisualisation
+            <TabsTrigger value="preview" className="data-[state=active]:bg-[#d4af37] data-[state=active]:text-white flex-1 md:flex-initial">
+              <Eye className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Prévisualisation</span>
             </TabsTrigger>
           </TabsList>
         </div>
