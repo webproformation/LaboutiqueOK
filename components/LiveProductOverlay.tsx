@@ -26,6 +26,8 @@ export function LiveProductOverlay({
 }: LiveProductOverlayProps) {
   const [isHidden, setIsHidden] = useState(false);
 
+  console.log('🎨 Overlay rendering with product:', product);
+
   if (isHidden) return null;
 
   const positionClasses = {
@@ -40,9 +42,10 @@ export function LiveProductOverlay({
 
   return (
     <div
-      className={`absolute ${positionClasses[position]} z-50 animate-in fade-in slide-in-from-bottom-8 duration-500`}
+      className={`absolute ${positionClasses[position]} animate-in fade-in slide-in-from-bottom-8 duration-500`}
+      style={{ zIndex: 100 }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl border-2 border-red-500 overflow-hidden max-w-sm">
+      <div className="bg-white rounded-2xl shadow-2xl border-2 border-red-500 overflow-hidden max-w-sm w-80">
         {showCloseButton && (
           <button
             onClick={handleClose}
@@ -61,6 +64,7 @@ export function LiveProductOverlay({
                 alt={product.product_name}
                 fill
                 className="object-cover"
+                unoptimized
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-gray-400">
