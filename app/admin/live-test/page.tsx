@@ -165,7 +165,7 @@ export default function LiveTestPage() {
           live_stream_id: p.live_stream_id,
           product_id: p.product_id,
           live_product_id: p.live_product_id,
-          product_name: p.product?.name || p.special_offer || 'Produit',
+          product_name: p.product?.name || 'Produit',
           product_image: p.product?.image_url || '',
           original_price: p.original_price || 0,
           promo_price: p.promo_price || 0,
@@ -595,14 +595,6 @@ export default function LiveTestPage() {
   const pendingProducts = sharedProducts.filter(p => !p.is_published);
   const publishedProducts = sharedProducts.filter(p => p.is_published);
 
-  useEffect(() => {
-    console.log('📦 Produits partagés:', sharedProducts.length);
-    console.log('✅ Produits publiés:', publishedProducts.length);
-    if (publishedProducts.length > 0) {
-      console.log('🎯 Premier produit publié:', publishedProducts[0]);
-    }
-  }, [sharedProducts, publishedProducts]);
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -727,16 +719,12 @@ export default function LiveTestPage() {
                   </div>
                 ))}
 
-                {publishedProducts.length > 0 && publishedProducts[0] ? (
+                {publishedProducts.length > 0 && publishedProducts[0] && (
                   <LiveProductOverlay
                     product={publishedProducts[0]}
                     showCloseButton={true}
                     position="bottom-right"
                   />
-                ) : (
-                  <div className="absolute bottom-4 right-4 bg-yellow-500 text-black px-3 py-1 rounded text-xs font-bold">
-                    Aucun produit publié
-                  </div>
                 )}
 
                 <div className="absolute top-4 left-4 space-y-2">

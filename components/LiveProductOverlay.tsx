@@ -26,8 +26,7 @@ export function LiveProductOverlay({
 }: LiveProductOverlayProps) {
   const [isHidden, setIsHidden] = useState(false);
 
-  console.log('🎨 Overlay rendering with product:', product);
-
+  if (!product) return null;
   if (isHidden) return null;
 
   const positionClasses = {
