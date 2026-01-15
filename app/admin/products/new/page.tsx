@@ -11,12 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Save, ArrowLeft, X } from "lucide-react";
+import { Save, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { ProductMediaSelector } from "@/components/product-media-selector";
 import RichTextEditor from "@/components/RichTextEditor";
-import ProductVariationsManager from "@/components/ProductVariationsManager";
-import ProductAttributesSelector from "@/components/ProductAttributesSelector";
+import ColorSwatchSelector from "@/components/ColorSwatchSelector";
+import ProductMediaGalleryManager from "@/components/ProductMediaGalleryManager";
 
 interface Category {
   id: string;
@@ -26,74 +25,70 @@ interface Category {
   display_order: number | null;
 }
 
-interface AttributeTerm {
-  id: string;
-  attribute_id: string;
-  name: string;
-  slug: string;
-  color_code: string | null;
-  value: string;
-  order_by: number;
-}
-
-interface ProductAttribute {
-  id: string;
-  name: string;
-  slug: string;
-  type: string;
-  terms?: AttributeTerm[];
-}
-
-interface SeoData {
-  seo_title: string;
-  meta_description: string;
-  og_title: string;
-  og_description: string;
-  og_image: string;
+interface Variation {
+  colorName: string;
+  colorId: string;
+  sku: string;
+  regular_price: number | null;
+  sale_price: number | null;
+  stock_quantity: number | null;
+  image_url: string | null;
 }
 
 export default function NewProductPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
 
-  // États du formulaire
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [regularPrice, setRegularPrice] = useState<number>(0);
   const [salePrice, setSalePrice] = useState<number | null>(null);
   const [stockQuantity, setStockQuantity] = useState<number>(0);
+  const [sku, setSku] = useState("");
   const [status, setStatus] = useState("draft");
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isFeatured, setIsFeatured] = useState(false);
   const [isDiamond, setIsDiamond] = useState(false);
 
-  // Nouveaux champs pour le système de filtres
+  const [mainImage, setMainImage] = useState<string>("");
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+
   const [mainColor, setMainColor] = useState<string>("");
+  const [mainColorId, setMainColorId] = useState<string>("");
+  const [selectedSecondaryColors, setSelectedSecondaryColors] = useState<string[]>([]);
+  const [secondaryColorIds, setSecondaryColorIds] = useState<Record<string, string>>({});
+
   const [sizeRangeStart, setSizeRangeStart] = useState<number | null>(null);
   const [sizeRangeEnd, setSizeRangeEnd] = useState<number | null>(null);
-  const [secondaryColor, setSecondaryColor] = useState<string>("");
-  const [availableColors, setAvailableColors] = useState<Array<{id: string, name: string, color_code?: string}>>([]);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
-  const [attributes, setAttributes] = useState<ProductAttribute[]>([]);
-  const [variations, setVariations] = useState<any[]>([]);
-  const [selectedAttributeTerms, setSelectedAttributeTerms] = useState<Record<string, string[]>>({});
-  const [galleryImages, setGalleryImages] = useState<string[]>([]);
-  const [seoData, setSeoData] = useState<SeoData>({
-    seo_title: "",
-    meta_description: "",
-    og_title: "",
-    og_description: "",
-    og_image: "",
-  });
+
+  const [variations, setVariations] = useState<Variation[]>([]);
 
   useEffect(() => {
     loadCategories();
-    loadAttributes();
-    loadColors();
   }, []);
+
+  useEffect(() => {
+    if (selectedSecondaryColors.length > 0) {
+      const newVariations: Variation[] = selectedSecondaryColors.map(colorName => {
+        const existingVar = variations.find(v => v.colorName === colorName);
+        return existingVar || {
+          colorName,
+          colorId: secondaryColorIds[colorName] || "",
+          sku: "",
+          regular_price: regularPrice || null,
+          sale_price: salePrice,
+          stock_quantity: stockQuantity || null,
+          image_url: null,
+        };
+      });
+      setVariations(newVariations);
+    } else {
+      setVariations([]);
+    }
+  }, [selectedSecondaryColors]);
 
   const loadCategories = async () => {
     try {
@@ -107,71 +102,6 @@ export default function NewProductPage() {
     } catch (error) {
       console.error("Error loading categories:", error);
       toast.error("Erreur lors du chargement des catégories");
-    }
-  };
-
-  const loadAttributes = async () => {
-    try {
-      const { data: attrs, error } = await supabase
-        .from("product_attributes")
-        .select(`
-          *,
-          product_attribute_terms (
-            id,
-            name,
-            slug,
-            value,
-            color_code,
-            order_by,
-            attribute_id
-          )
-        `)
-        .eq("is_visible", true)
-        .order("order_by");
-
-      if (error) throw error;
-
-      if (attrs) {
-        const formatted = attrs.map(attr => ({
-          ...attr,
-          terms: attr.product_attribute_terms
-        }));
-        setAttributes(formatted as any);
-      }
-    } catch (error) {
-      console.error("Error loading attributes:", error);
-      toast.error("Erreur lors du chargement des attributs");
-    }
-  };
-
-  const loadColors = async () => {
-    try {
-      // Charger l'attribut "Couleur" et ses termes
-      const { data: colorAttr, error: attrError } = await supabase
-        .from("product_attributes")
-        .select("id")
-        .or("slug.eq.couleur,slug.ilike.%couleur%,name.ilike.%couleur%")
-        .maybeSingle();
-
-      if (attrError) throw attrError;
-
-      if (colorAttr) {
-        const { data: colorTerms, error: termsError } = await supabase
-          .from("product_attribute_terms")
-          .select("id, name, slug, color_code")
-          .eq("attribute_id", colorAttr.id)
-          .order("order_by");
-
-        if (termsError) throw termsError;
-
-        if (colorTerms) {
-          // Filtrer les valeurs vides
-          const validColors = colorTerms.filter(c => c.name && c.name.trim());
-          setAvailableColors(validColors);
-        }
-      }
-    } catch (error) {
-      console.error("Error loading colors:", error);
     }
   };
 
@@ -199,37 +129,65 @@ export default function NewProductPage() {
     );
   };
 
-  const handleVariationsChange = (newVariations: any[]) => {
-    setVariations(newVariations);
+  const handleMainColorSelect = (colorName: string, colorId: string) => {
+    setMainColor(colorName);
+    setMainColorId(colorId);
+    setSelectedSecondaryColors([]);
+    setSecondaryColorIds({});
+  };
+
+  const handleSecondaryColorToggle = (colorName: string, colorId: string, selected: boolean) => {
+    if (selected) {
+      setSelectedSecondaryColors(prev => [...prev, colorName]);
+      setSecondaryColorIds(prev => ({ ...prev, [colorName]: colorId }));
+    } else {
+      setSelectedSecondaryColors(prev => prev.filter(c => c !== colorName));
+      setSecondaryColorIds(prev => {
+        const newIds = { ...prev };
+        delete newIds[colorName];
+        return newIds;
+      });
+    }
+  };
+
+  const updateVariation = (index: number, field: keyof Variation, value: any) => {
+    setVariations(prev => {
+      const newVars = [...prev];
+      newVars[index] = { ...newVars[index], [field]: value };
+      return newVars;
+    });
   };
 
   const handleSave = async () => {
     if (!name || !slug) {
-      toast.error("Le nom et le slug sont requis", {
-        position: "bottom-right",
-      });
+      toast.error("Le nom et le slug sont requis");
+      return;
+    }
+
+    if (!mainColor) {
+      toast.error("Veuillez sélectionner une couleur principale");
       return;
     }
 
     setSaving(true);
 
     try {
-      // 1. Créer le produit
       const productData = {
         name: name.trim(),
         slug: slug.trim(),
+        sku: sku.trim() || null,
         description: description || "",
         regular_price: parseFloat(String(regularPrice)) || 0,
         sale_price: salePrice ? parseFloat(String(salePrice)) : null,
         stock_quantity: parseInt(String(stockQuantity)) || 0,
         status: status || "draft",
-        image_url: imageUrl || null,
+        image_url: mainImage || null,
         gallery_images: galleryImages.length > 0 ? galleryImages : null,
         is_diamond: isDiamond,
         is_featured: isFeatured,
         is_variable_product: variations.length > 0,
         has_variations: variations.length > 0,
-        main_color: mainColor || null,
+        main_color: mainColor,
         size_range_start: sizeRangeStart,
         size_range_end: sizeRangeEnd,
       };
@@ -241,12 +199,10 @@ export default function NewProductPage() {
         .single();
 
       if (productError) throw productError;
-
       if (!newProduct) throw new Error("Produit non créé");
 
       const productId = newProduct.id;
 
-      // 2. Ajouter les catégories
       if (selectedCategories.length > 0) {
         const categoryMappings = selectedCategories.map((catId, index) => ({
           product_id: productId,
@@ -262,19 +218,16 @@ export default function NewProductPage() {
         if (catError) throw catError;
       }
 
-      // 3. Ajouter les variations
       if (variations.length > 0) {
         const variationsToInsert = variations.map(v => ({
           product_id: productId,
-          sku: String(v.sku || ""),
-          attributes: v.attributes || {},
+          sku: v.sku || "",
+          attributes: { "Couleur": v.colorName },
           regular_price: v.regular_price ? parseFloat(String(v.regular_price)) : null,
           sale_price: v.sale_price ? parseFloat(String(v.sale_price)) : null,
           stock_quantity: v.stock_quantity ? parseInt(String(v.stock_quantity)) : null,
           image_url: v.image_url || null,
-          size_min: v.size_min ? parseInt(String(v.size_min)) : null,
-          size_max: v.size_max ? parseInt(String(v.size_max)) : null,
-          stock_status: "instock",
+          stock_status: (v.stock_quantity || 0) > 0 ? "instock" : "outofstock",
           is_active: true,
         }));
 
@@ -285,555 +238,333 @@ export default function NewProductPage() {
         if (varError) throw varError;
       }
 
-      // 4. Ajouter le SEO
-      if (seoData.seo_title || seoData.meta_description) {
-        const seoInsertData = {
-          entity_type: "product",
-          entity_identifier: slug.trim(),
-          product_id: productId,
-          seo_title: seoData.seo_title.trim(),
-          meta_description: seoData.meta_description.trim(),
-          og_title: seoData.og_title.trim(),
-          og_description: seoData.og_description.trim(),
-          og_image: seoData.og_image.trim() || null,
-          is_active: true,
-        };
-
-        const { error: seoError } = await supabase
-          .from("seo_metadata")
-          .insert(seoInsertData);
-
-        if (seoError) throw seoError;
-      }
-
-      toast.success("Produit créé avec succès", {
-        duration: 4000,
-        position: "bottom-right",
-      });
-
-      router.refresh();
-      setTimeout(() => {
-        router.push("/admin/products");
-      }, 500);
+      toast.success("Produit créé avec succès!");
+      router.push("/admin/products");
     } catch (error: any) {
       console.error("Error creating product:", error);
-
-      let errorMessage = "Erreur lors de la création";
-
-      if (error?.message) {
-        errorMessage = error.message;
-      }
-
-      if (error?.details) {
-        errorMessage += ` - Détails: ${error.details}`;
-      }
-
-      toast.error(errorMessage, {
-        duration: 8000,
-        position: "bottom-right",
-      });
+      toast.error(`Erreur: ${error.message}`);
     } finally {
       setSaving(false);
     }
   };
 
-  // Organiser les catégories de façon hiérarchique
-  const buildCategoryTree = () => {
-    const rootCategories = allCategories.filter(c => !c.parent_id);
-
-    const buildChildren = (parentId: string): Category[] => {
-      return allCategories
-        .filter(c => c.parent_id === parentId)
-        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-    };
-
-    const addChildren = (category: Category): any => {
-      const children = buildChildren(category.id);
-      return {
-        ...category,
-        children: children.map(child => addChildren(child))
-      };
-    };
-
-    return rootCategories.map(root => addChildren(root));
-  };
-
-  const categoryTree = buildCategoryTree();
-
-  const renderCategoryCheckbox = (category: any, level: number = 0) => {
-    return (
-      <div key={category.id}>
-        <div className="flex items-center space-x-2" style={{ paddingLeft: `${level * 24}px` }}>
-          <Checkbox
-            id={`cat-${category.id}`}
-            checked={selectedCategories.includes(category.id)}
-            onCheckedChange={() => handleCategoryToggle(category.id)}
-          />
-          <Label htmlFor={`cat-${category.id}`} className="cursor-pointer text-gray-900">
-            {category.name}
-          </Label>
-        </div>
-        {category.children && category.children.length > 0 && (
-          <div className="mt-1">
-            {category.children.map((child: any) => renderCategoryCheckbox(child, level + 1))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <Link href="/admin/products" className="inline-flex items-center text-gray-600 hover:text-[#d4af37]">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Retour aux produits
-        </Link>
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
-        >
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? "Création..." : "Créer le produit"}
-        </Button>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Nouveau Produit</h1>
+            <p className="text-gray-600 mt-1">Créez un nouveau produit pour votre boutique</p>
+          </div>
+          <Link href="/admin/products">
+            <Button variant="outline">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Retour
+            </Button>
+          </Link>
+        </div>
 
-      <div className="space-y-6">
-        {/* Informations de base */}
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle className="text-[#d4af37]">Informations de base</CardTitle>
-            <CardDescription>Détails principaux du produit</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="name">Nom du produit *</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => handleNameChange(e.target.value)}
-                className="bg-white"
-                placeholder="Ex: T-shirt en coton bio"
-              />
-            </div>
+        <div className="space-y-6">
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle className="text-[#d4af37]">Informations Générales</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Nom du Produit *</Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    placeholder="Ex: Robe d'été fleurie"
+                    className="bg-white"
+                  />
+                </div>
 
-            <div>
-              <Label htmlFor="slug">Slug (URL) *</Label>
-              <Input
-                id="slug"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                className="bg-white"
-                placeholder="t-shirt-en-coton-bio"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <RichTextEditor
-                value={description}
-                onChange={(value) => setDescription(value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="regular_price">Prix régulier (€) *</Label>
-                <Input
-                  id="regular_price"
-                  type="number"
-                  step="0.01"
-                  value={regularPrice}
-                  onChange={(e) => setRegularPrice(parseFloat(e.target.value) || 0)}
-                  className="bg-white"
-                />
+                <div>
+                  <Label htmlFor="slug">Slug (URL) *</Label>
+                  <Input
+                    id="slug"
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value)}
+                    placeholder="robe-ete-fleurie"
+                    className="bg-white"
+                  />
+                </div>
               </div>
 
               <div>
-                <Label htmlFor="sale_price">Prix promo (€)</Label>
-                <Input
-                  id="sale_price"
-                  type="number"
-                  step="0.01"
-                  value={salePrice || ""}
-                  onChange={(e) => setSalePrice(e.target.value ? parseFloat(e.target.value) : null)}
-                  className="bg-white"
+                <Label htmlFor="description">Description</Label>
+                <RichTextEditor
+                  value={description}
+                  onChange={setDescription}
                 />
               </div>
 
-              <div>
-                <Label htmlFor="stock">Stock</Label>
-                <Input
-                  id="stock"
-                  type="number"
-                  value={stockQuantity}
-                  onChange={(e) => setStockQuantity(parseInt(e.target.value) || 0)}
-                  className="bg-white"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="sku">SKU (Référence)</Label>
+                  <Input
+                    id="sku"
+                    value={sku}
+                    onChange={(e) => setSku(e.target.value)}
+                    placeholder="PRD-001"
+                    className="bg-white"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="status">Statut</Label>
+                  <Select value={status} onValueChange={setStatus}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Brouillon</SelectItem>
+                      <SelectItem value="publish">Publié</SelectItem>
+                      <SelectItem value="private">Privé</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-end gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="is_featured"
+                      checked={isFeatured}
+                      onCheckedChange={(checked) => setIsFeatured(!!checked)}
+                    />
+                    <Label htmlFor="is_featured" className="cursor-pointer">Vedette</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="is_diamond"
+                      checked={isDiamond}
+                      onCheckedChange={(checked) => setIsDiamond(!!checked)}
+                    />
+                    <Label htmlFor="is_diamond" className="cursor-pointer">Diamant</Label>
+                  </div>
+                </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            <div>
-              <Label htmlFor="status">Statut</Label>
-              <Select value={status} onValueChange={(value) => setStatus(value)}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Brouillon</SelectItem>
-                  <SelectItem value="publish">Publié</SelectItem>
-                  <SelectItem value="private">Privé</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <ProductMediaGalleryManager
+            mainImage={mainImage}
+            galleryImages={galleryImages}
+            onMainImageChange={setMainImage}
+            onGalleryImagesChange={setGalleryImages}
+          />
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="is_featured"
-                  checked={isFeatured}
-                  onCheckedChange={(checked) => setIsFeatured(!!checked)}
-                />
-                <Label htmlFor="is_featured" className="cursor-pointer">Produit vedette</Label>
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle className="text-[#d4af37]">Prix & Stock (Par défaut)</CardTitle>
+              <CardDescription>
+                Ces valeurs seront utilisées si aucune variation n'est définie
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="regularPrice">Prix Régulier (€) *</Label>
+                  <Input
+                    id="regularPrice"
+                    type="number"
+                    step="0.01"
+                    value={regularPrice}
+                    onChange={(e) => setRegularPrice(parseFloat(e.target.value) || 0)}
+                    className="bg-white"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="salePrice">Prix Promo (€)</Label>
+                  <Input
+                    id="salePrice"
+                    type="number"
+                    step="0.01"
+                    value={salePrice || ""}
+                    onChange={(e) => setSalePrice(e.target.value ? parseFloat(e.target.value) : null)}
+                    className="bg-white"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="stockQuantity">Stock</Label>
+                  <Input
+                    id="stockQuantity"
+                    type="number"
+                    value={stockQuantity}
+                    onChange={(e) => setStockQuantity(parseInt(e.target.value) || 0)}
+                    className="bg-white"
+                  />
+                </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="is_diamond"
-                  checked={isDiamond}
-                  onCheckedChange={(checked) => setIsDiamond(!!checked)}
-                />
-                <Label htmlFor="is_diamond" className="cursor-pointer">Diamant caché</Label>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          <ColorSwatchSelector
+            selectedMainColor={mainColor}
+            selectedSecondaryColors={selectedSecondaryColors}
+            onMainColorSelect={handleMainColorSelect}
+            onSecondaryColorToggle={handleSecondaryColorToggle}
+            showSecondaryColors={true}
+          />
 
-        {/* Caractéristiques Produit */}
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle className="text-[#d4af37]">Caractéristiques & Filtres</CardTitle>
-            <CardDescription>Définir les caractéristiques du produit pour les filtres</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="mainColor">Couleur Principale *</Label>
-              <Input
-                id="mainColor"
-                type="text"
-                value={mainColor}
-                onChange={(e) => setMainColor(e.target.value)}
-                className="bg-white"
-                placeholder="Ex: Gris, Bleu, Noir..."
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Cette couleur sera utilisée pour les filtres (ex: Gris, Bleu, Beige)
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="secondaryColor">Couleur Secondaire (Optionnel)</Label>
-              <Select
-                value={secondaryColor}
-                onValueChange={(value) => {
-                  setSecondaryColor(value);
-                  // Si une couleur secondaire est sélectionnée, activer les variations
-                  if (value && value !== "none") {
-                    // Créer une variation par défaut si aucune n'existe
-                    if (variations.length === 0) {
-                      setVariations([{
-                        sku: "",
-                        attributes: { "Couleur": value },
-                        regular_price: null,
-                        sale_price: null,
-                        stock_quantity: null,
-                        image_url: null,
-                        stock_status: "instock"
-                      }]);
-                    }
-                  }
-                }}
-              >
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="Sélectionner une couleur secondaire..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Aucune (produit simple)</SelectItem>
-                  {availableColors.map(color => (
-                    <SelectItem key={color.id} value={color.name}>
-                      {color.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-gray-500 mt-1">
-                Si vous sélectionnez une couleur secondaire, vous pourrez créer des variations du produit
-              </p>
-            </div>
-
-            {secondaryColor && secondaryColor !== "none" && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                <p className="text-sm text-amber-900 font-medium">
-                  ⚙️ Mode Variations Activé
-                </p>
-                <p className="text-xs text-amber-700 mt-1">
-                  Une couleur secondaire a été sélectionnée. Vous pourrez définir des prix, stocks et images spécifiques pour cette variation dans la section ci-dessous.
-                </p>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="sizeRangeStart">Taille Minimum</Label>
-                <Select
-                  value={sizeRangeStart?.toString() || "none"}
-                  onValueChange={(value) => setSizeRangeStart(value === "none" ? null : parseInt(value))}
-                >
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Choisir la taille min" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Aucune</SelectItem>
-                    {Array.from({ length: 11 }, (_, i) => 34 + (i * 2)).map(size => (
-                      <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="sizeRangeEnd">Taille Maximum</Label>
-                <Select
-                  value={sizeRangeEnd?.toString() || "none"}
-                  onValueChange={(value) => setSizeRangeEnd(value === "none" ? null : parseInt(value))}
-                >
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Choisir la taille max" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Aucune</SelectItem>
-                    {Array.from({ length: 11 }, (_, i) => 34 + (i * 2)).map(size => (
-                      <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {sizeRangeStart && sizeRangeEnd && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-900">
-                  <strong>Intervalle de tailles:</strong> {sizeRangeStart} à {sizeRangeEnd}
-                </p>
-                <p className="text-xs text-blue-700 mt-1">
-                  Le produit sera affiché pour les utilisateurs ayant une taille dans cet intervalle
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Image principale */}
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle className="text-[#d4af37]">Image principale</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ProductMediaSelector
-              currentImageUrl={imageUrl || ""}
-              onSelect={(url) => setImageUrl(url)}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Galerie d'images */}
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle className="text-[#d4af37]">Galerie d'images</CardTitle>
-            <CardDescription>Ajoutez plusieurs images pour la galerie du produit</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {galleryImages.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {galleryImages.map((imageUrl, index) => (
-                    <div key={index} className="relative group border-2 border-gray-200 rounded-lg overflow-hidden aspect-square">
-                      <img
-                        src={imageUrl}
-                        alt={`Galerie ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center">
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => {
-                            setGalleryImages(prev => prev.filter((_, i) => i !== index));
-                            toast.success("Image retirée de la galerie");
-                          }}
-                        >
-                          <X className="h-4 w-4 mr-1" />
-                          Supprimer
-                        </Button>
+          {variations.length > 0 && (
+            <Card className="bg-white border-2 border-green-200">
+              <CardHeader>
+                <CardTitle className="text-[#d4af37]">
+                  Variations Générées ({variations.length})
+                </CardTitle>
+                <CardDescription>
+                  Personnalisez les prix, stocks et images pour chaque nuance
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {variations.map((variation, index) => (
+                  <Card key={index} className="border border-gray-200">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">{variation.colorName}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div>
+                          <Label>SKU</Label>
+                          <Input
+                            value={variation.sku}
+                            onChange={(e) => updateVariation(index, 'sku', e.target.value)}
+                            placeholder={`${sku}-${index + 1}`}
+                            className="bg-white"
+                          />
+                        </div>
+                        <div>
+                          <Label>Prix (€)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={variation.regular_price || ""}
+                            onChange={(e) => updateVariation(index, 'regular_price', parseFloat(e.target.value) || null)}
+                            placeholder={String(regularPrice)}
+                            className="bg-white"
+                          />
+                        </div>
+                        <div>
+                          <Label>Prix Promo (€)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={variation.sale_price || ""}
+                            onChange={(e) => updateVariation(index, 'sale_price', e.target.value ? parseFloat(e.target.value) : null)}
+                            placeholder={salePrice ? String(salePrice) : "-"}
+                            className="bg-white"
+                          />
+                        </div>
+                        <div>
+                          <Label>Stock</Label>
+                          <Input
+                            type="number"
+                            value={variation.stock_quantity || ""}
+                            onChange={(e) => updateVariation(index, 'stock_quantity', parseInt(e.target.value) || null)}
+                            placeholder={String(stockQuantity)}
+                            className="bg-white"
+                          />
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Ajouter une image à la galerie
-                </Label>
-                <ProductMediaSelector
-                  currentImageUrl=""
-                  onSelect={(url) => {
-                    if (!galleryImages.includes(url)) {
-                      setGalleryImages(prev => [...prev, url]);
-                      toast.success("Image ajoutée à la galerie");
-                    } else {
-                      toast.error("Cette image est déjà dans la galerie");
-                    }
-                  }}
-                />
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle className="text-[#d4af37]">Filtres de Taille</CardTitle>
+              <CardDescription>
+                Définissez les tailles min/max pour le filtre "À ma taille"
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Taille Minimum</Label>
+                  <Select
+                    value={sizeRangeStart?.toString() || "none"}
+                    onValueChange={(value) => setSizeRangeStart(value === "none" ? null : parseInt(value))}
+                  >
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Choisir" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Aucune</SelectItem>
+                      {Array.from({ length: 11 }, (_, i) => 34 + (i * 2)).map(size => (
+                        <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Taille Maximum</Label>
+                  <Select
+                    value={sizeRangeEnd?.toString() || "none"}
+                    onValueChange={(value) => setSizeRangeEnd(value === "none" ? null : parseInt(value))}
+                  >
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Choisir" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Aucune</SelectItem>
+                      {Array.from({ length: 11 }, (_, i) => 34 + (i * 2)).map(size => (
+                        <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+            </CardContent>
+          </Card>
 
-              {galleryImages.length === 0 && (
-                <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
-                  <p className="text-sm">Aucune image dans la galerie</p>
-                  <p className="text-xs mt-1">Utilisez le sélecteur ci-dessus pour ajouter des images</p>
-                </div>
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle className="text-[#d4af37]">Catégories</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {allCategories.map((cat) => (
+                  <div key={cat.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`cat-${cat.id}`}
+                      checked={selectedCategories.includes(cat.id)}
+                      onCheckedChange={() => handleCategoryToggle(cat.id)}
+                    />
+                    <Label htmlFor={`cat-${cat.id}`} className="cursor-pointer">
+                      {cat.name}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end gap-4 pb-6">
+            <Link href="/admin/products">
+              <Button variant="outline">Annuler</Button>
+            </Link>
+            <Button onClick={handleSave} disabled={saving} className="bg-[#d4af37] hover:bg-[#c19b2f]">
+              {saving ? (
+                <>Enregistrement...</>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Créer le Produit
+                </>
               )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Catégories */}
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle className="text-[#d4af37]">Catégories</CardTitle>
-            <CardDescription>Sélectionnez les catégories du produit - Hiérarchie complète</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1 max-h-96 overflow-y-auto p-1">
-              {categoryTree.map((category: any) => renderCategoryCheckbox(category))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Attributs de Produit (Couleurs, Tailles, etc.) */}
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle className="text-[#d4af37]">Attributs de Produit</CardTitle>
-            <CardDescription>
-              Sélectionnez les attributs disponibles pour ce produit (couleurs, tailles, etc.)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ProductAttributesSelector
-              selectedTerms={selectedAttributeTerms}
-              onChange={setSelectedAttributeTerms}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Variations de Produit */}
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle className="text-[#d4af37]">Variations de Produit</CardTitle>
-            <CardDescription>
-              Tous les produits ont des variations. Sélectionnez les attributs pour générer automatiquement les combinaisons.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ProductVariationsManager
-              initialVariations={variations}
-              onChange={handleVariationsChange}
-            />
-          </CardContent>
-        </Card>
-
-        {/* SEO */}
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle className="text-[#d4af37]">Référencement (SEO)</CardTitle>
-            <CardDescription>Optimisez le produit pour les moteurs de recherche</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="seo_title">Titre SEO</Label>
-              <Input
-                id="seo_title"
-                value={seoData.seo_title}
-                onChange={(e) => setSeoData({ ...seoData, seo_title: e.target.value })}
-                placeholder={name || "Titre optimisé pour le SEO"}
-                className="bg-white"
-              />
-              <p className="text-xs text-gray-500 mt-1">Recommandé : 50-60 caractères</p>
-            </div>
-
-            <div>
-              <Label htmlFor="meta_description">Meta Description</Label>
-              <Textarea
-                id="meta_description"
-                value={seoData.meta_description}
-                onChange={(e) => setSeoData({ ...seoData, meta_description: e.target.value })}
-                placeholder="Description du produit pour les résultats de recherche"
-                rows={3}
-                className="bg-white"
-              />
-              <p className="text-xs text-gray-500 mt-1">Recommandé : 150-160 caractères</p>
-            </div>
-
-            <div>
-              <Label htmlFor="og_title">Titre Open Graph (réseaux sociaux)</Label>
-              <Input
-                id="og_title"
-                value={seoData.og_title}
-                onChange={(e) => setSeoData({ ...seoData, og_title: e.target.value })}
-                placeholder={seoData.seo_title || name}
-                className="bg-white"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="og_description">Description Open Graph</Label>
-              <Textarea
-                id="og_description"
-                value={seoData.og_description}
-                onChange={(e) => setSeoData({ ...seoData, og_description: e.target.value })}
-                placeholder={seoData.meta_description || "Description pour les réseaux sociaux"}
-                rows={2}
-                className="bg-white"
-              />
-            </div>
-
-            <div>
-              <Label>Image Open Graph</Label>
-              <ProductMediaSelector
-                currentImageUrl={seoData.og_image || ""}
-                onSelect={(url) => setSeoData({ ...seoData, og_image: url })}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Bouton de sauvegarde fixe en bas */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex justify-end shadow-lg">
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          size="lg"
-          className="bg-gradient-to-r from-[#b8933d] to-[#d4af37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white"
-        >
-          <Save className="h-5 w-5 mr-2" />
-          {saving ? "Création..." : "Créer le produit"}
-        </Button>
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
