@@ -106,6 +106,8 @@ export default function ProductEditForm({
   const [attributes, setAttributes] = useState<ProductAttribute[]>([]);
   const [variations, setVariations] = useState<any[]>([]);
   const [selectedAttributeTerms, setSelectedAttributeTerms] = useState<Record<string, string[]>>({});
+  const [secondaryColor, setSecondaryColor] = useState<string>("");
+  const [availableColors, setAvailableColors] = useState<Array<{id: string, name: string, color_code?: string}>>([]);
   const [galleryImages, setGalleryImages] = useState<string[]>(
     Array.isArray(initialProduct.gallery_images) ? initialProduct.gallery_images :
     (initialProduct.images?.gallery_images || [])
@@ -124,6 +126,7 @@ export default function ProductEditForm({
     loadSeoData();
     loadVariations();
     loadProductAttributes();
+    loadColors();
   }, []);
 
 
@@ -208,6 +211,35 @@ export default function ProductEditForm({
       toast.error("Erreur lors du chargement des données SEO", {
         position: "bottom-right",
       });
+    }
+  };
+
+  const loadColors = async () => {
+    try {
+      const { data: colorAttr, error: attrError } = await supabase
+        .from("product_attributes")
+        .select("id")
+        .or("slug.eq.couleur,slug.ilike.%couleur%,name.ilike.%couleur%")
+        .maybeSingle();
+
+      if (attrError) throw attrError;
+
+      if (colorAttr) {
+        const { data: colorTerms, error: termsError } = await supabase
+          .from("product_attribute_terms")
+          .select("id, name, slug, color_code")
+          .eq("attribute_id", colorAttr.id)
+          .order("order_by");
+
+        if (termsError) throw termsError;
+
+        if (colorTerms) {
+          const validColors = colorTerms.filter(c => c.name && c.name.trim());
+          setAvailableColors(validColors);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading colors:", error);
     }
   };
 
@@ -652,7 +684,7 @@ export default function ProductEditForm({
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="mainColor">Couleur Principale</Label>
+              <Label htmlFor="mainColor">Couleur Principale *</Label>
               <Input
                 id="mainColor"
                 type="text"
@@ -666,18 +698,67 @@ export default function ProductEditForm({
               </p>
             </div>
 
+            <div>
+              <Label htmlFor="secondaryColor">Couleur Secondaire (Optionnel)</Label>
+              <Select
+                value={secondaryColor}
+                onValueChange={(value) => {
+                  setSecondaryColor(value);
+                  if (value && value !== "none") {
+                    if (variations.length === 0) {
+                      setVariations([{
+                        sku: "",
+                        attributes: { "Couleur": value },
+                        regular_price: null,
+                        sale_price: null,
+                        stock_quantity: null,
+                        image_url: null,
+                        stock_status: "instock"
+                      }]);
+                    }
+                  }
+                }}
+              >
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Sélectionner une couleur secondaire..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucune (produit simple)</SelectItem>
+                  {availableColors.map(color => (
+                    <SelectItem key={color.id} value={color.name}>
+                      {color.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                Si vous sélectionnez une couleur secondaire, vous pourrez créer des variations du produit
+              </p>
+            </div>
+
+            {secondaryColor && secondaryColor !== "none" && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-sm text-amber-900 font-medium">
+                  ⚙️ Mode Variations Activé
+                </p>
+                <p className="text-xs text-amber-700 mt-1">
+                  Une couleur secondaire a été sélectionnée. Vous pourrez définir des prix, stocks et images spécifiques pour cette variation dans la section ci-dessous.
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="sizeRangeStart">Taille Minimum</Label>
                 <Select
-                  value={product.size_range_start?.toString() || ""}
-                  onValueChange={(value) => setProduct({ ...product, size_range_start: value ? parseInt(value) : null })}
+                  value={product.size_range_start?.toString() || "none"}
+                  onValueChange={(value) => setProduct({ ...product, size_range_start: value === "none" ? null : parseInt(value) })}
                 >
                   <SelectTrigger className="bg-white">
                     <SelectValue placeholder="Choisir la taille min" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Aucune</SelectItem>
+                    <SelectItem value="none">Aucune</SelectItem>
                     {Array.from({ length: 11 }, (_, i) => 34 + (i * 2)).map(size => (
                       <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
                     ))}
@@ -688,14 +769,14 @@ export default function ProductEditForm({
               <div>
                 <Label htmlFor="sizeRangeEnd">Taille Maximum</Label>
                 <Select
-                  value={product.size_range_end?.toString() || ""}
-                  onValueChange={(value) => setProduct({ ...product, size_range_end: value ? parseInt(value) : null })}
+                  value={product.size_range_end?.toString() || "none"}
+                  onValueChange={(value) => setProduct({ ...product, size_range_end: value === "none" ? null : parseInt(value) })}
                 >
                   <SelectTrigger className="bg-white">
                     <SelectValue placeholder="Choisir la taille max" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Aucune</SelectItem>
+                    <SelectItem value="none">Aucune</SelectItem>
                     {Array.from({ length: 11 }, (_, i) => 34 + (i * 2)).map(size => (
                       <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
                     ))}
