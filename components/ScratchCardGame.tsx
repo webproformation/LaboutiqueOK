@@ -225,31 +225,42 @@ export function ScratchCardGame({ game, onClose, onWin }: ScratchCardGameProps) 
             coupon_id: coupon?.coupon_id || null,
           }]);
 
-        if (!isLosingPrize && coupon?.coupon_id) {
-          const { data: existingCoupon } = await supabase
-            .from('user_coupons')
+        if (!isLosingPrize && selectedPrize) {
+          // Trouver le coupon_type correspondant au code du coupon
+          const { data: couponType } = await supabase
+            .from('coupon_types')
             .select('id')
-            .eq('user_id', user.id)
             .eq('code', selectedPrize)
             .maybeSingle();
 
-          if (!existingCoupon) {
-            const validUntil = new Date();
-            validUntil.setDate(validUntil.getDate() + 30);
+          if (couponType) {
+            const { data: existingCoupon } = await supabase
+              .from('user_coupons')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('code', selectedPrize)
+              .maybeSingle();
 
-            await supabase.from('user_coupons').insert({
-              user_id: user.id,
-              coupon_type_id: coupon.coupon_id,
-              code: selectedPrize,
-              source: 'scratch_card_game',
-              is_used: false,
-              valid_until: validUntil.toISOString(),
-            });
+            if (!existingCoupon) {
+              const validUntil = new Date();
+              validUntil.setDate(validUntil.getDate() + 30);
 
-            toast.success(`Coupon ${selectedPrize} ajouté à votre compte!`);
+              await supabase.from('user_coupons').insert({
+                user_id: user.id,
+                coupon_type_id: couponType.id,
+                code: selectedPrize,
+                source: 'scratch_card_game',
+                is_used: false,
+                valid_until: validUntil.toISOString(),
+              });
+
+              toast.success(`Coupon ${selectedPrize} ajouté à votre compte!`);
+            }
+
+            onWin(selectedPrize);
+          } else {
+            console.error('Coupon type not found for code:', selectedPrize);
           }
-
-          onWin(selectedPrize);
         }
       } catch (error) {
         console.error('Error saving game play:', error);

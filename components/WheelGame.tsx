@@ -136,28 +136,39 @@ export function WheelGame({ game, onClose, onWin }: WheelGameProps) {
               coupon_id: segment.coupon_id,
             }]);
 
-          if (!isLosingSegment && segment.coupon_id) {
-            const { data: existingCoupon } = await supabase
-              .from('user_coupons')
+          if (!isLosingSegment && segment.coupon_code) {
+            // Trouver le coupon_type correspondant au code du coupon
+            const { data: couponType } = await supabase
+              .from('coupon_types')
               .select('id')
-              .eq('user_id', user.id)
               .eq('code', segment.coupon_code)
               .maybeSingle();
 
-            if (!existingCoupon) {
-              const validUntil = new Date();
-              validUntil.setDate(validUntil.getDate() + 30);
+            if (couponType) {
+              const { data: existingCoupon } = await supabase
+                .from('user_coupons')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('code', segment.coupon_code)
+                .maybeSingle();
 
-              await supabase.from('user_coupons').insert({
-                user_id: user.id,
-                coupon_type_id: segment.coupon_id,
-                code: segment.coupon_code,
-                source: 'wheel_game',
-                is_used: false,
-                valid_until: validUntil.toISOString(),
-              });
+              if (!existingCoupon) {
+                const validUntil = new Date();
+                validUntil.setDate(validUntil.getDate() + 30);
 
-              toast.success(`Coupon ${segment.coupon_code} ajouté à votre compte!`);
+                await supabase.from('user_coupons').insert({
+                  user_id: user.id,
+                  coupon_type_id: couponType.id,
+                  code: segment.coupon_code,
+                  source: 'wheel_game',
+                  is_used: false,
+                  valid_until: validUntil.toISOString(),
+                });
+
+                toast.success(`Coupon ${segment.coupon_code} ajouté à votre compte!`);
+              }
+            } else {
+              console.error('Coupon type not found for code:', segment.coupon_code);
             }
 
             onWin(segment.coupon_code);
