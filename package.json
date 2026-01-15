@@ -47,6 +47,7 @@
     "@radix-ui/react-tooltip": "^1.1.2",
     "@stripe/react-stripe-js": "^5.4.1",
     "@stripe/stripe-js": "^8.6.1",
+    "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.58.0",
     "@types/node": "20.6.2",
     "@types/nodemailer": "^7.0.4",
