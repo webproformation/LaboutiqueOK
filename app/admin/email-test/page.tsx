@@ -41,10 +41,16 @@ export default function EmailTestPage() {
         });
         toast.success('E-mail envoyé avec succès !');
       } else {
+        const smtpInfo = data.smtp_config
+          ? `\n\nConfiguration SMTP:\nServeur: ${data.smtp_config.host}\nPort: ${data.smtp_config.port}\nSecure: ${data.smtp_config.secure}\nUtilisateur: ${data.smtp_config.user}`
+          : '';
+
         setResult({
           success: false,
           error: data.error || 'Erreur inconnue',
+          code: data.code || '',
           details: data.details || '',
+          smtpInfo,
           stack: data.stack || '',
         });
         toast.error('Erreur lors de l\'envoi de l\'e-mail');
@@ -153,11 +159,29 @@ export default function EmailTestPage() {
                 </p>
               </div>
 
+              {result.code && (
+                <div>
+                  <p className="font-semibold mb-1">Code d'erreur:</p>
+                  <p className="text-xs bg-orange-50 p-2 rounded border border-orange-200 font-mono">
+                    {result.code}
+                  </p>
+                </div>
+              )}
+
               {result.details && (
                 <div>
                   <p className="font-semibold mb-1">Détails:</p>
-                  <pre className="text-xs bg-gray-50 p-3 rounded border overflow-auto">
+                  <pre className="text-xs bg-gray-50 p-3 rounded border overflow-auto whitespace-pre-wrap">
                     {result.details}
+                  </pre>
+                </div>
+              )}
+
+              {result.smtpInfo && (
+                <div>
+                  <p className="font-semibold mb-1">Configuration SMTP:</p>
+                  <pre className="text-xs bg-blue-50 p-3 rounded border border-blue-200 overflow-auto whitespace-pre-wrap">
+                    {result.smtpInfo}
                   </pre>
                 </div>
               )}
