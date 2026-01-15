@@ -36,6 +36,9 @@ interface Product {
   is_variable_product?: boolean;
   has_variations?: boolean;
   attributes?: any;
+  main_color?: string | null;
+  size_range_start?: number | null;
+  size_range_end?: number | null;
 }
 
 interface Category {
@@ -273,9 +276,12 @@ export default function ProductEditForm({
         gallery_images: galleryImages.length > 0 ? galleryImages : null,
         is_diamond: Boolean(product.is_diamond),
         is_featured: Boolean(product.is_featured),
-        has_variations: true,
-        is_variable_product: true,
+        has_variations: variations.length > 0,
+        is_variable_product: variations.length > 0,
         attributes: {},
+        main_color: product.main_color || null,
+        size_range_start: product.size_range_start,
+        size_range_end: product.size_range_end,
       };
 
       const { error: productError } = await supabase
@@ -635,6 +641,79 @@ export default function ProductEditForm({
                 <Label htmlFor="is_diamond" className="cursor-pointer">Diamant caché</Label>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Caractéristiques Produit */}
+        <Card className="bg-white">
+          <CardHeader>
+            <CardTitle className="text-[#d4af37]">Caractéristiques & Filtres</CardTitle>
+            <CardDescription>Définir les caractéristiques du produit pour les filtres</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="mainColor">Couleur Principale</Label>
+              <Input
+                id="mainColor"
+                type="text"
+                value={product.main_color || ""}
+                onChange={(e) => setProduct({ ...product, main_color: e.target.value })}
+                className="bg-white"
+                placeholder="Ex: Gris, Bleu, Noir..."
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Cette couleur sera utilisée pour les filtres (ex: Gris, Bleu, Beige)
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="sizeRangeStart">Taille Minimum</Label>
+                <Select
+                  value={product.size_range_start?.toString() || ""}
+                  onValueChange={(value) => setProduct({ ...product, size_range_start: value ? parseInt(value) : null })}
+                >
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Choisir la taille min" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Aucune</SelectItem>
+                    {Array.from({ length: 11 }, (_, i) => 34 + (i * 2)).map(size => (
+                      <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="sizeRangeEnd">Taille Maximum</Label>
+                <Select
+                  value={product.size_range_end?.toString() || ""}
+                  onValueChange={(value) => setProduct({ ...product, size_range_end: value ? parseInt(value) : null })}
+                >
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Choisir la taille max" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Aucune</SelectItem>
+                    {Array.from({ length: 11 }, (_, i) => 34 + (i * 2)).map(size => (
+                      <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {product.size_range_start && product.size_range_end && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-900">
+                  <strong>Intervalle de tailles:</strong> {product.size_range_start} à {product.size_range_end}
+                </p>
+                <p className="text-xs text-blue-700 mt-1">
+                  Le produit sera affiché pour les utilisateurs ayant une taille dans cet intervalle
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
