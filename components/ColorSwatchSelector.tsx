@@ -78,17 +78,27 @@ export default function ColorSwatchSelector({
       if (termsError) throw termsError;
 
       if (allTerms) {
+        console.log('[ColorSwatchSelector] All terms loaded:', allTerms.length);
+        console.log('[ColorSwatchSelector] Sample term:', allTerms[0]);
+
         const validTerms = allTerms.filter(t => t.name && t.name.trim());
+        console.log('[ColorSwatchSelector] Valid terms:', validTerms.length);
 
         const parentTerms = validTerms.filter(t => !t.parent_id);
+        console.log('[ColorSwatchSelector] Parent terms:', parentTerms.length);
 
-        const families: ColorFamily[] = parentTerms.map(parent => ({
-          id: parent.id,
-          name: parent.name,
-          color_code: parent.color_code,
-          children: validTerms.filter(child => child.parent_id === parent.id)
-        }));
+        const families: ColorFamily[] = parentTerms.map(parent => {
+          const children = validTerms.filter(child => child.parent_id === parent.id);
+          console.log(`[ColorSwatchSelector] Family "${parent.name}" has ${children.length} children`);
+          return {
+            id: parent.id,
+            name: parent.name,
+            color_code: parent.color_code,
+            children
+          };
+        });
 
+        console.log('[ColorSwatchSelector] Total families created:', families.length);
         setColorFamilies(families);
       }
     } catch (error) {
