@@ -15,11 +15,16 @@ export async function POST(request: NextRequest) {
 
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
-      secure: process.env.SMTP_SECURE === 'true',
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: false,
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 15000,
+      requireTLS: true,
+      tls: {
+        ciphers: 'SSLv3',
+        rejectUnauthorized: false
+      },
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -37,12 +42,13 @@ export async function POST(request: NextRequest) {
           <p>Ceci est un test de configuration SMTP réussi depuis le site.</p>
           <hr style="border: 1px solid #d4af37;">
           <p style="color: #666; font-size: 12px;">Configuration testée le ${new Date().toLocaleString('fr-FR')}</p>
+          <p style="color: #666; font-size: 12px;">Port: ${process.env.SMTP_PORT || 587} (TLS/STARTTLS)</p>
         </div>
       `,
     };
 
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('TIMEOUT')), 10000)
+      setTimeout(() => reject(new Error('TIMEOUT')), 15000)
     );
 
     const sendPromise = transporter.sendMail(mailOptions);
@@ -64,10 +70,10 @@ export async function POST(request: NextRequest) {
 
     if (error.message === 'TIMEOUT' || errorCode === 'ETIMEDOUT' || errorCode === 'ESOCKET') {
       errorMessage = 'Timeout de connexion SMTP';
-      errorDetails = 'Le port SMTP 465 est probablement bloqué dans cet environnement de développement. Le test fonctionnera une fois le site déployé sur un serveur de production.';
+      errorDetails = 'La connexion au serveur SMTP a pris trop de temps. Vérifiez que le serveur SMTP est accessible depuis Vercel et que le port 587 est bien ouvert.';
     } else if (errorCode === 'ECONNREFUSED') {
       errorMessage = 'Connexion refusée';
-      errorDetails = 'Le serveur SMTP a refusé la connexion. Le port 465 est probablement bloqué par le pare-feu. Ce test fonctionnera en production.';
+      errorDetails = 'Le serveur SMTP a refusé la connexion. Vérifiez que le port 587 est accessible depuis Vercel.';
     } else if (errorCode === 'ENOTFOUND') {
       errorMessage = 'Serveur SMTP introuvable';
       errorDetails = `Impossible de résoudre le nom de domaine: ${process.env.SMTP_HOST}`;
@@ -84,8 +90,9 @@ export async function POST(request: NextRequest) {
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
         smtp_config: {
           host: process.env.SMTP_HOST,
-          port: process.env.SMTP_PORT,
-          secure: process.env.SMTP_SECURE,
+          port: process.env.SMTP_PORT || 587,
+          secure: false,
+          tls: 'STARTTLS (port 587)',
           user: process.env.SMTP_USER,
         },
       },
