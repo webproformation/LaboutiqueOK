@@ -65,17 +65,22 @@ export function HiddenDiamondDetector({ currentPage, currentLocation }: HiddenDi
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .rpc('discover_diamond', {
-          p_user_id: user.id,
-          p_diamond_id: diamondId
-        });
+      const { data, error } = await supabase.rpc('add_loyalty_gain', {
+        p_user_id: user.id,
+        p_type: 'diamond_found',
+        p_base_amount: 0.10,
+        p_description: 'Diamant caché découvert'
+      });
 
       if (error) throw error;
 
-      if (data.success) {
-        setRewardAmount(data.amount);
-        setRewardMessage(data.message);
+      if (data) {
+        const result = typeof data === 'string' ? JSON.parse(data) : data;
+        const finalAmount = (0.10 * result.multiplier).toFixed(2);
+        const multiplierText = result.multiplier > 1 ? ` (Gains x${result.multiplier} !)` : '';
+
+        setRewardAmount(parseFloat(finalAmount));
+        setRewardMessage(`Vous avez trouvé un diamant caché !${multiplierText}`);
         setShowReward(true);
 
         setDiamonds(prev => prev.filter(d => d.diamond_id !== diamondId));

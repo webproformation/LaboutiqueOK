@@ -131,25 +131,70 @@ export async function POST(request: NextRequest) {
                 console.error('Error sending confirmation email:', emailError);
               }
             }
-          }
-        }
 
-        const userId = session.metadata?.userId;
-        if (userId) {
-          const loyaltyPoints = Math.floor(parseFloat(session.amount_total?.toString() || '0') / 100);
+            const userId = session.metadata?.userId;
+            if (userId) {
+              const cashbackAmount = orderDetails.subtotal * 0.02;
 
-          const { error: loyaltyError } = await supabase
-            .from('loyalty_points')
-            .insert({
-              user_id: userId,
-              points: loyaltyPoints,
-              type: 'purchase',
-              description: `Achat commande ${orderId}`,
-              order_id: orderId,
+          try {
+            const { data: loyaltyData, error: loyaltyError } = await supabase.rpc('add_loyalty_gain', {
+              p_user_id: userId,
+              p_type: 'order_cashback',
+              p_base_amount: cashbackAmount,
+              p_description: `Cashback commande ${orderDetails.order_number || orderId}`
             });
 
-          if (loyaltyError) {
-            console.error('Error adding loyalty points:', loyaltyError);
+            if (loyaltyError) {
+              console.error('Error adding cashback:', loyaltyError);
+            } else {
+              console.log(`Cashback added for order ${orderId}: ${cashbackAmount}€`);
+            }
+          } catch (loyaltyErr) {
+            console.error('Exception adding cashback:', loyaltyErr);
+          }
+
+          const orderSource = session.metadata?.source || 'Site';
+          const couponCategory = orderSource === 'Live' ? 'Site' : 'Live';
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + 4);
+
+          try {
+            const couponCode = `CROSS-${orderId.substring(0, 8).toUpperCase()}`;
+
+            const { error: couponError } = await supabase
+              .from('coupons')
+              .insert({
+                code: couponCode,
+                type: 'fixed',
+                value: 2.0,
+                is_global: false,
+                category: couponCategory,
+                valid_from: new Date().toISOString(),
+                valid_until: expiresAt.toISOString(),
+                is_active: true,
+                description: `Coupon croisé: Commande ${orderSource} → Bonus ${couponCategory}`
+              });
+
+            if (couponError) {
+              console.error('Error creating cross-sell coupon:', couponError);
+            } else {
+              const { error: userCouponError } = await supabase
+                .from('user_coupons')
+                .insert({
+                  user_id: userId,
+                  coupon_code: couponCode
+                });
+
+              if (userCouponError) {
+                console.error('Error assigning coupon to user:', userCouponError);
+              } else {
+                console.log(`Cross-sell coupon ${couponCode} created and assigned (${orderSource} → ${couponCategory})`);
+              }
+            }
+          } catch (couponErr) {
+            console.error('Exception creating cross-sell coupon:', couponErr);
+          }
+            }
           }
         }
 

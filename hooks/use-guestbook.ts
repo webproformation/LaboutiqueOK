@@ -198,6 +198,9 @@ export async function submitGuestbookEntry(data: {
   customer_name: string
   customer_photo_url?: string
 }) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('User not authenticated')
+
   const { data: entry, error } = await supabase
     .from('guestbook_entries')
     .insert({
@@ -208,6 +211,23 @@ export async function submitGuestbookEntry(data: {
     .single()
 
   if (error) throw error
+
+  try {
+    const { data: loyaltyData, error: loyaltyError } = await supabase.rpc('add_loyalty_gain', {
+      p_user_id: user.id,
+      p_type: 'review',
+      p_base_amount: 0.20,
+      p_description: 'Avis déposé sur le Livre d\'Or'
+    })
+
+    if (!loyaltyError && loyaltyData) {
+      const result = typeof loyaltyData === 'string' ? JSON.parse(loyaltyData) : loyaltyData
+      console.log('Loyalty reward added:', result)
+    }
+  } catch (loyaltyErr) {
+    console.error('Error adding loyalty reward for review:', loyaltyErr)
+  }
+
   return entry
 }
 

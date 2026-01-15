@@ -57,6 +57,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadingProfileRef = useRef(false);
   const initializedRef = useRef(false);
 
+  const checkDailyLogin = async (userId: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    const lastLoginKey = `daily_login_${userId}`;
+    const lastLogin = localStorage.getItem(lastLoginKey);
+
+    if (lastLogin === today) {
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('add_loyalty_gain', {
+        p_user_id: userId,
+        p_type: 'daily_login',
+        p_base_amount: 0.10,
+        p_description: 'Connexion quotidienne'
+      });
+
+      if (error) throw error;
+
+      if (data) {
+        const result = typeof data === 'string' ? JSON.parse(data) : data;
+        const multiplierText = result.multiplier > 1 ? ` (x${result.multiplier})` : '';
+
+        toast.success(result.message + multiplierText, {
+          position: 'bottom-right',
+          duration: 5000,
+        });
+
+        localStorage.setItem(lastLoginKey, today);
+      }
+    } catch (error) {
+      console.error('Error checking daily login:', error);
+    }
+  };
+
   const loadProfile = async (userId: string, force = false) => {
     if (loadingProfileRef.current && !force) {
       return;
@@ -85,6 +120,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await signOut();
           return;
         }
+
+        await checkDailyLogin(userId);
       }
     } catch (error) {
       console.error('Error loading profile:', error);

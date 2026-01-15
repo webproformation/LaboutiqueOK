@@ -84,7 +84,7 @@ export default function LivreDorPage() {
         return
       }
 
-      await submitGuestbookEntry({
+      const entry = await submitGuestbookEntry({
         order_number: formData.order_number,
         rating: formData.rating,
         message: formData.message,
@@ -92,7 +92,10 @@ export default function LivreDorPage() {
         customer_photo_url: formData.customer_photo_url
       })
 
-      toast.success('Merci pour votre mot doux ! Il sera publié après validation (48-72h)')
+      toast.success('Merci pour votre mot doux ! Il sera publié après validation (48-72h)', {
+        description: 'Bonus fidélité ajouté à votre cagnotte !'
+      })
+
       setFormData({
         order_number: '',
         rating: 5,

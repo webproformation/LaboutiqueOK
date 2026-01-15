@@ -31,7 +31,7 @@ export function HiddenDiamond({ productId, position, selectedPosition }: HiddenD
     const today = new Date().toISOString().split("T")[0];
 
     const { data, error } = await supabase
-      .from("loyalty_transactions")
+      .from("loyalty_euro_transactions")
       .select("id")
       .eq("user_id", profile.id)
       .eq("type", "diamond_found")
@@ -59,44 +59,35 @@ export function HiddenDiamond({ productId, position, selectedPosition }: HiddenD
     setIsAnimating(true);
 
     try {
-      const { error: transactionError } = await supabase
-        .from("loyalty_transactions")
-        .insert({
-          user_id: profile.id,
-          amount: 0.10,
-          type: "diamond_found",
-          description: `Diamant trouvé sur le produit`,
-          reference_id: productId,
-        });
-
-      if (transactionError) {
-        if (transactionError.code === "23505") {
-          toast.info("Vous avez déjà trouvé ce diamant aujourd'hui !");
-          setHasFoundDiamond(true);
-          setIsVisible(false);
-          return;
-        }
-        throw transactionError;
-      }
-
-      const { error: settingsError } = await supabase.rpc("increment_diamonds_found");
-
-      if (settingsError) {
-        console.error("Error updating settings:", settingsError);
-      }
-
-      await refreshProfile();
-
-      toast.success("Félicitations ! Vous avez gagné 0,10 € !", {
-        icon: <Gem className="h-4 w-4 fill-amber-500 text-amber-500" />,
-        duration: 5000,
+      const { data, error } = await supabase.rpc('add_loyalty_gain', {
+        p_user_id: profile.id,
+        p_type: 'diamond_found',
+        p_base_amount: 0.10,
+        p_description: 'Diamant trouvé sur le produit'
       });
 
-      setHasFoundDiamond(true);
+      if (error) {
+        throw error;
+      }
 
-      setTimeout(() => {
-        setIsVisible(false);
-      }, 1000);
+      if (data) {
+        const result = typeof data === 'string' ? JSON.parse(data) : data;
+        const finalAmount = (0.10 * result.multiplier).toFixed(2);
+        const multiplierText = result.multiplier > 1 ? ` (x${result.multiplier})` : '';
+
+        await refreshProfile();
+
+        toast.success(`Félicitations ! Vous avez gagné ${finalAmount} € !${multiplierText}`, {
+          icon: <Gem className="h-4 w-4 fill-amber-500 text-amber-500" />,
+          duration: 5000,
+        });
+
+        setHasFoundDiamond(true);
+
+        setTimeout(() => {
+          setIsVisible(false);
+        }, 1000);
+      }
     } catch (error) {
       console.error("Error collecting diamond:", error);
       toast.error("Une erreur est survenue");

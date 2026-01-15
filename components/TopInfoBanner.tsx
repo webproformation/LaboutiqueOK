@@ -5,6 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import { NextLiveBanner } from '@/components/NextLiveBanner';
 import OpenPackageCountdownBanner from '@/components/OpenPackageCountdownBanner';
 import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
+import { Sparkles, Euro } from 'lucide-react';
 
 export function TopInfoBanner() {
   const { user } = useAuth();
@@ -42,7 +44,23 @@ export function TopInfoBanner() {
 
   return (
     <div className={`w-full grid ${shouldUseTwoColumns ? 'grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x' : 'grid-cols-1'} divide-white/20`}>
-      <NextLiveBanner />
+      {!user ? (
+        <Link href="/auth/register" className="block">
+          <div className="bg-gradient-to-r from-[#C6A15B] via-[#D4AF37] to-[#FFD700] hover:from-[#B59149] hover:via-[#C6A15B] hover:to-[#D4AF37] transition-all duration-300">
+            <div className="container mx-auto px-4 py-4">
+              <div className="flex items-center justify-center gap-3 text-white">
+                <Sparkles className="h-6 w-6 animate-pulse" />
+                <span className="font-bold text-lg">
+                  Crée ton compte et reçois 5€ de bienvenue !
+                </span>
+                <Euro className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+        </Link>
+      ) : (
+        <NextLiveBanner />
+      )}
       {user && hasOpenPackage && <OpenPackageCountdownBanner />}
     </div>
   );
