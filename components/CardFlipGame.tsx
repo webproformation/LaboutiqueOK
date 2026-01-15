@@ -120,38 +120,35 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
       if (won && coupon) {
         couponCode = coupon.code;
 
-        // Trouver le coupon_type correspondant au code du coupon
-        const { data: couponType } = await supabase
-          .from('coupon_types')
-          .select('id')
-          .eq('code', coupon.code)
-          .maybeSingle();
+        try {
+          const response = await fetch('/api/games/claim-reward', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              game_type: 'card_flip_game',
+              game_id: gameId,
+              coupon_code: coupon.code,
+              has_won: true,
+            }),
+          });
 
-        if (couponType) {
-          const { data: existingAssignment } = await supabase
-            .from('user_coupons')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('coupon_type_id', couponType.id)
-            .maybeSingle();
+          const result = await response.json();
 
-          if (!existingAssignment) {
-            const validUntil = new Date();
-            validUntil.setDate(validUntil.getDate() + 30);
-
-            await supabase.from('user_coupons').insert({
-              user_id: user.id,
-              coupon_type_id: couponType.id,
-              code: coupon.code,
-              source: 'card_flip_game',
-              is_used: false,
-              valid_until: validUntil.toISOString(),
-            });
-
-            toast.success(`Coupon ${coupon.code} ajouté à votre compte!`);
+          if (response.ok && result.success) {
+            if (result.already_owned) {
+              toast.info(`Vous possédez déjà ce coupon : ${coupon.code}`);
+            } else {
+              toast.success(`Coupon ${coupon.code} ajouté à votre compte!`);
+            }
+          } else {
+            console.error('Error claiming reward:', result);
+            toast.error('Erreur lors de l\'attribution du coupon');
           }
-        } else {
-          console.error('Coupon type not found for code:', coupon.code);
+        } catch (error) {
+          console.error('Error claiming reward:', error);
+          toast.error('Erreur lors de l\'attribution du coupon');
         }
       }
 
@@ -178,6 +175,8 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
           toast.error('Dommage ! Vous avez perdu cette fois-ci.');
         }
       }, 1500);
+
+      checkUserPlays();
     }, 600);
   };
 
