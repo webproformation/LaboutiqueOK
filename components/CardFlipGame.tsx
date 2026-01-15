@@ -121,10 +121,18 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
         couponCode = coupon.code;
 
         try {
+          const { data: { session } } = await supabase.auth.getSession();
+
+          if (!session?.access_token) {
+            toast.error('Session expirée, veuillez vous reconnecter');
+            return;
+          }
+
           const response = await fetch('/api/games/claim-reward', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
             },
             body: JSON.stringify({
               game_type: 'card_flip_game',

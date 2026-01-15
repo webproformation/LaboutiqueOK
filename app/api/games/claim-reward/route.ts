@@ -1,19 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
       return NextResponse.json(
-        { error: 'Non authentifié' },
+        { error: 'Non authentifié - Token manquant' },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Non authentifié - Token invalide' },
+        { status: 401 }
+      );
+    }
+
+    const userId = user.id;
     const body = await request.json();
     const { game_type, game_id, coupon_code, has_won } = body;
 
@@ -31,10 +50,22 @@ export async function POST(request: NextRequest) {
         .eq('code', coupon_code)
         .maybeSingle();
 
-      if (couponTypeError || !couponType) {
-        console.error('Coupon type not found:', { coupon_code, error: couponTypeError });
+      if (couponTypeError) {
+        console.error('Database error fetching coupon type:', { coupon_code, error: couponTypeError });
         return NextResponse.json(
-          { error: 'Type de coupon introuvable', coupon_code },
+          { error: 'Erreur base de données', details: couponTypeError.message },
+          { status: 500 }
+        );
+      }
+
+      if (!couponType) {
+        console.error('Coupon type not found:', { coupon_code });
+        return NextResponse.json(
+          {
+            error: 'Type de coupon introuvable',
+            coupon_code,
+            message: 'Le type de coupon doit être configuré dans coupon_types avant utilisation'
+          },
           { status: 404 }
         );
       }
