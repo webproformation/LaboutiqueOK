@@ -14,7 +14,7 @@ interface HiddenDiamondProps {
 }
 
 export function HiddenDiamond({ productId, position, selectedPosition }: HiddenDiamondProps) {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [isVisible, setIsVisible] = useState(position === selectedPosition);
   const [hasFoundDiamond, setHasFoundDiamond] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -84,6 +84,8 @@ export function HiddenDiamond({ productId, position, selectedPosition }: HiddenD
       if (settingsError) {
         console.error("Error updating settings:", settingsError);
       }
+
+      await refreshProfile();
 
       toast.success("Félicitations ! Vous avez gagné 0,10 € !", {
         icon: <Gem className="h-4 w-4 fill-amber-500 text-amber-500" />,

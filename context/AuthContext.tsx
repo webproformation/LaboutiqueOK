@@ -45,6 +45,7 @@ interface AuthContextType {
   updateProfile: (data: Partial<Profile>) => Promise<{ error: any }>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: AuthError | null }>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -315,6 +316,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshProfile = async () => {
+    if (user) {
+      await loadProfile(user.id, true);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -327,6 +334,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateProfile,
         resetPassword,
         updatePassword,
+        refreshProfile,
       }}
     >
       {children}

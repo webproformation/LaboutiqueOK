@@ -17,9 +17,9 @@ export function LoyaltyBanner() {
   const loyaltyPoints = Number(profile.loyalty_points) || 0;
 
   return (
-    <div className="bg-gradient-to-r from-[#D4AF37] via-[#C6A15B] to-[#D4AF37] border-b border-[#C6A15B]">
+    <div className="w-full bg-gradient-to-r from-[#D4AF37] via-[#C6A15B] to-[#D4AF37] border-b border-[#C6A15B]">
       <div className="container mx-auto px-4 py-2">
-        <div className="flex items-center justify-between gap-4 text-white">
+        <div className="flex items-center justify-between gap-4 text-white w-full">
           <div className="flex items-center gap-4 md:gap-6 flex-wrap">
             <div className="flex items-center gap-2">
               <PiggyBank className="h-4 w-4" />
@@ -36,13 +36,6 @@ export function LoyaltyBanner() {
                 </span>
               </div>
             )}
-
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                Points: <span className="font-bold">{loyaltyPoints}</span>
-              </span>
-            </div>
 
             {multiplier > 1 && (
               <div className="flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full">

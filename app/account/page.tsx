@@ -173,7 +173,7 @@ export default function AccountPage() {
             </div>
             <div className="text-right">
               <p className="text-3xl font-bold text-white">
-                {(Number(profile.wallet_balance) || 0).toFixed(2)}€
+                {((Number(profile.wallet_balance) || 0) + (Number(profile.loyalty_euros) || 0)).toFixed(2)}€
               </p>
             </div>
           </div>
@@ -186,55 +186,37 @@ export default function AccountPage() {
             <Award className="h-6 w-6 text-[#D4AF37]" />
             <CardTitle>Ma Fidélité</CardTitle>
           </div>
-          <CardDescription>Vos points et récompenses</CardDescription>
+          <CardDescription>Vos récompenses de fidélité</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-br from-[#D4AF37]/10 to-[#b8933d]/10 rounded-lg p-6 border border-[#D4AF37]/20">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#D4AF37] to-[#b8933d] flex items-center justify-center">
-                  <Sparkles className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Mes points</p>
-                  <p className="text-3xl font-bold text-[#D4AF37]">
-                    {profile.loyalty_points || 0}
-                  </p>
-                </div>
+          <div className="bg-gradient-to-br from-[#D4AF37]/10 to-[#b8933d]/10 rounded-lg p-6 border border-[#D4AF37]/20">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#D4AF37] to-[#b8933d] flex items-center justify-center">
+                <Coins className="h-6 w-6 text-white" />
               </div>
-              <p className="text-sm text-gray-600">
-                Gagnez des points à chaque achat et lors de nos lives
-              </p>
-            </div>
-
-            <div className="bg-gradient-to-br from-[#D4AF37]/10 to-[#b8933d]/10 rounded-lg p-6 border border-[#D4AF37]/20">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#D4AF37] to-[#b8933d] flex items-center justify-center">
-                  <Coins className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Valeur cagnotte</p>
-                  <p className="text-3xl font-bold text-[#D4AF37]">
-                    {(Number(profile.loyalty_euros) || 0).toFixed(2)}€
-                  </p>
-                </div>
+              <div>
+                <p className="text-sm text-gray-600">Valeur cagnotte</p>
+                <p className="text-3xl font-bold text-[#D4AF37]">
+                  {(Number(profile.loyalty_euros) || 0).toFixed(2)}€
+                </p>
               </div>
-              <p className="text-sm text-gray-600">
-                Valeur cumulée de vos récompenses de fidélité
-              </p>
             </div>
+            <p className="text-sm text-gray-600">
+              Valeur cumulée de vos récompenses de fidélité
+            </p>
           </div>
 
           <div className="mt-6 bg-blue-50 rounded-lg p-4 border border-blue-200">
             <div className="flex items-start gap-3">
               <Star className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-semibold text-blue-900 mb-1">Comment gagner plus de points ?</h4>
+                <h4 className="font-semibold text-blue-900 mb-1">Comment gagner plus d'euros fidélité ?</h4>
                 <ul className="text-sm text-blue-800 space-y-1">
                   <li>• Participez à nos lives shopping</li>
-                  <li>• Effectuez des achats (1 point = 1€ dépensé)</li>
+                  <li>• Trouvez les diamants cachés sur le site</li>
                   <li>• Parrainez vos amis</li>
-                  <li>• Interagissez avec nous sur les réseaux sociaux</li>
+                  <li>• Cashback de 2% sur vos commandes</li>
+                  <li>• Bonus de connexion quotidienne</li>
                 </ul>
               </div>
             </div>
