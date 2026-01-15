@@ -96,28 +96,50 @@ export async function POST(request: NextRequest) {
         .eq('id', dbOrderId)
         .single();
 
-      if (orderDetails && orderDetails.profiles?.email) {
-        const items = orderDetails.order_items?.map((item: any) => ({
-          name: item.products?.name || 'Produit',
-          quantity: item.quantity,
-          price: item.price,
-        })) || [];
+      if (orderDetails) {
+        // Marquer le coupon comme utilisé si un coupon a été appliqué
+        if (orderDetails.coupon_code && orderDetails.user_id) {
+          try {
+            const { error: couponError } = await supabase
+              .rpc('mark_coupon_as_used', {
+                p_code: orderDetails.coupon_code,
+                p_user_id: orderDetails.user_id,
+                p_order_id: dbOrderId
+              });
 
-        const shippingAddress = orderDetails.addresses
-          ? `${orderDetails.addresses.street_address}\n${orderDetails.addresses.postal_code} ${orderDetails.addresses.city}\n${orderDetails.addresses.country}`
-          : 'Adresse non spécifiée';
+            if (couponError) {
+              console.error('Error marking coupon as used:', couponError);
+            } else {
+              console.log(`Coupon ${orderDetails.coupon_code} marked as used for PayPal order ${dbOrderId}`);
+            }
+          } catch (couponErr) {
+            console.error('Exception marking coupon as used:', couponErr);
+          }
+        }
 
-        try {
-          await sendOrderConfirmationEmail(orderDetails.profiles.email, {
-            orderId: orderDetails.order_number || dbOrderId,
-            customerName: `${orderDetails.profiles.first_name || ''} ${orderDetails.profiles.last_name || ''}`.trim(),
-            items,
-            total: orderDetails.total_amount,
-            shippingAddress,
-          });
-          console.log(`Confirmation email sent to ${orderDetails.profiles.email} for PayPal order`);
-        } catch (emailError) {
-          console.error('Error sending PayPal confirmation email:', emailError);
+        if (orderDetails.profiles?.email) {
+          const items = orderDetails.order_items?.map((item: any) => ({
+            name: item.products?.name || 'Produit',
+            quantity: item.quantity,
+            price: item.price,
+          })) || [];
+
+          const shippingAddress = orderDetails.addresses
+            ? `${orderDetails.addresses.street_address}\n${orderDetails.addresses.postal_code} ${orderDetails.addresses.city}\n${orderDetails.addresses.country}`
+            : 'Adresse non spécifiée';
+
+          try {
+            await sendOrderConfirmationEmail(orderDetails.profiles.email, {
+              orderId: orderDetails.order_number || dbOrderId,
+              customerName: `${orderDetails.profiles.first_name || ''} ${orderDetails.profiles.last_name || ''}`.trim(),
+              items,
+              total: orderDetails.total_amount,
+              shippingAddress,
+            });
+            console.log(`Confirmation email sent to ${orderDetails.profiles.email} for PayPal order`);
+          } catch (emailError) {
+            console.error('Error sending PayPal confirmation email:', emailError);
+          }
         }
       }
     }
