@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProfilePictureUpload } from '@/components/profile-picture-upload';
 import { PasswordInput } from '@/components/PasswordInput';
+import { LoyaltyEuroBar } from '@/components/LoyaltyEuroBar';
 import { User, Mail, Phone, Calendar, Save, Loader2, PiggyBank, Lock, Sparkles, Star, Coins, Award } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -180,49 +181,7 @@ export default function AccountPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-[#D4AF37] border-2">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Award className="h-6 w-6 text-[#D4AF37]" />
-            <CardTitle>Ma Fidélité</CardTitle>
-          </div>
-          <CardDescription>Vos récompenses de fidélité</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-gradient-to-br from-[#D4AF37]/10 to-[#b8933d]/10 rounded-lg p-6 border border-[#D4AF37]/20">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#D4AF37] to-[#b8933d] flex items-center justify-center">
-                <Coins className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Valeur cagnotte</p>
-                <p className="text-3xl font-bold text-[#D4AF37]">
-                  {(Number(profile.loyalty_euros) || 0).toFixed(2)}€
-                </p>
-              </div>
-            </div>
-            <p className="text-sm text-gray-600">
-              Valeur cumulée de vos récompenses de fidélité
-            </p>
-          </div>
-
-          <div className="mt-6 bg-blue-50 rounded-lg p-4 border border-blue-200">
-            <div className="flex items-start gap-3">
-              <Star className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="font-semibold text-blue-900 mb-1">Comment gagner plus d'euros fidélité ?</h4>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• Participez à nos lives shopping</li>
-                  <li>• Trouvez les diamants cachés sur le site</li>
-                  <li>• Parrainez vos amis</li>
-                  <li>• Cashback de 2% sur vos commandes</li>
-                  <li>• Bonus de connexion quotidienne</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <LoyaltyEuroBar />
 
       <Card>
         <CardHeader>
