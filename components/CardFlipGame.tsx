@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { X, Gift, Frown } from 'lucide-react';
+import { X, Gift, Frown, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
+import confetti from 'canvas-confetti';
 
 interface CardFlipGameProps {
   gameId: string;
@@ -19,11 +20,13 @@ interface GameData {
   description: string;
   coupon_id: string;
   max_plays_per_user: number;
-  total_winners: number;
+  win_probability: number;
 }
 
 interface CouponData {
+  id: string;
   code: string;
+  name: string;
   discount_type: string;
   discount_value: number;
 }
@@ -32,14 +35,14 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
   const { user } = useAuth();
   const [game, setGame] = useState<GameData | null>(null);
   const [coupon, setCoupon] = useState<CouponData | null>(null);
-  const [cards, setCards] = useState<number[]>([0, 1, 2]);
+  const [cards] = useState<number[]>([0, 1, 2]);
   const [flippedCard, setFlippedCard] = useState<number | null>(null);
   const [selectedCard, setSelectedCard] = useState<number | null>(null);
-  const [winningCard, setWinningCard] = useState<number | null>(null);
   const [hasWon, setHasWon] = useState<boolean | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [canPlay, setCanPlay] = useState(true);
   const [playsCount, setPlaysCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadGameData();
@@ -66,7 +69,7 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
     if (gameData.coupon_id) {
       const { data: couponData } = await supabase
         .from('coupons')
-        .select('code, discount_type, discount_value')
+        .select('id, code, name, discount_type, discount_value')
         .eq('id', gameData.coupon_id)
         .maybeSingle();
 
@@ -74,6 +77,8 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
         setCoupon(couponData);
       }
     }
+
+    setLoading(false);
   };
 
   const checkUserPlays = async () => {
@@ -94,6 +99,54 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
     }
   };
 
+  const triggerConfetti = () => {
+    const count = 200;
+    const defaults = {
+      origin: { y: 0.7 },
+      zIndex: 10000,
+    };
+
+    function fire(particleRatio: number, opts: any) {
+      confetti({
+        ...defaults,
+        ...opts,
+        particleCount: Math.floor(count * particleRatio),
+      });
+    }
+
+    fire(0.25, {
+      spread: 26,
+      startVelocity: 55,
+      colors: ['#D4AF37', '#FFD700', '#FFA500'],
+    });
+
+    fire(0.2, {
+      spread: 60,
+      colors: ['#D4AF37', '#FFD700', '#FFA500'],
+    });
+
+    fire(0.35, {
+      spread: 100,
+      decay: 0.91,
+      scalar: 0.8,
+      colors: ['#D4AF37', '#FFD700', '#FFA500'],
+    });
+
+    fire(0.1, {
+      spread: 120,
+      startVelocity: 25,
+      decay: 0.92,
+      scalar: 1.2,
+      colors: ['#D4AF37', '#FFD700', '#FFA500'],
+    });
+
+    fire(0.1, {
+      spread: 120,
+      startVelocity: 45,
+      colors: ['#D4AF37', '#FFD700', '#FFA500'],
+    });
+  };
+
   const handleCardClick = async (cardIndex: number) => {
     if (!user) {
       toast.error('Vous devez être connecté pour jouer');
@@ -105,83 +158,80 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
     setIsPlaying(true);
     setSelectedCard(cardIndex);
 
-    const winning = Math.floor(Math.random() * 3);
-    setWinningCard(winning);
-
-    const won = cardIndex === winning;
-    setHasWon(won);
-
-    setTimeout(async () => {
+    // Animation de retournement
+    setTimeout(() => {
       setFlippedCard(cardIndex);
+    }, 300);
 
+    // Appel API pour déterminer le résultat (tirage au sort côté serveur)
+    try {
       const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
 
-      let couponCode = null;
-      if (won && coupon) {
-        couponCode = coupon.code;
-
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          const token = session?.access_token;
-
-          const response = await fetch('/api/games/claim-reward', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': token ? `Bearer ${token}` : '',
-            },
-            body: JSON.stringify({
-              game_type: 'card_flip_game',
-              game_id: gameId,
-              coupon_code: coupon.code,
-              has_won: true,
-            }),
-          });
-
-          const result = await response.json();
-
-          if (response.ok && result.success) {
-            if (result.already_owned) {
-              toast.info(`Vous possédez déjà ce coupon : ${coupon.code}`);
-            } else {
-              toast.success(`Coupon ${coupon.code} ajouté à votre compte!`);
-            }
-          } else {
-            console.error('Error claiming reward:', result);
-            toast.error('Erreur lors de l\'attribution du coupon');
-          }
-        } catch (error) {
-          console.error('Error claiming reward:', error);
-          toast.error('Erreur lors de l\'attribution du coupon');
-        }
-      }
-
-      await supabase.from('card_flip_game_plays').insert({
-        game_id: gameId,
-        user_id: user.id,
-        has_won: won,
-        coupon_code: couponCode,
+      const response = await fetch('/api/games/claim-reward', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: JSON.stringify({
+          game_type: 'card_flip',
+          game_id: gameId,
+        }),
       });
 
-      if (game) {
-        await supabase
-          .from('card_flip_games')
-          .update({ total_winners: (game.total_winners || 0) + (won ? 1 : 0) })
-          .eq('id', gameId);
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        const won = result.has_won;
+        setHasWon(won);
+
+        setTimeout(() => {
+          if (won) {
+            triggerConfetti();
+
+            if (result.already_owned) {
+              toast.success('Gagné ! Vous possédez déjà ce coupon.', {
+                duration: 5000,
+              });
+            } else {
+              const couponValue = result.coupon?.discount_type === 'percentage'
+                ? `-${result.coupon.discount_value}%`
+                : `-${Number(result.coupon?.discount_value || 0).toFixed(2)}€`;
+
+              toast.success(
+                `🎉 Félicitations ! Vous avez gagné ${couponValue} !`,
+                { duration: 6000 }
+              );
+            }
+          } else {
+            toast.error('Dommage ! Vous avez perdu cette fois-ci.', {
+              description: 'Retentez votre chance si vous avez des parties restantes !',
+              duration: 4000,
+            });
+          }
+        }, 1000);
+      } else {
+        if (result.max_reached) {
+          setCanPlay(false);
+          toast.warning('Nombre maximum de parties atteint');
+        } else {
+          toast.error(result.error || 'Erreur lors du jeu');
+        }
+        setIsPlaying(false);
+        setSelectedCard(null);
+        setFlippedCard(null);
       }
 
-      setTimeout(() => {
-        if (won) {
-          toast.success(`Félicitations ! Vous avez gagné le coupon : ${coupon?.code}`, {
-            duration: 5000,
-          });
-        } else {
-          toast.error('Dommage ! Vous avez perdu cette fois-ci.');
-        }
-      }, 1500);
-
       checkUserPlays();
-    }, 600);
+    } catch (error) {
+      console.error('Error playing game:', error);
+      toast.error('Erreur lors du jeu');
+      setIsPlaying(false);
+      setSelectedCard(null);
+      setFlippedCard(null);
+    }
   };
 
   const getCouponText = () => {
@@ -191,6 +241,16 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
     }
     return `-${(Number(coupon.discount_value) || 0).toFixed(2)}€`;
   };
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
+        <Card className="w-full max-w-lg p-8">
+          <div className="text-center">Chargement...</div>
+        </Card>
+      </div>
+    );
+  }
 
   if (!game) return null;
 
@@ -208,15 +268,24 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
 
         <CardContent className="pt-6">
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{game.name}</h2>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Sparkles className="h-6 w-6 text-[#D4AF37]" />
+              <h2 className="text-2xl font-bold text-gray-900">{game.name}</h2>
+              <Sparkles className="h-6 w-6 text-[#D4AF37]" />
+            </div>
             {game.description && (
               <p className="text-gray-600 mb-4">{game.description}</p>
             )}
             {coupon && (
-              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white px-4 py-2 rounded-full">
-                <Gift className="h-4 w-4" />
-                <span className="font-semibold">À gagner : {getCouponText()}</span>
+              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white px-6 py-3 rounded-full shadow-lg">
+                <Gift className="h-5 w-5" />
+                <span className="font-bold text-lg">À gagner : {getCouponText()}</span>
               </div>
+            )}
+            {game.win_probability && (
+              <p className="text-sm text-gray-500 mt-3">
+                Probabilité de gain : {game.win_probability}%
+              </p>
             )}
           </div>
 
@@ -229,63 +298,77 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
               <p className="text-sm text-gray-500 mt-2">
                 {playsCount} / {game.max_plays_per_user} parties jouées
               </p>
-              <Button onClick={onClose} className="mt-4">
+              <Button onClick={onClose} className="mt-4 bg-[#D4AF37] hover:bg-[#B8933D]">
                 Fermer
               </Button>
             </div>
           ) : (
             <>
-              <div className="text-center mb-4 text-sm text-gray-600">
+              <div className="text-center mb-6">
                 {selectedCard === null ? (
-                  <p>Choisissez une carte !</p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-blue-800 font-medium">
+                      🎴 Choisissez une carte pour tenter votre chance !
+                    </p>
+                  </div>
                 ) : (
-                  <p>Découvrez votre résultat...</p>
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <p className="text-purple-800 font-medium">
+                      ✨ Découvrez votre résultat...
+                    </p>
+                  </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-3 gap-6 mb-6 perspective-container">
                 {cards.map((cardIndex) => (
                   <button
                     key={cardIndex}
                     onClick={() => handleCardClick(cardIndex)}
                     disabled={isPlaying || selectedCard !== null || !user}
-                    className={`relative aspect-[2/3] rounded-xl transition-all duration-500 transform ${
-                      selectedCard === cardIndex && flippedCard === cardIndex
-                        ? 'scale-105'
-                        : ''
-                    }`}
-                    style={{ perspective: '1000px' }}
+                    className={`relative aspect-[2/3] rounded-2xl transition-all duration-300 ${
+                      selectedCard === cardIndex
+                        ? 'scale-110 shadow-2xl'
+                        : 'hover:scale-105 hover:shadow-xl'
+                    } ${isPlaying || selectedCard !== null ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                   >
                     <div
-                      className={`relative w-full h-full transition-transform duration-600 ${
+                      className={`relative w-full h-full preserve-3d transition-transform duration-700 ${
                         flippedCard === cardIndex ? '[transform:rotateY(180deg)]' : ''
                       }`}
-                      style={{ transformStyle: 'preserve-3d' }}
                     >
-                      <div
-                        className="absolute w-full h-full bg-gradient-to-br from-[#b8933d] to-[#d4af37] rounded-xl flex items-center justify-center shadow-lg"
-                        style={{ backfaceVisibility: 'hidden' }}
-                      >
-                        <div className="text-white text-4xl">?</div>
+                      {/* Face avant */}
+                      <div className="absolute w-full h-full bg-gradient-to-br from-[#b8933d] via-[#d4af37] to-[#b8933d] rounded-2xl flex items-center justify-center shadow-xl backface-hidden border-4 border-white">
+                        <div className="text-center">
+                          <div className="text-white text-6xl font-bold mb-2">?</div>
+                          <div className="text-white text-xs font-semibold opacity-80">
+                            Carte {cardIndex + 1}
+                          </div>
+                        </div>
                       </div>
 
+                      {/* Face arrière */}
                       <div
-                        className="absolute w-full h-full rounded-xl flex items-center justify-center shadow-lg"
-                        style={{
-                          backfaceVisibility: 'hidden',
-                          transform: 'rotateY(180deg)',
-                          background:
-                            hasWon && selectedCard === cardIndex
-                              ? 'linear-gradient(135deg, #10b981, #059669)'
-                              : 'linear-gradient(135deg, #ef4444, #dc2626)',
-                        }}
+                        className={`absolute w-full h-full rounded-2xl flex items-center justify-center shadow-xl backface-hidden border-4 border-white [transform:rotateY(180deg)] ${
+                          hasWon && selectedCard === cardIndex
+                            ? 'bg-gradient-to-br from-green-400 via-green-500 to-green-600'
+                            : selectedCard === cardIndex
+                            ? 'bg-gradient-to-br from-red-400 via-red-500 to-red-600'
+                            : 'bg-gradient-to-br from-gray-300 to-gray-400'
+                        }`}
                       >
                         {hasWon && selectedCard === cardIndex ? (
-                          <Gift className="h-12 w-12 text-white" />
+                          <div className="text-center animate-bounce">
+                            <Gift className="h-16 w-16 text-white mx-auto mb-2" />
+                            <div className="text-white text-2xl font-bold">GAGNÉ !</div>
+                          </div>
                         ) : selectedCard === cardIndex ? (
-                          <Frown className="h-12 w-12 text-white" />
+                          <div className="text-center">
+                            <Frown className="h-16 w-16 text-white mx-auto mb-2" />
+                            <div className="text-white text-xl font-bold">PERDU</div>
+                          </div>
                         ) : (
-                          <div className="text-white text-4xl">?</div>
+                          <div className="text-white text-5xl">?</div>
                         )}
                       </div>
                     </div>
@@ -294,13 +377,17 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
               </div>
 
               {!user && (
-                <p className="text-center text-sm text-orange-600 mb-4">
-                  Connectez-vous pour jouer !
-                </p>
+                <div className="text-center mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-orange-800 font-medium">
+                    🔒 Connectez-vous pour jouer !
+                  </p>
+                </div>
               )}
 
-              <div className="text-center text-xs text-gray-500">
-                Parties restantes : {game.max_plays_per_user - playsCount} / {game.max_plays_per_user}
+              <div className="text-center p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-700 font-medium">
+                  Parties restantes : <span className="text-[#D4AF37] font-bold">{game.max_plays_per_user - playsCount}</span> / {game.max_plays_per_user}
+                </p>
               </div>
             </>
           )}

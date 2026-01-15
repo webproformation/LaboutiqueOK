@@ -283,4 +283,18 @@
   .news-content u {
     @apply underline;
   }
+
+  /* 3D Card Flip Animations */
+  .perspective-container {
+    perspective: 1000px;
+  }
+
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+
+  .backface-hidden {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
 }

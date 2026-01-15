@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Sparkles, Calendar, Users, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, Sparkles, Calendar, Users, Eye, Percent } from 'lucide-react';
 import { CardFlipGame } from '@/components/CardFlipGame';
 
 interface CardFlipGameData {
@@ -25,14 +25,17 @@ interface CardFlipGameData {
   end_date: string | null;
   max_plays_per_user: number;
   total_winners: number;
+  win_probability: number;
   created_at: string;
 }
 
 interface Coupon {
   id: string;
   code: string;
+  name: string;
   discount_type: string;
   discount_value: number;
+  is_active: boolean;
 }
 
 export default function CardFlipAdminPage() {
@@ -49,54 +52,15 @@ export default function CardFlipAdminPage() {
     description: '',
     coupon_id: '',
     is_active: false,
-    start_date: '',
+    start_date: new Date().toISOString().split('T')[0],
     end_date: '',
     max_plays_per_user: 1,
+    win_probability: 33.33,
   });
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadData = async () => {
-      try {
-        const [gamesResult, couponsResult] = await Promise.all([
-          supabase
-            .from('card_flip_games')
-            .select('*')
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('coupons')
-            .select('id, code, discount_type, discount_value')
-            .eq('is_active', true)
-            .order('code')
-        ]);
-
-        if (isMounted) {
-          if (gamesResult.error) {
-            toast.error('Erreur lors du chargement des jeux');
-          } else {
-            setGames(gamesResult.data || []);
-          }
-
-          if (!couponsResult.error) {
-            setCoupons(couponsResult.data || []);
-          }
-
-          setLoading(false);
-        }
-      } catch (error) {
-        if (isMounted) {
-          console.error('Error loading data:', error);
-          setLoading(false);
-        }
-      }
-    };
-
-    loadData();
-
-    return () => {
-      isMounted = false;
-    };
+    loadGames();
+    loadCoupons();
   }, []);
 
   const loadGames = async () => {
@@ -108,50 +72,45 @@ export default function CardFlipAdminPage() {
 
       if (error) throw error;
       setGames(data || []);
-    } catch (error) {
-      console.error('Error loading games:', error);
+    } catch (error: any) {
       toast.error('Erreur lors du chargement des jeux');
+      console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadCoupons = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('id, code, name, discount_type, discount_value, is_active')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setCoupons(data || []);
+    } catch (error: any) {
+      console.error('Erreur lors du chargement des coupons:', error);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name.trim()) {
-      toast.error('Le nom est obligatoire');
-      return;
-    }
-
-    if (!formData.coupon_id) {
-      toast.error('Veuillez sélectionner un coupon');
-      return;
-    }
-
     try {
-      const gameData = {
-        name: formData.name,
-        description: formData.description,
-        coupon_id: formData.coupon_id,
-        is_active: formData.is_active,
-        start_date: formData.start_date || null,
-        end_date: formData.end_date || null,
-        max_plays_per_user: formData.max_plays_per_user,
-      };
-
       if (editingGame) {
         const { error } = await supabase
           .from('card_flip_games')
-          .update(gameData)
+          .update(formData)
           .eq('id', editingGame.id);
 
         if (error) throw error;
-        toast.success('Jeu mis à jour avec succès');
+        toast.success('Jeu modifié avec succès');
       } else {
         const { error } = await supabase
           .from('card_flip_games')
-          .insert([gameData]);
+          .insert([formData]);
 
         if (error) throw error;
         toast.success('Jeu créé avec succès');
@@ -160,9 +119,9 @@ export default function CardFlipAdminPage() {
       setDialogOpen(false);
       resetForm();
       loadGames();
-    } catch (error) {
-      console.error('Error saving game:', error);
+    } catch (error: any) {
       toast.error('Erreur lors de la sauvegarde');
+      console.error(error);
     }
   };
 
@@ -171,11 +130,12 @@ export default function CardFlipAdminPage() {
     setFormData({
       name: game.name,
       description: game.description || '',
-      coupon_id: game.coupon_id || '',
+      coupon_id: game.coupon_id,
       is_active: game.is_active,
-      start_date: game.start_date ? game.start_date.split('T')[0] : '',
+      start_date: game.start_date.split('T')[0],
       end_date: game.end_date ? game.end_date.split('T')[0] : '',
       max_plays_per_user: game.max_plays_per_user,
+      win_probability: game.win_probability || 33.33,
     });
     setDialogOpen(true);
   };
@@ -192,31 +152,10 @@ export default function CardFlipAdminPage() {
       if (error) throw error;
       toast.success('Jeu supprimé avec succès');
       loadGames();
-    } catch (error) {
-      console.error('Error deleting game:', error);
+    } catch (error: any) {
       toast.error('Erreur lors de la suppression');
+      console.error(error);
     }
-  };
-
-  const toggleActive = async (game: CardFlipGameData) => {
-    try {
-      const { error } = await supabase
-        .from('card_flip_games')
-        .update({ is_active: !game.is_active })
-        .eq('id', game.id);
-
-      if (error) throw error;
-      toast.success(`Jeu ${!game.is_active ? 'activé' : 'désactivé'}`);
-      loadGames();
-    } catch (error) {
-      console.error('Error toggling game:', error);
-      toast.error('Erreur lors de la modification');
-    }
-  };
-
-  const handlePreview = (gameId: string) => {
-    setPreviewGameId(gameId);
-    setIsPreviewOpen(true);
   };
 
   const resetForm = () => {
@@ -225,47 +164,51 @@ export default function CardFlipAdminPage() {
       description: '',
       coupon_id: '',
       is_active: false,
-      start_date: '',
+      start_date: new Date().toISOString().split('T')[0],
       end_date: '',
       max_plays_per_user: 1,
+      win_probability: 33.33,
     });
     setEditingGame(null);
   };
 
-  const getCouponLabel = (couponId: string) => {
-    const coupon = coupons.find((c) => c.id === couponId);
-    if (!coupon) return 'Aucun';
-    if (coupon.discount_type === 'percentage') {
-      return `${coupon.code} (-${coupon.discount_value}%)`;
-    }
-    return `${coupon.code} (-${(Number(coupon.discount_value) || 0).toFixed(2)}€)`;
+  const getCouponInfo = (coupon_id: string) => {
+    const coupon = coupons.find(c => c.id === coupon_id);
+    if (!coupon) return { name: 'Coupon supprimé', badge: 'gray' };
+
+    const value = coupon.discount_type === 'percentage'
+      ? `-${coupon.discount_value}%`
+      : `-${Number(coupon.discount_value).toFixed(2)}€`;
+
+    return { name: `${coupon.name} (${value})`, badge: 'green' };
   };
 
   if (loading) {
-    return <div className="p-8 text-center">Chargement...</div>;
+    return (
+      <div className="p-6">
+        <div className="text-center">Chargement...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Jeux de cartes</h1>
-          <p className="text-gray-600 mt-2">Gérez les jeux de cartes où les utilisateurs peuvent gagner des coupons</p>
+          <h1 className="text-3xl font-bold text-[#D4AF37]">Gestion Card Flip Game</h1>
+          <p className="text-gray-600 mt-1">Créez et gérez vos jeux de cartes à retourner avec probabilités personnalisables</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) resetForm();
-        }}>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[#d4af37] hover:bg-[#b8933d]">
+            <Button onClick={resetForm} className="bg-[#D4AF37] hover:bg-[#B8933D]">
               <Plus className="h-4 w-4 mr-2" />
-              Nouveau jeu
+              Nouveau Jeu
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editingGame ? 'Modifier le jeu' : 'Créer un jeu'}
+                {editingGame ? 'Modifier le jeu' : 'Créer un nouveau jeu'}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -276,6 +219,7 @@ export default function CardFlipAdminPage() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
+                  placeholder="Ex: Gagnez jusqu'à -30%"
                 />
               </div>
 
@@ -285,15 +229,17 @@ export default function CardFlipAdminPage() {
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Description du jeu..."
                   rows={3}
                 />
               </div>
 
               <div>
-                <Label htmlFor="coupon_id">Coupon à gagner *</Label>
+                <Label htmlFor="coupon">Coupon à gagner *</Label>
                 <Select
                   value={formData.coupon_id}
                   onValueChange={(value) => setFormData({ ...formData, coupon_id: value })}
+                  required
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un coupon" />
@@ -301,11 +247,9 @@ export default function CardFlipAdminPage() {
                   <SelectContent>
                     {coupons.map((coupon) => (
                       <SelectItem key={coupon.id} value={coupon.id}>
-                        {coupon.code} (
-                        {coupon.discount_type === 'percentage'
+                        {coupon.name} - {coupon.discount_type === 'percentage'
                           ? `-${coupon.discount_value}%`
-                          : `-${(Number(coupon.discount_value) || 0).toFixed(2)}€`}
-                        )
+                          : `-${Number(coupon.discount_value).toFixed(2)}€`}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -314,14 +258,16 @@ export default function CardFlipAdminPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="start_date">Date de début</Label>
+                  <Label htmlFor="start_date">Date de début *</Label>
                   <Input
                     id="start_date"
                     type="date"
                     value={formData.start_date}
                     onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    required
                   />
                 </div>
+
                 <div>
                   <Label htmlFor="end_date">Date de fin</Label>
                   <Input
@@ -333,39 +279,59 @@ export default function CardFlipAdminPage() {
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="max_plays">Nombre max de parties par utilisateur</Label>
-                <Input
-                  id="max_plays"
-                  type="number"
-                  min="1"
-                  value={formData.max_plays_per_user}
-                  onChange={(e) => setFormData({ ...formData, max_plays_per_user: parseInt(e.target.value) })}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="max_plays">Parties max par utilisateur *</Label>
+                  <Input
+                    id="max_plays"
+                    type="number"
+                    min="1"
+                    value={formData.max_plays_per_user}
+                    onChange={(e) => setFormData({ ...formData, max_plays_per_user: parseInt(e.target.value) })}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="win_probability" className="flex items-center gap-2">
+                    <Percent className="h-4 w-4" />
+                    Probabilité de gain (%) *
+                  </Label>
+                  <Input
+                    id="win_probability"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={formData.win_probability}
+                    onChange={(e) => setFormData({ ...formData, win_probability: parseFloat(e.target.value) })}
+                    required
+                    placeholder="33.33"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    33.33% = 1 chance sur 3 | 50% = 1 chance sur 2
+                  </p>
+                </div>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <Label htmlFor="is_active" className="text-base font-medium">Jeu actif</Label>
+                  <p className="text-sm text-gray-500">Le jeu sera visible et jouable par les utilisateurs</p>
+                </div>
                 <Switch
                   id="is_active"
                   checked={formData.is_active}
                   onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                 />
-                <Label htmlFor="is_active">Activer le jeu</Label>
               </div>
 
-              <div className="flex gap-2 pt-4">
-                <Button type="submit" className="flex-1 bg-[#d4af37] hover:bg-[#b8933d]">
-                  {editingGame ? 'Mettre à jour' : 'Créer'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setDialogOpen(false);
-                    resetForm();
-                  }}
-                >
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Annuler
+                </Button>
+                <Button type="submit" className="bg-[#D4AF37] hover:bg-[#B8933D]">
+                  {editingGame ? 'Modifier' : 'Créer'}
                 </Button>
               </div>
             </form>
@@ -373,93 +339,108 @@ export default function CardFlipAdminPage() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {games.map((game) => (
-          <Card key={game.id} className="relative">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-[#d4af37]" />
-                    {game.name}
-                  </CardTitle>
-                  {game.description && (
-                    <p className="text-sm text-gray-600 mt-1">{game.description}</p>
-                  )}
-                </div>
-                <Badge variant={game.is_active ? 'default' : 'secondary'}>
-                  {game.is_active ? 'Actif' : 'Inactif'}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Calendar className="h-4 w-4" />
-                {game.start_date ? new Date(game.start_date).toLocaleDateString() : 'Sans début'} - {game.end_date ? new Date(game.end_date).toLocaleDateString() : 'Sans fin'}
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Users className="h-4 w-4" />
-                Max {game.max_plays_per_user} partie(s) par utilisateur
-              </div>
-              <div className="text-sm text-gray-600">
-                Coupon: {getCouponLabel(game.coupon_id)}
-              </div>
-              <div className="text-sm text-gray-600">
-                {game.total_winners || 0} gagnant(s)
-              </div>
-              <div className="flex gap-2 pt-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handlePreview(game.id)}
-                  className="flex-1"
-                >
-                  <Eye className="h-4 w-4 mr-1" />
-                  Prévisualiser
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleEdit(game)}
-                  className="flex-1"
-                >
-                  <Edit className="h-4 w-4 mr-1" />
-                  Modifier
-                </Button>
-                <Button
-                  size="sm"
-                  variant={game.is_active ? 'secondary' : 'default'}
-                  onClick={() => toggleActive(game)}
-                >
-                  {game.is_active ? 'Désactiver' : 'Activer'}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleDelete(game.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {games.length === 0 && (
+      {games.length === 0 ? (
         <Card>
-          <CardContent className="py-12">
-            <div className="text-center text-gray-500">
-              <Sparkles className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-              <p>Aucun jeu configuré</p>
-              <p className="text-sm mt-1">Créez votre premier jeu de carte à retourner</p>
-            </div>
+          <CardContent className="p-12 text-center">
+            <Sparkles className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">Aucun jeu créé pour le moment</p>
+            <p className="text-sm text-gray-500 mt-2">Cliquez sur "Nouveau Jeu" pour commencer</p>
           </CardContent>
         </Card>
+      ) : (
+        <div className="grid gap-4">
+          {games.map((game) => {
+            const couponInfo = getCouponInfo(game.coupon_id);
+            return (
+              <Card key={game.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CardTitle className="text-xl">{game.name}</CardTitle>
+                        {game.is_active ? (
+                          <Badge className="bg-green-500">Actif</Badge>
+                        ) : (
+                          <Badge variant="secondary">Inactif</Badge>
+                        )}
+                      </div>
+                      {game.description && (
+                        <p className="text-sm text-gray-600 mb-3">{game.description}</p>
+                      )}
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-[#D4AF37]" />
+                          <span className="font-medium">Coupon:</span>
+                          <Badge variant="outline" className={`bg-${couponInfo.badge}-50`}>
+                            {couponInfo.name}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Percent className="h-4 w-4 text-[#D4AF37]" />
+                          <span className="font-medium">Probabilité:</span>
+                          <Badge className="bg-blue-500">{game.win_probability}%</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-[#D4AF37]" />
+                          <span className="font-medium">Max parties:</span>
+                          <span>{game.max_plays_per_user}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-[#D4AF37]" />
+                          <span className="font-medium">Du:</span>
+                          <span>{new Date(game.start_date).toLocaleDateString('fr-FR')}</span>
+                          {game.end_date && (
+                            <>
+                              <span>au</span>
+                              <span>{new Date(game.end_date).toLocaleDateString('fr-FR')}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setPreviewGameId(game.id);
+                          setIsPreviewOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEdit(game)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDelete(game.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+              </Card>
+            );
+          })}
+        </div>
       )}
 
       {isPreviewOpen && previewGameId && (
-        <CardFlipGame gameId={previewGameId} onClose={() => setIsPreviewOpen(false)} />
+        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Aperçu du jeu</DialogTitle>
+            </DialogHeader>
+            <CardFlipGame gameId={previewGameId} onClose={() => setIsPreviewOpen(false)} />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
