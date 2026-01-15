@@ -1,55 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createClient } from '@/utils/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = cookies();
+    const supabase = createClient();
 
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: CookieOptions) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: CookieOptions) {
-            cookieStore.set({ name, value: '', ...options });
-          },
-        },
-      }
-    );
-
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     console.log('[claim-reward] Auth check:', {
-      hasSession: !!session,
-      hasError: !!sessionError,
-      userId: session?.user?.id,
-      cookies: cookieStore.getAll().map(c => c.name),
+      hasUser: !!user,
+      hasError: !!userError,
+      userId: user?.id,
+      errorMessage: userError?.message,
     });
 
-    if (sessionError) {
-      console.error('[claim-reward] Session error:', sessionError);
+    if (userError) {
+      console.error('[claim-reward] User error:', userError);
       return NextResponse.json(
-        { error: 'Erreur de session', details: sessionError.message },
+        { error: 'Erreur d\'authentification', details: userError.message },
         { status: 401 }
       );
     }
 
-    if (!session) {
-      console.error('[claim-reward] No session found');
+    if (!user) {
+      console.error('[claim-reward] No user found');
       return NextResponse.json(
         { error: 'Non authentifié - Veuillez vous reconnecter' },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
+    const userId = user.id;
     const body = await request.json();
     const { game_type, game_id, coupon_code, has_won } = body;
 
