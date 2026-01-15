@@ -1,31 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const cookieStore = cookies();
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: any) {
+            try {
+              cookieStore.set({ name, value, ...options });
+            } catch {}
+          },
+          remove(name: string, options: any) {
+            try {
+              cookieStore.set({ name, value: '', ...options });
+            } catch {}
+          },
+        },
+      }
+    );
 
-    console.log('[claim-reward] Auth check:', {
-      hasUser: !!user,
-      hasError: !!userError,
-      userId: user?.id,
-      errorMessage: userError?.message,
-    });
+    let user = null;
 
-    if (userError) {
-      console.error('[claim-reward] User error:', userError);
-      return NextResponse.json(
-        { error: 'Erreur d\'authentification', details: userError.message },
-        { status: 401 }
-      );
+    const { data: userDataCookie } = await supabase.auth.getUser();
+    user = userDataCookie.user;
+
+    if (!user) {
+      const authHeader = request.headers.get('Authorization');
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '');
+        const { data: userDataToken } = await supabase.auth.getUser(token);
+        user = userDataToken.user;
+        console.log('[claim-reward] Auth via Token Bearer:', {
+          hasUser: !!user,
+          userId: user?.id,
+        });
+      }
+    } else {
+      console.log('[claim-reward] Auth via Cookie:', {
+        hasUser: !!user,
+        userId: user?.id,
+      });
     }
 
     if (!user) {
-      console.error('[claim-reward] No user found');
+      console.error('[claim-reward] Auth Failed: No Cookie and No Valid Token found.');
       return NextResponse.json(
-        { error: 'Non authentifié - Veuillez vous reconnecter' },
+        { error: 'Non authentifié - Echec Cookie ET Token' },
         { status: 401 }
       );
     }

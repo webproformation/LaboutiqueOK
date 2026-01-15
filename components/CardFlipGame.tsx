@@ -121,10 +121,14 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
         couponCode = coupon.code;
 
         try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+
           const response = await fetch('/api/games/claim-reward', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': token ? `Bearer ${token}` : '',
             },
             body: JSON.stringify({
               game_type: 'card_flip_game',
