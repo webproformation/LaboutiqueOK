@@ -22,13 +22,15 @@ Le port SMTP 465 (SSL direct) était **bloqué par le pare-feu de Vercel**, prov
 
 **Configuration SMTP modifiée:**
 ```env
-SMTP_HOST=laboutiquedemorgane.com
+SMTP_HOST=mail.laboutiquedemorgane.com
 SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=email@laboutiquedemorgane.com
 SMTP_PASS=votre_mot_de_passe
 EMAIL_FROM="La Boutique de Morgane <email@laboutiquedemorgane.com>"
 ```
+
+**⚠️ CRITIQUE:** Utilisez `mail.laboutiquedemorgane.com` et NON `laboutiquedemorgane.com` qui pointe vers Vercel !
 
 **Pourquoi le port 587 ?**
 - ✅ Compatible avec **tous les pare-feu cloud** (Vercel, Netlify, AWS Lambda)
@@ -43,9 +45,9 @@ EMAIL_FROM="La Boutique de Morgane <email@laboutiquedemorgane.com>"
 ### 1. `/app/api/debug/send-test-email/route.ts`
 **Changements:**
 ```typescript
-port: Number(process.env.SMTP_PORT || 587),  // Au lieu de 465
-secure: false,                                // Au lieu de true
-requireTLS: true,
+host: process.env.SMTP_HOST || 'mail.laboutiquedemorgane.com',  // Fallback de sécurité
+port: Number(process.env.SMTP_PORT || 587),                      // Au lieu de 465
+secure: false,                                                   // Au lieu de true
 tls: {
   ciphers: 'SSLv3',
   rejectUnauthorized: false
@@ -97,8 +99,10 @@ SMTP_SECURE=false
 | `SMTP_PORT` | `465` | `587` |
 | `SMTP_SECURE` | `true` | `false` |
 
+**Modifiez également:**
+- `SMTP_HOST` → `mail.laboutiquedemorgane.com` (PAS laboutiquedemorgane.com !)
+
 **Laissez inchangées:**
-- `SMTP_HOST` (laboutiquedemorgane.com)
 - `SMTP_USER` (email@laboutiquedemorgane.com)
 - `SMTP_PASS` (votre mot de passe actuel)
 - `EMAIL_FROM` (votre adresse d'envoi)
@@ -168,17 +172,16 @@ git push origin main
 ### Configuration SMTP finale (Production)
 ```javascript
 {
-  host: 'laboutiquedemorgane.com',
+  host: 'mail.laboutiquedemorgane.com',  // ⚠️ CRITIQUE: mail. au début !
   port: 587,
   secure: false,
-  requireTLS: true,
-  tls: {
-    ciphers: 'SSLv3',
-    rejectUnauthorized: false
-  },
   auth: {
     user: 'email@laboutiquedemorgane.com',
     pass: 'votre_mot_de_passe'
+  },
+  tls: {
+    ciphers: 'SSLv3',
+    rejectUnauthorized: false
   }
 }
 ```
