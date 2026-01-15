@@ -31,6 +31,9 @@ interface Product {
   size?: string;
   attributes?: any;
   created_at?: string;
+  main_color?: string;
+  size_range_start?: number;
+  size_range_end?: number;
 }
 
 interface Category {
@@ -105,79 +108,19 @@ export default function CategoryPage() {
         const colorsMap = new Map<string, { name: string; color_code?: string }>();
         const sizes = new Set<string>();
 
+        // CORRECTION: Utiliser main_color au lieu des couleurs de variations
         for (const product of prods) {
-          if (product.is_variable_product) {
-            const { data: variations } = await supabase
-              .from('product_variations')
-              .select('attributes')
-              .eq('product_id', product.id);
-
-            if (variations) {
-              variations.forEach((v: any) => {
-                if (v.attributes) {
-                  Object.entries(v.attributes).forEach(([key, value]) => {
-                    const lowerKey = key.toLowerCase();
-
-                    // Extraire la valeur string depuis l'objet si nécessaire
-                    let stringValue = '';
-                    if (typeof value === 'object' && value !== null) {
-                      // Si c'est un objet, essayer d'extraire name, label, ou option
-                      const objValue = value as any;
-                      stringValue = String(objValue.name || objValue.label || objValue.option || '');
-                    } else {
-                      stringValue = String(value || '');
-                    }
-
-                    // Filtrer les IDs (UUID, hex codes longs, ou IDs numériques)
-                    const isUUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(stringValue);
-                    const isHexCode = /^[a-f0-9]{8,}$/i.test(stringValue);
-                    const isNumericId = /^\d+$/.test(stringValue);
-
-                    if (!isUUID && !isHexCode && !isNumericId && stringValue) {
-                      if (lowerKey.includes('couleur') || lowerKey.includes('color')) {
-                        if (!colorsMap.has(stringValue)) {
-                          colorsMap.set(stringValue, { name: stringValue });
-                        }
-                      }
-                      if (lowerKey.includes('taille') || lowerKey.includes('size')) {
-                        sizes.add(stringValue);
-                      }
-                    }
-                  });
-                }
-              });
+          // Charger les couleurs principales uniquement
+          if (product.main_color) {
+            if (!colorsMap.has(product.main_color)) {
+              colorsMap.set(product.main_color, { name: product.main_color });
             }
-          } else if (product.attributes && typeof product.attributes === 'object') {
-            // Produit simple - scanner les attributs depuis products.attributes
-            const attributeTermIds: string[] = [];
-            Object.values(product.attributes).forEach((termIds: any) => {
-              if (Array.isArray(termIds)) {
-                attributeTermIds.push(...termIds);
-              }
-            });
+          }
 
-            if (attributeTermIds.length > 0) {
-              const { data: attributeTerms } = await supabase
-                .from('product_attribute_terms')
-                .select('id, name, slug, color_code, attribute_id, product_attributes!inner(name, slug)')
-                .in('id', attributeTermIds);
-
-              if (attributeTerms) {
-                attributeTerms.forEach((term: any) => {
-                  const attrSlug = term.product_attributes?.slug || '';
-                  if (attrSlug.includes('couleur') || attrSlug.includes('color')) {
-                    if (!colorsMap.has(term.name)) {
-                      colorsMap.set(term.name, {
-                        name: term.name,
-                        color_code: term.color_code
-                      });
-                    }
-                  }
-                  if (attrSlug.includes('taille') || attrSlug.includes('size')) {
-                    sizes.add(term.name);
-                  }
-                });
-              }
+          // Charger les tailles à partir de size_range_start et size_range_end
+          if (product.size_range_start && product.size_range_end) {
+            for (let size = product.size_range_start; size <= product.size_range_end; size += 2) {
+              sizes.add(String(size));
             }
           }
         }
@@ -214,141 +157,40 @@ export default function CategoryPage() {
         return price >= priceRange[0] && price <= priceRange[1];
       });
 
-      // Filtre "À ma taille"
+      // Filtre "À ma taille" - CORRECTION: utiliser size_range_start/end
       if (mySizeOnly && profile?.user_size) {
-        const userSize = String(profile.user_size);
-        const filteredIds = new Set<string>();
+        const userSize = Number(profile.user_size);
 
-        for (const product of result) {
-          if (product.is_variable_product) {
-            const { data: variations } = await supabase
-              .from('product_variations')
-              .select('attributes, stock_quantity')
-              .eq('product_id', product.id)
-              .gt('stock_quantity', 0);
+        result = result.filter(product => {
+          // Vérifier si la taille utilisateur est dans l'intervalle du produit
+          const sizeRangeStart = product.size_range_start;
+          const sizeRangeEnd = product.size_range_end;
 
-            if (variations) {
-              const hasMatchingSize = variations.some((v: any) => {
-                if (!v.attributes) return false;
-                return Object.entries(v.attributes).some(([key, value]) => {
-                  const lowerKey = key.toLowerCase();
-                  if (lowerKey.includes('taille') || lowerKey.includes('size')) {
-                    // Extraire la valeur string depuis l'objet si nécessaire
-                    let stringValue = '';
-                    if (typeof value === 'object' && value !== null) {
-                      const objValue = value as any;
-                      stringValue = String(objValue.name || objValue.label || objValue.option || '');
-                    } else {
-                      stringValue = String(value || '');
-                    }
-                    return stringValue === userSize;
-                  }
-                  return false;
-                });
-              });
-
-              if (hasMatchingSize) {
-                filteredIds.add(product.id);
-              }
-            }
+          if (sizeRangeStart && sizeRangeEnd) {
+            return userSize >= sizeRangeStart && userSize <= sizeRangeEnd;
           }
-        }
 
-        result = result.filter(p => filteredIds.has(p.id));
+          // Si pas d'intervalle défini, ne pas filtrer ce produit
+          return false;
+        });
       }
 
-      if (filterColor !== 'all' || filterSize !== 'all') {
-        const filteredIds = new Set<string>();
+      // Filtres couleur et taille - CORRECTION: utiliser main_color et size_range
+      if (filterColor !== 'all') {
+        result = result.filter(product => product.main_color === filterColor);
+      }
 
-        for (const product of products) {
-          if (product.is_variable_product) {
-            const { data: variations } = await supabase
-              .from('product_variations')
-              .select('attributes, product_id')
-              .eq('product_id', product.id);
+      if (filterSize !== 'all') {
+        const selectedSize = Number(filterSize);
+        result = result.filter(product => {
+          const sizeRangeStart = product.size_range_start;
+          const sizeRangeEnd = product.size_range_end;
 
-            if (variations) {
-              const hasMatchingVariation = variations.some((v: any) => {
-                if (!v.attributes) return false;
-
-                let matchesColor = filterColor === 'all';
-                let matchesSize = filterSize === 'all';
-
-                Object.entries(v.attributes).forEach(([key, value]) => {
-                  const lowerKey = key.toLowerCase();
-
-                  // Extraire la valeur string depuis l'objet si nécessaire
-                  let stringValue = '';
-                  if (typeof value === 'object' && value !== null) {
-                    const objValue = value as any;
-                    stringValue = String(objValue.name || objValue.label || objValue.option || '');
-                  } else {
-                    stringValue = String(value || '');
-                  }
-
-                  if ((lowerKey.includes('couleur') || lowerKey.includes('color')) && stringValue === filterColor) {
-                    matchesColor = true;
-                  }
-                  if ((lowerKey.includes('taille') || lowerKey.includes('size')) && stringValue === filterSize) {
-                    matchesSize = true;
-                  }
-                });
-
-                return (filterColor === 'all' || matchesColor) && (filterSize === 'all' || matchesSize);
-              });
-
-              if (hasMatchingVariation) {
-                filteredIds.add(product.id);
-              }
-            }
-          } else if (product.attributes && typeof product.attributes === 'object') {
-            // Produit simple - vérifier les attributs depuis products.attributes
-            const attributeTermIds: string[] = [];
-            Object.values(product.attributes).forEach((termIds: any) => {
-              if (Array.isArray(termIds)) {
-                attributeTermIds.push(...termIds);
-              }
-            });
-
-            if (attributeTermIds.length > 0) {
-              const { data: attributeTerms } = await supabase
-                .from('product_attribute_terms')
-                .select('id, name, slug, color_code, attribute_id, product_attributes!inner(name, slug)')
-                .in('id', attributeTermIds);
-
-              if (attributeTerms) {
-                let matchesColor = filterColor === 'all';
-                let matchesSize = filterSize === 'all';
-
-                attributeTerms.forEach((term: any) => {
-                  const attrSlug = term.product_attributes?.slug || '';
-                  if ((attrSlug.includes('couleur') || attrSlug.includes('color')) && term.name === filterColor) {
-                    matchesColor = true;
-                  }
-                  if ((attrSlug.includes('taille') || attrSlug.includes('size')) && term.name === filterSize) {
-                    matchesSize = true;
-                  }
-                });
-
-                if ((filterColor === 'all' || matchesColor) && (filterSize === 'all' || matchesSize)) {
-                  filteredIds.add(product.id);
-                }
-              }
-            } else {
-              // Produit simple sans attributs, inclure si pas de filtre actif
-              if (filterColor === 'all' && filterSize === 'all') {
-                filteredIds.add(product.id);
-              }
-            }
-          } else {
-            // Produit ni variable ni avec attributs
-            if (filterColor === 'all' && filterSize === 'all') {
-              filteredIds.add(product.id);
-            }
+          if (sizeRangeStart && sizeRangeEnd) {
+            return selectedSize >= sizeRangeStart && selectedSize <= sizeRangeEnd;
           }
-        }
-
-        result = result.filter(p => filteredIds.has(p.id));
+          return false;
+        });
       }
 
       result.sort((a, b) => {

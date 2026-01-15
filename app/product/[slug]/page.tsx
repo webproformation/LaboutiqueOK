@@ -466,7 +466,17 @@ export default function ProductPage() {
   const galleryImages = (() => {
     const images: Array<{ id: string; src: string; alt: string }> = [];
 
-    if (product.image_url) {
+    // PRIORITÉ 1: Image de la variation sélectionnée (specific_image)
+    if (selectedVariation?.image?.src) {
+      images.push({
+        id: "variation-selected",
+        src: selectedVariation.image.src,
+        alt: selectedVariation.image.alt || product.name,
+      });
+    }
+
+    // PRIORITÉ 2: Image principale du produit (main_image)
+    if (product.image_url && !images.some(i => i.src === product.image_url)) {
       images.push({
         id: "main",
         src: product.image_url,
@@ -474,9 +484,10 @@ export default function ProductPage() {
       });
     }
 
+    // PRIORITÉ 3: Toutes les images de la galerie (gallery_images)
     if (product.gallery_images && Array.isArray(product.gallery_images) && product.gallery_images.length > 0) {
       product.gallery_images.forEach((imgUrl: string, idx: number) => {
-        if (imgUrl && imgUrl !== product.image_url) {
+        if (imgUrl && !images.some(i => i.src === imgUrl)) {
           images.push({
             id: `gallery-${idx}`,
             src: imgUrl,
@@ -486,6 +497,7 @@ export default function ProductPage() {
       });
     }
 
+    // Fallback: Autres images
     if (product.images && Array.isArray(product.images) && product.images.length > 0) {
       product.images.forEach((img: any, idx: number) => {
         const imgSrc = img.src || img.sourceUrl || img.url;
@@ -499,6 +511,7 @@ export default function ProductPage() {
       });
     }
 
+    // Ajouter les autres variations à la fin (pour permettre de naviguer entre les variations)
     if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
       product.variations.forEach((variation: any, idx: number) => {
         if (variation.image?.src && !images.some(i => i.src === variation.image.src)) {
