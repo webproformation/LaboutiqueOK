@@ -16,6 +16,8 @@ import Link from "next/link";
 import RichTextEditor from "@/components/RichTextEditor";
 import ColorSwatchSelector from "@/components/ColorSwatchSelector";
 import ProductMediaGalleryManager from "@/components/ProductMediaGalleryManager";
+import HierarchicalCategorySelector from "@/components/HierarchicalCategorySelector";
+import GeneralAttributesSelector from "@/components/GeneralAttributesSelector";
 
 interface Category {
   id: string;
@@ -62,12 +64,12 @@ export default function NewProductPage() {
   const [sizeRangeEnd, setSizeRangeEnd] = useState<number | null>(null);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string[]>>({});
 
   const [variations, setVariations] = useState<Variation[]>([]);
 
   useEffect(() => {
-    loadCategories();
+    // No need to load categories here anymore, HierarchicalCategorySelector handles it
   }, []);
 
   useEffect(() => {
@@ -90,20 +92,6 @@ export default function NewProductPage() {
     }
   }, [selectedSecondaryColors]);
 
-  const loadCategories = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .order("display_order");
-
-      if (error) throw error;
-      if (data) setAllCategories(data);
-    } catch (error) {
-      console.error("Error loading categories:", error);
-      toast.error("Erreur lors du chargement des catégories");
-    }
-  };
 
   const generateSlug = (name: string) => {
     return name
@@ -121,13 +109,6 @@ export default function NewProductPage() {
     }
   };
 
-  const handleCategoryToggle = (categoryId: string) => {
-    setSelectedCategories(prev =>
-      prev.includes(categoryId)
-        ? prev.filter(id => id !== categoryId)
-        : [...prev, categoryId]
-    );
-  };
 
   const handleMainColorSelect = (colorName: string, colorId: string) => {
     setMainColor(colorName);
@@ -172,6 +153,11 @@ export default function NewProductPage() {
     setSaving(true);
 
     try {
+      const allAttributes: Record<string, string[]> = { ...selectedAttributes };
+      if (mainColor) {
+        allAttributes['Couleur'] = [mainColor, ...selectedSecondaryColors];
+      }
+
       const productData = {
         name: name.trim(),
         slug: slug.trim(),
@@ -190,6 +176,7 @@ export default function NewProductPage() {
         main_color: mainColor,
         size_range_start: sizeRangeStart,
         size_range_end: sizeRangeEnd,
+        attributes: Object.keys(allAttributes).length > 0 ? allAttributes : null,
       };
 
       const { data: newProduct, error: productError } = await supabase
@@ -527,27 +514,15 @@ export default function NewProductPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-white">
-            <CardHeader>
-              <CardTitle className="text-[#d4af37]">Catégories</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {allCategories.map((cat) => (
-                  <div key={cat.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`cat-${cat.id}`}
-                      checked={selectedCategories.includes(cat.id)}
-                      onCheckedChange={() => handleCategoryToggle(cat.id)}
-                    />
-                    <Label htmlFor={`cat-${cat.id}`} className="cursor-pointer">
-                      {cat.name}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <GeneralAttributesSelector
+            selectedAttributes={selectedAttributes}
+            onAttributesChange={setSelectedAttributes}
+          />
+
+          <HierarchicalCategorySelector
+            selectedCategories={selectedCategories}
+            onCategoriesChange={setSelectedCategories}
+          />
 
           <div className="flex justify-end gap-4 pb-6">
             <Link href="/admin/products">

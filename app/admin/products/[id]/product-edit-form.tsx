@@ -15,6 +15,8 @@ import Link from "next/link";
 import RichTextEditor from "@/components/RichTextEditor";
 import ColorSwatchSelector from "@/components/ColorSwatchSelector";
 import ProductMediaGalleryManager from "@/components/ProductMediaGalleryManager";
+import HierarchicalCategorySelector from "@/components/HierarchicalCategorySelector";
+import GeneralAttributesSelector from "@/components/GeneralAttributesSelector";
 
 interface Product {
   id: string;
@@ -35,6 +37,7 @@ interface Product {
   main_color?: string | null;
   size_range_start?: number | null;
   size_range_end?: number | null;
+  attributes?: any;
 }
 
 interface Category {
@@ -97,6 +100,20 @@ export default function ProductEditForm({
   const [sizeRangeEnd, setSizeRangeEnd] = useState<number | null>(initialProduct.size_range_end || null);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategories);
+  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string[]>>(() => {
+    if (typeof initialProduct.attributes === 'object' && initialProduct.attributes !== null) {
+      const filtered = Object.entries(initialProduct.attributes)
+        .filter(([key]) => key !== 'Couleur')
+        .reduce((acc, [key, value]) => {
+          if (Array.isArray(value)) {
+            acc[key] = value as string[];
+          }
+          return acc;
+        }, {} as Record<string, string[]>);
+      return filtered;
+    }
+    return {};
+  });
   const [variations, setVariations] = useState<Variation[]>([]);
   const [existingVariationsIds, setExistingVariationsIds] = useState<Record<string, string>>({});
 
@@ -168,13 +185,6 @@ export default function ProductEditForm({
     }
   };
 
-  const handleCategoryToggle = (categoryId: string) => {
-    setSelectedCategories(prev =>
-      prev.includes(categoryId)
-        ? prev.filter(id => id !== categoryId)
-        : [...prev, categoryId]
-    );
-  };
 
   const handleMainColorSelect = (colorName: string, colorId: string) => {
     setMainColor(colorName);
@@ -217,6 +227,11 @@ export default function ProductEditForm({
     setSaving(true);
 
     try {
+      const allAttributes: Record<string, string[]> = { ...selectedAttributes };
+      if (mainColor) {
+        allAttributes['Couleur'] = [mainColor, ...selectedSecondaryColors];
+      }
+
       const productData = {
         name: name.trim(),
         slug: slug.trim(),
@@ -235,6 +250,7 @@ export default function ProductEditForm({
         main_color: mainColor,
         size_range_start: sizeRangeStart,
         size_range_end: sizeRangeEnd,
+        attributes: Object.keys(allAttributes).length > 0 ? allAttributes : null,
       };
 
       const { error: productError } = await supabase
@@ -575,27 +591,15 @@ export default function ProductEditForm({
             </CardContent>
           </Card>
 
-          <Card className="bg-white">
-            <CardHeader>
-              <CardTitle className="text-[#d4af37]">Catégories</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {allCategories.map((cat) => (
-                  <div key={cat.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`cat-${cat.id}`}
-                      checked={selectedCategories.includes(cat.id)}
-                      onCheckedChange={() => handleCategoryToggle(cat.id)}
-                    />
-                    <Label htmlFor={`cat-${cat.id}`} className="cursor-pointer">
-                      {cat.name}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <GeneralAttributesSelector
+            selectedAttributes={selectedAttributes}
+            onAttributesChange={setSelectedAttributes}
+          />
+
+          <HierarchicalCategorySelector
+            selectedCategories={selectedCategories}
+            onCategoriesChange={setSelectedCategories}
+          />
 
           <div className="flex justify-end gap-4 pb-6">
             <Link href="/admin/products">
