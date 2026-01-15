@@ -17,6 +17,7 @@ import ColorSwatchSelector from "@/components/ColorSwatchSelector";
 import ProductMediaGalleryManager from "@/components/ProductMediaGalleryManager";
 import HierarchicalCategorySelector from "@/components/HierarchicalCategorySelector";
 import GeneralAttributesSelector from "@/components/GeneralAttributesSelector";
+import VariationDetailsForm from "@/components/VariationDetailsForm";
 
 interface Product {
   id: string;
@@ -210,6 +211,30 @@ export default function ProductEditForm({
       const newVars = [...prev];
       newVars[index] = { ...newVars[index], [field]: value };
       return newVars;
+    });
+  };
+
+  const handleVariationUpdate = (colorName: string, field: keyof Variation, value: any) => {
+    setVariations(prev => {
+      const existingIndex = prev.findIndex(v => v.colorName === colorName);
+
+      if (existingIndex >= 0) {
+        const newVars = [...prev];
+        newVars[existingIndex] = { ...newVars[existingIndex], [field]: value };
+        return newVars;
+      } else {
+        const newVar: Variation = {
+          id: existingVariationsIds[colorName],
+          colorName,
+          colorId: secondaryColorIds[colorName] || "",
+          sku: field === 'sku' ? value : "",
+          regular_price: field === 'regular_price' ? value : regularPrice || null,
+          sale_price: field === 'sale_price' ? value : salePrice,
+          stock_quantity: field === 'stock_quantity' ? value : stockQuantity || null,
+          image_url: field === 'image_url' ? value : null,
+        };
+        return [...prev, newVar];
+      }
     });
   };
 
@@ -477,71 +502,15 @@ export default function ProductEditForm({
             showSecondaryColors={true}
           />
 
-          {variations.length > 0 && (
-            <Card className="bg-white border-2 border-green-200">
-              <CardHeader>
-                <CardTitle className="text-[#d4af37]">
-                  Variations ({variations.length})
-                </CardTitle>
-                <CardDescription>
-                  Personnalisez les prix, stocks et images pour chaque nuance
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {variations.map((variation, index) => (
-                  <Card key={index} className="border border-gray-200">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">{variation.colorName}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                        <div>
-                          <Label>SKU</Label>
-                          <Input
-                            value={variation.sku}
-                            onChange={(e) => updateVariation(index, 'sku', e.target.value)}
-                            className="bg-white"
-                          />
-                        </div>
-                        <div>
-                          <Label>Prix (€)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={variation.regular_price || ""}
-                            onChange={(e) => updateVariation(index, 'regular_price', parseFloat(e.target.value) || null)}
-                            placeholder={String(regularPrice)}
-                            className="bg-white"
-                          />
-                        </div>
-                        <div>
-                          <Label>Prix Promo (€)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={variation.sale_price || ""}
-                            onChange={(e) => updateVariation(index, 'sale_price', e.target.value ? parseFloat(e.target.value) : null)}
-                            placeholder={salePrice ? String(salePrice) : "-"}
-                            className="bg-white"
-                          />
-                        </div>
-                        <div>
-                          <Label>Stock</Label>
-                          <Input
-                            type="number"
-                            value={variation.stock_quantity || ""}
-                            onChange={(e) => updateVariation(index, 'stock_quantity', parseInt(e.target.value) || null)}
-                            placeholder={String(stockQuantity)}
-                            className="bg-white"
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+          <VariationDetailsForm
+            selectedSecondaryColors={selectedSecondaryColors}
+            secondaryColorIds={secondaryColorIds}
+            variations={variations}
+            onVariationUpdate={handleVariationUpdate}
+            defaultRegularPrice={regularPrice}
+            defaultSalePrice={salePrice}
+            defaultStock={stockQuantity}
+          />
 
           <Card className="bg-white">
             <CardHeader>

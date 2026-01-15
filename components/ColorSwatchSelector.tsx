@@ -100,8 +100,18 @@ export default function ColorSwatchSelector({
   };
 
   const handleMainColorClick = (family: ColorFamily) => {
-    setSelectedFamily(family);
-    onMainColorSelect(family.name, family.id);
+    if (selectedMainColor === family.name) {
+      setSelectedFamily(null);
+      onMainColorSelect('', '');
+      if (onSecondaryColorToggle) {
+        selectedSecondaryColors.forEach(colorName => {
+          onSecondaryColorToggle(colorName, '', false);
+        });
+      }
+    } else {
+      setSelectedFamily(family);
+      onMainColorSelect(family.name, family.id);
+    }
   };
 
   const handleSecondaryColorClick = (color: ColorTerm) => {
