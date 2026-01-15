@@ -515,15 +515,15 @@ export default function ProductPage() {
   })();
 
   return (
-    <div className="min-h-screen bg-white">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <nav className="flex items-center gap-2 text-sm text-gray-600 mb-8">
-          <Link href="/" className="hover:text-gray-900 flex items-center gap-1">
+    <div className="min-h-screen bg-gradient-to-b from-white via-[#FFF9F0] to-white">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <nav className="flex items-center gap-2 text-sm text-gray-600 mb-6 sm:mb-8">
+          <Link href="/" className="hover:text-[#b8933d] transition-colors flex items-center gap-1">
             <Home className="h-4 w-4" />
-            Accueil
+            <span className="hidden sm:inline">Accueil</span>
           </Link>
           <ChevronRight className="h-4 w-4" />
-          <span className="text-gray-900 font-medium">{decodeHtmlEntities(product.name)}</span>
+          <span className="text-gray-900 font-medium truncate">{decodeHtmlEntities(product.name)}</span>
         </nav>
 
         {isAdmin && (
@@ -565,14 +565,16 @@ export default function ProductPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
-          <div className="relative">
-            <ProductGallery
-              images={galleryImages}
-              productName={decodeHtmlEntities(product.name)}
-              selectedImageUrl={getCurrentImageUrl()}
-              onImageClick={handleImageClick}
-            />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 mb-12 sm:mb-16">
+          <div className="relative lg:sticky lg:top-4 lg:self-start">
+            <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <ProductGallery
+                images={galleryImages}
+                productName={decodeHtmlEntities(product.name)}
+                selectedImageUrl={getCurrentImageUrl()}
+                onImageClick={handleImageClick}
+              />
+            </div>
             {product.is_diamond && (
               <div className="mt-4">
                 <HiddenDiamond productId={product.id} position="image" selectedPosition={diamondPosition} />
@@ -580,28 +582,32 @@ export default function ProductPage() {
             )}
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 bg-white rounded-2xl shadow-lg p-6 sm:p-8 h-fit">
             {product.is_diamond && (
               <HiddenDiamond productId={product.id} position="title" selectedPosition={diamondPosition} />
             )}
 
-            <div>
-              <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+            <div className="border-b border-gray-100 pb-6">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-4 leading-tight">
                 {decodeHtmlEntities(product.name)}
               </h1>
 
-              <div className="flex items-baseline gap-4 mb-4">
-                {hasDiscount && regularPrice && (
-                  <>
-                    <span className="text-2xl text-gray-400 line-through">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-4">
+                <div className="flex items-baseline gap-3">
+                  {hasDiscount && regularPrice && (
+                    <span className="text-xl sm:text-2xl text-gray-400 line-through">
                       {Number(regularPrice).toFixed(2)} €
                     </span>
-                    <Badge className="bg-[#DF30CF] hover:bg-[#DF30CF]">PROMO</Badge>
-                  </>
+                  )}
+                  <span className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-[#b8933d] to-[#D4AF37] bg-clip-text text-transparent">
+                    {currentPrice ? Number(currentPrice).toFixed(2) : "0.00"} €
+                  </span>
+                </div>
+                {hasDiscount && (
+                  <Badge className="bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white px-4 py-1.5 text-sm font-bold animate-pulse">
+                    PROMO
+                  </Badge>
                 )}
-                <span className="text-4xl font-bold text-[#b8933d]">
-                  {currentPrice ? Number(currentPrice).toFixed(2) : "0.00"} €
-                </span>
               </div>
 
               {isVariable && (
@@ -611,37 +617,37 @@ export default function ProductPage() {
               )}
 
               {!isVariable && (
-                <div className="flex items-center gap-2 mb-4">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200">
                   {isInStock ? (
                     <>
                       {product.stock_quantity === 1 ? (
                         <>
-                          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                          <span className="text-red-600 font-bold">
-                            Vite, dernière pièce ! ⚡
+                          <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-300" />
+                          <span className="text-red-700 font-bold text-sm">
+                            {CUSTOM_TEXTS.stock.lowStock}
                           </span>
                         </>
                       ) : product.stock_quantity && product.stock_quantity < 5 ? (
                         <>
-                          <div className="w-2 h-2 rounded-full bg-orange-500" />
-                          <span className="text-orange-600 font-semibold">
-                            Stock limité !
+                          <div className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse shadow-lg shadow-orange-300" />
+                          <span className="text-orange-700 font-bold text-sm">
+                            {CUSTOM_TEXTS.stock.lowStock}
                           </span>
                         </>
                       ) : (
                         <>
-                          <div className="w-2 h-2 rounded-full bg-green-500" />
-                          <span className="text-green-600 font-medium">
-                            En stock - Expédition rapide
+                          <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-lg shadow-green-300" />
+                          <span className="text-green-700 font-semibold text-sm">
+                            {CUSTOM_TEXTS.stock.inStock}
                           </span>
                         </>
                       )}
                     </>
                   ) : (
                     <>
-                      <div className="w-2 h-2 rounded-full bg-[#DF30CF]" />
-                      <span className="text-[#DF30CF] font-medium">
-                        Rupture de stock
+                      <div className="w-2.5 h-2.5 rounded-full bg-pink-500" />
+                      <span className="text-pink-700 font-semibold text-sm">
+                        {CUSTOM_TEXTS.stock.outOfStock}
                       </span>
                     </>
                   )}
@@ -690,17 +696,19 @@ export default function ProductPage() {
               </div>
             )}
 
-            <div className="space-y-4">
+            <div className="space-y-6 bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 border border-gray-100">
               <div>
-                <Label htmlFor="quantity" className="mb-2 block">
-                  Quantité
+                <Label htmlFor="quantity" className="mb-3 block text-sm font-semibold text-gray-700">
+                  {CUSTOM_TEXTS.product.quantity}
                 </Label>
-                <div className="flex items-center border border-gray-300 rounded-md w-32">
+                <div className="flex items-center bg-white border-2 border-gray-200 rounded-xl w-36 shadow-sm hover:border-[#b8933d] transition-colors">
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => handleQuantityChange(-1)}
                     disabled={quantity <= 1}
+                    className="hover:bg-[#FFF9F0] rounded-l-xl"
+                    aria-label={CUSTOM_TEXTS.buttons.decreaseQuantity}
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
@@ -710,12 +718,14 @@ export default function ProductPage() {
                     min="1"
                     value={quantity}
                     onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="border-0 text-center focus-visible:ring-0"
+                    className="border-0 text-center focus-visible:ring-0 font-semibold text-lg"
                   />
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => handleQuantityChange(1)}
+                    className="hover:bg-[#FFF9F0] rounded-r-xl"
+                    aria-label={CUSTOM_TEXTS.buttons.increaseQuantity}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -727,7 +737,7 @@ export default function ProductPage() {
                   <Button
                     onClick={handleAddToCart}
                     disabled={isVariable && !selectedVariation}
-                    className="flex-1 bg-[#b8933d] hover:bg-[#a07c2f] text-white"
+                    className="flex-1 bg-gradient-to-r from-[#b8933d] to-[#D4AF37] hover:from-[#a07c2f] hover:to-[#C6A15B] text-white font-bold py-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] text-base"
                   >
                     <ShoppingCart className="h-5 w-5 mr-2" />
                     {CUSTOM_TEXTS.buttons.addToCart}
@@ -735,7 +745,7 @@ export default function ProductPage() {
                 ) : (
                   <Button
                     onClick={() => setShowNotifyDialog(true)}
-                    className="flex-1 bg-[#B6914A] hover:bg-[#a07c2f] text-white"
+                    className="flex-1 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold py-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] text-base"
                   >
                     <Bell className="h-5 w-5 mr-2" />
                     {CUSTOM_TEXTS.buttons.alertStock}
@@ -746,7 +756,7 @@ export default function ProductPage() {
                   productId={product.id}
                   variant="icon"
                   size="icon"
-                  className="border border-gray-300"
+                  className="border-2 border-gray-200 hover:border-pink-300 hover:bg-pink-50 rounded-xl shadow-sm hover:shadow-md transition-all w-14 h-14"
                 />
               </div>
 
@@ -757,10 +767,12 @@ export default function ProductPage() {
               />
             </div>
 
-            <Accordion type="single" collapsible defaultValue="description" className="w-full">
-              <AccordionItem value="description">
-                <AccordionTrigger>Description</AccordionTrigger>
-                <AccordionContent>
+            <Accordion type="single" collapsible defaultValue="description" className="w-full border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+              <AccordionItem value="description" className="border-b last:border-b-0">
+                <AccordionTrigger className="px-6 py-4 hover:bg-[#FFF9F0] transition-colors text-base font-semibold">
+                  📝 Description
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-6 pt-2">
                   {product.is_diamond && (
                     <div className="mb-4">
                       <HiddenDiamond productId={product.id} position="description" selectedPosition={diamondPosition} />
@@ -768,7 +780,7 @@ export default function ProductPage() {
                   )}
                   {product.description ? (
                     <div
-                      className="prose prose-sm max-w-none"
+                      className="prose prose-sm max-w-none text-gray-700 leading-relaxed"
                       dangerouslySetInnerHTML={{ __html: product.description }}
                     />
                   ) : (
@@ -777,22 +789,38 @@ export default function ProductPage() {
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="composition">
-                <AccordionTrigger>Composition & Entretien</AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-2 text-gray-600">
-                    <p>Composition : À compléter</p>
-                    <p>Entretien : Lavage en machine à 30°C</p>
+              <AccordionItem value="composition" className="border-b last:border-b-0">
+                <AccordionTrigger className="px-6 py-4 hover:bg-[#FFF9F0] transition-colors text-base font-semibold">
+                  🧵 Composition & Entretien
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-6 pt-2">
+                  <div className="space-y-3 text-gray-700">
+                    <div className="flex items-start gap-2">
+                      <span className="font-semibold min-w-[120px]">Composition :</span>
+                      <span>À compléter</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="font-semibold min-w-[120px]">Entretien :</span>
+                      <span>Lavage en machine à 30°C</span>
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="delivery">
-                <AccordionTrigger>Livraison & Retours</AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-2 text-gray-600">
-                    <p>Livraison standard : 3-5 jours ouvrés</p>
-                    <p>Retours gratuits sous 30 jours</p>
+              <AccordionItem value="delivery" className="border-b-0">
+                <AccordionTrigger className="px-6 py-4 hover:bg-[#FFF9F0] transition-colors text-base font-semibold">
+                  {CUSTOM_TEXTS.shipping.label}
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-6 pt-2">
+                  <div className="space-y-3 text-gray-700">
+                    <div className="flex items-start gap-2">
+                      <span className="text-green-600">✅</span>
+                      <span>Livraison standard : 3-5 jours ouvrés</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-blue-600">↩️</span>
+                      <span>Retours gratuits sous 30 jours</span>
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -802,29 +830,41 @@ export default function ProductPage() {
       </main>
 
       <Dialog open={showNotifyDialog} onOpenChange={setShowNotifyDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Notification de disponibilité</DialogTitle>
-            <DialogDescription>
-              Entrez votre email pour être notifié quand ce produit sera de nouveau en stock.
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+              <Bell className="h-6 w-6 text-[#b8933d]" />
+              {CUSTOM_TEXTS.buttons.alertStock}
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              Entrez votre email pour être notifié quand cette pépite sera de nouveau disponible.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label htmlFor="email">Adresse email</Label>
+            <Label htmlFor="email" className="text-sm font-semibold text-gray-700 mb-2 block">
+              Adresse email
+            </Label>
             <Input
               id="email"
               type="email"
               placeholder="votre@email.com"
               value={notifyEmail}
               onChange={(e) => setNotifyEmail(e.target.value)}
-              className="mt-2"
+              className="mt-2 h-12 rounded-xl border-2 focus:border-[#b8933d]"
             />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNotifyDialog(false)}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowNotifyDialog(false)}
+              className="rounded-xl border-2"
+            >
               Annuler
             </Button>
-            <Button onClick={handleNotifyMe} className="bg-[#b8933d] hover:bg-[#a07c2f]">
+            <Button
+              onClick={handleNotifyMe}
+              className="bg-gradient-to-r from-[#b8933d] to-[#D4AF37] hover:from-[#a07c2f] hover:to-[#C6A15B] text-white rounded-xl font-bold shadow-md"
+            >
               Me notifier
             </Button>
           </DialogFooter>

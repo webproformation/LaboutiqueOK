@@ -403,12 +403,15 @@ export default function CategoryPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <PageHeader
-        icon={Package}
-        title={decodeHtmlEntities(category.name)}
-        description={category.description ? decodeHtmlEntities(category.description) : undefined}
-      />
+    <div className="min-h-screen bg-gradient-to-b from-white via-[#FFF9F0] to-white">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="mb-8 sm:mb-12">
+          <PageHeader
+            icon={Package}
+            title={decodeHtmlEntities(category.name)}
+            description={category.description ? decodeHtmlEntities(category.description) : undefined}
+          />
+        </div>
 
       {products.length === 0 ? (
         <div className="text-center py-12">
@@ -418,24 +421,27 @@ export default function CategoryPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <aside className="lg:col-span-1 space-y-6">
-            <Card>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
+          <aside className="lg:col-span-1 space-y-4 lg:space-y-6">
+            <Card className="shadow-xl rounded-2xl border-2 border-gray-100 overflow-hidden">
               <CardContent className="pt-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <SlidersHorizontal className="h-5 w-5 text-[#D4AF37]" />
-                  <h3 className="font-semibold text-lg">Filtres</h3>
+                <div className="flex items-center gap-3 mb-6 pb-4 border-b-2 border-[#FFF9F0]">
+                  <div className="bg-gradient-to-br from-[#b8933d] to-[#D4AF37] p-2 rounded-xl shadow-md">
+                    <SlidersHorizontal className="h-5 w-5 text-white" />
+                  </div>
+                  <h3 className="font-bold text-xl text-gray-900">Filtres</h3>
                 </div>
-                <Separator className="mb-4" />
 
                 <div className="space-y-6">
                   {profile?.user_size && (
                     <>
-                      <div className="bg-[#F2F2E8] p-4 rounded-lg">
-                        <div className="flex items-center justify-between">
+                      <div className="bg-gradient-to-br from-[#FFF9F0] to-[#F2F2E8] p-5 rounded-xl border-2 border-[#D4AF37]/20 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-[#D4AF37]" />
-                            <Label htmlFor="my-size-filter" className="font-medium cursor-pointer">
+                            <div className="bg-[#D4AF37] p-1.5 rounded-lg">
+                              <User className="h-4 w-4 text-white" />
+                            </div>
+                            <Label htmlFor="my-size-filter" className="font-bold cursor-pointer text-gray-900">
                               À ma taille ({profile.user_size})
                             </Label>
                           </div>
@@ -446,25 +452,27 @@ export default function CategoryPage() {
                           />
                         </div>
                         {mySizeOnly && (
-                          <p className="text-xs text-gray-600 mt-2">
-                            Affiche uniquement les articles disponibles en taille {profile.user_size}
+                          <p className="text-xs text-gray-600 mt-3 pl-1 italic">
+                            ✨ Affiche uniquement les articles disponibles en taille {profile.user_size}
                           </p>
                         )}
                       </div>
-                      <Separator />
+                      <Separator className="my-6" />
                     </>
                   )}
 
                   <div>
-                    <h4 className="font-medium mb-4 flex items-center gap-2">
-                      <Euro className="h-4 w-4" />
-                      € Fourchette de prix
+                    <h4 className="font-bold mb-5 flex items-center gap-2 text-gray-900">
+                      <div className="bg-[#b8933d] p-1.5 rounded-lg">
+                        <Euro className="h-4 w-4 text-white" />
+                      </div>
+                      Fourchette de prix
                     </h4>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-semibold text-[#b8933d]">{priceRange[0]}€</span>
-                        <span className="text-gray-500">à</span>
-                        <span className="font-semibold text-[#b8933d]">{priceRange[1]}€</span>
+                    <div className="space-y-5">
+                      <div className="flex items-center justify-between text-base bg-gradient-to-r from-[#FFF9F0] to-white p-3 rounded-xl border border-gray-200">
+                        <span className="font-bold text-[#b8933d] text-lg">{priceRange[0]}€</span>
+                        <span className="text-gray-400 font-medium">à</span>
+                        <span className="font-bold text-[#b8933d] text-lg">{priceRange[1]}€</span>
                       </div>
                       <Slider
                         value={priceRange}
@@ -474,7 +482,7 @@ export default function CategoryPage() {
                         step={1}
                         className="w-full"
                       />
-                      <div className="text-xs text-gray-500 text-center">
+                      <div className="text-xs text-gray-600 text-center bg-gray-50 py-2 px-3 rounded-lg font-semibold">
                         {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''} dans cette gamme
                       </div>
                     </div>
@@ -482,16 +490,21 @@ export default function CategoryPage() {
 
                   {availableColors.length > 0 && (
                     <>
-                      <Separator />
+                      <Separator className="my-6" />
                       <div>
-                        <h4 className="font-medium mb-3">Couleurs principales</h4>
+                        <h4 className="font-bold mb-4 flex items-center gap-2 text-gray-900">
+                          <div className="bg-pink-500 p-1.5 rounded-lg">
+                            <span className="text-white text-sm">🎨</span>
+                          </div>
+                          Couleurs
+                        </h4>
                         <div className="flex flex-wrap gap-2">
                           <button
                             onClick={() => setFilterColor('all')}
-                            className={`px-3 py-1 text-sm rounded-md border transition-all ${
+                            className={`px-4 py-2 text-sm rounded-xl border-2 transition-all font-semibold ${
                               filterColor === 'all'
-                                ? 'bg-[#b8933d] text-white border-[#b8933d]'
-                                : 'bg-white text-gray-700 border-gray-300 hover:border-[#b8933d]'
+                                ? 'bg-gradient-to-r from-[#b8933d] to-[#D4AF37] text-white border-[#b8933d] shadow-md scale-105'
+                                : 'bg-white text-gray-700 border-gray-300 hover:border-[#b8933d] hover:shadow-sm'
                             }`}
                           >
                             Toutes
@@ -536,16 +549,21 @@ export default function CategoryPage() {
 
                   {availableSizes.length > 0 && (
                     <>
-                      <Separator />
+                      <Separator className="my-6" />
                       <div>
-                        <h4 className="font-medium mb-3">Tailles</h4>
+                        <h4 className="font-bold mb-4 flex items-center gap-2 text-gray-900">
+                          <div className="bg-purple-500 p-1.5 rounded-lg">
+                            <span className="text-white text-sm">📏</span>
+                          </div>
+                          Tailles
+                        </h4>
                         <div className="flex flex-wrap gap-2">
                           <button
                             onClick={() => setFilterSize('all')}
-                            className={`px-3 py-1 text-sm rounded-md border transition-all ${
+                            className={`px-4 py-2 text-sm rounded-xl border-2 transition-all font-semibold ${
                               filterSize === 'all'
-                                ? 'bg-[#b8933d] text-white border-[#b8933d]'
-                                : 'bg-white text-gray-700 border-gray-300 hover:border-[#b8933d]'
+                                ? 'bg-gradient-to-r from-[#b8933d] to-[#D4AF37] text-white border-[#b8933d] shadow-md scale-105'
+                                : 'bg-white text-gray-700 border-gray-300 hover:border-[#b8933d] hover:shadow-sm'
                             }`}
                           >
                             Toutes
@@ -554,10 +572,10 @@ export default function CategoryPage() {
                             <button
                               key={size}
                               onClick={() => setFilterSize(size)}
-                              className={`px-3 py-1 text-sm rounded-md border transition-all uppercase ${
+                              className={`px-4 py-2 text-sm rounded-xl border-2 transition-all uppercase font-bold ${
                                 filterSize === size
-                                  ? 'bg-[#b8933d] text-white border-[#b8933d]'
-                                  : 'bg-white text-gray-700 border-gray-300 hover:border-[#b8933d]'
+                                  ? 'bg-gradient-to-r from-[#b8933d] to-[#D4AF37] text-white border-[#b8933d] shadow-md scale-105'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:border-[#b8933d] hover:shadow-sm'
                               }`}
                             >
                               {size}
@@ -573,29 +591,46 @@ export default function CategoryPage() {
           </aside>
 
           <div className="lg:col-span-3">
-            <div className="flex items-center justify-between mb-6">
-              <p className="text-sm text-gray-600">
-                {filteredProducts.length} produit{filteredProducts.length > 1 ? 's' : ''}
-              </p>
-              <div className="flex items-center gap-2">
-                <ArrowUpDown className="h-4 w-4 text-gray-600" />
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent"
-                >
-                  <option value="newest">Nouveautés</option>
-                  <option value="price-asc">Prix croissant</option>
-                  <option value="price-desc">Prix décroissant</option>
-                  <option value="name">Nom A-Z</option>
-                </select>
+            <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 mb-6 border-2 border-gray-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-gradient-to-br from-[#b8933d] to-[#D4AF37] p-2 rounded-lg shadow-md">
+                    <Package className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium">Produits trouvés</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {filteredProducts.length}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 bg-gradient-to-r from-gray-50 to-white p-3 rounded-xl border-2 border-gray-200">
+                  <div className="bg-[#D4AF37] p-1.5 rounded-lg">
+                    <ArrowUpDown className="h-4 w-4 text-white" />
+                  </div>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="text-sm font-semibold text-gray-900 bg-transparent border-0 focus:outline-none focus:ring-0 cursor-pointer"
+                  >
+                    <option value="newest">Nouveautés</option>
+                    <option value="price-asc">Prix croissant</option>
+                    <option value="price-desc">Prix décroissant</option>
+                    <option value="name">Nom A-Z</option>
+                  </select>
+                </div>
               </div>
             </div>
 
             {(mySizeOnly || filterColor !== 'all' || filterSize !== 'all' || priceRange[0] !== minPrice || priceRange[1] !== maxPrice) && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-900">Filtres actifs</h3>
+              <div className="mb-6 p-5 bg-gradient-to-br from-[#FFF9F0] to-white rounded-2xl border-2 border-[#D4AF37]/20 shadow-md">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-[#b8933d] p-1.5 rounded-lg">
+                      <SlidersHorizontal className="h-4 w-4 text-white" />
+                    </div>
+                    <h3 className="text-base font-bold text-gray-900">Filtres actifs</h3>
+                  </div>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -605,35 +640,35 @@ export default function CategoryPage() {
                       setFilterSize('all');
                       setPriceRange([minPrice, maxPrice]);
                     }}
-                    className="h-8 text-xs"
+                    className="h-9 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl"
                   >
-                    <X className="h-3 w-3 mr-1" />
+                    <X className="h-4 w-4 mr-1" />
                     Tout effacer
                   </Button>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2.5">
                   {mySizeOnly && (
-                    <Badge variant="secondary" className="gap-1">
+                    <Badge className="gap-2 px-3 py-2 bg-gradient-to-r from-[#D4AF37] to-[#C6A15B] hover:from-[#C6A15B] hover:to-[#b8933d] text-white font-semibold border-0 rounded-xl">
                       À ma taille
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => setMySizeOnly(false)} />
+                      <X className="h-4 w-4 cursor-pointer hover:scale-110 transition-transform" onClick={() => setMySizeOnly(false)} />
                     </Badge>
                   )}
                   {filterColor !== 'all' && (
-                    <Badge variant="secondary" className="gap-1">
+                    <Badge className="gap-2 px-3 py-2 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-semibold border-0 rounded-xl">
                       {availableColors.find(c => c.name === filterColor)?.name || filterColor}
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterColor('all')} />
+                      <X className="h-4 w-4 cursor-pointer hover:scale-110 transition-transform" onClick={() => setFilterColor('all')} />
                     </Badge>
                   )}
                   {filterSize !== 'all' && (
-                    <Badge variant="secondary" className="gap-1">
+                    <Badge className="gap-2 px-3 py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold border-0 rounded-xl">
                       Taille {filterSize}
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterSize('all')} />
+                      <X className="h-4 w-4 cursor-pointer hover:scale-110 transition-transform" onClick={() => setFilterSize('all')} />
                     </Badge>
                   )}
                   {(priceRange[0] !== minPrice || priceRange[1] !== maxPrice) && (
-                    <Badge variant="secondary" className="gap-1">
+                    <Badge className="gap-2 px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold border-0 rounded-xl">
                       {priceRange[0]}€ - {priceRange[1]}€
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => setPriceRange([minPrice, maxPrice])} />
+                      <X className="h-4 w-4 cursor-pointer hover:scale-110 transition-transform" onClick={() => setPriceRange([minPrice, maxPrice])} />
                     </Badge>
                   )}
                 </div>
@@ -641,21 +676,45 @@ export default function CategoryPage() {
             )}
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-6">
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} showAddToCart={true} />
+              {filteredProducts.map((product, index) => (
+                <div
+                  key={product.id}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <ProductCard product={product} showAddToCart={true} />
+                </div>
               ))}
             </div>
 
             {filteredProducts.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-600">
-                  Aucun produit ne correspond à vos critères de filtrage.
-                </p>
+              <div className="text-center py-16 bg-white rounded-2xl shadow-lg border-2 border-gray-100">
+                <div className="max-w-md mx-auto px-6">
+                  <div className="bg-gradient-to-br from-[#FFF9F0] to-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-[#D4AF37]/20">
+                    <Package className="h-10 w-10 text-[#b8933d]" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Aucun produit trouvé</h3>
+                  <p className="text-gray-600">
+                    Aucun produit ne correspond à vos critères de filtrage.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setMySizeOnly(false);
+                      setFilterColor('all');
+                      setFilterSize('all');
+                      setPriceRange([minPrice, maxPrice]);
+                    }}
+                    className="mt-6 bg-gradient-to-r from-[#b8933d] to-[#D4AF37] hover:from-[#a07c2f] hover:to-[#C6A15B] text-white rounded-xl font-bold shadow-md"
+                  >
+                    Réinitialiser les filtres
+                  </Button>
+                </div>
               </div>
             )}
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

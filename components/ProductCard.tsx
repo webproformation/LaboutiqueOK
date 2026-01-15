@@ -133,10 +133,10 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
   };
 
   return (
-    <Card className="group relative overflow-hidden rounded-xl shadow-md hover:shadow-2xl transition-all duration-300">
+    <Card className="group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] border-2 border-gray-100 hover:border-[#D4AF37]/30">
       <Link href={`/product/${product.slug}`}>
         <div
-          className="aspect-square relative overflow-hidden bg-gray-50"
+          className="aspect-square relative overflow-hidden bg-gradient-to-br from-gray-50 to-white"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -154,13 +154,13 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
           )}
 
           {hasDiscount && (
-            <div className="absolute top-3 left-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg">
+            <div className="absolute top-3 left-3 bg-gradient-to-r from-pink-500 to-pink-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl animate-pulse">
               PROMO
             </div>
           )}
 
           {sizeMatch && (
-            <div className="absolute top-3 right-3 bg-gradient-to-r from-[#D4AF37] to-[#C6A15B] text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
+            <div className="absolute top-3 right-3 bg-gradient-to-r from-[#D4AF37] to-[#C6A15B] text-white px-3 py-2 rounded-full text-xs font-bold shadow-xl flex items-center gap-1 animate-bounce">
               ✨ {CUSTOM_TEXTS.size.matchBadge}
             </div>
           )}
@@ -171,25 +171,25 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
             <>
               <button
                 onClick={handlePrevImage}
-                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white p-2 rounded-full shadow-lg transition-all opacity-0 group-hover:opacity-100 z-10"
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-white p-2.5 rounded-xl shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 z-10"
               >
-                <ChevronLeft className="h-4 w-4 text-gray-700" />
+                <ChevronLeft className="h-4 w-4 text-gray-900" />
               </button>
               <button
                 onClick={handleNextImage}
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white p-2 rounded-full shadow-lg transition-all opacity-0 group-hover:opacity-100 z-10"
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-white p-2.5 rounded-xl shadow-xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 z-10"
               >
-                <ChevronRight className="h-4 w-4 text-gray-700" />
+                <ChevronRight className="h-4 w-4 text-gray-900" />
               </button>
 
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10 bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
                 {images.map((_, index) => (
                   <div
                     key={index}
-                    className={`h-1.5 rounded-full transition-all ${
+                    className={`h-2 rounded-full transition-all ${
                       index === currentImageIndex
-                        ? 'w-6 bg-white'
-                        : 'w-1.5 bg-white/50'
+                        ? 'w-8 bg-white shadow-lg'
+                        : 'w-2 bg-white/60'
                     }`}
                   />
                 ))}
@@ -199,41 +199,41 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
 
         </div>
 
-        <CardContent className="p-4 space-y-3">
-          <h3 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2 min-h-[2.5rem]">
+        <CardContent className="p-5 space-y-4 bg-gradient-to-b from-white to-gray-50">
+          <h3 className="font-bold text-gray-900 text-sm sm:text-base leading-tight line-clamp-2 min-h-[2.5rem] group-hover:text-[#b8933d] transition-colors">
             {product.name}
           </h3>
 
           <div className="flex items-center gap-2">
             {!isInStock ? (
-              <Badge variant="outline" className="text-xs border-pink-200 bg-pink-50 text-pink-700">
+              <Badge className="text-xs border-0 bg-gradient-to-r from-pink-500 to-pink-600 text-white font-semibold px-3 py-1.5 rounded-full shadow-md">
                 {CUSTOM_TEXTS.stock.outOfStock}
               </Badge>
             ) : isLowStock ? (
-              <Badge variant="outline" className="text-xs border-orange-200 bg-orange-50 text-orange-700">
-                <span className="w-1.5 h-1.5 bg-orange-500 rounded-full mr-1.5"></span>
+              <Badge className="text-xs border-0 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
                 {CUSTOM_TEXTS.stock.lowStock}
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-xs border-green-200 bg-green-50 text-green-700">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>
+              <Badge className="text-xs border-0 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-white rounded-full"></span>
                 {CUSTOM_TEXTS.stock.inStock}
               </Badge>
             )}
           </div>
 
-          <div className="flex items-baseline gap-2">
+          <div className="flex items-baseline gap-2.5">
             {hasDiscount ? (
               <>
-                <span className="text-gray-400 line-through text-sm">
+                <span className="text-gray-400 line-through text-sm font-medium">
                   {product.regular_price?.toFixed(2)} €
                 </span>
-                <span className="text-[#C6A15B] font-bold text-xl">
+                <span className="text-[#b8933d] font-bold text-xl sm:text-2xl">
                   {displayPrice.toFixed(2)} €
                 </span>
               </>
             ) : (
-              <span className="text-gray-900 font-bold text-xl">
+              <span className="text-gray-900 font-bold text-xl sm:text-2xl">
                 {displayPrice.toFixed(2)} €
               </span>
             )}
@@ -243,7 +243,7 @@ export function ProductCard({ product, showAddToCart = false }: ProductCardProps
             <Button
               onClick={handleAddToCart}
               disabled={!isInStock}
-              className="w-full bg-[#C6A15B] hover:bg-[#b8933d] text-white font-semibold rounded-lg shadow-md"
+              className="w-full bg-gradient-to-r from-[#b8933d] to-[#D4AF37] hover:from-[#a07c2f] hover:to-[#C6A15B] text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 py-5 text-sm sm:text-base"
             >
               {product.is_variable_product ? (
                 <>{CUSTOM_TEXTS.buttons.chooseOptions}</>
