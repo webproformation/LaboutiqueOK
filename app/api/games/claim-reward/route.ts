@@ -15,18 +15,10 @@ export async function POST(request: NextRequest) {
             return cookieStore.get(name)?.value;
           },
           set(name: string, value: string, options: CookieOptions) {
-            try {
-              cookieStore.set({ name, value, ...options });
-            } catch (error) {
-              // Erreur silencieuse si les cookies ne peuvent pas être définis
-            }
+            cookieStore.set({ name, value, ...options });
           },
           remove(name: string, options: CookieOptions) {
-            try {
-              cookieStore.set({ name, value: '', ...options });
-            } catch (error) {
-              // Erreur silencieuse si les cookies ne peuvent pas être supprimés
-            }
+            cookieStore.set({ name, value: '', ...options });
           },
         },
       }
@@ -34,9 +26,25 @@ export async function POST(request: NextRequest) {
 
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-    if (sessionError || !session) {
+    console.log('[claim-reward] Auth check:', {
+      hasSession: !!session,
+      hasError: !!sessionError,
+      userId: session?.user?.id,
+      cookies: cookieStore.getAll().map(c => c.name),
+    });
+
+    if (sessionError) {
+      console.error('[claim-reward] Session error:', sessionError);
       return NextResponse.json(
-        { error: 'Non authentifié - Session invalide' },
+        { error: 'Erreur de session', details: sessionError.message },
+        { status: 401 }
+      );
+    }
+
+    if (!session) {
+      console.error('[claim-reward] No session found');
+      return NextResponse.json(
+        { error: 'Non authentifié - Veuillez vous reconnecter' },
         { status: 401 }
       );
     }
