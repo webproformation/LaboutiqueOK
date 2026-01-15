@@ -242,20 +242,20 @@ export function GamePopupManager() {
     if (!user) return;
 
     try {
-      // Chercher le coupon_type par son code
-      const { data: couponType } = await supabase
-        .from('coupon_types')
+      // Chercher le coupon par son code dans la table coupons
+      const { data: coupon } = await supabase
+        .from('coupons')
         .select('id, code')
         .eq('code', couponCode)
         .maybeSingle();
 
-      if (couponType) {
+      if (coupon) {
         // Vérifier si l'utilisateur a déjà ce coupon
         const { data: existingAssignment } = await supabase
           .from('user_coupons')
           .select('id')
           .eq('user_id', user.id)
-          .eq('coupon_type_id', couponType.id)
+          .eq('coupon_id', coupon.id)
           .maybeSingle();
 
         if (!existingAssignment) {
@@ -265,8 +265,8 @@ export function GamePopupManager() {
 
           await supabase.from('user_coupons').insert({
             user_id: user.id,
-            coupon_type_id: couponType.id,
-            code: couponType.code,
+            coupon_id: coupon.id,
+            code: coupon.code,
             source: 'game_popup',
             is_used: false,
             valid_until: validUntil.toISOString(),

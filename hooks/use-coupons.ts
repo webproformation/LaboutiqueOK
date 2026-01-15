@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 export interface UserCoupon {
   id: string;
   user_id: string;
-  coupon_type_id: string;
+  coupon_id: string;
   code: string;
   source: string;
   is_used: boolean;
@@ -42,20 +42,7 @@ export function useCoupons() {
     try {
       const { data, error } = await supabase
         .from('user_coupons')
-        .select(`
-          *,
-          coupon:coupon_types!coupon_type_id (
-            id,
-            code,
-            type,
-            value,
-            description,
-            name,
-            discount_type,
-            discount_value,
-            is_active
-          )
-        `)
+        .select('*, coupon:coupons(*)')
         .eq('user_id', user.id)
         .eq('is_used', false);
 

@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 export interface UserCoupon {
   id: string;
   user_id: string;
-  coupon_type_id: string;
+  coupon_id: string;
   code: string;
   source: string;
   is_used: boolean;
@@ -12,7 +12,7 @@ export interface UserCoupon {
   order_id: string | null;
   obtained_at: string;
   valid_until: string;
-  coupon_type?: {
+  coupon?: {
     name: string;
     discount_type: string;
     discount_value: number;
@@ -38,15 +38,7 @@ export function useUserCoupons(userId: string | undefined) {
 
       const { data, error: fetchError } = await supabase
         .from('user_coupons')
-        .select(`
-          *,
-          coupon_type:coupon_types!coupon_type_id(
-            name,
-            discount_type,
-            discount_value,
-            description
-          )
-        `)
+        .select('*, coupon:coupons(*)')
         .eq('user_id', userId)
         .eq('is_used', false)
         .gte('valid_until', new Date().toISOString())

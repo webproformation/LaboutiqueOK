@@ -29,7 +29,7 @@ interface Coupon {
 interface UserCoupon {
   id: string;
   user_id: string;
-  coupon_type_id: string;
+  coupon_id: string;
   code: string;
   source: string;
   is_used: boolean;
@@ -37,11 +37,14 @@ interface UserCoupon {
   order_id: string | null;
   obtained_at: string;
   valid_until: string;
-  coupon_type?: {
+  coupon?: {
+    id: string;
     code: string;
-    type: string;
-    value: number;
+    name: string;
     description: string;
+    discount_type: string;
+    discount_value: number;
+    is_active: boolean;
   };
 }
 
@@ -68,15 +71,7 @@ export default function CouponsPage() {
 
       const { data: myCoupons, error: myCouponsError } = await supabase
         .from('user_coupons')
-        .select(`
-          *,
-          coupon_type:coupon_types!coupon_type_id(
-            code,
-            type,
-            value,
-            description
-          )
-        `)
+        .select('*, coupon:coupons(*)')
         .eq('user_id', user.id)
         .order('obtained_at', { ascending: false });
 
@@ -297,11 +292,11 @@ export default function CouponsPage() {
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
                           <CardTitle className="text-xl font-bold text-orange-600 flex items-center gap-2">
-                            {userCoupon.coupon_type?.code || userCoupon.code}
+                            {userCoupon.coupon?.code || userCoupon.code}
                             <AlertTriangle className="h-5 w-5" />
                           </CardTitle>
                           <CardDescription className="text-sm">
-                            {userCoupon.coupon_type?.description || 'Réduction applicable'}
+                            {userCoupon.coupon?.description || 'Réduction applicable'}
                           </CardDescription>
                         </div>
                         <Badge className="bg-orange-500 text-white">{userCoupon.code}</Badge>
@@ -310,9 +305,9 @@ export default function CouponsPage() {
                     <CardContent className="space-y-4">
                       <div className="flex items-center justify-center p-6 bg-gradient-to-br from-orange-400/10 to-orange-300/5 rounded-lg">
                         <div className="text-4xl font-bold text-orange-600">
-                          {userCoupon.coupon_type?.type === 'percentage'
-                            ? `-${userCoupon.coupon_type.value}%`
-                            : `-${(Number(userCoupon.coupon_type?.value) || 0).toFixed(2)}€`
+                          {userCoupon.coupon?.discount_type === 'percentage'
+                            ? `-${userCoupon.coupon.discount_value}%`
+                            : `-${(Number(userCoupon.coupon?.discount_value) || 0).toFixed(2)}€`
                           }
                         </div>
                       </div>
@@ -365,10 +360,10 @@ export default function CouponsPage() {
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
                         <CardTitle className="text-xl font-bold text-[#D4AF37]">
-                          {userCoupon.coupon_type?.code || userCoupon.code}
+                          {userCoupon.coupon?.code || userCoupon.code}
                         </CardTitle>
                         <CardDescription className="text-sm">
-                          {userCoupon.coupon_type?.description || 'Réduction applicable'}
+                          {userCoupon.coupon?.description || 'Réduction applicable'}
                         </CardDescription>
                       </div>
                       <Badge className="bg-[#D4AF37] text-white">{userCoupon.code}</Badge>
@@ -377,9 +372,9 @@ export default function CouponsPage() {
                   <CardContent className="space-y-4">
                     <div className="flex items-center justify-center p-6 bg-gradient-to-br from-[#D4AF37]/10 to-[#C6A15B]/5 rounded-lg">
                       <div className="text-4xl font-bold text-[#D4AF37]">
-                        {userCoupon.coupon_type?.type === 'percentage'
-                          ? `-${userCoupon.coupon_type.value}%`
-                          : `-${(Number(userCoupon.coupon_type?.value) || 0).toFixed(2)}€`
+                        {userCoupon.coupon?.discount_type === 'percentage'
+                          ? `-${userCoupon.coupon.discount_value}%`
+                          : `-${(Number(userCoupon.coupon?.discount_value) || 0).toFixed(2)}€`
                         }
                       </div>
                     </div>
@@ -427,7 +422,7 @@ export default function CouponsPage() {
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
                         <CardTitle className="text-xl font-bold">
-                          {userCoupon.coupon_type?.code || userCoupon.code}
+                          {userCoupon.coupon?.code || userCoupon.code}
                         </CardTitle>
                         <Badge variant="secondary">{userCoupon.code}</Badge>
                       </div>
@@ -437,9 +432,9 @@ export default function CouponsPage() {
                   <CardContent className="space-y-3">
                     <div className="flex items-center justify-center p-4 bg-gray-50 rounded-lg">
                       <div className="text-2xl font-bold text-gray-600">
-                        {userCoupon.coupon_type?.type === 'percentage'
-                          ? `-${userCoupon.coupon_type.value}%`
-                          : `-${(Number(userCoupon.coupon_type?.value) || 0).toFixed(2)}€`
+                        {userCoupon.coupon?.discount_type === 'percentage'
+                          ? `-${userCoupon.coupon.discount_value}%`
+                          : `-${(Number(userCoupon.coupon?.discount_value) || 0).toFixed(2)}€`
                         }
                       </div>
                     </div>

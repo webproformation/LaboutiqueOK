@@ -1090,10 +1090,10 @@ export default function CheckoutPage() {
                         onValueChange={(value) => {
                           setSelectedUserCouponId(value);
                           const selectedCoupon = userCoupons.find(c => c.id === value);
-                          if (selectedCoupon && selectedCoupon.coupon_type) {
-                            const discount = selectedCoupon.coupon_type.discount_type === 'percentage'
-                              ? (subtotal * selectedCoupon.coupon_type.discount_value / 100)
-                              : Number(selectedCoupon.coupon_type.discount_value);
+                          if (selectedCoupon && selectedCoupon.coupon) {
+                            const discount = selectedCoupon.coupon.discount_type === 'percentage'
+                              ? (subtotal * selectedCoupon.coupon.discount_value / 100)
+                              : Number(selectedCoupon.coupon.discount_value);
                             setDiscountAmount(discount);
                           } else {
                             setDiscountAmount(0);
@@ -1113,14 +1113,14 @@ export default function CheckoutPage() {
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-1">
                                       <p className="font-semibold text-gray-900">
-                                        {coupon.coupon_type?.name || 'Coupon'}
+                                        {coupon.coupon?.name || 'Coupon'}
                                       </p>
                                       <Badge className="bg-[#D4AF37] text-white border-0 text-xs">
                                         {coupon.code}
                                       </Badge>
                                     </div>
                                     <p className="text-sm text-gray-600 mb-2">
-                                      {coupon.coupon_type?.description || 'Réduction applicable'}
+                                      {coupon.coupon?.description || 'Réduction applicable'}
                                     </p>
                                     <p className="text-xs text-gray-500">
                                       Valable jusqu'au {new Date(coupon.valid_until).toLocaleDateString('fr-FR')}
@@ -1128,9 +1128,9 @@ export default function CheckoutPage() {
                                   </div>
                                   <div className="text-right">
                                     <p className="text-2xl font-bold text-[#D4AF37]">
-                                      {coupon.coupon_type?.discount_type === 'percentage'
-                                        ? `-${coupon.coupon_type.discount_value}%`
-                                        : `-${Number(coupon.coupon_type?.discount_value || 0).toFixed(2)}€`
+                                      {coupon.coupon?.discount_type === 'percentage'
+                                        ? `-${coupon.coupon.discount_value}%`
+                                        : `-${Number(coupon.coupon?.discount_value || 0).toFixed(2)}€`
                                       }
                                     </p>
                                   </div>

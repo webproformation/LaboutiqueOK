@@ -226,14 +226,14 @@ export function ScratchCardGame({ game, onClose, onWin }: ScratchCardGameProps) 
           }]);
 
         if (!isLosingPrize && selectedPrize) {
-          // Trouver le coupon_type correspondant au code du coupon
-          const { data: couponType } = await supabase
-            .from('coupon_types')
+          // Trouver le coupon correspondant au code
+          const { data: coupon } = await supabase
+            .from('coupons')
             .select('id')
             .eq('code', selectedPrize)
             .maybeSingle();
 
-          if (couponType) {
+          if (coupon) {
             const { data: existingCoupon } = await supabase
               .from('user_coupons')
               .select('id')
@@ -247,7 +247,7 @@ export function ScratchCardGame({ game, onClose, onWin }: ScratchCardGameProps) 
 
               await supabase.from('user_coupons').insert({
                 user_id: user.id,
-                coupon_type_id: couponType.id,
+                coupon_id: coupon.id,
                 code: selectedPrize,
                 source: 'scratch_card_game',
                 is_used: false,
