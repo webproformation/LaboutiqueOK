@@ -15,7 +15,7 @@ interface ProductGalleryProps {
   images: ProductImage[];
   productName: string;
   selectedImageUrl?: string;
-  onImageClick?: (imageUrl: string) => void;
+  onImageClick?: (image: { id: string; src: string }) => void;
 }
 
 export function ProductGallery({ images, productName, selectedImageUrl, onImageClick }: ProductGalleryProps) {
@@ -44,7 +44,7 @@ export function ProductGallery({ images, productName, selectedImageUrl, onImageC
     setCurrentIndex((prevIndex) => {
       const newIndex = prevIndex === 0 ? validImages.length - 1 : prevIndex - 1;
       if (onImageClick && validImages[newIndex]) {
-        onImageClick(validImages[newIndex].src);
+        onImageClick({ id: validImages[newIndex].id, src: validImages[newIndex].src });
       }
       return newIndex;
     });
@@ -54,7 +54,7 @@ export function ProductGallery({ images, productName, selectedImageUrl, onImageC
     setCurrentIndex((prevIndex) => {
       const newIndex = prevIndex === validImages.length - 1 ? 0 : prevIndex + 1;
       if (onImageClick && validImages[newIndex]) {
-        onImageClick(validImages[newIndex].src);
+        onImageClick({ id: validImages[newIndex].id, src: validImages[newIndex].src });
       }
       return newIndex;
     });
@@ -143,7 +143,7 @@ export function ProductGallery({ images, productName, selectedImageUrl, onImageC
                   onClick={() => {
                     setCurrentIndex(index);
                     if (onImageClick) {
-                      onImageClick(image.src);
+                      onImageClick({ id: image.id, src: image.src });
                     }
                   }}
                   className={`h-2 rounded-full transition-all ${
@@ -165,7 +165,7 @@ export function ProductGallery({ images, productName, selectedImageUrl, onImageC
               onClick={() => {
                 setCurrentIndex(index);
                 if (onImageClick) {
-                  onImageClick(image.src);
+                  onImageClick({ id: image.id, src: image.src });
                 }
               }}
               className={`relative aspect-[3/4] overflow-hidden rounded-lg transition-all ${

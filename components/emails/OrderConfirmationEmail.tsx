@@ -5,6 +5,7 @@ import { EmailLayout } from './EmailLayout';
 interface OrderItem {
   image_url: string | null;
   product_name: string;
+  sku?: string;
   variation_details?: any;
   quantity: number;
   price: number;
@@ -56,6 +57,9 @@ export const OrderConfirmationEmail = ({
             </Column>
             <Column style={{ paddingLeft: '10px' }}>
               <Text style={itemName}>{item.product_name}</Text>
+              {item.sku && (
+                <Text style={itemSKU}>UGS: {item.sku}</Text>
+              )}
               {item.variation_details && (
                 <Text style={itemDetails}>
                   {Object.entries(item.variation_details).map(([key, value]) =>
@@ -139,6 +143,13 @@ const itemName = {
   fontWeight: 'bold',
   color: '#333',
   margin: '0 0 5px 0',
+};
+
+const itemSKU = {
+  fontSize: '12px',
+  color: '#999',
+  margin: '0 0 5px 0',
+  fontStyle: 'italic' as const,
 };
 
 const itemDetails = {

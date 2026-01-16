@@ -362,25 +362,33 @@ export default function ProductPage() {
     }
   };
 
-  const handleImageClick = (imageUrl: string) => {
-    setUserSelectedGalleryImage(imageUrl);
+  const handleImageClick = (image: { id: string; src: string }) => {
+    // 1. Si c'est une image de variation (l'ID commence par 'variation-' ou est 'variation-selected')
+    if (image.id.startsWith('variation-') || image.id === 'variation-selected') {
+      // ON DÉVERROUILLE TOUJOURS
+      setUserSelectedGalleryImage(null);
 
-    // Sync bidirectionnelle: si l'image correspond à une variation, sélectionner cette variation
-    if (product?.variations && Array.isArray(product.variations)) {
-      const matchingVariation = product.variations.find((v: any) =>
-        v.image?.src === imageUrl
-      );
+      // Si on peut identifier la variation précise via l'index de l'ID, on la sélectionne
+      if (image.id.startsWith('variation-') && product?.variations) {
+        const idx = parseInt(image.id.split('-')[1]);
+        const targetVariation = product.variations[idx];
 
-      if (matchingVariation && matchingVariation.id !== selectedVariation?.id) {
-        // Extraire les attributs de la variation pour mettre à jour le sélecteur
-        const variationAttributes: Record<string, string> = {};
-        matchingVariation.attributes?.forEach((attr: any) => {
-          variationAttributes[attr.name] = attr.option;
-        });
+        if (targetVariation && targetVariation.id !== selectedVariation?.id) {
+          // Mettre à jour les attributs et la variation sélectionnée
+          const variationAttributes: Record<string, string> = {};
+          targetVariation.attributes?.forEach((attr: any) => {
+            variationAttributes[attr.name] = attr.option;
+          });
 
-        setInitialAttributes(variationAttributes);
-        setSelectedVariation(matchingVariation);
+          setInitialAttributes(variationAttributes);
+          setSelectedVariation(targetVariation);
+        }
       }
+    }
+    // 2. Sinon (Image générique de la galerie 'gallery-x', 'main' ou autre)
+    else {
+      // ON VERROUILLE
+      setUserSelectedGalleryImage(image.src);
     }
   };
 

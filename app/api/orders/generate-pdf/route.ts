@@ -115,6 +115,16 @@ export async function POST(request: NextRequest) {
     let imgHeight = 30;
     const fullWidthImgWidth = pageWidth;
 
+    // Créer une bannière noire arrondie pour le logo (comme dans le modèle)
+    const bannerHeight = 35;
+    const bannerMarginX = 30;
+    const bannerWidth = pageWidth - (bannerMarginX * 2);
+    const cornerRadius = 8;
+
+    // Dessiner la bannière noire arrondie
+    doc.setFillColor(0, 0, 0);
+    doc.roundedRect(bannerMarginX, 5, bannerWidth, bannerHeight, cornerRadius, cornerRadius, 'F');
+
     // Charger le logo depuis le système de fichiers local
     let logoLoaded = false;
     try {
@@ -128,15 +138,17 @@ export async function POST(request: NextRequest) {
 
         console.log('✅ PDF - Logo chargé avec succès, taille:', logoBuffer.length, 'octets');
 
-        // Calculer les dimensions du logo avec marges latérales
-        const logoMargin = 20;
-        const logoWidth = pageWidth - (logoMargin * 2);
-        const logoHeight = 30;
+        // Positionner le logo centré dans la bannière avec marges pour éviter l'écrasement
+        const logoMarginInBanner = 10;
+        const logoWidth = bannerWidth - (logoMarginInBanner * 2);
+        const logoHeight = bannerHeight - (logoMarginInBanner * 2);
+        const logoX = bannerMarginX + logoMarginInBanner;
+        const logoY = 5 + logoMarginInBanner;
 
-        doc.addImage(imageDataUrl, 'PNG', logoMargin, 0, logoWidth, logoHeight, undefined, 'FAST');
-        imgHeight = logoHeight;
+        // Utiliser compression 'NONE' au lieu de 'FAST' pour meilleure qualité
+        doc.addImage(imageDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight, undefined, 'NONE');
         logoLoaded = true;
-        console.log('✅ PDF - Logo ajouté au document');
+        console.log('✅ PDF - Logo ajouté au document avec objectFit contain');
       } else {
         console.warn('⚠️ PDF - Logo non trouvé à:', logoPath);
       }
@@ -144,17 +156,19 @@ export async function POST(request: NextRequest) {
       console.error('❌ PDF - Erreur chargement logo:', e.message);
     }
 
-    // Si le logo n'a pas été chargé, ajouter un header noir simple
+    // Si le logo n'a pas été chargé, afficher le texte de secours dans la bannière
     if (!logoLoaded) {
-      console.warn('⚠️ PDF - Génération sans logo (utilisation d\'un header de secours)');
-      doc.setFillColor(0, 0, 0);
-      doc.rect(0, 0, pageWidth, 25, 'F');
-      doc.setFontSize(18);
+      console.warn('⚠️ PDF - Génération sans logo (utilisation d\'un texte de secours)');
+      doc.setFontSize(16);
       doc.setTextColor(212, 175, 55);
       doc.setFont("helvetica", "bold");
-      doc.text("LA BOUTIQUE DE MORGANE", pageWidth / 2, 15, { align: "center" });
-      imgHeight = 25;
+      doc.text("LA BOUTIQUE DE MORGANE", pageWidth / 2, 5 + (bannerHeight / 2) + 2, { align: "center" });
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "italic");
+      doc.text("Votre dose de style et de joie", pageWidth / 2, 5 + (bannerHeight / 2) + 8, { align: "center" });
     }
+
+    imgHeight = 5 + bannerHeight;
 
     let yPosition = imgHeight + 15;
 
@@ -241,17 +255,17 @@ export async function POST(request: NextRequest) {
     yPosition = Math.max(yPosition + (sellerInfo.length * 4), tempY) + 10;
 
     const tableData = enrichedItems.map((item: any) => {
-      let productName = item.product_name || 'Produit';
+      let productInfo = item.product_name || 'Produit';
 
-      // Ajouter le SKU/UGS si disponible
-      if (item.sku) {
-        productName += `\nUGS/SKU: ${item.sku}`;
-      }
-
-      // Parser et afficher les attributs
+      // Parser et afficher les attributs (couleur | Taille | etc...)
       const attributes = formatAttributes(item.variation_data);
       if (attributes) {
-        productName += `\n(${attributes})`;
+        productInfo += `\n${attributes}`;
+      }
+
+      // Ajouter le SKU en dernier (format léger)
+      if (item.sku) {
+        productInfo += `\n${item.sku}`;
       }
 
       const price = Number(item.price) || 0;
@@ -259,7 +273,7 @@ export async function POST(request: NextRequest) {
 
       return [
         '', // Colonne vide pour l'image (sera remplie par didDrawCell)
-        productName,
+        productInfo,
         `${quantity}`,
         `${price.toFixed(2)} €`,
         `${(quantity * price).toFixed(2)} €`,
@@ -303,10 +317,11 @@ export async function POST(request: NextRequest) {
               const cellWidth = data.cell.width;
               const cellHeight = data.cell.height;
 
-              // Taille de l'image (carrée, centrée)
-              const imgSize = Math.min(cellWidth - 2, cellHeight - 2, 15); // Max 15mm
-              const imgX = cellX + (cellWidth - imgSize) / 2;
-              const imgY = cellY + (cellHeight - imgSize) / 2;
+              // Taille de l'image avec marges pour éviter l'écrasement
+              const imagePadding = 2; // Marges intérieures
+              const maxImgSize = Math.min(cellWidth - (imagePadding * 2), cellHeight - (imagePadding * 2), 16);
+              const imgX = cellX + (cellWidth - maxImgSize) / 2;
+              const imgY = cellY + (cellHeight - maxImgSize) / 2;
 
               // Détecter le type d'image
               let imageType = 'JPEG';
@@ -316,7 +331,8 @@ export async function POST(request: NextRequest) {
 
               const imageDataUrl = `data:image/jpeg;base64,${item.product_image_base64}`;
 
-              doc.addImage(imageDataUrl, imageType, imgX, imgY, imgSize, imgSize, undefined, 'FAST');
+              // Utiliser 'NONE' pour meilleure qualité et objectFit contain
+              doc.addImage(imageDataUrl, imageType, imgX, imgY, maxImgSize, maxImgSize, undefined, 'NONE');
             } catch (e) {
               console.log(`Erreur ajout image dans cellule pour ${item.product_name}:`, e);
             }
