@@ -73,8 +73,8 @@ export async function sendOrderConfirmationEmail(
           <td align="center">
             <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
               <tr>
-                <td style="background-color: #000000; padding: 30px; text-align: center;">
-                  <h1 style="color: #ffffff; margin: 0; font-size: 28px;">La Boutique de Morgane</h1>
+                <td style="padding: 0; text-align: center; background-color: #000000;">
+                  <img src="${process.env.NEXT_PUBLIC_SITE_URL || 'https://laboutiquedemorgane.com'}/lbdm-logobdc.png" alt="La Boutique de Morgane" style="width: 100%; height: auto; display: block; max-height: 200px; object-fit: cover;" />
                 </td>
               </tr>
               <tr>

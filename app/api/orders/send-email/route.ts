@@ -127,13 +127,8 @@ export async function POST(request: NextRequest) {
 
           <!-- En-tête avec logo -->
           <tr>
-            <td style="background: linear-gradient(135deg, #d4af37 0%, #b8933d 100%); padding: 40px 30px; text-align: center;">
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: 1px;">
-                La Boutique de Morgane
-              </h1>
-              <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 14px; opacity: 0.95; font-style: italic;">
-                Votre dose de style et de joie
-              </p>
+            <td style="padding: 0; text-align: center; background-color: #000000;">
+              <img src="${process.env.NEXT_PUBLIC_SITE_URL || 'https://laboutiquedemorgane.com'}/lbdm-logobdc.png" alt="La Boutique de Morgane" style="width: 100%; height: auto; display: block; max-height: 200px; object-fit: cover;" />
             </td>
           </tr>
 

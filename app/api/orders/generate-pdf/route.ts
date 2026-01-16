@@ -59,7 +59,8 @@ export async function POST(request: NextRequest) {
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
 
-    const logoUrl = 'https://qcqbtmvbvipsxwjlgjvk.supabase.co/storage/v1/object/public/product-images/products/1767606522580-6exr5j.webp';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://laboutiquedemorgane.com';
+    const logoUrl = `${siteUrl}/lbdm-logobdc.png`;
 
     let imgHeight = 30;
     const fullWidthImgWidth = pageWidth;
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
       const response = await fetch(logoUrl);
       const arrayBuffer = await response.arrayBuffer();
       const base64 = Buffer.from(arrayBuffer).toString('base64');
-      const imageDataUrl = `data:image/webp;base64,${base64}`;
+      const imageDataUrl = `data:image/png;base64,${base64}`;
 
       const img = new Image();
       img.src = imageDataUrl;
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
         img.onerror = () => resolve(null);
       });
 
-      doc.addImage(imageDataUrl, 'WEBP', 0, 0, fullWidthImgWidth, imgHeight, undefined, 'FAST');
+      doc.addImage(imageDataUrl, 'PNG', 0, 0, fullWidthImgWidth, imgHeight, undefined, 'FAST');
     } catch (e) {
       console.log("Logo non chargé, continue sans logo:", e);
     }

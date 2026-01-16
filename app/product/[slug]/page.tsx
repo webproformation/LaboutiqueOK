@@ -299,6 +299,14 @@ export default function ProductPage() {
         attributeValues.forEach((av: any) => {
           if (av.product_attributes && !av.product_attributes.is_for_variations) {
             const attrName = av.product_attributes.name;
+            const attrSlug = av.product_attributes.slug?.toLowerCase() || '';
+
+            // Exclure explicitement Couleur et Taille même s'ils ne sont pas marqués comme variations
+            if (attrSlug.includes('couleur') || attrSlug.includes('color') ||
+                attrSlug.includes('taille') || attrSlug.includes('size')) {
+              return;
+            }
+
             if (!attributesMap.has(attrName)) {
               attributesMap.set(attrName, new Set());
             }
@@ -312,6 +320,12 @@ export default function ProductPage() {
         }));
 
         setInformativeAttributes(formattedAttributes);
+
+        if (formattedAttributes.length > 0) {
+          console.log('Attributs informatifs chargés:', formattedAttributes);
+        }
+      } else if (attributeError) {
+        console.error('Erreur lors du chargement des attributs informatifs:', attributeError);
       }
     } catch (error) {
       console.error("Error loading product:", error);
@@ -710,15 +724,15 @@ export default function ProductPage() {
             )}
 
             {informativeAttributes.length > 0 && (
-              <div className="border border-amber-200 bg-gradient-to-br from-amber-50/50 to-white rounded-lg p-5 space-y-3">
-                <h3 className="text-sm font-bold text-[#b8933d] uppercase tracking-wide flex items-center gap-2">
-                  <span>✨</span> Caractéristiques
+              <div className="border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-amber-25 to-white rounded-xl p-6 space-y-4 shadow-sm">
+                <h3 className="text-base font-bold text-[#b8933d] uppercase tracking-wide flex items-center gap-2">
+                  <span className="text-xl">✨</span> Caractéristiques du Produit
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {informativeAttributes.map((attr, index) => (
-                    <div key={index} className="flex items-start gap-2 text-sm">
-                      <span className="font-semibold text-gray-700 min-w-[100px]">{attr.name} :</span>
-                      <span className="text-gray-900">{attr.values.join(", ")}</span>
+                    <div key={index} className="flex items-start gap-3 text-sm bg-white/80 rounded-lg p-3 border border-amber-100">
+                      <span className="font-bold text-gray-800 min-w-[120px] text-[#b8933d]">{attr.name} :</span>
+                      <span className="text-gray-900 font-medium">{attr.values.join(", ")}</span>
                     </div>
                   ))}
                 </div>
