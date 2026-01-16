@@ -157,22 +157,40 @@ export default function CategoryPage() {
         return price >= priceRange[0] && price <= priceRange[1];
       });
 
-      // Filtre "À ma taille" - CORRECTION: utiliser size_range_start/end
+      // Filtre "À ma taille" - CORRECTION: vérifier les variations comme ProductCard
       if (mySizeOnly && profile?.user_size) {
         const userSize = Number(profile.user_size);
 
-        result = result.filter(product => {
-          // Vérifier si la taille utilisateur est dans l'intervalle du produit
-          const sizeRangeStart = product.size_range_start;
-          const sizeRangeEnd = product.size_range_end;
+        // Filtrer en vérifiant les variations de chaque produit
+        const matchingProducts = await Promise.all(
+          result.map(async (product) => {
+            if (!product.is_variable_product) {
+              return null;
+            }
 
-          if (sizeRangeStart && sizeRangeEnd) {
-            return userSize >= sizeRangeStart && userSize <= sizeRangeEnd;
-          }
+            try {
+              const { data, error } = await supabase
+                .from('product_variations')
+                .select('size_min, size_max')
+                .eq('product_id', product.id)
+                .not('size_min', 'is', null)
+                .not('size_max', 'is', null);
 
-          // Si pas d'intervalle défini, ne pas filtrer ce produit
-          return false;
-        });
+              if (error) throw error;
+
+              const hasMatch = data?.some(
+                (variation: any) => userSize >= variation.size_min && userSize <= variation.size_max
+              );
+
+              return hasMatch ? product : null;
+            } catch (error) {
+              console.error('Error checking size compatibility:', error);
+              return null;
+            }
+          })
+        );
+
+        result = matchingProducts.filter((p) => p !== null) as Product[];
       }
 
       // Filtres couleur et taille - CORRECTION: utiliser main_color et size_range

@@ -450,34 +450,11 @@ export default function ProductPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-600">Chargement...</div>
-      </div>
-    );
-  }
-
-  if (!product) {
-    return null;
-  }
-
-  const currentPrice =
-    selectedVariation?.sale_price ||
-    selectedVariation?.price ||
-    product.sale_price ||
-    product.regular_price;
-  const regularPrice =
-    selectedVariation?.regular_price || product.regular_price;
-  const hasDiscount =
-    currentPrice && regularPrice && currentPrice < regularPrice;
-  const isVariable = product.type === "VARIABLE";
-  const isInStock = isVariable
-    ? selectedVariation?.stock_status === "instock"
-    : product.stock_status === "instock" && (product.stock_quantity ?? 0) > 0;
-
+  // HOOKS: Déclarer TOUS les hooks AVANT les early returns (règle React)
   // Logique d'héritage d'image en cascade (4 priorités)
   const getCurrentImageUrl = (): string | undefined => {
+    if (!product) return undefined;
+
     // Priorité 1: Sélection manuelle dans la galerie (PRIORITÉ ABSOLUE)
     if (userSelectedGalleryImage) {
       return userSelectedGalleryImage;
@@ -526,6 +503,8 @@ export default function ProductPage() {
   };
 
   const galleryImages = useMemo(() => {
+    if (!product) return [{ id: "placeholder", src: "/placeholder.png", alt: "Product" }];
+
     const images: Array<{ id: string; src: string; alt: string }> = [];
 
     // STRATÉGIE TRI (SORTING) AU LIEU DE FILTRAGE
@@ -593,6 +572,34 @@ export default function ProductPage() {
 
     return images.length > 0 ? images : [{ id: "placeholder", src: "/placeholder.png", alt: product.name }];
   }, [product, selectedVariation]);
+
+  // Variables calculées (après les hooks, mais avant les early returns si nécessaire)
+  const currentPrice =
+    selectedVariation?.sale_price ||
+    selectedVariation?.price ||
+    product?.sale_price ||
+    product?.regular_price;
+  const regularPrice =
+    selectedVariation?.regular_price || product?.regular_price;
+  const hasDiscount =
+    currentPrice && regularPrice && currentPrice < regularPrice;
+  const isVariable = product?.type === "VARIABLE";
+  const isInStock = isVariable
+    ? selectedVariation?.stock_status === "instock"
+    : product?.stock_status === "instock" && (product?.stock_quantity ?? 0) > 0;
+
+  // EARLY RETURNS: Après tous les hooks
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-600">Chargement...</div>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-[#FFF9F0] to-white">
