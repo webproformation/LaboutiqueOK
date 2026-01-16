@@ -27,7 +27,7 @@ export const EmailLayout = ({ preview, children }: EmailLayoutProps) => {
         <Container style={container}>
           <Section style={header}>
             <Img
-              src="https://qcqbtmvbvipsxwjlgjvk.supabase.co/storage/v1/object/public/media/lbdm-logobdc.png"
+              src="https://laboutiquedemorgane.com/lbdm-logobdc.png"
               width="200"
               height="auto"
               alt="La Boutique de Morgane"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase, Product } from "@/lib/supabase";
@@ -525,10 +525,13 @@ export default function ProductPage() {
     return undefined;
   };
 
-  const galleryImages = (() => {
+  const galleryImages = useMemo(() => {
     const images: Array<{ id: string; src: string; alt: string }> = [];
 
-    // PRIORITÉ 1: Image de la variation sélectionnée (specific_image)
+    // STRATÉGIE TRI (SORTING) AU LIEU DE FILTRAGE
+    // On garde TOUTES les images, mais on met l'image de la variation sélectionnée en premier
+
+    // PRIORITÉ 1: Image de la variation sélectionnée EN PREMIER
     if (selectedVariation?.image?.src) {
       images.push({
         id: "variation-selected",
@@ -537,7 +540,7 @@ export default function ProductPage() {
       });
     }
 
-    // PRIORITÉ 2: Image principale du produit (main_image)
+    // PRIORITÉ 2: Image principale du produit
     if (product.image_url && !images.some(i => i.src === product.image_url)) {
       images.push({
         id: "main",
@@ -546,8 +549,7 @@ export default function ProductPage() {
       });
     }
 
-    // PRIORITÉ 3: TOUTES les images de la galerie (gallery_images)
-    // Ne pas filtrer par variation - afficher TOUTES les photos du produit
+    // PRIORITÉ 3: TOUTES les images de la galerie (JAMAIS filtrer)
     if (product.gallery_images && Array.isArray(product.gallery_images) && product.gallery_images.length > 0) {
       product.gallery_images.forEach((imgUrl: string, idx: number) => {
         if (imgUrl && !images.some(i => i.src === imgUrl)) {
@@ -560,7 +562,20 @@ export default function ProductPage() {
       });
     }
 
-    // Fallback: Autres images
+    // PRIORITÉ 4: Images des variations (TOUTES, pas seulement la sélectionnée)
+    if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
+      product.variations.forEach((variation: any, idx: number) => {
+        if (variation.image?.src && !images.some(i => i.src === variation.image.src)) {
+          images.push({
+            id: `variation-${idx}`,
+            src: variation.image.src,
+            alt: variation.image.alt || product.name,
+          });
+        }
+      });
+    }
+
+    // PRIORITÉ 5: Fallback - Autres images
     if (product.images && Array.isArray(product.images) && product.images.length > 0) {
       product.images.forEach((img: any, idx: number) => {
         const imgSrc = img.src || img.sourceUrl || img.url;
@@ -574,24 +589,10 @@ export default function ProductPage() {
       });
     }
 
-    // PRIORITÉ 4: Ajouter TOUTES les images des autres variations
-    // (pour permettre de voir toutes les couleurs/tailles)
-    if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
-      product.variations.forEach((variation: any, idx: number) => {
-        if (variation.image?.src && !images.some(i => i.src === variation.image.src)) {
-          images.push({
-            id: `variation-${idx}`,
-            src: variation.image.src,
-            alt: variation.image.alt || product.name,
-          });
-        }
-      });
-    }
-
-    console.log('📸 Galerie construite:', images.length, 'images au total');
+    console.log('📸 Galerie RE-TRIÉE:', images.length, 'images | Variation sélectionnée en position 1');
 
     return images.length > 0 ? images : [{ id: "placeholder", src: "/placeholder.png", alt: product.name }];
-  })();
+  }, [product, selectedVariation]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-[#FFF9F0] to-white">

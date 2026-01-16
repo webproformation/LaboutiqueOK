@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ShoppingBag, Trash2, Plus, Minus, Info } from 'lucide-react';
+import { Gem, Trash2, Plus, Minus, Info } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
@@ -88,8 +88,8 @@ export default function CartPage() {
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-2xl mx-auto">
           <PageHeader
-            icon={ShoppingBag}
-            title="Mon Panier"
+            icon={Gem}
+            title="Mes pépites"
             description="Commencez vos achats dès maintenant et découvrez nos produits exclusifs !"
           />
           <p className="text-center text-gray-600 mb-8">
@@ -109,8 +109,8 @@ export default function CartPage() {
     <div className="container mx-auto px-4 py-16">
       <div className="max-w-6xl mx-auto">
         <PageHeader
-          icon={ShoppingBag}
-          title="Mon Panier"
+          icon={Gem}
+          title="Mes pépites"
           description={`${cartItemCount} article${cartItemCount > 1 ? 's' : ''} dans votre panier`}
         />
         <div className="flex justify-end mb-4">

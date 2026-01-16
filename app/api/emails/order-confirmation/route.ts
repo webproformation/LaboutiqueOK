@@ -43,12 +43,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Formater les items pour l'email
+    const items = (order.order_items || []).map((item: any) => ({
+      image_url: item.image_url || item.product_image || null,
+      product_name: item.product_name || 'Produit',
+      variation_details: item.variation_data || item.variation_details || null,
+      quantity: item.quantity || 1,
+      price: Number(item.price) || 0,
+    }));
+
+    console.log('📧 Email confirmation - Items formatés:', items.length, 'articles');
+
+    if (items.length === 0) {
+      console.warn('⚠️ Email confirmation - AUCUN ARTICLE dans la commande', orderId);
+    }
+
     const result = await sendOrderConfirmationEmail(
       email,
       firstName,
       order.order_number,
-      order.order_items || [],
-      order.total
+      items,
+      Number(order.total_amount || order.total || 0)
     );
 
     if (!result.success) {

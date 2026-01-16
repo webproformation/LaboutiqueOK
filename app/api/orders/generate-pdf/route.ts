@@ -6,6 +6,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { formatAttributes } from "@/lib/utils";
 
+export const runtime = 'nodejs';
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -114,32 +116,43 @@ export async function POST(request: NextRequest) {
     const fullWidthImgWidth = pageWidth;
 
     // Charger le logo depuis le système de fichiers local
+    let logoLoaded = false;
     try {
       const logoPath = path.join(process.cwd(), 'public', 'lbdm-logobdc.png');
+      console.log('📄 PDF - Tentative de chargement du logo depuis:', logoPath);
 
       if (fs.existsSync(logoPath)) {
         const logoBuffer = fs.readFileSync(logoPath);
         const base64Logo = logoBuffer.toString('base64');
         const imageDataUrl = `data:image/png;base64,${base64Logo}`;
 
-        const img = new Image();
-        img.src = imageDataUrl;
+        console.log('✅ PDF - Logo chargé avec succès, taille:', logoBuffer.length, 'octets');
 
-        await new Promise((resolve) => {
-          img.onload = () => {
-            const aspectRatio = img.height / img.width;
-            imgHeight = fullWidthImgWidth * aspectRatio;
-            resolve(null);
-          };
-          img.onerror = () => resolve(null);
-        });
+        // Calculer les dimensions du logo
+        const logoWidth = pageWidth;
+        const logoHeight = 30;
 
-        doc.addImage(imageDataUrl, 'PNG', 0, 0, fullWidthImgWidth, imgHeight, undefined, 'FAST');
+        doc.addImage(imageDataUrl, 'PNG', 0, 0, logoWidth, logoHeight, undefined, 'FAST');
+        imgHeight = logoHeight;
+        logoLoaded = true;
+        console.log('✅ PDF - Logo ajouté au document');
       } else {
-        console.log("Logo non trouvé:", logoPath);
+        console.warn('⚠️ PDF - Logo non trouvé à:', logoPath);
       }
-    } catch (e) {
-      console.log("Erreur chargement logo:", e);
+    } catch (e: any) {
+      console.error('❌ PDF - Erreur chargement logo:', e.message);
+    }
+
+    // Si le logo n'a pas été chargé, ajouter un header noir simple
+    if (!logoLoaded) {
+      console.warn('⚠️ PDF - Génération sans logo (utilisation d\'un header de secours)');
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, pageWidth, 25, 'F');
+      doc.setFontSize(18);
+      doc.setTextColor(212, 175, 55);
+      doc.setFont("helvetica", "bold");
+      doc.text("LA BOUTIQUE DE MORGANE", pageWidth / 2, 15, { align: "center" });
+      imgHeight = 25;
     }
 
     let yPosition = imgHeight + 15;
