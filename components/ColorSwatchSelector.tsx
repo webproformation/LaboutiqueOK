@@ -85,7 +85,19 @@ export default function ColorSwatchSelector({
         console.log('[ColorSwatchSelector] Valid terms:', validTerms.length);
 
         const parentTerms = validTerms.filter(t => !t.parent_id);
-        console.log('[ColorSwatchSelector] Parent terms:', parentTerms.length);
+        const childTerms = validTerms.filter(t => t.parent_id);
+        console.log('[ColorSwatchSelector] Parent terms (parent_id = null):', parentTerms.length);
+        console.log('[ColorSwatchSelector] Child terms (parent_id != null):', childTerms.length);
+
+        console.log('[ColorSwatchSelector] Parent terms list:', parentTerms.map(p => p.name));
+
+        const grisTerms = validTerms.filter(t => t.name.toLowerCase().includes('gris'));
+        if (grisTerms.length > 0) {
+          console.log('[ColorSwatchSelector] GRIS ANALYSIS:');
+          grisTerms.forEach(t => {
+            console.log(`  - ${t.name}: parent_id = ${t.parent_id || 'NULL'} => ${t.parent_id ? 'CHILD (nuance)' : 'PARENT (main grid)'}`);
+          });
+        }
 
         const families: ColorFamily[] = parentTerms.map(parent => {
           const children = validTerms.filter(child => child.parent_id === parent.id);
@@ -151,6 +163,16 @@ export default function ColorSwatchSelector({
         </CardContent>
       </Card>
     );
+  }
+
+  if (colorFamilies.length > 0) {
+    console.log('[ColorSwatchSelector RENDER] Colors to display in main grid:', colorFamilies.map(f => f.name));
+    console.log('[ColorSwatchSelector RENDER] Number of colors in main grid:', colorFamilies.length);
+
+    const grisColors = colorFamilies.filter(f => f.name.toLowerCase().includes('gris'));
+    if (grisColors.length > 0) {
+      console.log('[ColorSwatchSelector RENDER] Gris colors in main grid:', grisColors.map(f => f.name));
+    }
   }
 
   return (
@@ -222,7 +244,7 @@ export default function ColorSwatchSelector({
         </CardContent>
       </Card>
 
-      {showSecondaryColors && selectedFamily && selectedFamily.children.length > 0 && (
+      {showSecondaryColors && selectedFamily && (
         <Card className="bg-white border-2 border-amber-200">
           <CardHeader>
             <CardTitle className="text-[#d4af37] flex items-center gap-2">
@@ -237,7 +259,17 @@ export default function ColorSwatchSelector({
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-              {selectedFamily.children.map((shade) => {
+              {(() => {
+                const parentAsShade: ColorTerm = {
+                  id: selectedFamily.id,
+                  name: selectedFamily.name,
+                  slug: selectedFamily.name.toLowerCase().replace(/\s+/g, '-'),
+                  color_code: selectedFamily.color_code,
+                  parent_id: null
+                };
+                const allShades = [parentAsShade, ...selectedFamily.children];
+
+                return allShades.map((shade) => {
                 const isSelected = selectedSecondaryColors.includes(shade.name);
                 const bgColor = shade.color_code || '#CCCCCC';
                 const textColor = getContrastColor(bgColor);
@@ -276,7 +308,8 @@ export default function ColorSwatchSelector({
                     </span>
                   </button>
                 );
-              })}
+              });
+              })()}
             </div>
 
             {selectedSecondaryColors.length > 0 && (
