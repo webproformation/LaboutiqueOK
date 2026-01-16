@@ -62,6 +62,14 @@ export async function POST(request: NextRequest) {
 
     console.log('[SEND-EMAIL] Email destinataire:', profile.email);
 
+    console.log('[SEND-EMAIL] Récupération des items de commande...');
+    const { data: orderItems } = await supabase
+      .from("order_items")
+      .select("*")
+      .eq("order_id", orderId);
+
+    console.log('[SEND-EMAIL] Items trouvés:', orderItems?.length || 0);
+
     console.log('[SEND-EMAIL] Configuration SMTP:', {
       host: process.env.SMTP_HOST,
       port: process.env.SMTP_PORT,
@@ -162,7 +170,7 @@ export async function POST(request: NextRequest) {
                   <tr>
                     <td style="color: #666666; font-size: 14px; padding: 8px 0;">Nombre d'articles :</td>
                     <td style="color: #333333; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">
-                      ${(order.items || []).reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)}
+                      ${(orderItems || []).reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)}
                     </td>
                   </tr>
                   <tr style="border-top: 2px solid #d4af37;">

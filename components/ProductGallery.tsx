@@ -23,12 +23,20 @@ export function ProductGallery({ images, productName, selectedImageUrl, onImageC
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
 
-  const cleanImages = images.filter(
-    (img) =>
-      img.src &&
-      !img.src.includes("wp.laboutiquedemorgane.com") &&
-      !img.src.includes("wp-content")
-  );
+  // Filtre plus permissif - accepter toutes les images avec une URL valide
+  // Temporairement, on autorise même les images WordPress pour éviter de vider la galerie
+  const cleanImages = images.filter((img) => {
+    const isValid = img.src && img.src.length > 0;
+
+    // Log des images rejetées pour debug
+    if (!isValid) {
+      console.warn('❌ Image rejetée (URL invalide):', img);
+    }
+
+    return isValid;
+  });
+
+  console.log('🖼️ ProductGallery - Images reçues:', images.length, '| Images valides:', cleanImages.length);
 
   const validImages = cleanImages.length > 0 ? cleanImages : [{ id: "placeholder", src: "/placeholder.png", alt: productName }];
 

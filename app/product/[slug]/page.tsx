@@ -287,7 +287,6 @@ export default function ProductPage() {
       const { data: attributeValues, error: attributeError } = await supabase
         .from("product_attribute_values")
         .select(`
-          id,
           product_attributes!inner(
             id,
             name,
@@ -357,7 +356,7 @@ export default function ProductPage() {
 
   const handleVariationChange = (variation: any) => {
     setSelectedVariation(variation);
-    setUserSelectedGalleryImage(null); // Réinitialiser la sélection manuelle de galerie
+    // NE PAS réinitialiser userSelectedGalleryImage - laisse l'utilisateur maître de sa navigation
     if (variation?.image?.src) {
       setActiveImageUrl(variation.image.src);
     }
@@ -547,7 +546,8 @@ export default function ProductPage() {
       });
     }
 
-    // PRIORITÉ 3: Toutes les images de la galerie (gallery_images)
+    // PRIORITÉ 3: TOUTES les images de la galerie (gallery_images)
+    // Ne pas filtrer par variation - afficher TOUTES les photos du produit
     if (product.gallery_images && Array.isArray(product.gallery_images) && product.gallery_images.length > 0) {
       product.gallery_images.forEach((imgUrl: string, idx: number) => {
         if (imgUrl && !images.some(i => i.src === imgUrl)) {
@@ -574,7 +574,8 @@ export default function ProductPage() {
       });
     }
 
-    // Ajouter les autres variations à la fin (pour permettre de naviguer entre les variations)
+    // PRIORITÉ 4: Ajouter TOUTES les images des autres variations
+    // (pour permettre de voir toutes les couleurs/tailles)
     if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
       product.variations.forEach((variation: any, idx: number) => {
         if (variation.image?.src && !images.some(i => i.src === variation.image.src)) {
@@ -586,6 +587,8 @@ export default function ProductPage() {
         }
       });
     }
+
+    console.log('📸 Galerie construite:', images.length, 'images au total');
 
     return images.length > 0 ? images : [{ id: "placeholder", src: "/placeholder.png", alt: product.name }];
   })();

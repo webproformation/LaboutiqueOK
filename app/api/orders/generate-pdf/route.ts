@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as fs from "fs";
 import * as path from "path";
+import { formatAttributes } from "@/lib/utils";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -225,62 +226,6 @@ export async function POST(request: NextRequest) {
 
     yPosition = Math.max(yPosition + (sellerInfo.length * 4), tempY) + 10;
 
-    // Fonction helper pour parser les attributs de manière robuste
-    const parseAttributes = (variationData: any): string => {
-      if (!variationData) return '';
-
-      let parsedData = variationData;
-
-      // Si c'est une string JSON, la parser
-      if (typeof variationData === 'string') {
-        try {
-          parsedData = JSON.parse(variationData);
-        } catch (e) {
-          console.log('Impossible de parser variation_data:', variationData);
-          return '';
-        }
-      }
-
-      // Si c'est un tableau, on ignore (mauvais format)
-      if (Array.isArray(parsedData)) {
-        console.log('variation_data est un tableau (format invalide):', parsedData);
-        return '';
-      }
-
-      // Si c'est un objet, extraire les paires clé-valeur
-      if (typeof parsedData === 'object' && parsedData !== null) {
-        const attributes = Object.entries(parsedData)
-          .filter(([key]) => {
-            // Exclure les champs techniques
-            const excludedKeys = ['id', 'variation_id', 'sku', 'image_url', 'product_id'];
-            return !excludedKeys.includes(key) && !key.startsWith('_');
-          })
-          .map(([key, value]) => {
-            // Extraire la valeur lisible
-            let displayValue = '';
-            if (typeof value === 'object' && value !== null) {
-              displayValue = (value as any)?.name || (value as any)?.value || (value as any)?.option || JSON.stringify(value);
-            } else {
-              displayValue = String(value || '');
-            }
-
-            // Nettoyer le nom de la clé
-            const cleanKey = key
-              .replace(/_/g, ' ')
-              .split(' ')
-              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-              .join(' ');
-
-            return `${cleanKey}: ${displayValue}`;
-          })
-          .filter(attr => attr && !attr.endsWith(': '));
-
-        return attributes.join(', ');
-      }
-
-      return '';
-    };
-
     const tableData = enrichedItems.map((item: any) => {
       let productName = item.product_name || 'Produit';
 
@@ -290,7 +235,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Parser et afficher les attributs
-      const attributes = parseAttributes(item.variation_data);
+      const attributes = formatAttributes(item.variation_data);
       if (attributes) {
         productName += `\n(${attributes})`;
       }
