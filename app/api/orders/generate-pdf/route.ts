@@ -31,6 +31,33 @@ export async function POST(request: NextRequest) {
       .select("*")
       .eq("order_id", orderId);
 
+    // Enrichir les items avec les infos produit et variation
+    const enrichedItems = await Promise.all(
+      (orderItems || []).map(async (item: any) => {
+        const { data: product } = await supabase
+          .from("products")
+          .select("sku, image_url")
+          .eq("id", item.product_id)
+          .maybeSingle();
+
+        let variationImage = null;
+        if (item.variation_id) {
+          const { data: variation } = await supabase
+            .from("product_variations")
+            .select("image_url")
+            .eq("id", item.variation_id)
+            .maybeSingle();
+          variationImage = variation?.image_url;
+        }
+
+        return {
+          ...item,
+          sku: product?.sku,
+          product_image: variationImage || product?.image_url,
+        };
+      })
+    );
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("email, first_name, last_name, phone")
@@ -172,17 +199,25 @@ export async function POST(request: NextRequest) {
 
     yPosition = Math.max(yPosition + (sellerInfo.length * 4), tempY) + 10;
 
-    const tableData = (orderItems || []).map((item: any) => {
+    const tableData = enrichedItems.map((item: any) => {
       let productName = item.product_name || 'Produit';
 
+      // Ajouter le SKU/UGS si disponible
+      if (item.sku) {
+        productName += `\nUGS/SKU: ${item.sku}`;
+      }
+
+      // Améliorer l'affichage des attributs
       if (item.variation_data && typeof item.variation_data === 'object') {
         const attributes = Object.entries(item.variation_data)
-          .filter(([key]) => key !== 'id' && key !== 'variation_id')
+          .filter(([key]) => key !== 'id' && key !== 'variation_id' && key !== 'sku' && key !== 'image_url')
           .map(([key, value]) => {
             const displayValue = typeof value === 'object' && value !== null
               ? (value as any)?.name || (value as any)?.option || String(value)
               : String(value);
-            return `${key}: ${displayValue}`;
+            // Nettoyer le nom de l'attribut
+            const cleanKey = key.charAt(0).toUpperCase() + key.slice(1);
+            return `${cleanKey}: ${displayValue}`;
           })
           .join(', ');
         if (attributes) {
@@ -225,6 +260,79 @@ export async function POST(request: NextRequest) {
     });
 
     yPosition = (doc as any).lastAutoTable.finalY + 10;
+
+    // Ajouter les images produit si disponibles
+    const productsWithImages = enrichedItems.filter((item: any) => item.product_image);
+    if (productsWithImages.length > 0) {
+      yPosition += 5;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(212, 175, 55);
+      doc.text("Images des produits commandés:", margin, yPosition);
+      yPosition += 7;
+
+      for (const item of productsWithImages) {
+        if (yPosition > pageHeight - 80) {
+          doc.addPage();
+          yPosition = margin;
+        }
+
+        try {
+          const imgUrl = item.product_image.startsWith('http')
+            ? item.product_image
+            : `${siteUrl}${item.product_image}`;
+
+          const response = await fetch(imgUrl);
+          const arrayBuffer = await response.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+
+          // Déterminer le type d'image
+          let imageType = 'JPEG';
+          const contentType = response.headers.get('content-type');
+          if (contentType?.includes('png')) imageType = 'PNG';
+          if (contentType?.includes('webp')) imageType = 'WEBP';
+
+          const imageDataUrl = `data:${contentType || 'image/jpeg'};base64,${base64}`;
+
+          const img = new Image();
+          img.src = imageDataUrl;
+
+          await new Promise((resolve) => {
+            img.onload = () => {
+              const maxWidth = 50;
+              const maxHeight = 50;
+              let imgWidth = maxWidth;
+              let imgHeight = (img.height / img.width) * maxWidth;
+
+              if (imgHeight > maxHeight) {
+                imgHeight = maxHeight;
+                imgWidth = (img.width / img.height) * maxHeight;
+              }
+
+              doc.addImage(imageDataUrl, imageType, margin, yPosition, imgWidth, imgHeight, undefined, 'FAST');
+
+              // Ajouter le nom du produit à côté
+              doc.setFontSize(9);
+              doc.setFont("helvetica", "normal");
+              doc.setTextColor(60, 60, 60);
+              const productLabel = doc.splitTextToSize(item.product_name || 'Produit', pageWidth - margin - imgWidth - 10);
+              doc.text(productLabel, margin + imgWidth + 5, yPosition + 5);
+
+              yPosition += Math.max(imgHeight, productLabel.length * 4) + 8;
+              resolve(null);
+            };
+            img.onerror = () => {
+              console.log(`Image non chargée pour ${item.product_name}`);
+              resolve(null);
+            };
+          });
+        } catch (e) {
+          console.log(`Erreur chargement image produit ${item.product_name}:`, e);
+        }
+      }
+
+      yPosition += 5;
+    }
 
     const rightAlign = pageWidth - margin;
     const labelX = rightAlign - 60;

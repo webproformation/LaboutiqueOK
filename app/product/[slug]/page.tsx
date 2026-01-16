@@ -287,8 +287,9 @@ export default function ProductPage() {
       const { data: attributeValues, error: attributeError } = await supabase
         .from("product_attribute_values")
         .select(`
-          value,
-          product_attributes!inner(name, slug, type)
+          id,
+          product_attributes!inner(name, slug, type),
+          product_attribute_terms!inner(name, value)
         `)
         .eq("product_id", productData.id);
 
@@ -297,9 +298,10 @@ export default function ProductPage() {
         const attributesMap = new Map<string, Set<string>>();
 
         attributeValues.forEach((av: any) => {
-          if (av.product_attributes) {
+          if (av.product_attributes && av.product_attribute_terms) {
             const attrName = av.product_attributes.name;
             const attrSlug = av.product_attributes.slug?.toLowerCase() || '';
+            const termValue = av.product_attribute_terms.name || av.product_attribute_terms.value;
 
             // Exclure uniquement les attributs de variations (couleurs-principales, tailles)
             if (attrSlug === 'couleurs-principales' ||
@@ -315,7 +317,9 @@ export default function ProductPage() {
             if (!attributesMap.has(attrName)) {
               attributesMap.set(attrName, new Set());
             }
-            attributesMap.get(attrName)?.add(av.value);
+            if (termValue) {
+              attributesMap.get(attrName)?.add(termValue);
+            }
           }
         });
 
