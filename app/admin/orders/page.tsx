@@ -682,13 +682,43 @@ export default function OrdersPage() {
                           )}
                           <div className="flex-1">
                             <p className="font-medium">{item.product_name}</p>
-                            {item.variation_data && Object.keys(item.variation_data).length > 0 && (
+                            {item.variation_data && (
                               <div className="text-sm text-gray-600 mt-1">
-                                {Object.entries(item.variation_data).map(([key, value]) => (
-                                  <span key={key} className="mr-3">
-                                    {key}: <strong>{typeof value === 'object' ? (value as any)?.name || (value as any)?.option || String(value) : String(value)}</strong>
-                                  </span>
-                                ))}
+                                {(() => {
+                                  // Gérer les deux formats: array d'objets ou objet direct
+                                  const attributes = item.variation_data.attributes || item.variation_data;
+
+                                  // Si c'est un array d'objets avec name/option
+                                  if (Array.isArray(attributes)) {
+                                    return attributes.map((attr: any, idx: number) => (
+                                      <span key={idx} className="mr-3">
+                                        {attr.name}: <strong>{attr.option}</strong>
+                                      </span>
+                                    ));
+                                  }
+
+                                  // Si c'est un objet clé-valeur
+                                  if (typeof attributes === 'object') {
+                                    return Object.entries(attributes).map(([key, value]) => {
+                                      // Ignorer les champs techniques
+                                      if (key === 'price' || key === 'image' || key.includes('_id') || key.includes('color_code')) {
+                                        return null;
+                                      }
+
+                                      const displayValue = typeof value === 'object'
+                                        ? (value as any)?.name || (value as any)?.option || String(value)
+                                        : String(value);
+
+                                      return (
+                                        <span key={key} className="mr-3">
+                                          {key}: <strong>{displayValue}</strong>
+                                        </span>
+                                      );
+                                    }).filter(Boolean);
+                                  }
+
+                                  return null;
+                                })()}
                               </div>
                             )}
                             <div className="flex items-center justify-between mt-2">

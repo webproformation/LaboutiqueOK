@@ -64,6 +64,7 @@ export default function ProductPage() {
   const [activeImageUrl, setActiveImageUrl] = useState<string | undefined>(undefined);
   const [userSelectedGalleryImage, setUserSelectedGalleryImage] = useState<string | null>(null);
   const [initialAttributes, setInitialAttributes] = useState<Record<string, string>>({});
+  const [informativeAttributes, setInformativeAttributes] = useState<Array<{ name: string; values: string[] }>>([]);
   const [diamondPosition] = useState<"title" | "image" | "description">(() =>
     diamondPositions[Math.floor(Math.random() * diamondPositions.length)]
   );
@@ -281,6 +282,37 @@ export default function ProductPage() {
       }
 
       setProduct(productData);
+
+      // Charger les attributs informatifs (non-variations)
+      const { data: attributeValues, error: attributeError } = await supabase
+        .from("product_attribute_values")
+        .select(`
+          value,
+          product_attributes!inner(name, slug, is_for_variations)
+        `)
+        .eq("product_id", productData.id);
+
+      if (!attributeError && attributeValues && attributeValues.length > 0) {
+        // Grouper par attribut et ne garder que ceux qui ne sont PAS pour variations
+        const attributesMap = new Map<string, Set<string>>();
+
+        attributeValues.forEach((av: any) => {
+          if (av.product_attributes && !av.product_attributes.is_for_variations) {
+            const attrName = av.product_attributes.name;
+            if (!attributesMap.has(attrName)) {
+              attributesMap.set(attrName, new Set());
+            }
+            attributesMap.get(attrName)?.add(av.value);
+          }
+        });
+
+        const formattedAttributes = Array.from(attributesMap.entries()).map(([name, valuesSet]) => ({
+          name,
+          values: Array.from(valuesSet),
+        }));
+
+        setInformativeAttributes(formattedAttributes);
+      }
     } catch (error) {
       console.error("Error loading product:", error);
     } finally {
@@ -675,6 +707,22 @@ export default function ProductPage() {
                 onVariationChange={handleVariationChange}
                 initialSelectedAttributes={initialAttributes}
               />
+            )}
+
+            {informativeAttributes.length > 0 && (
+              <div className="border border-amber-200 bg-gradient-to-br from-amber-50/50 to-white rounded-lg p-5 space-y-3">
+                <h3 className="text-sm font-bold text-[#b8933d] uppercase tracking-wide flex items-center gap-2">
+                  <span>✨</span> Caractéristiques
+                </h3>
+                <div className="space-y-2">
+                  {informativeAttributes.map((attr, index) => (
+                    <div key={index} className="flex items-start gap-2 text-sm">
+                      <span className="font-semibold text-gray-700 min-w-[100px]">{attr.name} :</span>
+                      <span className="text-gray-900">{attr.values.join(", ")}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {!isVariable && product.attributes && product.attributes.length > 0 && (
