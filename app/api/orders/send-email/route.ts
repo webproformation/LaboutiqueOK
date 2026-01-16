@@ -70,6 +70,38 @@ export async function POST(request: NextRequest) {
 
     console.log('[SEND-EMAIL] Items trouvés:', orderItems?.length || 0);
 
+    // Enrichir les items avec les infos produit
+    const enrichedItems = await Promise.all(
+      (orderItems || []).map(async (item: any) => {
+        const { data: product } = await supabase
+          .from("products")
+          .select("sku, image_url")
+          .eq("id", item.product_id)
+          .maybeSingle();
+
+        let variationImage = null;
+        if (item.variation_id) {
+          const { data: variation } = await supabase
+            .from("product_variations")
+            .select("image_url")
+            .eq("id", item.variation_id)
+            .maybeSingle();
+          variationImage = variation?.image_url;
+        }
+
+        const imageUrl = variationImage || product?.image_url || null;
+        const fullImageUrl = imageUrl
+          ? (imageUrl.startsWith('http') ? imageUrl : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/media/${imageUrl}`)
+          : null;
+
+        return {
+          ...item,
+          sku: product?.sku,
+          image_url: fullImageUrl,
+        };
+      })
+    );
+
     console.log('[SEND-EMAIL] Configuration SMTP:', {
       host: process.env.SMTP_HOST,
       port: process.env.SMTP_PORT,
@@ -153,29 +185,44 @@ export async function POST(request: NextRequest) {
               </p>
 
               <div style="background-color: #fef9e7; border-left: 4px solid #d4af37; padding: 20px; margin: 25px 0; border-radius: 4px;">
-                <p style="margin: 0 0 10px 0; color: #333333; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                <p style="margin: 0 0 20px 0; color: #333333; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
                   Récapitulatif de votre commande
                 </p>
-                <table width="100%" cellpadding="8" cellspacing="0" style="margin-top: 15px;">
+
+                <!-- Liste des produits -->
+                ${enrichedItems.map((item: any) => {
+                  const variationText = item.variation_text || '';
+                  const sku = item.sku ? `UGS: ${item.sku}` : '';
+                  return `
+                <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #e0e0e0;">
                   <tr>
-                    <td style="color: #666666; font-size: 14px; padding: 8px 0;">Date de commande :</td>
-                    <td style="color: #333333; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">
-                      ${new Date(order.created_at).toLocaleDateString("fr-FR", {
-                        day: "2-digit",
-                        month: "long",
-                        year: "numeric"
-                      })}
+                    <td width="80" style="vertical-align: top; padding-right: 15px;">
+                      ${item.image_url ? `<img src="${item.image_url}" width="70" height="70" style="border-radius: 4px; object-fit: cover; display: block;" alt="${item.product_name}" />` : ''}
+                    </td>
+                    <td style="vertical-align: top;">
+                      <p style="margin: 0 0 5px 0; color: #333333; font-size: 15px; font-weight: 600;">
+                        ${item.product_name}
+                      </p>
+                      ${sku ? `<p style="margin: 0 0 5px 0; color: #888888; font-size: 12px;">${sku}</p>` : ''}
+                      ${variationText ? `<p style="margin: 0 0 5px 0; color: #666666; font-size: 13px;">${variationText}</p>` : ''}
+                      <p style="margin: 0; color: #666666; font-size: 13px;">
+                        Quantité : ${item.quantity}
+                      </p>
+                    </td>
+                    <td width="80" style="vertical-align: top; text-align: right;">
+                      <p style="margin: 0; color: #d4af37; font-size: 16px; font-weight: 700;">
+                        ${((item.price || 0) * (item.quantity || 1)).toFixed(2)} €
+                      </p>
                     </td>
                   </tr>
+                </table>
+                  `;
+                }).join('')}
+
+                <table width="100%" cellpadding="8" cellspacing="0" style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #d4af37;">
                   <tr>
-                    <td style="color: #666666; font-size: 14px; padding: 8px 0;">Nombre d'articles :</td>
-                    <td style="color: #333333; font-size: 14px; font-weight: 600; text-align: right; padding: 8px 0;">
-                      ${(orderItems || []).reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)}
-                    </td>
-                  </tr>
-                  <tr style="border-top: 2px solid #d4af37;">
-                    <td style="color: #333333; font-size: 16px; font-weight: 700; padding: 12px 0;">Montant total :</td>
-                    <td style="color: #d4af37; font-size: 18px; font-weight: 700; text-align: right; padding: 12px 0;">
+                    <td style="color: #333333; font-size: 16px; font-weight: 700;">Montant total :</td>
+                    <td style="color: #d4af37; font-size: 18px; font-weight: 700; text-align: right;">
                       ${(Number(order.total_amount) || Number(order.total) || 0).toFixed(2)} €
                     </td>
                   </tr>

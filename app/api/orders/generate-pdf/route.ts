@@ -128,11 +128,12 @@ export async function POST(request: NextRequest) {
 
         console.log('✅ PDF - Logo chargé avec succès, taille:', logoBuffer.length, 'octets');
 
-        // Calculer les dimensions du logo
-        const logoWidth = pageWidth;
+        // Calculer les dimensions du logo avec marges latérales
+        const logoMargin = 20;
+        const logoWidth = pageWidth - (logoMargin * 2);
         const logoHeight = 30;
 
-        doc.addImage(imageDataUrl, 'PNG', 0, 0, logoWidth, logoHeight, undefined, 'FAST');
+        doc.addImage(imageDataUrl, 'PNG', logoMargin, 0, logoWidth, logoHeight, undefined, 'FAST');
         imgHeight = logoHeight;
         logoLoaded = true;
         console.log('✅ PDF - Logo ajouté au document');
@@ -278,10 +279,12 @@ export async function POST(request: NextRequest) {
       },
       bodyStyles: {
         fontSize: 9,
+        cellPadding: 3,
+        minCellHeight: 20,
       },
       columnStyles: {
         0: { cellWidth: 20, halign: "center", valign: "middle" }, // Colonne Image
-        1: { cellWidth: "auto" }, // Produit
+        1: { cellWidth: "auto", cellPadding: 3, valign: "top" }, // Produit - permettre retour à la ligne
         2: { cellWidth: 20, halign: "center" }, // Qté
         3: { cellWidth: 30, halign: "right" }, // Prix Unit.
         4: { cellWidth: 30, halign: "right" }, // Total

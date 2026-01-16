@@ -356,7 +356,7 @@ export default function ProductPage() {
 
   const handleVariationChange = (variation: any) => {
     setSelectedVariation(variation);
-    // NE PAS réinitialiser userSelectedGalleryImage - laisse l'utilisateur maître de sa navigation
+    setUserSelectedGalleryImage(null);
     if (variation?.image?.src) {
       setActiveImageUrl(variation.image.src);
     }
