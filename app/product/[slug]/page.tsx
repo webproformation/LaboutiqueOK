@@ -288,25 +288,30 @@ export default function ProductPage() {
         .from("product_attribute_values")
         .select(`
           value,
-          product_attributes!inner(name, slug, is_for_variations)
+          product_attributes!inner(name, slug, type)
         `)
         .eq("product_id", productData.id);
 
       if (!attributeError && attributeValues && attributeValues.length > 0) {
-        // Grouper par attribut et ne garder que ceux qui ne sont PAS pour variations
+        // Grouper par attribut et exclure uniquement les variations (couleurs-principales, tailles)
         const attributesMap = new Map<string, Set<string>>();
 
         attributeValues.forEach((av: any) => {
-          if (av.product_attributes && !av.product_attributes.is_for_variations) {
+          if (av.product_attributes) {
             const attrName = av.product_attributes.name;
             const attrSlug = av.product_attributes.slug?.toLowerCase() || '';
 
-            // Exclure explicitement Couleur et Taille même s'ils ne sont pas marqués comme variations
-            if (attrSlug.includes('couleur') || attrSlug.includes('color') ||
-                attrSlug.includes('taille') || attrSlug.includes('size')) {
+            // Exclure uniquement les attributs de variations (couleurs-principales, tailles)
+            if (attrSlug === 'couleurs-principales' ||
+                attrSlug === 'tailles' ||
+                attrSlug.includes('couleur') ||
+                attrSlug.includes('color') ||
+                attrSlug.includes('taille') ||
+                attrSlug.includes('size')) {
               return;
             }
 
+            // Tout le reste est considéré comme informatif (Coupe, Confort, Live, etc.)
             if (!attributesMap.has(attrName)) {
               attributesMap.set(attrName, new Set());
             }
@@ -322,10 +327,10 @@ export default function ProductPage() {
         setInformativeAttributes(formattedAttributes);
 
         if (formattedAttributes.length > 0) {
-          console.log('Attributs informatifs chargés:', formattedAttributes);
+          console.log('✅ Attributs informatifs chargés:', formattedAttributes);
         }
       } else if (attributeError) {
-        console.error('Erreur lors du chargement des attributs informatifs:', attributeError);
+        console.error('❌ Erreur lors du chargement des attributs informatifs:', attributeError);
       }
     } catch (error) {
       console.error("Error loading product:", error);
