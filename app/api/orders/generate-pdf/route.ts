@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as fs from "fs";
+import * as path from "path";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -50,10 +52,31 @@ export async function POST(request: NextRequest) {
           variationImage = variation?.image_url;
         }
 
+        const imageUrl = variationImage || product?.image_url;
+        let imageBase64 = null;
+
+        // Charger l'image et la convertir en base64
+        if (imageUrl) {
+          try {
+            const fullImageUrl = imageUrl.startsWith('http')
+              ? imageUrl
+              : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/media/${imageUrl}`;
+
+            const imgResponse = await fetch(fullImageUrl);
+            if (imgResponse.ok) {
+              const arrayBuffer = await imgResponse.arrayBuffer();
+              imageBase64 = Buffer.from(arrayBuffer).toString('base64');
+            }
+          } catch (e) {
+            console.log(`Erreur chargement image pour ${item.product_name}:`, e);
+          }
+        }
+
         return {
           ...item,
           sku: product?.sku,
-          product_image: variationImage || product?.image_url,
+          product_image: imageUrl,
+          product_image_base64: imageBase64,
         };
       })
     );
@@ -86,33 +109,36 @@ export async function POST(request: NextRequest) {
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://laboutiquedemorgane.com';
-    const logoUrl = `${siteUrl}/lbdm-logobdc.png`;
-
     let imgHeight = 30;
     const fullWidthImgWidth = pageWidth;
 
+    // Charger le logo depuis le système de fichiers local
     try {
-      const response = await fetch(logoUrl);
-      const arrayBuffer = await response.arrayBuffer();
-      const base64 = Buffer.from(arrayBuffer).toString('base64');
-      const imageDataUrl = `data:image/png;base64,${base64}`;
+      const logoPath = path.join(process.cwd(), 'public', 'lbdm-logobdc.png');
 
-      const img = new Image();
-      img.src = imageDataUrl;
+      if (fs.existsSync(logoPath)) {
+        const logoBuffer = fs.readFileSync(logoPath);
+        const base64Logo = logoBuffer.toString('base64');
+        const imageDataUrl = `data:image/png;base64,${base64Logo}`;
 
-      await new Promise((resolve) => {
-        img.onload = () => {
-          const aspectRatio = img.height / img.width;
-          imgHeight = fullWidthImgWidth * aspectRatio;
-          resolve(null);
-        };
-        img.onerror = () => resolve(null);
-      });
+        const img = new Image();
+        img.src = imageDataUrl;
 
-      doc.addImage(imageDataUrl, 'PNG', 0, 0, fullWidthImgWidth, imgHeight, undefined, 'FAST');
+        await new Promise((resolve) => {
+          img.onload = () => {
+            const aspectRatio = img.height / img.width;
+            imgHeight = fullWidthImgWidth * aspectRatio;
+            resolve(null);
+          };
+          img.onerror = () => resolve(null);
+        });
+
+        doc.addImage(imageDataUrl, 'PNG', 0, 0, fullWidthImgWidth, imgHeight, undefined, 'FAST');
+      } else {
+        console.log("Logo non trouvé:", logoPath);
+      }
     } catch (e) {
-      console.log("Logo non chargé, continue sans logo:", e);
+      console.log("Erreur chargement logo:", e);
     }
 
     let yPosition = imgHeight + 15;
@@ -199,6 +225,62 @@ export async function POST(request: NextRequest) {
 
     yPosition = Math.max(yPosition + (sellerInfo.length * 4), tempY) + 10;
 
+    // Fonction helper pour parser les attributs de manière robuste
+    const parseAttributes = (variationData: any): string => {
+      if (!variationData) return '';
+
+      let parsedData = variationData;
+
+      // Si c'est une string JSON, la parser
+      if (typeof variationData === 'string') {
+        try {
+          parsedData = JSON.parse(variationData);
+        } catch (e) {
+          console.log('Impossible de parser variation_data:', variationData);
+          return '';
+        }
+      }
+
+      // Si c'est un tableau, on ignore (mauvais format)
+      if (Array.isArray(parsedData)) {
+        console.log('variation_data est un tableau (format invalide):', parsedData);
+        return '';
+      }
+
+      // Si c'est un objet, extraire les paires clé-valeur
+      if (typeof parsedData === 'object' && parsedData !== null) {
+        const attributes = Object.entries(parsedData)
+          .filter(([key]) => {
+            // Exclure les champs techniques
+            const excludedKeys = ['id', 'variation_id', 'sku', 'image_url', 'product_id'];
+            return !excludedKeys.includes(key) && !key.startsWith('_');
+          })
+          .map(([key, value]) => {
+            // Extraire la valeur lisible
+            let displayValue = '';
+            if (typeof value === 'object' && value !== null) {
+              displayValue = (value as any)?.name || (value as any)?.value || (value as any)?.option || JSON.stringify(value);
+            } else {
+              displayValue = String(value || '');
+            }
+
+            // Nettoyer le nom de la clé
+            const cleanKey = key
+              .replace(/_/g, ' ')
+              .split(' ')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ');
+
+            return `${cleanKey}: ${displayValue}`;
+          })
+          .filter(attr => attr && !attr.endsWith(': '));
+
+        return attributes.join(', ');
+      }
+
+      return '';
+    };
+
     const tableData = enrichedItems.map((item: any) => {
       let productName = item.product_name || 'Produit';
 
@@ -207,28 +289,17 @@ export async function POST(request: NextRequest) {
         productName += `\nUGS/SKU: ${item.sku}`;
       }
 
-      // Améliorer l'affichage des attributs
-      if (item.variation_data && typeof item.variation_data === 'object') {
-        const attributes = Object.entries(item.variation_data)
-          .filter(([key]) => key !== 'id' && key !== 'variation_id' && key !== 'sku' && key !== 'image_url')
-          .map(([key, value]) => {
-            const displayValue = typeof value === 'object' && value !== null
-              ? (value as any)?.name || (value as any)?.option || String(value)
-              : String(value);
-            // Nettoyer le nom de l'attribut
-            const cleanKey = key.charAt(0).toUpperCase() + key.slice(1);
-            return `${cleanKey}: ${displayValue}`;
-          })
-          .join(', ');
-        if (attributes) {
-          productName += `\n(${attributes})`;
-        }
+      // Parser et afficher les attributs
+      const attributes = parseAttributes(item.variation_data);
+      if (attributes) {
+        productName += `\n(${attributes})`;
       }
 
       const price = Number(item.price) || 0;
       const quantity = item.quantity || 1;
 
       return [
+        '', // Colonne vide pour l'image (sera remplie par didDrawCell)
         productName,
         `${quantity}`,
         `${price.toFixed(2)} €`,
@@ -238,7 +309,7 @@ export async function POST(request: NextRequest) {
 
     autoTable(doc, {
       startY: yPosition,
-      head: [["Produit", "Qté", "Prix Unit.", "Total"]],
+      head: [["Image", "Produit", "Qté", "Prix Unit.", "Total"]],
       body: tableData,
       theme: "striped",
       headStyles: {
@@ -251,88 +322,49 @@ export async function POST(request: NextRequest) {
         fontSize: 9,
       },
       columnStyles: {
-        0: { cellWidth: "auto" },
-        1: { cellWidth: 20, halign: "center" },
-        2: { cellWidth: 30, halign: "right" },
-        3: { cellWidth: 30, halign: "right" },
+        0: { cellWidth: 20, halign: "center", valign: "middle" }, // Colonne Image
+        1: { cellWidth: "auto" }, // Produit
+        2: { cellWidth: 20, halign: "center" }, // Qté
+        3: { cellWidth: 30, halign: "right" }, // Prix Unit.
+        4: { cellWidth: 30, halign: "right" }, // Total
       },
       margin: { left: margin, right: margin },
+      didDrawCell: (data: any) => {
+        // Dessiner les images dans la première colonne (index 0)
+        if (data.section === 'body' && data.column.index === 0) {
+          const rowIndex = data.row.index;
+          const item = enrichedItems[rowIndex];
+
+          if (item && item.product_image_base64) {
+            try {
+              const cellX = data.cell.x;
+              const cellY = data.cell.y;
+              const cellWidth = data.cell.width;
+              const cellHeight = data.cell.height;
+
+              // Taille de l'image (carrée, centrée)
+              const imgSize = Math.min(cellWidth - 2, cellHeight - 2, 15); // Max 15mm
+              const imgX = cellX + (cellWidth - imgSize) / 2;
+              const imgY = cellY + (cellHeight - imgSize) / 2;
+
+              // Détecter le type d'image
+              let imageType = 'JPEG';
+              const base64Header = item.product_image_base64.substring(0, 20);
+              if (base64Header.includes('iVBOR')) imageType = 'PNG';
+              if (base64Header.includes('UklGR')) imageType = 'WEBP';
+
+              const imageDataUrl = `data:image/jpeg;base64,${item.product_image_base64}`;
+
+              doc.addImage(imageDataUrl, imageType, imgX, imgY, imgSize, imgSize, undefined, 'FAST');
+            } catch (e) {
+              console.log(`Erreur ajout image dans cellule pour ${item.product_name}:`, e);
+            }
+          }
+        }
+      }
     });
 
     yPosition = (doc as any).lastAutoTable.finalY + 10;
-
-    // Ajouter les images produit si disponibles
-    const productsWithImages = enrichedItems.filter((item: any) => item.product_image);
-    if (productsWithImages.length > 0) {
-      yPosition += 5;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(212, 175, 55);
-      doc.text("Images des produits commandés:", margin, yPosition);
-      yPosition += 7;
-
-      for (const item of productsWithImages) {
-        if (yPosition > pageHeight - 80) {
-          doc.addPage();
-          yPosition = margin;
-        }
-
-        try {
-          const imgUrl = item.product_image.startsWith('http')
-            ? item.product_image
-            : `${siteUrl}${item.product_image}`;
-
-          const response = await fetch(imgUrl);
-          const arrayBuffer = await response.arrayBuffer();
-          const base64 = Buffer.from(arrayBuffer).toString('base64');
-
-          // Déterminer le type d'image
-          let imageType = 'JPEG';
-          const contentType = response.headers.get('content-type');
-          if (contentType?.includes('png')) imageType = 'PNG';
-          if (contentType?.includes('webp')) imageType = 'WEBP';
-
-          const imageDataUrl = `data:${contentType || 'image/jpeg'};base64,${base64}`;
-
-          const img = new Image();
-          img.src = imageDataUrl;
-
-          await new Promise((resolve) => {
-            img.onload = () => {
-              const maxWidth = 50;
-              const maxHeight = 50;
-              let imgWidth = maxWidth;
-              let imgHeight = (img.height / img.width) * maxWidth;
-
-              if (imgHeight > maxHeight) {
-                imgHeight = maxHeight;
-                imgWidth = (img.width / img.height) * maxHeight;
-              }
-
-              doc.addImage(imageDataUrl, imageType, margin, yPosition, imgWidth, imgHeight, undefined, 'FAST');
-
-              // Ajouter le nom du produit à côté
-              doc.setFontSize(9);
-              doc.setFont("helvetica", "normal");
-              doc.setTextColor(60, 60, 60);
-              const productLabel = doc.splitTextToSize(item.product_name || 'Produit', pageWidth - margin - imgWidth - 10);
-              doc.text(productLabel, margin + imgWidth + 5, yPosition + 5);
-
-              yPosition += Math.max(imgHeight, productLabel.length * 4) + 8;
-              resolve(null);
-            };
-            img.onerror = () => {
-              console.log(`Image non chargée pour ${item.product_name}`);
-              resolve(null);
-            };
-          });
-        } catch (e) {
-          console.log(`Erreur chargement image produit ${item.product_name}:`, e);
-        }
-      }
-
-      yPosition += 5;
-    }
 
     const rightAlign = pageWidth - margin;
     const labelX = rightAlign - 60;

@@ -288,8 +288,16 @@ export default function ProductPage() {
         .from("product_attribute_values")
         .select(`
           id,
-          product_attributes!inner(name, slug, type),
-          product_attribute_terms!inner(name, value)
+          product_attributes!inner(
+            id,
+            name,
+            slug,
+            type
+          ),
+          product_attribute_terms(
+            id,
+            name
+          )
         `)
         .eq("product_id", productData.id);
 
@@ -301,7 +309,7 @@ export default function ProductPage() {
           if (av.product_attributes && av.product_attribute_terms) {
             const attrName = av.product_attributes.name;
             const attrSlug = av.product_attributes.slug?.toLowerCase() || '';
-            const termValue = av.product_attribute_terms.name || av.product_attribute_terms.value;
+            const termValue = av.product_attribute_terms.name;
 
             // Exclure uniquement les attributs de variations (couleurs-principales, tailles)
             if (attrSlug === 'couleurs-principales' ||
