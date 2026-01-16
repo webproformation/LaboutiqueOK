@@ -4,11 +4,37 @@ import { createClient } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    const { orderId, trackingNumber, trackingUrl } = await request.json();
+    const body = await request.json();
+
+    // Support pour deux formats: trigger (to/data) ou manuel (orderId)
+    if (body.to && body.data) {
+      // Format trigger (appelé depuis la base de données)
+      const result = await sendShippingEmail(
+        body.to,
+        body.data.firstName || 'Voisine',
+        body.data.trackingNumber || 'Non disponible',
+        body.data.trackingUrl
+      );
+
+      if (!result.success) {
+        return NextResponse.json(
+          { error: result.error || 'Failed to send email' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        messageId: result.messageId
+      });
+    }
+
+    // Format manuel (avec orderId)
+    const { orderId, trackingNumber, trackingUrl } = body;
 
     if (!orderId || !trackingNumber) {
       return NextResponse.json(
-        { error: 'orderId and trackingNumber are required' },
+        { error: 'orderId and trackingNumber are required (or use to/data format)' },
         { status: 400 }
       );
     }

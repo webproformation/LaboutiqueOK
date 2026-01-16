@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendWelcomeEmail } from '@/lib/email-sender';
+import { sendClickAndCollectEmail } from '@/lib/email-sender';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const email = body.to || body.email;
-    const firstName = body.data?.firstName || body.firstName || 'Voisine';
+    const { to, data } = await request.json();
 
-    if (!email) {
+    if (!to) {
       return NextResponse.json(
         { error: 'Email is required' },
         { status: 400 }
       );
     }
 
-    const result = await sendWelcomeEmail(email, firstName);
+    const result = await sendClickAndCollectEmail(
+      to,
+      data.firstName || 'Voisine'
+    );
 
     if (!result.success) {
       return NextResponse.json(
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
       messageId: result.messageId
     });
   } catch (error: any) {
-    console.error('Error in welcome email API:', error);
+    console.error('Error in click-and-collect email API:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }
