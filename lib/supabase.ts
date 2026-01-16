@@ -99,3 +99,19 @@ export type Profile = {
   created_at: string;
   is_admin?: boolean;
 };
+
+export type OpenPackage = {
+  id: string;
+  user_id: string;
+  status: 'active' | 'closed' | 'ready_to_prepare' | 'shipped';
+  shipping_cost_paid: boolean;
+  opened_at: string;
+  closes_at: string;
+  ready_at: string | null;
+  shipped_at: string | null;
+  final_weight: number | null;
+  tracking_number: string | null;
+  shipping_label_url: string | null;
+  created_at: string;
+  updated_at: string;
+};

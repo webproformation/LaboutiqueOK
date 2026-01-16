@@ -72,6 +72,11 @@ interface Order {
   newsletter_consent: boolean;
   rgpd_consent: boolean;
   is_open_package: boolean;
+  open_package?: {
+    id: string;
+    status: string;
+    user_id: string;
+  } | null;
   created_at: string;
   updated_at: string;
 }
@@ -133,6 +138,35 @@ export default function OrdersPage() {
           : Promise.resolve({ data: [] })
       ]);
 
+      // Récupération des infos de colis ouverts pour les commandes is_open_package
+      const openPackageOrders = ordersData?.filter(o => o.is_open_package) || [];
+      const openPackageInfoMap = new Map();
+
+      if (openPackageOrders.length > 0) {
+        const { data: packageOrdersData } = await supabase
+          .from("open_package_orders")
+          .select("order_id, open_package_id")
+          .in("order_id", openPackageOrders.map(o => o.id));
+
+        if (packageOrdersData && packageOrdersData.length > 0) {
+          const packageIds = packageOrdersData.map(po => po.open_package_id);
+          const { data: packagesData } = await supabase
+            .from("open_packages")
+            .select("id, status, user_id")
+            .in("id", packageIds);
+
+          if (packagesData) {
+            const packagesMap = new Map(packagesData.map(p => [p.id, p]));
+            packageOrdersData.forEach(po => {
+              const pkg = packagesMap.get(po.open_package_id);
+              if (pkg) {
+                openPackageInfoMap.set(po.order_id, pkg);
+              }
+            });
+          }
+        }
+      }
+
       // Association des données
       const shippingMethodsMap = new Map(shippingMethodsRes.data?.map(m => [m.id, m]));
       const paymentMethodsMap = new Map(paymentMethodsRes.data?.map(m => [m.id, m]));
@@ -140,7 +174,8 @@ export default function OrdersPage() {
       const enrichedOrders = ordersData?.map(order => ({
         ...order,
         shipping_method: order.shipping_method_id ? shippingMethodsMap.get(order.shipping_method_id) : null,
-        payment_method: order.payment_method_id ? paymentMethodsMap.get(order.payment_method_id) : null
+        payment_method: order.payment_method_id ? paymentMethodsMap.get(order.payment_method_id) : null,
+        open_package: openPackageInfoMap.get(order.id) || null
       })) || [];
 
       setOrders(enrichedOrders);
@@ -166,6 +201,15 @@ export default function OrdersPage() {
   }, [orders, searchTerm, statusFilter, paymentFilter]);
 
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
+    const order = orders.find(o => o.id === orderId);
+
+    if (order?.open_package && (order.open_package.status === 'active' || order.open_package.status === 'ready_to_prepare')) {
+      if (newStatus === 'shipped') {
+        toast.error("❌ Cette commande fait partie d'un colis ouvert actif. Expédiez le colis depuis la gestion des colis ouverts.");
+        return;
+      }
+    }
+
     try {
       const { error } = await supabase
         .from("orders")
@@ -467,10 +511,17 @@ export default function OrdersPage() {
                     <TableRow key={order.id} className="hover:bg-gray-50">
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
-                          {order.is_open_package && (
-                            <div title="Colis ouvert">
-                              <Package className="h-4 w-4 text-blue-500" />
-                            </div>
+                          {order.is_open_package && order.open_package && (
+                            <Badge
+                              className={
+                                order.open_package.status === 'active' || order.open_package.status === 'ready_to_prepare'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-purple-100 text-purple-800'
+                              }
+                              title={`Colis ouvert - Statut: ${order.open_package.status}`}
+                            >
+                              📦 Colis Ouvert
+                            </Badge>
                           )}
                           #{order.order_number}
                         </div>
@@ -563,22 +614,57 @@ export default function OrdersPage() {
                       <CardTitle className="text-sm">Statut commande</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <Select
-                        value={selectedOrder.status}
-                        onValueChange={(value) => handleUpdateStatus(selectedOrder.id, value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">En attente</SelectItem>
-                          <SelectItem value="processing">En cours</SelectItem>
-                          <SelectItem value="shipped">Expédiée</SelectItem>
-                          <SelectItem value="delivered">Livrée</SelectItem>
-                          <SelectItem value="cancelled">Annulée</SelectItem>
-                          <SelectItem value="refunded">Remboursée</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      {selectedOrder.is_open_package && selectedOrder.open_package &&
+                       (selectedOrder.open_package.status === 'active' || selectedOrder.open_package.status === 'ready_to_prepare') ? (
+                        <div className="space-y-2">
+                          <Badge className="bg-blue-100 text-blue-800">
+                            📦 Commande dans un colis ouvert
+                          </Badge>
+                          <p className="text-sm text-gray-600">
+                            Cette commande ne peut pas être expédiée individuellement.
+                            Gérez l'expédition depuis la page des colis ouverts.
+                          </p>
+                          <Select
+                            value={selectedOrder.status}
+                            onValueChange={(value) => {
+                              if (value === 'shipped') {
+                                toast.error("Impossible d'expédier individuellement une commande dans un colis ouvert");
+                                return;
+                              }
+                              handleUpdateStatus(selectedOrder.id, value);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">En attente</SelectItem>
+                              <SelectItem value="processing">En cours</SelectItem>
+                              <SelectItem value="shipped" disabled>Expédiée (Désactivé - Colis ouvert)</SelectItem>
+                              <SelectItem value="delivered">Livrée</SelectItem>
+                              <SelectItem value="cancelled">Annulée</SelectItem>
+                              <SelectItem value="refunded">Remboursée</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : (
+                        <Select
+                          value={selectedOrder.status}
+                          onValueChange={(value) => handleUpdateStatus(selectedOrder.id, value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">En attente</SelectItem>
+                            <SelectItem value="processing">En cours</SelectItem>
+                            <SelectItem value="shipped">Expédiée</SelectItem>
+                            <SelectItem value="delivered">Livrée</SelectItem>
+                            <SelectItem value="cancelled">Annulée</SelectItem>
+                            <SelectItem value="refunded">Remboursée</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     </CardContent>
                   </Card>
 

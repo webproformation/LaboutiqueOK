@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Package, Clock, User, Truck } from 'lucide-react';
+import { Package, Clock, User, Truck, Eye } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 interface OpenPackageAdmin {
   id: string;
@@ -108,7 +109,8 @@ export default function AdminOpenPackagesPage() {
     const variants: Record<string, { color: string; label: string }> = {
       active: { color: 'bg-green-100 text-green-800', label: 'Actif' },
       closed: { color: 'bg-orange-100 text-orange-800', label: 'Fermé' },
-      shipped: { color: 'bg-blue-100 text-blue-800', label: 'Expédié' }
+      ready_to_prepare: { color: 'bg-blue-100 text-blue-800', label: 'Prêt à préparer' },
+      shipped: { color: 'bg-purple-100 text-purple-800', label: 'Expédié' }
     };
 
     const variant = variants[status] || variants.active;
@@ -224,7 +226,18 @@ export default function AdminOpenPackagesPage() {
                     </p>
                     <p className="font-semibold">{pkg.shipping_cost_paid ? 'Payés ✓' : 'Non payés'}</p>
                   </div>
-                  <div className="flex items-end">
+                  <div className="flex items-end gap-2">
+                    <Link href={`/admin/open-packages/${pkg.id}`}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white"
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        Voir détails
+                      </Button>
+                    </Link>
+
                     {pkg.status === 'closed' && (
                       <Button
                         size="sm"
