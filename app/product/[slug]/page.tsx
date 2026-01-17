@@ -521,15 +521,14 @@ export default function ProductPage() {
     return undefined;
   };
 
-  const galleryImages = useMemo(() => {
+const galleryImages = useMemo(() => {
     if (!product) return [{ id: "placeholder", src: "/placeholder.png", alt: "Product" }];
 
     const images: Array<{ id: string; src: string; alt: string }> = [];
 
-    // STRATÉGIE TRI (SORTING) AU LIEU DE FILTRAGE
-    // On garde TOUTES les images, mais on met l'image de la variation sélectionnée en premier
+    // --- NOUVEL ORDRE DE PRIORITÉ (CORRECTIF) ---
 
-    // PRIORITÉ 1: Image de la variation sélectionnée EN PREMIER
+    // 1. D'abord l'image de la variation ACTIVE (Top priorité)
     if (selectedVariation?.image?.src) {
       images.push({
         id: "variation-selected",
@@ -538,7 +537,23 @@ export default function ProductPage() {
       });
     }
 
-    // PRIORITÉ 2: Image principale du produit
+    // 2. Ensuite TOUTES les images de variations (C'est ICI le changement clé)
+    // On les met AVANT l'image principale pour qu'elles gardent leur identité "variation-x"
+    // et déverrouillent la galerie au clic.
+    if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
+      product.variations.forEach((variation: any, idx: number) => {
+        // On évite juste le doublon avec l'image "selected" juste au dessus
+        if (variation.image?.src && !images.some(i => i.src === variation.image.src)) {
+          images.push({
+            id: `variation-${idx}`,
+            src: variation.image.src,
+            alt: variation.image.alt || product.name,
+          });
+        }
+      });
+    }
+
+    // 3. Ensuite l'Image Principale (si elle n'est pas déjà ajoutée via les variations)
     if (product.image_url && !images.some(i => i.src === product.image_url)) {
       images.push({
         id: "main",
@@ -547,7 +562,7 @@ export default function ProductPage() {
       });
     }
 
-    // PRIORITÉ 3: TOUTES les images de la galerie (JAMAIS filtrer)
+    // 4. Enfin les images de la Galerie (si elles ne sont pas déjà là)
     if (product.gallery_images && Array.isArray(product.gallery_images) && product.gallery_images.length > 0) {
       product.gallery_images.forEach((imgUrl: string, idx: number) => {
         if (imgUrl && !images.some(i => i.src === imgUrl)) {
@@ -560,20 +575,7 @@ export default function ProductPage() {
       });
     }
 
-    // PRIORITÉ 4: Images des variations (TOUTES, pas seulement la sélectionnée)
-    if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
-      product.variations.forEach((variation: any, idx: number) => {
-        if (variation.image?.src && !images.some(i => i.src === variation.image.src)) {
-          images.push({
-            id: `variation-${idx}`,
-            src: variation.image.src,
-            alt: variation.image.alt || product.name,
-          });
-        }
-      });
-    }
-
-    // PRIORITÉ 5: Fallback - Autres images
+    // 5. Fallback
     if (product.images && Array.isArray(product.images) && product.images.length > 0) {
       product.images.forEach((img: any, idx: number) => {
         const imgSrc = img.src || img.sourceUrl || img.url;
@@ -587,11 +589,9 @@ export default function ProductPage() {
       });
     }
 
-    console.log('📸 Galerie RE-TRIÉE:', images.length, 'images | Variation sélectionnée en position 1');
-
     return images.length > 0 ? images : [{ id: "placeholder", src: "/placeholder.png", alt: product.name }];
   }, [product, selectedVariation]);
-
+  
   // Variables calculées (après les hooks, mais avant les early returns si nécessaire)
   const currentPrice =
     selectedVariation?.sale_price ||
