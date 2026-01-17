@@ -15,7 +15,7 @@ interface ProductGalleryProps {
   images: ProductImage[];
   productName: string;
   selectedImageUrl?: string;
-  // IMPORTANT : On attend bien l'objet complet { id, src } pour identifier l'image
+  // MODIFICATION CRITIQUE : On attend l'objet {id, src}, pas juste une string
   onImageClick?: (image: { id: string; src: string }) => void;
 }
 
@@ -24,54 +24,39 @@ export function ProductGallery({ images, productName, selectedImageUrl, onImageC
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
 
-  // Filtrage des images vides pour éviter les erreurs d'affichage
   const cleanImages = images.filter((img) => img.src && img.src.length > 0);
   const validImages = cleanImages.length > 0 ? cleanImages : [{ id: "placeholder", src: "/placeholder.png", alt: productName }];
 
-  // Fonction stable pour gérer le clic
-  const handleImageClick = useCallback((image: ProductImage) => {
+  const handleImageClick = (image: ProductImage) => {
     if (onImageClick) {
-      // C'EST LA CLÉ : On envoie l'ID (ex: "variation-0") et la SRC au parent
+      // ON ENVOIE L'ID ET LA SRC (C'est ça que Bolt avait effacé)
       onImageClick({ id: image.id, src: image.src });
     }
-  }, [onImageClick]);
+  };
 
   const goToPrevious = useCallback(() => {
     setCurrentIndex((prevIndex) => {
       const newIndex = prevIndex === 0 ? validImages.length - 1 : prevIndex - 1;
-      // On notifie le parent du changement d'image
       handleImageClick(validImages[newIndex]);
       return newIndex;
     });
-  }, [validImages, handleImageClick]);
+  }, [validImages, handleImageClick]); // Ajout dépendance
 
   const goToNext = useCallback(() => {
     setCurrentIndex((prevIndex) => {
       const newIndex = prevIndex === validImages.length - 1 ? 0 : prevIndex + 1;
-      // On notifie le parent du changement d'image
       handleImageClick(validImages[newIndex]);
       return newIndex;
     });
-  }, [validImages, handleImageClick]);
+  }, [validImages, handleImageClick]); // Ajout dépendance
 
-  // Gestion du Swipe tactile (Mobile)
   const handleTouchStart = (e: React.TouchEvent) => setTouchStart(e.targetTouches[0].clientX);
   const handleTouchMove = (e: React.TouchEvent) => setTouchEnd(e.targetTouches[0].clientX);
   const handleTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    const isSwipe = Math.abs(distance) > 50;
-
-    if (isSwipe) {
-      if (distance > 0) goToNext(); // Swipe Gauche -> Suivant
-      else goToPrevious(); // Swipe Droit -> Précédent
-    }
-    // Reset
-    setTouchStart(0);
-    setTouchEnd(0);
+    if (touchStart - touchEnd > 50) goToNext();
+    if (touchStart - touchEnd < -50) goToPrevious();
   };
 
-  // Navigation Clavier (Flèches)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") goToPrevious();
@@ -81,7 +66,6 @@ export function ProductGallery({ images, productName, selectedImageUrl, onImageC
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goToPrevious, goToNext]);
 
-  // Synchronisation : Si le parent (page.tsx) change l'image (via pastille couleur), on met à jour la galerie
   useEffect(() => {
     if (selectedImageUrl) {
       const imageIndex = validImages.findIndex(img => img.src === selectedImageUrl);
@@ -93,85 +77,61 @@ export function ProductGallery({ images, productName, selectedImageUrl, onImageC
 
   return (
     <div className="space-y-4">
-      {/* --- IMAGE PRINCIPALE --- */}
       <div
-        className="relative aspect-[4/5] overflow-hidden rounded-lg bg-gray-100 group"
+        className="relative aspect-[4/5] overflow-hidden rounded-lg bg-gray-100"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         <Image
           src={validImages[currentIndex].src}
-          alt={validImages[currentIndex].alt || productName}
+          alt={validImages[currentIndex].alt}
           fill
-          className="object-cover transition-transform duration-500 ease-out"
+          className="object-cover"
           priority
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 40vw"
         />
 
-        {/* Flèches de navigation (si plus d'une image) */}
         {validImages.length > 1 && (
           <>
             <Button
               variant="ghost"
               size="icon"
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white/95 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-              onClick={(e) => {
-                e.stopPropagation(); // Empêche de déclencher d'autres clics
-                goToPrevious();
-              }}
-              aria-label="Image précédente"
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white/90 rounded-full shadow-md"
+              onClick={goToPrevious}
             >
-              <ChevronLeft className="h-6 w-6 text-gray-800" />
+              <ChevronLeft className="h-6 w-6" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white/95 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-              onClick={(e) => {
-                e.stopPropagation();
-                goToNext();
-              }}
-              aria-label="Image suivante"
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white/90 rounded-full shadow-md"
+              onClick={goToNext}
             >
-              <ChevronRight className="h-6 w-6 text-gray-800" />
+              <ChevronRight className="h-6 w-6" />
             </Button>
-
-            {/* Indicateurs (petits points en bas) */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
-              {validImages.map((_, index) => (
-                <div
-                  key={index}
-                  className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${
-                    index === currentIndex ? "w-6 bg-white" : "w-1.5 bg-white/60 hover:bg-white/80"
-                  }`}
-                />
-              ))}
-            </div>
           </>
         )}
       </div>
 
-      {/* --- MINIATURES (THUMBNAILS) --- */}
       {validImages.length > 1 && (
         <div className="grid grid-cols-6 gap-2">
           {validImages.map((image, index) => (
             <button
-              key={image.id} // Utilisation de l'ID unique (variation-0, gallery-1...)
+              key={image.id}
               onClick={() => {
                 setCurrentIndex(index);
-                handleImageClick(image); // Déclenche la logique dans page.tsx
+                handleImageClick(image);
               }}
-              className={`relative aspect-[3/4] overflow-hidden rounded-lg transition-all duration-300 ${
+              className={`relative aspect-[3/4] overflow-hidden rounded-lg transition-all ${
                 index === currentIndex
-                  ? "ring-2 ring-[#b8933d] ring-offset-2 opacity-100 scale-[0.98]"
-                  : "opacity-70 hover:opacity-100 hover:scale-[1.02]"
+                  ? "ring-2 ring-[#b8933d] ring-offset-2 opacity-100"
+                  : "opacity-60 hover:opacity-80"
               }`}
-              aria-label={`Voir l'image ${index + 1}`}
             >
               <Image
                 src={image.src}
-                alt={image.alt || `Miniature ${index + 1}`}
+                alt={image.alt}
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 16vw, 10vw"
