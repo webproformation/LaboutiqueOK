@@ -13,6 +13,33 @@ import { ProductFilters, FilterState } from '@/components/ProductFilters';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 
+// COMPOSANT SÉPARÉ (C'est ça la clé pour que ça ne bug pas !)
+const FilterSidebarContent = ({ 
+  priceRange, 
+  setPriceRange, 
+  maxPrice, 
+  slug, 
+  activeFilters, 
+  setActiveFilters 
+}: any) => (
+  <div className="space-y-6">
+    <div>
+      <h3 className="font-semibold text-sm text-gray-900 mb-4 flex items-center gap-2"><span className="bg-[#D4AF37] w-1 h-4 rounded-full"></span> Prix</h3>
+      <div className="px-2">
+        <Slider value={priceRange} onValueChange={(value) => setPriceRange(value as [number, number])} max={maxPrice} step={1} className="my-4" />
+        <div className="flex justify-between text-sm text-gray-600 font-medium"><span>{priceRange[0]}€</span><span>{priceRange[1]}€</span></div>
+      </div>
+    </div>
+    <Separator />
+    {/* On passe l'état au composant fils */}
+    <ProductFilters 
+      categorySlug={slug === 'tous' ? undefined : slug} 
+      activeFilters={activeFilters}
+      onFiltersChange={setActiveFilters} 
+    />
+  </div>
+);
+
 export default function CategoryPage() {
   const params = useParams();
   const router = useRouter();
@@ -37,7 +64,6 @@ export default function CategoryPage() {
   async function loadCategoryAndProducts() {
     setLoading(true);
     try {
-      // 1. Dictionnaire (Termes)
       const { data: terms } = await supabase.from('product_attribute_terms').select('id, name');
       const map = new Map<string, string[]>();
       if (terms) {
@@ -50,7 +76,6 @@ export default function CategoryPage() {
       }
       setNameToIdsMap(map);
 
-      // 2. Charger les produits
       let productsQuery = supabase.from('products').select('*').eq('status', 'publish').order('created_at', { ascending: false });
 
       if (slug !== 'tous') {
@@ -66,11 +91,9 @@ export default function CategoryPage() {
       const { data: productsData } = await productsQuery;
 
       if (productsData) {
-        // 3. Charger les variations (séparément pour éviter erreur 400)
         const productIds = productsData.map(p => p.id);
         const { data: variationsData } = await supabase.from('product_variations').select('*').in('product_id', productIds);
 
-        // 4. Assembler
         const productsWithVariations = productsData.map(p => ({
           ...p,
           product_variations: variationsData?.filter(v => v.product_id === p.id) || []
@@ -85,7 +108,6 @@ export default function CategoryPage() {
     finally { setLoading(false); }
   }
 
-  // Fonction clé : Extrait TOUTES les valeurs (texte et ID) de la structure de données
   const deepExtractValues = (obj: any): string[] => {
     let values: string[] = [];
     if (!obj) return values;
@@ -103,23 +125,20 @@ export default function CategoryPage() {
     if (!allProducts) return;
     let filtered = [...allProducts];
 
-    // Filtre Prix
     filtered = filtered.filter(p => {
       const price = p.sale_price || p.regular_price || 0;
       return price >= priceRange[0] && price <= priceRange[1];
     });
 
-    // Helper de filtrage
     const productHasAttribute = (product: any, targetNames: string[]) => {
       const targets = new Set<string>();
       targetNames.forEach(name => {
         const lowerName = name.toLowerCase();
-        targets.add(lowerName); // Cherche "vert"
-        const ids = nameToIdsMap.get(lowerName); // Cherche ID correspondant à "vert"
+        targets.add(lowerName);
+        const ids = nameToIdsMap.get(lowerName);
         if (ids) ids.forEach(id => targets.add(id));
       });
 
-      // On scanne TOUT le produit (attributs JSON + variations)
       const allProductValues = new Set([
         ...deepExtractValues(product.attributes),
         ...(product.product_variations ? deepExtractValues(product.product_variations) : [])
@@ -146,20 +165,6 @@ export default function CategoryPage() {
   const displayProducts = filteredProducts;
   const categoryName = slug === 'tous' ? 'Tous les Produits' : category?.name || '';
 
-  const FilterContent = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="font-semibold text-sm text-gray-900 mb-4 flex items-center gap-2"><span className="bg-[#D4AF37] w-1 h-4 rounded-full"></span> Prix</h3>
-        <div className="px-2">
-          <Slider value={priceRange} onValueChange={(value) => setPriceRange(value as [number, number])} max={maxPrice} step={1} className="my-4" />
-          <div className="flex justify-between text-sm text-gray-600 font-medium"><span>{priceRange[0]}€</span><span>{priceRange[1]}€</span></div>
-        </div>
-      </div>
-      <Separator />
-      <ProductFilters categorySlug={slug === 'tous' ? undefined : slug} onFiltersChange={setActiveFilters} />
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gray-50/30">
       <main className="container mx-auto px-4 py-8">
@@ -168,7 +173,11 @@ export default function CategoryPage() {
           <aside className="hidden lg:block w-64 flex-shrink-0">
             <div className="sticky top-24 bg-white rounded-xl shadow-sm border border-gray-100 p-5 overflow-y-auto max-h-[calc(100vh-8rem)]">
               <div className="flex items-center gap-2 mb-6 text-[#D4AF37] font-bold text-lg"><Filter className="w-5 h-5" /> Filtres</div>
-              <FilterContent />
+              {/* Utilisation du composant extrait */}
+              <FilterSidebarContent 
+                priceRange={priceRange} setPriceRange={setPriceRange} maxPrice={maxPrice} 
+                slug={slug} activeFilters={activeFilters} setActiveFilters={setActiveFilters} 
+              />
             </div>
           </aside>
           <div className="flex-1">
@@ -180,7 +189,14 @@ export default function CategoryPage() {
               <div className="flex items-center gap-3 lg:hidden">
                 <Sheet>
                   <SheetTrigger asChild><Button variant="outline" className="rounded-xl border-gray-300 hover:border-[#D4AF37] hover:text-[#D4AF37]"><SlidersHorizontal className="h-4 w-4 mr-2" /> Filtres</Button></SheetTrigger>
-                  <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto"><SheetHeader className="mb-6 text-left"><SheetTitle className="text-2xl font-bold text-[#D4AF37]">Filtres</SheetTitle></SheetHeader><FilterContent /></SheetContent>
+                  <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto">
+                    <SheetHeader className="mb-6 text-left"><SheetTitle className="text-2xl font-bold text-[#D4AF37]">Filtres</SheetTitle></SheetHeader>
+                    {/* Réutilisation du même contenu */}
+                    <FilterSidebarContent 
+                      priceRange={priceRange} setPriceRange={setPriceRange} maxPrice={maxPrice} 
+                      slug={slug} activeFilters={activeFilters} setActiveFilters={setActiveFilters} 
+                    />
+                  </SheetContent>
                 </Sheet>
               </div>
             </div>
