@@ -48,6 +48,7 @@ const navSections: NavSection[] = [
       { href: "/admin/product-attributes", label: "Attributs" },
       { href: "/admin/categories-management", label: "Catégories" },
       { href: "/admin/orders", label: "Commandes" },
+      { href: "/admin/invoices", label: "Factures" },
       { href: "/admin/coupons", label: "Coupons" },
       { href: "/admin/gift-cards", label: "Cartes Cadeaux" },
       { href: "/admin/reviews", label: "Avis clients" },
