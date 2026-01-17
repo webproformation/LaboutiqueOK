@@ -110,7 +110,7 @@ export default function ProductPage() {
     }
   }, [product]);
 
-  // --- CORRECTION MAJEURE ICI : Recherche par 'name' et non par 'id' ---
+  // Lecture depuis le JSON du produit + product_attribute_terms
   async function loadInformativeAttributes(productData: Product) {
     try {
       const rawAttributes = productData.attributes;
@@ -129,7 +129,7 @@ export default function ProductPage() {
 
       if (termNames.length === 0) return;
 
-      // RECHERCHE DANS LA COLONNE 'name' (C'est ici que ça bloquait avec 'id')
+      // RECHERCHE DANS LA COLONNE 'name'
       const { data, error } = await supabase
         .from('product_attribute_terms')
         .select(`
@@ -579,7 +579,8 @@ export default function ProductPage() {
             {product.is_diamond && <HiddenDiamond productId={product.id} position="title" selectedPosition={diamondPosition} />}
 
             <div className="border-b border-gray-100 pb-6">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-4 leading-tight">
+              {/* TITRE EN DORE ICI */}
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#b8933d] mb-4 leading-tight">
                 {decodeHtmlEntities(product.name)}
               </h1>
 
@@ -601,12 +602,12 @@ export default function ProductPage() {
                 )}
               </div>
 
-              {/* --- AFFICHAGE DES ATTRIBUTS INFORMATIFS (Stretch, Coupe, Live...) --- */}
+              {/* --- AFFICHAGE DES ATTRIBUTS INFORMATIFS (CENTRES) --- */}
               {informativeAttributes.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
                   {informativeAttributes.map((attr) => (
-                    <div key={attr.name} className="flex flex-col gap-1">
-                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                    <div key={attr.name} className="flex flex-col gap-1 items-center text-center">
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
                          {attr.name}
                       </span>
                       <span className="text-sm font-medium text-gray-900">
