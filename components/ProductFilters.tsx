@@ -14,7 +14,7 @@ interface FilterOption {
   id: string;
   name: string;
   slug: string;
-  color_code?: string; // Ajout du code couleur visuel
+  color_code?: string;
 }
 
 interface ProductFiltersProps {
@@ -23,8 +23,8 @@ interface ProductFiltersProps {
 }
 
 export interface FilterState {
-  sizes: string[]; // Changé en string[] car les tailles peuvent être "TU", "36", etc.
-  colors: string[]; // Simplifié : on filtre par nom de couleur direct
+  sizes: string[];
+  colors: string[];
   comfort: string[];
   coupe: string[];
   live: boolean;
@@ -56,34 +56,41 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
 
   const loadFilterOptions = async () => {
     try {
-      // 1. Charger les COULEURS (via l'attribut 'couleur' ou 'color')
-      const { data: colorAttrs } = await supabase
+      // 1. On charge TOUS les attributs pour trouver les bons IDs sans deviner les slugs
+      const { data: allAttributes } = await supabase
         .from('product_attributes')
-        .select('id')
-        .or('slug.eq.couleur,slug.eq.color,slug.eq.couleurs-principales'); // Cherche large
+        .select('id, name, slug');
 
-      if (colorAttrs && colorAttrs.length > 0) {
-        const attrIds = colorAttrs.map(a => a.id);
+      if (!allAttributes) return;
+
+      // Identification dynamique des IDs d'attributs
+      const colorAttr = allAttributes.find(a => 
+        a.slug.includes('color') || 
+        a.slug.includes('couleur') || 
+        a.name.toLowerCase().includes('couleur')
+      );
+      
+      const confortAttr = allAttributes.find(a => a.slug === 'confort' || a.name.toLowerCase() === 'confort');
+      const coupeAttr = allAttributes.find(a => a.slug === 'coupe' || a.name.toLowerCase() === 'coupe');
+
+      // 2. Chargement des termes pour chaque attribut trouvé
+      
+      // --- COULEURS ---
+      if (colorAttr) {
         const { data: terms } = await supabase
           .from('product_attribute_terms')
           .select('id, name, slug, color_code')
-          .in('attribute_id', attrIds)
+          .eq('attribute_id', colorAttr.id)
           .order('name');
         
         if (terms) {
-            // On dédoublonne par nom pour éviter "Bleu" et "Bleu" si plusieurs attributs
+            // Dédoublonnage et nettoyage
             const uniqueTerms = Array.from(new Map(terms.map(item => [item.name, item])).values());
             setColorOptions(uniqueTerms);
         }
       }
 
-      // 2. Charger les options "Confort"
-      const { data: confortAttr } = await supabase
-        .from('product_attributes')
-        .select('id')
-        .eq('slug', 'confort')
-        .maybeSingle();
-
+      // --- CONFORT ---
       if (confortAttr) {
         const { data: terms } = await supabase
           .from('product_attribute_terms')
@@ -93,13 +100,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
         if (terms) setConfortOptions(terms);
       }
 
-      // 3. Charger les options "Coupe"
-      const { data: coupeAttr } = await supabase
-        .from('product_attributes')
-        .select('id')
-        .eq('slug', 'coupe')
-        .maybeSingle();
-
+      // --- COUPE ---
       if (coupeAttr) {
         const { data: terms } = await supabase
           .from('product_attribute_terms')
@@ -209,7 +210,6 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
         <div className="space-y-3">
           <h3 className="font-semibold text-sm text-gray-900">Tailles</h3>
           <div className="grid grid-cols-4 gap-2">
-            {/* Génération manuelle des tailles standard + TU + Grandes Tailles */}
             {['34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', 'TU'].map(size => (
               <button
                 key={size}
@@ -228,7 +228,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
         
         <Separator />
 
-        {/* --- COULEURS (Corrigé) --- */}
+        {/* --- COULEURS --- */}
         {colorOptions.length > 0 && (
           <>
             <div className="space-y-3">
@@ -236,10 +236,8 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
               <div className="flex flex-wrap gap-2">
                 {colorOptions.map(option => {
                   const isSelected = filters.colors.includes(option.name);
-                  // Si on a un code couleur (hex), on l'utilise pour le fond
-                  const bgColor = option.color_code || '#eee'; 
-                  // Calcul de la couleur du texte (noir ou blanc) pour le contraste si nécessaire
-                  // Pour simplifier ici, on met une bordure colorée si sélectionné
+                  // Utilisation du code couleur s'il existe, sinon gris clair
+                  const bgColor = option.color_code || '#eee';
                   
                   return (
                     <div 
@@ -247,16 +245,16 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
                       onClick={() => handleColorToggle(option.name)}
                       className={`cursor-pointer w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
                         isSelected 
-                          ? 'border-[#D4AF37] scale-110 shadow-sm' 
+                          ? 'border-[#D4AF37] scale-110 shadow-md ring-2 ring-[#D4AF37] ring-opacity-30' 
                           : 'border-transparent hover:scale-105 hover:shadow-sm'
                       }`}
                       style={{ backgroundColor: bgColor }}
                       title={option.name}
                     >
-                      {/* Coche si sélectionné */}
+                      {/* Petit indicateur si sélectionné */}
                       {isSelected && <div className="w-2 h-2 bg-white rounded-full shadow-sm" />}
-                      {/* Fallback si pas de couleur : on affiche le nom */}
-                      {!option.color_code && <span className="text-[10px] text-black px-1 truncate">{option.name}</span>}
+                      {/* Affichage du nom si pas de couleur définie */}
+                      {!option.color_code && <span className="text-[9px] text-black px-1 truncate w-full text-center">{option.name}</span>}
                     </div>
                   );
                 })}
@@ -276,7 +274,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
                   <div key={option.id} className="flex items-center space-x-2">
                     <Checkbox
                       id={`comfort-${option.id}`}
-                      checked={filters.comfort.includes(option.name)} // On filtre sur le NOM
+                      checked={filters.comfort.includes(option.name)}
                       onCheckedChange={() => handleComfortToggle(option.name)}
                       className="data-[state=checked]:bg-[#D4AF37] data-[state=checked]:border-[#D4AF37]"
                     />
@@ -301,7 +299,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
                   <div key={option.id} className="flex items-center space-x-2">
                     <Checkbox
                       id={`coupe-${option.id}`}
-                      checked={filters.coupe.includes(option.name)} // On filtre sur le NOM
+                      checked={filters.coupe.includes(option.name)}
                       onCheckedChange={() => handleCoupeToggle(option.name)}
                       className="data-[state=checked]:bg-[#D4AF37] data-[state=checked]:border-[#D4AF37]"
                     />
@@ -352,42 +350,13 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
             <div className="space-y-2">
               <h3 className="font-semibold text-xs text-gray-500 uppercase tracking-wide">Filtres actifs</h3>
               <div className="flex flex-wrap gap-2">
-                {filters.sizes.map(size => (
-                  <Badge key={`size-${size}`} variant="secondary" className="gap-1 bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/20 border-0">
-                    Taille {size}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => handleSizeToggle(size)} />
-                  </Badge>
-                ))}
-                {filters.colors.map(c => (
-                  <Badge key={`color-${c}`} variant="secondary" className="gap-1">
-                    {c}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => handleColorToggle(c)} />
-                  </Badge>
-                ))}
-                {filters.comfort.map(c => (
-                  <Badge key={`comfort-${c}`} variant="secondary" className="gap-1">
-                    {c}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => handleComfortToggle(c)} />
-                  </Badge>
-                ))}
-                {filters.coupe.map(c => (
-                  <Badge key={`coupe-${c}`} variant="secondary" className="gap-1">
-                    {c}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => handleCoupeToggle(c)} />
-                  </Badge>
-                ))}
-                {filters.live && (
-                  <Badge className="gap-1 bg-pink-100 text-pink-700 hover:bg-pink-200 border-0">
-                    Live
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, live: false }))} />
-                  </Badge>
-                )}
-                {filters.nouveautes && (
-                  <Badge className="gap-1 bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-0">
-                    Nouveautés
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => setFilters(prev => ({ ...prev, nouveautes: false }))} />
-                  </Badge>
-                )}
+                {/* Badges pour chaque filtre actif */}
+                {filters.sizes.map(s => <Badge key={s} variant="secondary" className="gap-1 cursor-pointer" onClick={() => handleSizeToggle(s)}>{s} <X className="h-3 w-3" /></Badge>)}
+                {filters.colors.map(s => <Badge key={s} variant="secondary" className="gap-1 cursor-pointer" onClick={() => handleColorToggle(s)}>{s} <X className="h-3 w-3" /></Badge>)}
+                {filters.comfort.map(s => <Badge key={s} variant="secondary" className="gap-1 cursor-pointer" onClick={() => handleComfortToggle(s)}>{s} <X className="h-3 w-3" /></Badge>)}
+                {filters.coupe.map(s => <Badge key={s} variant="secondary" className="gap-1 cursor-pointer" onClick={() => handleCoupeToggle(s)}>{s} <X className="h-3 w-3" /></Badge>)}
+                {filters.live && <Badge variant="secondary" className="gap-1 bg-pink-100 text-pink-700 cursor-pointer" onClick={() => setFilters(prev => ({...prev, live: false}))}>Live <X className="h-3 w-3" /></Badge>}
+                {filters.nouveautes && <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800 cursor-pointer" onClick={() => setFilters(prev => ({...prev, nouveautes: false}))}>Nouveautés <X className="h-3 w-3" /></Badge>}
               </div>
             </div>
           </>

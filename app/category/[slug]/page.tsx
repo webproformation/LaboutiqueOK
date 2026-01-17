@@ -25,8 +25,8 @@ export default function CategoryPage() {
   const slug = params.slug as string;
 
   const [category, setCategory] = useState<ProductCategory | null>(null);
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<any[]>([]); // Changé en any[] pour inclure les variations facilement
+  const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Filtres
@@ -41,7 +41,6 @@ export default function CategoryPage() {
     nouveautes: false,
   });
 
-  // Dictionnaire ID -> Nom pour traduire les données brutes
   const [termMap, setTermMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
@@ -55,8 +54,7 @@ export default function CategoryPage() {
   async function loadCategoryAndProducts() {
     setLoading(true);
     try {
-      // 1. Charger tous les termes pour créer un dictionnaire ID => NOM
-      // Car les produits contiennent parfois des IDs, parfois des noms. On normalise tout.
+      // 1. Dictionnaire ID -> Nom pour traduire les données brutes (ID 123 -> "Stretch")
       const { data: terms } = await supabase
         .from('product_attribute_terms')
         .select('id, name');
@@ -67,10 +65,11 @@ export default function CategoryPage() {
       }
       setTermMap(map);
 
-      // 2. Charger les produits
+      // 2. Charger les produits AVEC leurs variations (C'est ici la clé du succès !)
+      // On demande poliment à Supabase : "Donne moi les produits ET leurs déclinaisons"
       let productsQuery = supabase
         .from('products')
-        .select('*')
+        .select('*, product_variations(*)') // <-- Jointure magique
         .eq('status', 'publish')
         .order('created_at', { ascending: false });
 
@@ -107,6 +106,7 @@ export default function CategoryPage() {
 
       if (productsData) {
         setAllProducts(productsData);
+        // Calcul du prix max
         const prices = productsData.map(p => p.sale_price || p.regular_price || 0).filter(p => p > 0);
         const max = prices.length > 0 ? Math.ceil(Math.max(...prices)) : 200;
         setMaxPrice(max);
@@ -130,53 +130,56 @@ export default function CategoryPage() {
       return price >= priceRange[0] && price <= priceRange[1];
     });
 
-    // 2. Fonction Helper pour vérifier si un produit a un attribut (par Nom)
-    const productHasAttribute = (product: Product, targetNames: string[]) => {
-      // Cas A: Produit Variable (on cherche dans les variations)
-      if (product.is_variable_product && product.variations) {
-         // Pour les variations, on cherche souvent Couleur et Taille
-         // On regarde si AU MOINS UNE variation correspond au critère
-         // Note: product.variations n'est pas chargé par défaut avec select('*'), 
-         // il faudrait le fetcher. Mais souvent les attributs globaux sont aussi dans `attributes` JSON.
-         // On se replie sur le JSON `attributes` qui est plus sûr pour le filtrage global.
+    // 2. Fonction Helper Puissante : Cherche dans le produit ET ses variations
+    const productHasAttribute = (product: any, targetNames: string[]) => {
+      // Normalisation des cibles en minuscule pour comparaison facile
+      const targets = targetNames.map(t => t.toLowerCase());
+      const collectedValues: string[] = [];
+
+      // A. Scan des attributs du produit principal (JSON)
+      if (product.attributes && typeof product.attributes === 'object') {
+        Object.values(product.attributes).forEach((values: any) => {
+          if (Array.isArray(values)) {
+            values.forEach(val => {
+              // Si c'est un ID, on traduit. Sinon on prend tel quel.
+              const valStr = String(val);
+              if (termMap.has(valStr)) {
+                collectedValues.push(termMap.get(valStr)!.toLowerCase());
+              } else {
+                collectedValues.push(valStr.toLowerCase());
+              }
+            });
+          } else if (typeof values === 'string') {
+             collectedValues.push(values.toLowerCase());
+          }
+        });
       }
 
-      // Cas B: JSON attributes standard (marche pour Simple et Variable pour les infos globales)
-      if (!product.attributes || typeof product.attributes !== 'object') return false;
+      // B. Scan des VARIATIONS (Pour Taille et Couleur surtout)
+      if (product.product_variations && Array.isArray(product.product_variations)) {
+        product.product_variations.forEach((variation: any) => {
+          if (variation.attributes && typeof variation.attributes === 'object') {
+             Object.values(variation.attributes).forEach((val: any) => {
+                // Les variations stockent souvent direct le nom (ex: "Marine") ou un objet {name: "Marine"}
+                if (typeof val === 'string') {
+                   collectedValues.push(val.toLowerCase());
+                } else if (typeof val === 'object' && val?.name) {
+                   collectedValues.push(String(val.name).toLowerCase());
+                } else if (typeof val === 'object' && val?.option) {
+                   collectedValues.push(String(val.option).toLowerCase());
+                }
+             });
+          }
+        });
+      }
 
-      // On collecte tous les NOMS d'attributs du produit
-      const productAttributeValues: string[] = [];
-      
-      // Le JSON est souvent { "attr_id": ["term_id", "term_id"] } ou { "Couleur": "Bleu" }
-      Object.entries(product.attributes).forEach(([key, values]) => {
-        // Si c'est un tableau d'IDs ou de Strings
-        if (Array.isArray(values)) {
-          values.forEach(val => {
-            // Si c'est un ID, on le traduit en Nom via notre map
-            if (termMap.has(String(val))) {
-              productAttributeValues.push(termMap.get(String(val))!.toLowerCase());
-            } else {
-              // Sinon c'est déjà du texte (ex: "Stretch")
-              productAttributeValues.push(String(val).toLowerCase());
-            }
-          });
-        } 
-        // Si c'est une valeur simple
-        else if (typeof values === 'string') {
-           productAttributeValues.push(values.toLowerCase());
-        }
-      });
-
-      // On vérifie si l'un des termes recherchés est présent
-      return targetNames.some(target => productAttributeValues.includes(target.toLowerCase()));
+      // Vérification : est-ce que l'un des termes cherchés est présent ?
+      return targets.some(target => collectedValues.includes(target));
     };
 
     // --- Application des filtres ---
 
-    // Tailles (Attention: peut nécessiter une logique spéciale si stocké dans variations)
     if (activeFilters.sizes.length > 0) {
-      // Pour les tailles, c'est souvent spécifique. On tente le match générique.
-      // Si ça ne marche pas, il faudra fetcher les product_variations.
       filtered = filtered.filter(p => productHasAttribute(p, activeFilters.sizes));
     }
 
@@ -193,7 +196,6 @@ export default function CategoryPage() {
     }
 
     if (activeFilters.live) {
-       // "Vu dans le dernier Live !" est le nom exact souvent utilisé
        filtered = filtered.filter(p => productHasAttribute(p, ["Vu dans le dernier Live !", "Live"]));
     }
 
