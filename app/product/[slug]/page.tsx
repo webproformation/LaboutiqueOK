@@ -362,47 +362,63 @@ export default function ProductPage() {
     }
   };
 
-  const handleImageClick = (image: { id: string; src: string }) => {
-    // 1. On regarde si l'ID indique que c'est une variation (ex: "variation-0")
-    // Bolt avait enlevé ça, on le remet !
-    const isVariation = image.id.startsWith("variation");
+const handleImageClick = (image: { id: string; src: string }) => {
+    console.log("🖱️ CLIC IMAGE:", image); // DEBUG
 
-    if (isVariation) {
-      // CAS A : C'est une variation
-      // => On libère le verrou manuel pour laisser les pastilles fonctionner
-      setUserSelectedGalleryImage(null);
+    let isVariation = false;
+    let targetVariation = null;
 
-      // Si on a cliqué sur une miniature spécifique
+    // 1. Vérification par l'ID
+    if (image.id.startsWith("variation") || image.id === "variation-selected") {
+      isVariation = true;
+      console.log("✅ Identifié comme variation via ID");
+      
       if (image.id.startsWith("variation-") && image.id !== "variation-selected") {
         const parts = image.id.split("-");
         const idx = parseInt(parts[1]);
-
         if (!isNaN(idx) && product?.variations && product.variations[idx]) {
-          const targetVariation = product.variations[idx];
+          targetVariation = product.variations[idx];
+        }
+      }
+    }
 
-          if (targetVariation.id !== selectedVariation?.id) {
-            // Mise à jour des attributs
-            const variationAttributes: Record<string, string> = {};
-            targetVariation.attributes?.forEach((attr: any) => {
-              variationAttributes[attr.name] = attr.option;
-            });
-            setInitialAttributes(variationAttributes);
-            setSelectedVariation(targetVariation);
-            
-            // On force visuellement l'image
-            if (targetVariation.image?.src) {
-              setActiveImageUrl(targetVariation.image.src);
-            }
-          }
+    // 2. Vérification de secours par l'URL
+    if (!isVariation && product?.variations) {
+      const matchingVar = product.variations.find((v: any) => v.image?.src === image.src);
+      if (matchingVar) {
+        isVariation = true;
+        targetVariation = matchingVar;
+        console.log("✅ Identifié comme variation via URL (Fallback)");
+      } else {
+        console.log("❌ URL ne correspond à aucune variation:", image.src);
+      }
+    }
+
+    if (isVariation) {
+      // DÉVERROUILLAGE
+      console.log("🔓 DÉVERROUILLAGE de la galerie");
+      setUserSelectedGalleryImage(null);
+
+      if (targetVariation && targetVariation.id !== selectedVariation?.id) {
+        console.log("🔄 Changement de variation vers:", targetVariation.id);
+        const variationAttributes: Record<string, string> = {};
+        targetVariation.attributes?.forEach((attr: any) => {
+          variationAttributes[attr.name] = attr.option;
+        });
+        setInitialAttributes(variationAttributes);
+        setSelectedVariation(targetVariation);
+        
+        if (targetVariation.image?.src) {
+          setActiveImageUrl(targetVariation.image.src);
         }
       }
     } else {
-      // CAS B : C'est une image générique (Dos, Zoom...)
-      // => On active le VERROU MANUEL
+      // VERROUILLAGE
+      console.log("🔒 VERROUILLAGE sur l'image:", image.id);
       setUserSelectedGalleryImage(image.src);
     }
   };
-
+  
   const handleAddToCart = () => {
     if (!product) return;
 
@@ -522,76 +538,76 @@ export default function ProductPage() {
   };
 
   const galleryImages = useMemo(() => {
-    if (!product) return [{ id: "placeholder", src: "/placeholder.png", alt: "Product" }];
+      if (!product) return [{ id: "placeholder", src: "/placeholder.png", alt: "Product" }];
 
-    const images: Array<{ id: string; src: string; alt: string }> = [];
+      const images: Array<{ id: string; src: string; alt: string }> = [];
 
-    // STRATÉGIE TRI (SORTING) AU LIEU DE FILTRAGE
-    // On garde TOUTES les images, mais on met l'image de la variation sélectionnée en premier
+      // --- NOUVEL ORDRE DE PRIORITÉ (CORRECTIF) ---
 
-    // PRIORITÉ 1: Image de la variation sélectionnée EN PREMIER
-    if (selectedVariation?.image?.src) {
-      images.push({
-        id: "variation-selected",
-        src: selectedVariation.image.src,
-        alt: selectedVariation.image.alt || product.name,
-      });
-    }
+      // 1. D'abord l'image de la variation ACTIVE (Top priorité)
+      if (selectedVariation?.image?.src) {
+        images.push({
+          id: "variation-selected",
+          src: selectedVariation.image.src,
+          alt: selectedVariation.image.alt || product.name,
+        });
+      }
 
-    // PRIORITÉ 2: Image principale du produit
-    if (product.image_url && !images.some(i => i.src === product.image_url)) {
-      images.push({
-        id: "main",
-        src: product.image_url,
-        alt: product.name,
-      });
-    }
+      // 2. Ensuite TOUTES les images de variations (C'est ICI le changement clé)
+      // On les met AVANT l'image principale pour qu'elles gardent leur identité "variation-x"
+      // et déverrouillent la galerie au clic.
+      if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
+        product.variations.forEach((variation: any, idx: number) => {
+          // On évite juste le doublon avec l'image "selected" juste au dessus
+          if (variation.image?.src && !images.some(i => i.src === variation.image.src)) {
+            images.push({
+              id: `variation-${idx}`,
+              src: variation.image.src,
+              alt: variation.image.alt || product.name,
+            });
+          }
+        });
+      }
 
-    // PRIORITÉ 3: TOUTES les images de la galerie (JAMAIS filtrer)
-    if (product.gallery_images && Array.isArray(product.gallery_images) && product.gallery_images.length > 0) {
-      product.gallery_images.forEach((imgUrl: string, idx: number) => {
-        if (imgUrl && !images.some(i => i.src === imgUrl)) {
-          images.push({
-            id: `gallery-${idx}`,
-            src: imgUrl,
-            alt: product.name,
-          });
-        }
-      });
-    }
+      // 3. Ensuite l'Image Principale (si elle n'est pas déjà ajoutée via les variations)
+      if (product.image_url && !images.some(i => i.src === product.image_url)) {
+        images.push({
+          id: "main",
+          src: product.image_url,
+          alt: product.name,
+        });
+      }
 
-    // PRIORITÉ 4: Images des variations (TOUTES, pas seulement la sélectionnée)
-    if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
-      product.variations.forEach((variation: any, idx: number) => {
-        if (variation.image?.src && !images.some(i => i.src === variation.image.src)) {
-          images.push({
-            id: `variation-${idx}`,
-            src: variation.image.src,
-            alt: variation.image.alt || product.name,
-          });
-        }
-      });
-    }
+      // 4. Enfin les images de la Galerie (si elles ne sont pas déjà là)
+      if (product.gallery_images && Array.isArray(product.gallery_images) && product.gallery_images.length > 0) {
+        product.gallery_images.forEach((imgUrl: string, idx: number) => {
+          if (imgUrl && !images.some(i => i.src === imgUrl)) {
+            images.push({
+              id: `gallery-${idx}`,
+              src: imgUrl,
+              alt: product.name,
+            });
+          }
+        });
+      }
 
-    // PRIORITÉ 5: Fallback - Autres images
-    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
-      product.images.forEach((img: any, idx: number) => {
-        const imgSrc = img.src || img.sourceUrl || img.url;
-        if (imgSrc && !images.some(i => i.src === imgSrc)) {
-          images.push({
-            id: `img-${idx}`,
-            src: imgSrc,
-            alt: img.alt || product.name,
-          });
-        }
-      });
-    }
+      // 5. Fallback
+      if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+        product.images.forEach((img: any, idx: number) => {
+          const imgSrc = img.src || img.sourceUrl || img.url;
+          if (imgSrc && !images.some(i => i.src === imgSrc)) {
+            images.push({
+              id: `img-${idx}`,
+              src: imgSrc,
+              alt: img.alt || product.name,
+            });
+          }
+        });
+      }
 
-    console.log('📸 Galerie RE-TRIÉE:', images.length, 'images | Variation sélectionnée en position 1');
-
-    return images.length > 0 ? images : [{ id: "placeholder", src: "/placeholder.png", alt: product.name }];
-  }, [product, selectedVariation]);
-
+      return images.length > 0 ? images : [{ id: "placeholder", src: "/placeholder.png", alt: product.name }];
+    }, [product, selectedVariation]);
+  
   // Variables calculées (après les hooks, mais avant les early returns si nécessaire)
   const currentPrice =
     selectedVariation?.sale_price ||
