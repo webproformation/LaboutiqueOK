@@ -77,10 +77,10 @@ export default function ProductPage() {
 
   // Chargement des attributs informatifs dès que le produit est connu
   useEffect(() => {
-    if (product?.id) {
-      loadInformativeAttributes(product.id);
+    if (product) {
+      loadInformativeAttributes(product);
     }
-  }, [product?.id]);
+  }, [product]);
 
   useEffect(() => {
     if (product && product.type === "VARIABLE" && product.attributes && product.variations && !selectedVariation) {
@@ -110,20 +110,38 @@ export default function ProductPage() {
     }
   }, [product]);
 
-  // --- CORRECTION MAJEURE ICI : Syntaxe Supabase standard ---
-  async function loadInformativeAttributes(productId: string) {
+  // --- CORRECTION : Lecture depuis le JSON du produit + product_attribute_terms ---
+  async function loadInformativeAttributes(productData: Product) {
     try {
-      // On retire les alias "attribute:" et "term:" qui posaient problème
+      // 1. Récupérer les IDs stockés dans la colonne JSON "attributes" du produit
+      // Format attendu du JSON : { "id_attribut": ["id_term1", "id_term2"], ... }
+      const rawAttributes = productData.attributes;
+      
+      if (!rawAttributes || typeof rawAttributes !== 'object') return;
+
+      const termIds: string[] = [];
+      
+      // On extrait tous les IDs de termes présents dans le JSON
+      Object.values(rawAttributes).forEach((ids) => {
+        if (Array.isArray(ids)) {
+          // On s'assure que ce sont bien des chaînes ou des nombres
+          ids.forEach(id => termIds.push(String(id)));
+        }
+      });
+
+      if (termIds.length === 0) return;
+
+      // 2. On va chercher les infos de ces termes dans la table `product_attribute_terms`
       const { data, error } = await supabase
-        .from('product_attribute_values')
+        .from('product_attribute_terms')
         .select(`
-          product_attributes(name, slug),
-          product_attribute_terms(name)
+          name, 
+          product_attributes (name, slug)
         `)
-        .eq('product_id', productId);
+        .in('id', termIds);
 
       if (error) {
-        console.error("Erreur fetch attributs:", error);
+        console.error("Erreur fetch termes:", error);
         return;
       }
 
@@ -132,18 +150,15 @@ export default function ProductPage() {
       const groups = new Map<string, string[]>();
 
       data.forEach((item: any) => {
-        // On accède aux données via les vrais noms de tables
-        // Supabase peut renvoyer un objet ou un tableau selon la relation (One-to-One vs One-to-Many)
-        // On gère les deux cas pour être blindé.
-        const attrObj = Array.isArray(item.product_attributes) ? item.product_attributes[0] : item.product_attributes;
-        const termObj = Array.isArray(item.product_attribute_terms) ? item.product_attribute_terms[0] : item.product_attribute_terms;
-
-        const attrName = attrObj?.name;
-        const attrSlug = attrObj?.slug?.toLowerCase() || '';
-        const termValue = termObj?.name;
+        // Sécurisation : product_attributes peut être un tableau ou un objet selon la config Supabase
+        const attrInfo = Array.isArray(item.product_attributes) ? item.product_attributes[0] : item.product_attributes;
+        
+        const attrName = attrInfo?.name;
+        const attrSlug = attrInfo?.slug?.toLowerCase() || '';
+        const termValue = item.name;
 
         if (attrName && termValue) {
-          // On ignore Couleurs et Tailles (déjà gérés par le sélecteur)
+          // 3. On ignore Couleurs et Tailles (déjà gérés par le sélecteur)
           if (
             attrSlug.includes('couleur') || 
             attrSlug.includes('taille') || 
@@ -233,13 +248,32 @@ export default function ProductPage() {
             }
           });
 
-          const attributes = Array.from(attributesMap.entries()).map(([name, options]) => ({
+          // ATTENTION : Ici, on écrase productData.attributes avec les attributs de VARIATION seulement
+          // C'est pour le sélecteur (Couleur/Taille).
+          // Mais notre fonction loadInformativeAttributes utilisera le JSON original "rawAttributes" 
+          // qu'on va passer via l'état ou relire depuis productData avant écrasement, 
+          // MAIS comme on a déjà passé productData au state "setProduct", 
+          // l'effet useEffect(loadInformativeAttributes) utilisera la version mise à jour.
+          
+          // SOLUTION : On ne touche pas aux attributs bruts dans l'objet productData pour le state, 
+          // on crée une propriété séparée pour le sélecteur si possible, OU on fait confiance à notre
+          // useEffect qui se déclenche sur "product".
+          
+          // Pour être sûr, on va stocker les attributs de variation dans une nouvelle propriété temporaire
+          // ou juste s'assurer que loadInformativeAttributes a accès aux données brutes.
+          // Le plus simple : on laisse le code tel quel car loadInformativeAttributes est appelé 
+          // avec le résultat du state. Si on écrase "attributes" ici, on perd les infos JSON.
+          
+          // FIX CRITIQUE : On sauvegarde le JSON original des attributs globaux
+          const originalAttributesJSON = JSON.parse(JSON.stringify(productData.attributes || {}));
+
+          const attributesForSelector = Array.from(attributesMap.entries()).map(([name, options]) => ({
             name,
             options: Array.from(options),
           }));
 
           // Récupération des codes couleurs pour les variations
-          const allOptionNames = attributes.flatMap(a => a.options);
+          const allOptionNames = attributesForSelector.flatMap(a => a.options);
           
           if (allOptionNames.length > 0) {
              const { data: termsData } = await supabase
@@ -249,7 +283,7 @@ export default function ProductPage() {
                
              if (termsData) {
                const colorMap = new Map(termsData.map(t => [t.name, t.color_code]));
-               attributes.forEach((attr: any) => {
+               attributesForSelector.forEach((attr: any) => {
                  if (attr.name.toLowerCase().includes('couleur') || attr.name.toLowerCase().includes('color')) {
                    attr.colorCodes = attr.options.map((opt: string) => colorMap.get(opt) || undefined);
                  }
@@ -284,13 +318,20 @@ export default function ProductPage() {
             };
           });
 
-          productData.attributes = attributes;
+          // On assigne les attributs pour le sélecteur
+          productData.attributes = attributesForSelector;
+          // ET on restaure les attributs JSON originaux dans une prop cachée pour notre fonction de chargement
+          (productData as any).original_attributes_json = originalAttributesJSON;
+          
           productData.variations = formattedVariations;
           productData.type = "VARIABLE";
         }
       } else if (productData.attributes && typeof productData.attributes === 'object') {
-         // Produit simple
+         // Produit simple - logique existante (ici productData.attributes est déjà le JSON, donc c'est bon)
+         // Mais on veut aussi afficher les pastilles si c'est un produit simple avec couleur (rare mais possible)
         const simpleAttributes = productData.attributes;
+        (productData as any).original_attributes_json = simpleAttributes; // Pour uniformiser
+
         const attributeTermIds: string[] = [];
         Object.values(simpleAttributes).forEach((termIds: any) => {
           if (Array.isArray(termIds)) attributeTermIds.push(...termIds);
@@ -322,6 +363,12 @@ export default function ProductPage() {
       }
 
       setProduct(productData);
+      
+      // Appel immédiat avec les données brutes sécurisées
+      // On utilise la propriété cachée qu'on vient de créer pour être sûr d'avoir le JSON
+      const dataForInfo = { ...productData, attributes: (productData as any).original_attributes_json || productData.attributes };
+      loadInformativeAttributes(dataForInfo);
+
     } catch (error) {
       console.error("Error loading product:", error);
     } finally {
