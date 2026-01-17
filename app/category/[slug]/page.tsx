@@ -29,7 +29,6 @@ export default function CategoryPage() {
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Filtres
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 200]);
   const [maxPrice, setMaxPrice] = useState(200);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
@@ -41,7 +40,7 @@ export default function CategoryPage() {
     nouveautes: false,
   });
 
-  const [termMap, setTermMap] = useState<Map<string, string>>(new Map());
+  const [nameToIdsMap, setNameToIdsMap] = useState<Map<string, string[]>>(new Map());
 
   useEffect(() => {
     loadCategoryAndProducts();
@@ -49,23 +48,31 @@ export default function CategoryPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [priceRange, activeFilters, allProducts, termMap]);
+  }, [priceRange, activeFilters, allProducts, nameToIdsMap]);
 
   async function loadCategoryAndProducts() {
     setLoading(true);
     try {
-      // 1. Dictionnaire ID -> Nom pour traduire les attributs
+      // 1. Dictionnaire (Termes) pour gérer le match ID/Nom
       const { data: terms } = await supabase
         .from('product_attribute_terms')
         .select('id, name');
       
-      const map = new Map<string, string>();
+      const map = new Map<string, string[]>();
       if (terms) {
-        terms.forEach(t => map.set(String(t.id), t.name));
+        terms.forEach(t => {
+          const idStr = String(t.id);
+          const nameLower = t.name.toLowerCase();
+          
+          if (!map.has(nameLower)) {
+            map.set(nameLower, []);
+          }
+          map.get(nameLower)?.push(idStr);
+        });
       }
-      setTermMap(map);
+      setNameToIdsMap(map);
 
-      // 2. Charger les produits (Requête SIMPLE sans jointure complexe)
+      // 2. Charger les produits
       let productsQuery = supabase
         .from('products')
         .select('*')
@@ -102,30 +109,24 @@ export default function CategoryPage() {
       }
 
       const { data: productsData, error: productsError } = await productsQuery;
-
       if (productsError) throw productsError;
 
       if (productsData) {
-        // 3. Charger les variations SÉPARÉMENT (pour éviter l'erreur 400)
-        // On récupère les IDs des produits chargés
+        // 3. Charger les variations
         const productIds = productsData.map(p => p.id);
-        
-        // On cherche toutes les variations liées à ces produits
         const { data: variationsData } = await supabase
           .from('product_variations')
           .select('*')
           .in('product_id', productIds);
 
-        // 4. Fusionner manuellement (Produits + Variations)
+        // 4. Assembler
         const productsWithVariations = productsData.map(p => ({
           ...p,
-          // On attache les variations correspondantes à chaque produit
           product_variations: variationsData?.filter(v => v.product_id === p.id) || []
         }));
 
         setAllProducts(productsWithVariations);
 
-        // Calcul du prix max
         const prices = productsData.map(p => p.sale_price || p.regular_price || 0).filter(p => p > 0);
         const max = prices.length > 0 ? Math.ceil(Math.max(...prices)) : 200;
         setMaxPrice(max);
@@ -149,67 +150,58 @@ export default function CategoryPage() {
       return price >= priceRange[0] && price <= priceRange[1];
     });
 
-    // 2. Helper : Vérifie si le produit OU ses variations contiennent le terme cherché
+    // 2. Helper
     const productHasAttribute = (product: any, targetNames: string[]) => {
-      const targets = targetNames.map(t => t.toLowerCase());
-      const collectedValues: string[] = [];
+      const targets = new Set<string>();
+      targetNames.forEach(name => {
+        const lowerName = name.toLowerCase();
+        targets.add(lowerName);
+        const ids = nameToIdsMap.get(lowerName);
+        if (ids) ids.forEach(id => targets.add(id));
+      });
 
-      // A. Scan attributs produit principal
+      const productValues = new Set<string>();
+
+      // A. Scan Produit Principal (C'est là que "Couleur Principale" est stocké)
       if (product.attributes && typeof product.attributes === 'object') {
         Object.values(product.attributes).forEach((values: any) => {
           if (Array.isArray(values)) {
-            values.forEach(val => {
-              const valStr = String(val);
-              if (termMap.has(valStr)) {
-                collectedValues.push(termMap.get(valStr)!.toLowerCase());
-              } else {
-                collectedValues.push(valStr.toLowerCase());
+            values.forEach(v => productValues.add(String(v).toLowerCase()));
+          } else if (typeof values === 'string' || typeof values === 'number') {
+            productValues.add(String(values).toLowerCase());
+          }
+        });
+      }
+
+      // B. Scan Variations (Pour les Tailles surtout)
+      if (product.product_variations && Array.isArray(product.product_variations)) {
+        product.product_variations.forEach((v: any) => {
+          if (v.attributes && typeof v.attributes === 'object') {
+            Object.values(v.attributes).forEach((val: any) => {
+              if (typeof val === 'string') productValues.add(val.toLowerCase());
+              else if (typeof val === 'object') {
+                if (val?.name) productValues.add(String(val.name).toLowerCase());
+                if (val?.option) productValues.add(String(val.option).toLowerCase());
               }
             });
-          } else if (typeof values === 'string') {
-             collectedValues.push(values.toLowerCase());
           }
         });
       }
 
-      // B. Scan des variations (Manuellement attachées)
-      if (product.product_variations && Array.isArray(product.product_variations)) {
-        product.product_variations.forEach((variation: any) => {
-          if (variation.attributes && typeof variation.attributes === 'object') {
-             Object.values(variation.attributes).forEach((val: any) => {
-                if (typeof val === 'string') {
-                   collectedValues.push(val.toLowerCase());
-                } else if (typeof val === 'object') {
-                   if (val?.name) collectedValues.push(String(val.name).toLowerCase());
-                   if (val?.option) collectedValues.push(String(val.option).toLowerCase());
-                }
-             });
-          }
-        });
+      for (const target of targets) {
+        if (productValues.has(target)) return true;
       }
-
-      return targets.some(target => collectedValues.includes(target));
+      return false;
     };
 
-    // --- Application des filtres ---
-    if (activeFilters.sizes.length > 0) {
-      filtered = filtered.filter(p => productHasAttribute(p, activeFilters.sizes));
-    }
-    if (activeFilters.colors.length > 0) {
-      filtered = filtered.filter(p => productHasAttribute(p, activeFilters.colors));
-    }
-    if (activeFilters.comfort.length > 0) {
-      filtered = filtered.filter(p => productHasAttribute(p, activeFilters.comfort));
-    }
-    if (activeFilters.coupe.length > 0) {
-      filtered = filtered.filter(p => productHasAttribute(p, activeFilters.coupe));
-    }
-    if (activeFilters.live) {
-       filtered = filtered.filter(p => productHasAttribute(p, ["Vu dans le dernier Live !", "Live"]));
-    }
-    if (activeFilters.nouveautes) {
-       filtered = filtered.filter(p => productHasAttribute(p, ["Nouveautés", "Nouveau"]));
-    }
+    // --- Application ---
+    if (activeFilters.sizes.length > 0) filtered = filtered.filter(p => productHasAttribute(p, activeFilters.sizes));
+    if (activeFilters.colors.length > 0) filtered = filtered.filter(p => productHasAttribute(p, activeFilters.colors));
+    if (activeFilters.comfort.length > 0) filtered = filtered.filter(p => productHasAttribute(p, activeFilters.comfort));
+    if (activeFilters.coupe.length > 0) filtered = filtered.filter(p => productHasAttribute(p, activeFilters.coupe));
+    
+    if (activeFilters.live) filtered = filtered.filter(p => productHasAttribute(p, ["Vu dans le dernier Live !", "Live"]));
+    if (activeFilters.nouveautes) filtered = filtered.filter(p => productHasAttribute(p, ["Nouveautés", "Nouveau"]));
 
     setFilteredProducts(filtered);
   }
