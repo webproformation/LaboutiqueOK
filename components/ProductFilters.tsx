@@ -45,7 +45,8 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
   const [availableColorFamilies, setAvailableColorFamilies] = useState<string[]>([]);
   const [confortOptions, setConfortOptions] = useState<FilterOption[]>([]);
   const [coupeOptions, setCoupeOptions] = useState<FilterOption[]>([]);
-  const [enabledFilters, setEnabledFilters] = useState<string[]>([]);
+  // On active tout par défaut pour éviter le vide
+  const [enabledFilters, setEnabledFilters] = useState<string[]>(['size', 'color', 'comfort', 'fit', 'live']);
   const [categoryId, setCategoryId] = useState<string | null>(null);
 
   useEffect(() => {
