@@ -526,9 +526,7 @@ const galleryImages = useMemo(() => {
 
     const images: Array<{ id: string; src: string; alt: string }> = [];
 
-    // --- NOUVEL ORDRE DE PRIORITÉ (CORRECTIF) ---
-
-    // 1. D'abord l'image de la variation ACTIVE (Top priorité)
+    // 1. La variation SÉLECTIONNÉE (Top priorité)
     if (selectedVariation?.image?.src) {
       images.push({
         id: "variation-selected",
@@ -537,15 +535,13 @@ const galleryImages = useMemo(() => {
       });
     }
 
-    // 2. Ensuite TOUTES les images de variations (C'est ICI le changement clé)
-    // On les met AVANT l'image principale pour qu'elles gardent leur identité "variation-x"
-    // et déverrouillent la galerie au clic.
-    if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
+    // 2. TOUTES les variations (On les met AVANT l'image principale pour qu'elles aient l'ID "variation")
+    if (product.variations && Array.isArray(product.variations)) {
       product.variations.forEach((variation: any, idx: number) => {
-        // On évite juste le doublon avec l'image "selected" juste au dessus
+        // Anti-doublon strict sur l'URL
         if (variation.image?.src && !images.some(i => i.src === variation.image.src)) {
           images.push({
-            id: `variation-${idx}`,
+            id: `variation-${idx}`, // L'ID contient l'index réel pour le retrouver au clic
             src: variation.image.src,
             alt: variation.image.alt || product.name,
           });
@@ -553,7 +549,7 @@ const galleryImages = useMemo(() => {
       });
     }
 
-    // 3. Ensuite l'Image Principale (si elle n'est pas déjà ajoutée via les variations)
+    // 3. Image Principale (Seulement si pas déjà affichée)
     if (product.image_url && !images.some(i => i.src === product.image_url)) {
       images.push({
         id: "main",
@@ -562,8 +558,8 @@ const galleryImages = useMemo(() => {
       });
     }
 
-    // 4. Enfin les images de la Galerie (si elles ne sont pas déjà là)
-    if (product.gallery_images && Array.isArray(product.gallery_images) && product.gallery_images.length > 0) {
+    // 4. Galerie additionnelle
+    if (product.gallery_images && Array.isArray(product.gallery_images)) {
       product.gallery_images.forEach((imgUrl: string, idx: number) => {
         if (imgUrl && !images.some(i => i.src === imgUrl)) {
           images.push({
@@ -575,8 +571,8 @@ const galleryImages = useMemo(() => {
       });
     }
 
-    // 5. Fallback
-    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+    // 5. Fallback images WordPress
+    if (product.images && Array.isArray(product.images)) {
       product.images.forEach((img: any, idx: number) => {
         const imgSrc = img.src || img.sourceUrl || img.url;
         if (imgSrc && !images.some(i => i.src === imgSrc)) {
