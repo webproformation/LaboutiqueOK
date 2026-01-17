@@ -14,7 +14,7 @@ import {
   Edit,
   Trash2,
   Shield,
-  Info, // Icône ajoutée
+  Info,
 } from "lucide-react";
 import { ProductGallery } from "@/components/ProductGallery";
 import { ProductVariationSelector } from "@/components/ProductVariationSelector";
@@ -129,6 +129,39 @@ export default function ProductPage() {
         router.push("/");
         return;
       }
+
+      // --- 1. SAUVETAGE DES ATTRIBUTS GLOBAUX (Confort, Coupe...) ---
+      // On récupère ces infos AVANT que la logique "Variable" ne les écrase.
+      const globalAttributesMap = new Map<string, Set<string>>();
+      
+      if (productData.attributes && typeof productData.attributes === 'object') {
+        const termIds: string[] = [];
+        // Le format est souvent { "attr_id": ["term_id", ...] }
+        Object.values(productData.attributes).forEach((ids: any) => {
+           if (Array.isArray(ids)) termIds.push(...ids);
+        });
+
+        if (termIds.length > 0) {
+           const { data: terms } = await supabase
+             .from('product_attribute_terms')
+             .select('name, product_attributes(name, slug)')
+             .in('id', termIds);
+             
+           if (terms) {
+             terms.forEach((term: any) => {
+                const attrName = term.product_attributes?.name;
+                const attrSlug = term.product_attributes?.slug?.toLowerCase() || '';
+                
+                // On garde tout ce qui n'est PAS une variation (Couleur/Taille)
+                if (attrSlug && !attrSlug.includes('couleur') && !attrSlug.includes('taille') && attrSlug !== 'color' && attrSlug !== 'size') {
+                   if (!globalAttributesMap.has(attrName)) globalAttributesMap.set(attrName, new Set());
+                   globalAttributesMap.get(attrName)?.add(term.name);
+                }
+             });
+           }
+        }
+      }
+      // -------------------------------------------------------------
 
       if (productData.is_variable_product) {
         const { data: variations } = await supabase
@@ -254,30 +287,31 @@ export default function ProductPage() {
 
       setProduct(productData);
       
-      // Chargement attributs informatifs
+      // --- 2. MERGE ET AFFICHAGE DES ATTRIBUTS GLOBAUX ---
+      // On ajoute aussi ceux trouvés dans la table relationnelle (double sécurité)
       const { data: attributeValues } = await supabase
         .from("product_attribute_values")
         .select(`product_attributes!inner(id, name, slug, type), product_attribute_terms(id, name)`)
         .eq("product_id", productData.id);
 
       if (attributeValues && attributeValues.length > 0) {
-        const attributesMap = new Map<string, Set<string>>();
         attributeValues.forEach((av: any) => {
           if (av.product_attributes && av.product_attribute_terms) {
             const attrName = av.product_attributes.name;
             const attrSlug = av.product_attributes.slug?.toLowerCase() || '';
             const termValue = av.product_attribute_terms.name;
-            // On filtre les variations déjà gérées (Couleurs, Tailles)
             if (attrSlug === 'couleurs-principales' || attrSlug === 'tailles' || attrSlug.includes('couleur') || attrSlug.includes('taille')) return;
-            if (!attributesMap.has(attrName)) attributesMap.set(attrName, new Set());
-            if (termValue) attributesMap.get(attrName)?.add(termValue);
+            if (!globalAttributesMap.has(attrName)) globalAttributesMap.set(attrName, new Set());
+            globalAttributesMap.get(attrName)?.add(termValue);
           }
         });
-        setInformativeAttributes(Array.from(attributesMap.entries()).map(([name, valuesSet]) => ({
-          name,
-          values: Array.from(valuesSet),
-        })));
       }
+
+      setInformativeAttributes(Array.from(globalAttributesMap.entries()).map(([name, valuesSet]) => ({
+        name,
+        values: Array.from(valuesSet),
+      })));
+
     } catch (error) {
       console.error("Error loading product:", error);
     } finally {
