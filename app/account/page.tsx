@@ -1,142 +1,167 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { 
-  User, 
-  Package, 
-  MapPin, 
-  LogOut, 
-  Loader2, 
-  Heart,
-  ShieldCheck
-} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ProfilePictureUpload } from '@/components/profile-picture-upload';
+import { PasswordInput } from '@/components/PasswordInput';
+import { User, Mail, Phone, Calendar, Save, Loader2, Lock } from 'lucide-react';
+import { toast } from 'sonner';
 
-// --- CORRECTION DES IMPORTS ICI ---
-// On cherche directement dans @/components/ au lieu de @/components/account/
-import { AddressBook } from '@/components/address-book';
-import { OrderHistory } from '@/components/order-history';
-import { PersonalInfo } from '@/components/personal-info';
-import { WishlistGrid } from '@/components/WishlistGrid';
-import { AdminInvoiceGenerator } from '@/components/AdminInvoiceGenerator';
-// ----------------------------------
+// PLUS AUCUN IMPORT DE COMPONENTS/ADDRESS-BOOK OU AUTRES ICI !
 
 export default function AccountPage() {
-  const { user, signOut } = useAuth();
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { profile, updateProfile, updatePassword, loading } = useAuth();
+  
+  // États formulaire profil
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // États formulaire mot de passe
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      router.push('/auth');
-    } else {
-      checkAdmin();
+    if (profile) {
+      setFirstName(profile.first_name || '');
+      setLastName(profile.last_name || '');
+      setPhone(profile.phone || '');
+      setBirthDate(profile.birth_date || '');
+      setAvatarUrl(profile.avatar_url || '');
     }
-  }, [user, router]);
+  }, [profile]);
 
-  const checkAdmin = async () => {
-    if (!user) return;
-    try {
-      const { data } = await supabase
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', user.id)
-        .single();
-      if (data) setIsAdmin(data.is_admin);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdating(true);
+    const { error } = await updateProfile({
+      first_name: firstName,
+      last_name: lastName,
+      phone,
+      birth_date: birthDate || null,
+      avatar_url: avatarUrl,
+    });
+    setIsUpdating(false);
+    if (error) toast.error('Erreur mise à jour profil');
+    else toast.success('Profil mis à jour');
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error('Les mots de passe ne correspondent pas');
+      return;
+    }
+    setIsUpdatingPassword(true);
+    const { error } = await updatePassword(newPassword);
+    setIsUpdatingPassword(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success('Mot de passe modifié');
+      setNewPassword('');
+      setConfirmPassword('');
     }
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.push('/');
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
-      </div>
-    );
-  }
-
-  if (!user) return null;
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" /></div>;
+  if (!profile) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50/50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Mon Compte</h1>
-            <p className="text-gray-500 mt-1">Ravi de vous revoir, {user.user_metadata?.first_name || 'Client'} !</p>
-          </div>
-          <Button variant="outline" onClick={handleSignOut} className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
-            <LogOut className="h-4 w-4 mr-2" />
-            Déconnexion
-          </Button>
-        </div>
-
-        <Tabs defaultValue="orders" className="space-y-8">
-          <TabsList className="bg-white p-1 rounded-xl border shadow-sm w-full flex flex-wrap justify-start h-auto gap-2">
-            
-            {/* Lien Admin (Visible uniquement si Admin) */}
-            {isAdmin && (
-              <TabsTrigger value="admin_invoices" className="flex-1 min-w-[120px] data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white rounded-lg">
-                <ShieldCheck className="h-4 w-4 mr-2" />
-                Facturation
-              </TabsTrigger>
-            )}
-
-            <TabsTrigger value="orders" className="flex-1 min-w-[120px] data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white rounded-lg">
-              <Package className="h-4 w-4 mr-2" />
-              Commandes
-            </TabsTrigger>
-            <TabsTrigger value="info" className="flex-1 min-w-[120px] data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white rounded-lg">
-              <User className="h-4 w-4 mr-2" />
-              Infos
-            </TabsTrigger>
-            <TabsTrigger value="addresses" className="flex-1 min-w-[120px] data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white rounded-lg">
-              <MapPin className="h-4 w-4 mr-2" />
-              Adresses
-            </TabsTrigger>
-            <TabsTrigger value="wishlist" className="flex-1 min-w-[120px] data-[state=active]:bg-[#D4AF37] data-[state=active]:text-white rounded-lg">
-              <Heart className="h-4 w-4 mr-2" />
-              Mes Pépites
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Contenu Admin */}
-          {isAdmin && (
-            <TabsContent value="admin_invoices" className="focus-visible:outline-none">
-              <AdminInvoiceGenerator />
-            </TabsContent>
-          )}
-
-          <TabsContent value="orders" className="focus-visible:outline-none">
-            <OrderHistory />
-          </TabsContent>
-
-          <TabsContent value="info" className="focus-visible:outline-none">
-            <PersonalInfo />
-          </TabsContent>
-
-          <TabsContent value="addresses" className="focus-visible:outline-none">
-            <AddressBook />
-          </TabsContent>
-
-          <TabsContent value="wishlist" className="focus-visible:outline-none">
-            <WishlistGrid />
-          </TabsContent>
-        </Tabs>
+    <div className="space-y-6">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Mes informations</h2>
+        <p className="text-gray-500">Gérez vos informations personnelles et votre sécurité.</p>
       </div>
+
+      {/* Formulaire Profil */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <User className="h-5 w-5 text-[#D4AF37]" />
+            <CardTitle>Informations personnelles</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSaveProfile} className="space-y-6">
+            <div className="flex justify-center">
+              <ProfilePictureUpload
+                currentUrl={avatarUrl}
+                firstName={firstName}
+                lastName={lastName}
+                onUploadComplete={setAvatarUrl}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Prénom</Label>
+                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label>Nom</Label>
+                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input value={profile.email} disabled className="pl-10 bg-gray-100" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Téléphone</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="pl-10" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Date de naissance</Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} className="pl-10" />
+              </div>
+            </div>
+            <Button type="submit" disabled={isUpdating} className="w-full bg-[#D4AF37] hover:bg-[#b8933d] text-white">
+              {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4 mr-2" /> Enregistrer</>}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Formulaire Mot de passe */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Lock className="h-5 w-5 text-[#D4AF37]" />
+            <CardTitle>Sécurité</CardTitle>
+          </div>
+          <CardDescription>Changer votre mot de passe</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nouveau mot de passe</Label>
+              <PasswordInput value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={isUpdatingPassword} />
+            </div>
+            <div className="space-y-2">
+              <Label>Confirmer</Label>
+              <PasswordInput value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={isUpdatingPassword} />
+            </div>
+            <Button type="submit" disabled={isUpdatingPassword} className="w-full bg-[#D4AF37] hover:bg-[#b8933d] text-white">
+              {isUpdatingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Mettre à jour'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

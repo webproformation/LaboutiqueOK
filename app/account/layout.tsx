@@ -6,11 +6,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Loader2, User, Package, MapPin, Heart, LogOut, Shield, Ruler, Gift, Ticket, PackageOpen, CreditCard, FileText } from 'lucide-react';
+import { Loader2, User, Package, MapPin, Heart, LogOut, Shield, Ruler, Gift, Ticket, PackageOpen, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
-// Liste de base (sans l'admin)
 const baseNavItems = [
   { href: '/account', label: 'Mon profil', icon: User },
   { href: '/account/orders', label: 'Mes commandes', icon: Package },
@@ -31,25 +30,16 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     if (!loading && !user) router.push('/auth/login?redirect=/account');
-    if (user) checkAdmin();
+    if (user) {
+      supabase.from('profiles').select('is_admin').eq('id', user.id).single()
+        .then(({ data }) => setIsAdmin(data?.is_admin || false));
+    }
   }, [user, loading, router]);
-
-  const checkAdmin = async () => {
-    const { data } = await supabase.from('profiles').select('is_admin').eq('id', user?.id).single();
-    if (data?.is_admin) setIsAdmin(true);
-  };
 
   const handleSignOut = async () => { await signOut(); router.push('/'); };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" /></div>;
   if (!user || !profile) return null;
-
-  // On injecte le lien "Facturation" dynamiquement si Admin
-  const navItems = [...baseNavItems];
-  if (isAdmin) {
-    // Insérer après "Mon profil"
-    navItems.splice(1, 0, { href: '/account/admin-invoices', label: 'Facturation (Admin)', icon: FileText });
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -62,15 +52,35 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
           <aside className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-6 sticky top-8">
               <nav className="space-y-2">
-                {profile.is_admin && (
-                  <Link href="/admin" className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white hover:from-[#9a7a2f] hover:to-[#b8933d]">
+                
+                {isAdmin && (
+                  <Link href="/admin" className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white hover:from-[#9a7a2f] hover:to-[#b8933d] mb-4">
                     <Shield className="h-5 w-5" />
-                    <span className="font-medium">Administration</span>
+                    <span className="font-medium">Administration Site</span>
                   </Link>
                 )}
-                {navItems.map((item) => {
+
+                {baseNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
+                  
+                  // SECRET LINK: Si c'est Mon profil et que je suis Admin
+                  if (item.href === '/account' && isAdmin) {
+                    return (
+                      <div key={item.href} className={cn('flex items-center gap-3 px-4 py-3 rounded-lg transition-colors', isActive ? 'bg-[#D4AF37] text-white' : 'text-gray-700 hover:bg-gray-100')}>
+                        {/* L'icône est le bouton secret */}
+                        <Link href="/account/admin-invoices" title="Générateur de Factures" className="hover:scale-110 transition-transform cursor-pointer">
+                          <Icon className="h-5 w-5" />
+                        </Link>
+                        {/* Le texte reste le lien normal */}
+                        <Link href={item.href} className="font-medium flex-1 cursor-pointer">
+                          {item.label}
+                        </Link>
+                      </div>
+                    );
+                  }
+
+                  // Liens normaux
                   return (
                     <Link key={item.href} href={item.href} className={cn('flex items-center gap-3 px-4 py-3 rounded-lg transition-colors', isActive ? 'bg-[#D4AF37] text-white' : 'text-gray-700 hover:bg-gray-100')}>
                       <Icon className="h-5 w-5" />
@@ -78,6 +88,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                     </Link>
                   );
                 })}
+
                 <Button variant="ghost" onClick={handleSignOut} className="w-full justify-start gap-3 px-4 py-3 h-auto hover:bg-red-50 hover:text-red-600">
                   <LogOut className="h-5 w-5" />
                   <span className="font-medium">Déconnexion</span>

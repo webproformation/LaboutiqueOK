@@ -15,21 +15,24 @@ export default function AdminInvoicesPage() {
 
   useEffect(() => {
     if (!user) { router.push('/auth'); return; }
+    const checkAdmin = async () => {
+      const { data } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single();
+      if (data?.is_admin) setIsAdmin(true);
+      else router.push('/account');
+      setLoading(false);
+    };
     checkAdmin();
   }, [user]);
-
-  const checkAdmin = async () => {
-    const { data } = await supabase.from('profiles').select('is_admin').eq('id', user?.id).single();
-    if (data?.is_admin) setIsAdmin(true);
-    else router.push('/account'); // Redirection si pas admin
-    setLoading(false);
-  };
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" /></div>;
   if (!isAdmin) return null;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="space-y-6">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Générateur de Factures</h2>
+        <p className="text-gray-500">Espace réservé à l'administration.</p>
+      </div>
       <AdminInvoiceGenerator />
     </div>
   );
