@@ -14,7 +14,7 @@ interface FilterOption {
   id: string;
   name: string;
   slug: string;
-  count?: number;
+  color_code?: string; // Ajout du code couleur visuel
 }
 
 interface ProductFiltersProps {
@@ -23,8 +23,8 @@ interface ProductFiltersProps {
 }
 
 export interface FilterState {
-  sizes: number[];
-  colorFamilies: string[];
+  sizes: string[]; // Changé en string[] car les tailles peuvent être "TU", "36", etc.
+  colors: string[]; // Simplifié : on filtre par nom de couleur direct
   comfort: string[];
   coupe: string[];
   live: boolean;
@@ -35,23 +35,20 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
   const { profile } = useAuth();
   const [filters, setFilters] = useState<FilterState>({
     sizes: [],
-    colorFamilies: [],
+    colors: [],
     comfort: [],
     coupe: [],
     live: false,
     nouveautes: false,
   });
 
-  const [availableColorFamilies, setAvailableColorFamilies] = useState<string[]>([]);
+  const [colorOptions, setColorOptions] = useState<FilterOption[]>([]);
   const [confortOptions, setConfortOptions] = useState<FilterOption[]>([]);
   const [coupeOptions, setCoupeOptions] = useState<FilterOption[]>([]);
   
-  // On active tout par défaut, plus besoin de configuration base de données
-  const enabledFilters = ['size', 'color', 'comfort', 'fit', 'live'];
-
   useEffect(() => {
     loadFilterOptions();
-  }, []); // Chargement unique au montage
+  }, []);
 
   useEffect(() => {
     onFiltersChange(filters);
@@ -59,18 +56,25 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
 
   const loadFilterOptions = async () => {
     try {
-      // 1. Charger les familles de couleurs
-      const { data: colorData } = await supabase
-        .from('product_attribute_terms')
-        .select('color_family')
-        .not('color_family', 'is', null)
-        .order('color_family');
+      // 1. Charger les COULEURS (via l'attribut 'couleur' ou 'color')
+      const { data: colorAttrs } = await supabase
+        .from('product_attributes')
+        .select('id')
+        .or('slug.eq.couleur,slug.eq.color,slug.eq.couleurs-principales'); // Cherche large
 
-      if (colorData) {
-        const uniqueFamilies = Array.from(new Set(
-          colorData.map((item: any) => item.color_family).filter(Boolean)
-        )) as string[];
-        setAvailableColorFamilies(uniqueFamilies);
+      if (colorAttrs && colorAttrs.length > 0) {
+        const attrIds = colorAttrs.map(a => a.id);
+        const { data: terms } = await supabase
+          .from('product_attribute_terms')
+          .select('id, name, slug, color_code')
+          .in('attribute_id', attrIds)
+          .order('name');
+        
+        if (terms) {
+            // On dédoublonne par nom pour éviter "Bleu" et "Bleu" si plusieurs attributs
+            const uniqueTerms = Array.from(new Map(terms.map(item => [item.name, item])).values());
+            setColorOptions(uniqueTerms);
+        }
       }
 
       // 2. Charger les options "Confort"
@@ -110,7 +114,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
     }
   };
 
-  const handleSizeToggle = (size: number) => {
+  const handleSizeToggle = (size: string) => {
     setFilters(prev => ({
       ...prev,
       sizes: prev.sizes.includes(size)
@@ -119,37 +123,37 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
     }));
   };
 
-  const handleColorFamilyToggle = (family: string) => {
+  const handleColorToggle = (colorName: string) => {
     setFilters(prev => ({
       ...prev,
-      colorFamilies: prev.colorFamilies.includes(family)
-        ? prev.colorFamilies.filter(f => f !== family)
-        : [...prev.colorFamilies, family]
+      colors: prev.colors.includes(colorName)
+        ? prev.colors.filter(c => c !== colorName)
+        : [...prev.colors, colorName]
     }));
   };
 
-  const handleComfortToggle = (slug: string) => {
+  const handleComfortToggle = (name: string) => {
     setFilters(prev => ({
       ...prev,
-      comfort: prev.comfort.includes(slug)
-        ? prev.comfort.filter(c => c !== slug)
-        : [...prev.comfort, slug]
+      comfort: prev.comfort.includes(name)
+        ? prev.comfort.filter(c => c !== name)
+        : [...prev.comfort, name]
     }));
   };
 
-  const handleCoupeToggle = (slug: string) => {
+  const handleCoupeToggle = (name: string) => {
     setFilters(prev => ({
       ...prev,
-      coupe: prev.coupe.includes(slug)
-        ? prev.coupe.filter(c => c !== slug)
-        : [...prev.coupe, slug]
+      coupe: prev.coupe.includes(name)
+        ? prev.coupe.filter(c => c !== name)
+        : [...prev.coupe, name]
     }));
   };
 
   const clearFilters = () => {
     setFilters({
       sizes: [],
-      colorFamilies: [],
+      colors: [],
       comfort: [],
       coupe: [],
       live: false,
@@ -159,7 +163,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
 
   const hasActiveFilters =
     filters.sizes.length > 0 ||
-    filters.colorFamilies.length > 0 ||
+    filters.colors.length > 0 ||
     filters.comfort.length > 0 ||
     filters.coupe.length > 0 ||
     filters.live ||
@@ -191,8 +195,8 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="my-size"
-                checked={filters.sizes.includes(profile.user_size)}
-                onCheckedChange={() => handleSizeToggle(profile.user_size!)}
+                checked={filters.sizes.includes(String(profile.user_size))}
+                onCheckedChange={() => handleSizeToggle(String(profile.user_size))}
                 className="data-[state=checked]:bg-[#D4AF37] data-[state=checked]:border-[#D4AF37]"
               />
               <Label htmlFor="my-size" className="text-sm font-semibold cursor-pointer text-[#b8933d]">
@@ -205,7 +209,8 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
         <div className="space-y-3">
           <h3 className="font-semibold text-sm text-gray-900">Tailles</h3>
           <div className="grid grid-cols-4 gap-2">
-            {Array.from({ length: 11 }, (_, i) => 34 + (i * 2)).map(size => (
+            {/* Génération manuelle des tailles standard + TU + Grandes Tailles */}
+            {['34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', 'TU'].map(size => (
               <button
                 key={size}
                 onClick={() => handleSizeToggle(size)}
@@ -223,25 +228,35 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
         
         <Separator />
 
-        {/* --- COULEURS --- */}
-        {availableColorFamilies.length > 0 && (
+        {/* --- COULEURS (Corrigé) --- */}
+        {colorOptions.length > 0 && (
           <>
             <div className="space-y-3">
               <h3 className="font-semibold text-sm text-gray-900">Couleurs</h3>
               <div className="flex flex-wrap gap-2">
-                {availableColorFamilies.map(family => {
-                  const isSelected = filters.colorFamilies.includes(family);
+                {colorOptions.map(option => {
+                  const isSelected = filters.colors.includes(option.name);
+                  // Si on a un code couleur (hex), on l'utilise pour le fond
+                  const bgColor = option.color_code || '#eee'; 
+                  // Calcul de la couleur du texte (noir ou blanc) pour le contraste si nécessaire
+                  // Pour simplifier ici, on met une bordure colorée si sélectionné
+                  
                   return (
                     <div 
-                      key={family} 
-                      onClick={() => handleColorFamilyToggle(family)}
-                      className={`cursor-pointer px-3 py-1.5 rounded-full text-xs border transition-all ${
+                      key={option.id} 
+                      onClick={() => handleColorToggle(option.name)}
+                      className={`cursor-pointer w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
                         isSelected 
-                          ? 'bg-gray-900 text-white border-gray-900' 
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                          ? 'border-[#D4AF37] scale-110 shadow-sm' 
+                          : 'border-transparent hover:scale-105 hover:shadow-sm'
                       }`}
+                      style={{ backgroundColor: bgColor }}
+                      title={option.name}
                     >
-                      {family}
+                      {/* Coche si sélectionné */}
+                      {isSelected && <div className="w-2 h-2 bg-white rounded-full shadow-sm" />}
+                      {/* Fallback si pas de couleur : on affiche le nom */}
+                      {!option.color_code && <span className="text-[10px] text-black px-1 truncate">{option.name}</span>}
                     </div>
                   );
                 })}
@@ -260,12 +275,12 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
                 {confortOptions.map(option => (
                   <div key={option.id} className="flex items-center space-x-2">
                     <Checkbox
-                      id={`comfort-${option.slug}`}
-                      checked={filters.comfort.includes(option.slug)}
-                      onCheckedChange={() => handleComfortToggle(option.slug)}
+                      id={`comfort-${option.id}`}
+                      checked={filters.comfort.includes(option.name)} // On filtre sur le NOM
+                      onCheckedChange={() => handleComfortToggle(option.name)}
                       className="data-[state=checked]:bg-[#D4AF37] data-[state=checked]:border-[#D4AF37]"
                     />
-                    <Label htmlFor={`comfort-${option.slug}`} className="text-sm cursor-pointer">
+                    <Label htmlFor={`comfort-${option.id}`} className="text-sm cursor-pointer">
                       {option.name}
                     </Label>
                   </div>
@@ -285,12 +300,12 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
                 {coupeOptions.map(option => (
                   <div key={option.id} className="flex items-center space-x-2">
                     <Checkbox
-                      id={`coupe-${option.slug}`}
-                      checked={filters.coupe.includes(option.slug)}
-                      onCheckedChange={() => handleCoupeToggle(option.slug)}
+                      id={`coupe-${option.id}`}
+                      checked={filters.coupe.includes(option.name)} // On filtre sur le NOM
+                      onCheckedChange={() => handleCoupeToggle(option.name)}
                       className="data-[state=checked]:bg-[#D4AF37] data-[state=checked]:border-[#D4AF37]"
                     />
-                    <Label htmlFor={`coupe-${option.slug}`} className="text-sm cursor-pointer">
+                    <Label htmlFor={`coupe-${option.id}`} className="text-sm cursor-pointer">
                       {option.name}
                     </Label>
                   </div>
@@ -343,10 +358,22 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
                     <X className="h-3 w-3 cursor-pointer" onClick={() => handleSizeToggle(size)} />
                   </Badge>
                 ))}
-                {filters.colorFamilies.map(family => (
-                  <Badge key={`color-${family}`} variant="secondary" className="gap-1">
-                    {family}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => handleColorFamilyToggle(family)} />
+                {filters.colors.map(c => (
+                  <Badge key={`color-${c}`} variant="secondary" className="gap-1">
+                    {c}
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => handleColorToggle(c)} />
+                  </Badge>
+                ))}
+                {filters.comfort.map(c => (
+                  <Badge key={`comfort-${c}`} variant="secondary" className="gap-1">
+                    {c}
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => handleComfortToggle(c)} />
+                  </Badge>
+                ))}
+                {filters.coupe.map(c => (
+                  <Badge key={`coupe-${c}`} variant="secondary" className="gap-1">
+                    {c}
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => handleCoupeToggle(c)} />
                   </Badge>
                 ))}
                 {filters.live && (

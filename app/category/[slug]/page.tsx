@@ -34,15 +34,15 @@ export default function CategoryPage() {
   const [maxPrice, setMaxPrice] = useState(200);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     sizes: [],
-    colorFamilies: [],
+    colors: [],
     comfort: [],
     coupe: [],
     live: false,
     nouveautes: false,
   });
 
-  // Dictionnaire pour traduire les filtres en IDs techniques
-  const [termsData, setTermsData] = useState<any[]>([]);
+  // Dictionnaire ID -> Nom pour traduire les données brutes
+  const [termMap, setTermMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     loadCategoryAndProducts();
@@ -50,17 +50,22 @@ export default function CategoryPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [priceRange, activeFilters, allProducts, termsData]);
+  }, [priceRange, activeFilters, allProducts, termMap]);
 
   async function loadCategoryAndProducts() {
     setLoading(true);
     try {
-      // 1. Charger le dictionnaire des termes
+      // 1. Charger tous les termes pour créer un dictionnaire ID => NOM
+      // Car les produits contiennent parfois des IDs, parfois des noms. On normalise tout.
       const { data: terms } = await supabase
         .from('product_attribute_terms')
-        .select('id, name, slug, color_family');
+        .select('id, name');
       
-      if (terms) setTermsData(terms);
+      const map = new Map<string, string>();
+      if (terms) {
+        terms.forEach(t => map.set(String(t.id), t.name));
+      }
+      setTermMap(map);
 
       // 2. Charger les produits
       let productsQuery = supabase
@@ -125,51 +130,75 @@ export default function CategoryPage() {
       return price >= priceRange[0] && price <= priceRange[1];
     });
 
-    // 2. Filtres Attributs
-    const productHasTerm = (product: Product, termIdsToCheck: string[]) => {
+    // 2. Fonction Helper pour vérifier si un produit a un attribut (par Nom)
+    const productHasAttribute = (product: Product, targetNames: string[]) => {
+      // Cas A: Produit Variable (on cherche dans les variations)
+      if (product.is_variable_product && product.variations) {
+         // Pour les variations, on cherche souvent Couleur et Taille
+         // On regarde si AU MOINS UNE variation correspond au critère
+         // Note: product.variations n'est pas chargé par défaut avec select('*'), 
+         // il faudrait le fetcher. Mais souvent les attributs globaux sont aussi dans `attributes` JSON.
+         // On se replie sur le JSON `attributes` qui est plus sûr pour le filtrage global.
+      }
+
+      // Cas B: JSON attributes standard (marche pour Simple et Variable pour les infos globales)
       if (!product.attributes || typeof product.attributes !== 'object') return false;
-      const productTermIds: string[] = [];
-      // On scanne le JSON attributes du produit
-      Object.values(product.attributes).forEach((ids: any) => {
-        if (Array.isArray(ids)) {
-          ids.forEach(id => productTermIds.push(String(id)));
+
+      // On collecte tous les NOMS d'attributs du produit
+      const productAttributeValues: string[] = [];
+      
+      // Le JSON est souvent { "attr_id": ["term_id", "term_id"] } ou { "Couleur": "Bleu" }
+      Object.entries(product.attributes).forEach(([key, values]) => {
+        // Si c'est un tableau d'IDs ou de Strings
+        if (Array.isArray(values)) {
+          values.forEach(val => {
+            // Si c'est un ID, on le traduit en Nom via notre map
+            if (termMap.has(String(val))) {
+              productAttributeValues.push(termMap.get(String(val))!.toLowerCase());
+            } else {
+              // Sinon c'est déjà du texte (ex: "Stretch")
+              productAttributeValues.push(String(val).toLowerCase());
+            }
+          });
+        } 
+        // Si c'est une valeur simple
+        else if (typeof values === 'string') {
+           productAttributeValues.push(values.toLowerCase());
         }
       });
-      return termIdsToCheck.some(id => productTermIds.includes(String(id)));
+
+      // On vérifie si l'un des termes recherchés est présent
+      return targetNames.some(target => productAttributeValues.includes(target.toLowerCase()));
     };
 
+    // --- Application des filtres ---
+
+    // Tailles (Attention: peut nécessiter une logique spéciale si stocké dans variations)
     if (activeFilters.sizes.length > 0) {
-      const sizeTermIds = termsData
-        .filter(t => activeFilters.sizes.includes(Number(t.name)) || activeFilters.sizes.includes(t.name))
-        .map(t => t.id);
-      if (sizeTermIds.length > 0) filtered = filtered.filter(p => productHasTerm(p, sizeTermIds));
+      // Pour les tailles, c'est souvent spécifique. On tente le match générique.
+      // Si ça ne marche pas, il faudra fetcher les product_variations.
+      filtered = filtered.filter(p => productHasAttribute(p, activeFilters.sizes));
     }
 
-    if (activeFilters.colorFamilies.length > 0) {
-      const colorTermIds = termsData
-        .filter(t => activeFilters.colorFamilies.includes(t.color_family))
-        .map(t => t.id);
-      if (colorTermIds.length > 0) filtered = filtered.filter(p => productHasTerm(p, colorTermIds));
+    if (activeFilters.colors.length > 0) {
+      filtered = filtered.filter(p => productHasAttribute(p, activeFilters.colors));
     }
 
     if (activeFilters.comfort.length > 0) {
-      const comfortTermIds = termsData.filter(t => activeFilters.comfort.includes(t.slug)).map(t => t.id);
-      if (comfortTermIds.length > 0) filtered = filtered.filter(p => productHasTerm(p, comfortTermIds));
+      filtered = filtered.filter(p => productHasAttribute(p, activeFilters.comfort));
     }
 
     if (activeFilters.coupe.length > 0) {
-      const coupeTermIds = termsData.filter(t => activeFilters.coupe.includes(t.slug)).map(t => t.id);
-      if (coupeTermIds.length > 0) filtered = filtered.filter(p => productHasTerm(p, coupeTermIds));
+      filtered = filtered.filter(p => productHasAttribute(p, activeFilters.coupe));
     }
 
     if (activeFilters.live) {
-       const liveTermIds = termsData.filter(t => t.slug.includes('live') || t.name.toLowerCase().includes('live')).map(t => t.id);
-       if (liveTermIds.length > 0) filtered = filtered.filter(p => productHasTerm(p, liveTermIds));
+       // "Vu dans le dernier Live !" est le nom exact souvent utilisé
+       filtered = filtered.filter(p => productHasAttribute(p, ["Vu dans le dernier Live !", "Live"]));
     }
 
     if (activeFilters.nouveautes) {
-       const newTermIds = termsData.filter(t => t.slug.includes('nouveau') || t.name.toLowerCase().includes('nouvea')).map(t => t.id);
-       if (newTermIds.length > 0) filtered = filtered.filter(p => productHasTerm(p, newTermIds));
+       filtered = filtered.filter(p => productHasAttribute(p, ["Nouveautés", "Nouveau"]));
     }
 
     setFilteredProducts(filtered);
@@ -182,7 +211,6 @@ export default function CategoryPage() {
   const displayProducts = filteredProducts;
   const categoryName = slug === 'tous' ? 'Tous les Produits' : category?.name || '';
 
-  // Contenu des filtres (réutilisé pour Desktop et Mobile)
   const FilterContent = () => (
     <div className="space-y-6">
       <div>
@@ -224,7 +252,6 @@ export default function CategoryPage() {
 
         <div className="flex flex-col lg:flex-row gap-8">
           
-          {/* --- SIDEBAR FILTRES (VISIBLE SUR DESKTOP) --- */}
           <aside className="hidden lg:block w-64 flex-shrink-0">
             <div className="sticky top-24 bg-white rounded-xl shadow-sm border border-gray-100 p-5 overflow-y-auto max-h-[calc(100vh-8rem)]">
               <div className="flex items-center gap-2 mb-6 text-[#D4AF37] font-bold text-lg">
@@ -234,7 +261,6 @@ export default function CategoryPage() {
             </div>
           </aside>
 
-          {/* --- CONTENU PRINCIPAL --- */}
           <div className="flex-1">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
@@ -244,7 +270,6 @@ export default function CategoryPage() {
                 )}
               </div>
 
-              {/* --- BOUTON FILTRES (VISIBLE SUR MOBILE SEULEMENT) --- */}
               <div className="flex items-center gap-3 lg:hidden">
                 <Sheet>
                   <SheetTrigger asChild>
@@ -278,7 +303,7 @@ export default function CategoryPage() {
                   variant="outline" 
                   onClick={() => {
                     setPriceRange([0, maxPrice]);
-                    window.location.reload(); // Reset simple
+                    window.location.reload(); 
                   }} 
                   className="text-[#D4AF37] border-[#D4AF37] hover:bg-[#FFF9F0]"
                 >
