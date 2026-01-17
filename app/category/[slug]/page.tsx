@@ -25,7 +25,7 @@ export default function CategoryPage() {
   const slug = params.slug as string;
 
   const [category, setCategory] = useState<ProductCategory | null>(null);
-  const [allProducts, setAllProducts] = useState<any[]>([]); // Changé en any[] pour inclure les variations facilement
+  const [allProducts, setAllProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -54,7 +54,7 @@ export default function CategoryPage() {
   async function loadCategoryAndProducts() {
     setLoading(true);
     try {
-      // 1. Dictionnaire ID -> Nom pour traduire les données brutes (ID 123 -> "Stretch")
+      // 1. Dictionnaire ID -> Nom pour traduire les attributs
       const { data: terms } = await supabase
         .from('product_attribute_terms')
         .select('id, name');
@@ -65,11 +65,10 @@ export default function CategoryPage() {
       }
       setTermMap(map);
 
-      // 2. Charger les produits AVEC leurs variations (C'est ici la clé du succès !)
-      // On demande poliment à Supabase : "Donne moi les produits ET leurs déclinaisons"
+      // 2. Charger les produits (Requête SIMPLE sans jointure complexe)
       let productsQuery = supabase
         .from('products')
-        .select('*, product_variations(*)') // <-- Jointure magique
+        .select('*')
         .eq('status', 'publish')
         .order('created_at', { ascending: false });
 
@@ -102,10 +101,30 @@ export default function CategoryPage() {
         }
       }
 
-      const { data: productsData } = await productsQuery;
+      const { data: productsData, error: productsError } = await productsQuery;
+
+      if (productsError) throw productsError;
 
       if (productsData) {
-        setAllProducts(productsData);
+        // 3. Charger les variations SÉPARÉMENT (pour éviter l'erreur 400)
+        // On récupère les IDs des produits chargés
+        const productIds = productsData.map(p => p.id);
+        
+        // On cherche toutes les variations liées à ces produits
+        const { data: variationsData } = await supabase
+          .from('product_variations')
+          .select('*')
+          .in('product_id', productIds);
+
+        // 4. Fusionner manuellement (Produits + Variations)
+        const productsWithVariations = productsData.map(p => ({
+          ...p,
+          // On attache les variations correspondantes à chaque produit
+          product_variations: variationsData?.filter(v => v.product_id === p.id) || []
+        }));
+
+        setAllProducts(productsWithVariations);
+
         // Calcul du prix max
         const prices = productsData.map(p => p.sale_price || p.regular_price || 0).filter(p => p > 0);
         const max = prices.length > 0 ? Math.ceil(Math.max(...prices)) : 200;
@@ -130,18 +149,16 @@ export default function CategoryPage() {
       return price >= priceRange[0] && price <= priceRange[1];
     });
 
-    // 2. Fonction Helper Puissante : Cherche dans le produit ET ses variations
+    // 2. Helper : Vérifie si le produit OU ses variations contiennent le terme cherché
     const productHasAttribute = (product: any, targetNames: string[]) => {
-      // Normalisation des cibles en minuscule pour comparaison facile
       const targets = targetNames.map(t => t.toLowerCase());
       const collectedValues: string[] = [];
 
-      // A. Scan des attributs du produit principal (JSON)
+      // A. Scan attributs produit principal
       if (product.attributes && typeof product.attributes === 'object') {
         Object.values(product.attributes).forEach((values: any) => {
           if (Array.isArray(values)) {
             values.forEach(val => {
-              // Si c'est un ID, on traduit. Sinon on prend tel quel.
               const valStr = String(val);
               if (termMap.has(valStr)) {
                 collectedValues.push(termMap.get(valStr)!.toLowerCase());
@@ -155,50 +172,41 @@ export default function CategoryPage() {
         });
       }
 
-      // B. Scan des VARIATIONS (Pour Taille et Couleur surtout)
+      // B. Scan des variations (Manuellement attachées)
       if (product.product_variations && Array.isArray(product.product_variations)) {
         product.product_variations.forEach((variation: any) => {
           if (variation.attributes && typeof variation.attributes === 'object') {
              Object.values(variation.attributes).forEach((val: any) => {
-                // Les variations stockent souvent direct le nom (ex: "Marine") ou un objet {name: "Marine"}
                 if (typeof val === 'string') {
                    collectedValues.push(val.toLowerCase());
-                } else if (typeof val === 'object' && val?.name) {
-                   collectedValues.push(String(val.name).toLowerCase());
-                } else if (typeof val === 'object' && val?.option) {
-                   collectedValues.push(String(val.option).toLowerCase());
+                } else if (typeof val === 'object') {
+                   if (val?.name) collectedValues.push(String(val.name).toLowerCase());
+                   if (val?.option) collectedValues.push(String(val.option).toLowerCase());
                 }
              });
           }
         });
       }
 
-      // Vérification : est-ce que l'un des termes cherchés est présent ?
       return targets.some(target => collectedValues.includes(target));
     };
 
     // --- Application des filtres ---
-
     if (activeFilters.sizes.length > 0) {
       filtered = filtered.filter(p => productHasAttribute(p, activeFilters.sizes));
     }
-
     if (activeFilters.colors.length > 0) {
       filtered = filtered.filter(p => productHasAttribute(p, activeFilters.colors));
     }
-
     if (activeFilters.comfort.length > 0) {
       filtered = filtered.filter(p => productHasAttribute(p, activeFilters.comfort));
     }
-
     if (activeFilters.coupe.length > 0) {
       filtered = filtered.filter(p => productHasAttribute(p, activeFilters.coupe));
     }
-
     if (activeFilters.live) {
        filtered = filtered.filter(p => productHasAttribute(p, ["Vu dans le dernier Live !", "Live"]));
     }
-
     if (activeFilters.nouveautes) {
        filtered = filtered.filter(p => productHasAttribute(p, ["Nouveautés", "Nouveau"]));
     }
