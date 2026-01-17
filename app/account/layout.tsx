@@ -10,6 +10,7 @@ import { Loader2, User, Package, MapPin, Heart, LogOut, Shield, Ruler, Gift, Tic
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
+// Liste de base (sans l'admin)
 const baseNavItems = [
   { href: '/account', label: 'Mon profil', icon: User },
   { href: '/account/orders', label: 'Mes commandes', icon: Package },
@@ -30,11 +31,13 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     if (!loading && !user) router.push('/auth/login?redirect=/account');
-    if (user) {
-      supabase.from('profiles').select('is_admin').eq('id', user.id).single()
-        .then(({ data }) => setIsAdmin(data?.is_admin || false));
-    }
+    if (user) checkAdmin();
   }, [user, loading, router]);
+
+  const checkAdmin = async () => {
+    const { data } = await supabase.from('profiles').select('is_admin').eq('id', user?.id).single();
+    if (data?.is_admin) setIsAdmin(true);
+  };
 
   const handleSignOut = async () => { await signOut(); router.push('/'); };
 
@@ -53,7 +56,8 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
             <div className="bg-white rounded-lg shadow-sm p-6 sticky top-8">
               <nav className="space-y-2">
                 
-                {isAdmin && (
+                {/* Lien Admin global (reste en haut) */}
+                {profile.is_admin && (
                   <Link href="/admin" className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white hover:from-[#9a7a2f] hover:to-[#b8933d] mb-4">
                     <Shield className="h-5 w-5" />
                     <span className="font-medium">Administration Site</span>
@@ -64,15 +68,21 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
                   
-                  // SECRET LINK: Si c'est Mon profil et que je suis Admin
-                  if (item.href === '/account' && isAdmin) {
+                  // LOGIQUE DU LIEN SECRET : Si c'est "Mon profil" ET qu'on est Admin
+                  const isProfileItem = item.href === '/account';
+                  
+                  if (isProfileItem && isAdmin) {
                     return (
-                      <div key={item.href} className={cn('flex items-center gap-3 px-4 py-3 rounded-lg transition-colors', isActive ? 'bg-[#D4AF37] text-white' : 'text-gray-700 hover:bg-gray-100')}>
-                        {/* L'icône est le bouton secret */}
-                        <Link href="/account/admin-invoices" title="Générateur de Factures" className="hover:scale-110 transition-transform cursor-pointer">
+                      <div key={item.href} className={cn('flex items-center gap-3 px-4 py-3 rounded-lg transition-colors group', isActive ? 'bg-[#D4AF37] text-white' : 'text-gray-700 hover:bg-gray-100')}>
+                        {/* L'icône devient le lien secret vers les factures */}
+                        <Link 
+                          href="/account/admin-invoices" 
+                          title="Accès Facturation Admin" 
+                          className="hover:scale-110 hover:text-[#D4AF37] transition-all p-1 -ml-1 cursor-pointer"
+                        >
                           <Icon className="h-5 w-5" />
                         </Link>
-                        {/* Le texte reste le lien normal */}
+                        {/* Le texte reste le lien vers le profil standard */}
                         <Link href={item.href} className="font-medium flex-1 cursor-pointer">
                           {item.label}
                         </Link>
@@ -80,7 +90,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
                     );
                   }
 
-                  // Liens normaux
+                  // Affichage standard pour tous les autres liens
                   return (
                     <Link key={item.href} href={item.href} className={cn('flex items-center gap-3 px-4 py-3 rounded-lg transition-colors', isActive ? 'bg-[#D4AF37] text-white' : 'text-gray-700 hover:bg-gray-100')}>
                       <Icon className="h-5 w-5" />
