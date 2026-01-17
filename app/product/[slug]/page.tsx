@@ -14,7 +14,6 @@ import {
   Edit,
   Trash2,
   Shield,
-  Info,
 } from "lucide-react";
 import { ProductGallery } from "@/components/ProductGallery";
 import { ProductVariationSelector } from "@/components/ProductVariationSelector";
@@ -63,7 +62,10 @@ export default function ProductPage() {
   const [showNotifyDialog, setShowNotifyDialog] = useState(false);
   const [userSelectedGalleryImage, setUserSelectedGalleryImage] = useState<string | null>(null);
   const [initialAttributes, setInitialAttributes] = useState<Record<string, string>>({});
+  
+  // NOUVEAU : On sépare complètement la gestion des attributs informatifs
   const [informativeAttributes, setInformativeAttributes] = useState<Array<{ name: string; values: string[] }>>([]);
+  
   const [diamondPosition] = useState<"title" | "image" | "description">(() =>
     diamondPositions[Math.floor(Math.random() * diamondPositions.length)]
   );
@@ -72,6 +74,13 @@ export default function ProductPage() {
     loadProduct();
     checkAdminStatus();
   }, [slug, user]);
+
+  // NOUVEAU : Dès qu'on a le produit, on lance la recherche spécifique des attributs informatifs
+  useEffect(() => {
+    if (product?.id) {
+      loadInformativeAttributes(product.id);
+    }
+  }, [product?.id]);
 
   useEffect(() => {
     if (product && product.type === "VARIABLE" && product.attributes && product.variations && !selectedVariation) {
@@ -101,6 +110,61 @@ export default function ProductPage() {
     }
   }, [product]);
 
+  // --- NOUVELLE FONCTION DÉDIÉE : Charge les attributs (Confort, Coupe...) ---
+  async function loadInformativeAttributes(productId: string) {
+    try {
+      // On requête la table de liaison directement
+      const { data, error } = await supabase
+        .from('product_attribute_values')
+        .select(`
+          attribute:product_attributes(name, slug),
+          term:product_attribute_terms(name)
+        `)
+        .eq('product_id', productId);
+
+      if (error || !data) {
+        console.log("InfoAttributes: Aucune donnée ou erreur", error);
+        return;
+      }
+
+      const groups = new Map<string, string[]>();
+
+      data.forEach((item: any) => {
+        // Sécurisation des données (parfois c'est un tableau, parfois un objet selon Supabase)
+        const attrName = Array.isArray(item.attribute) ? item.attribute[0]?.name : item.attribute?.name;
+        const attrSlug = (Array.isArray(item.attribute) ? item.attribute[0]?.slug : item.attribute?.slug)?.toLowerCase() || '';
+        const termValue = Array.isArray(item.term) ? item.term[0]?.name : item.term?.name;
+
+        if (attrName && termValue) {
+          // FILTRAGE STRICT : On exclut tout ce qui ressemble à une Couleur ou Taille (déjà géré par le sélecteur)
+          if (
+            attrSlug.includes('couleur') || 
+            attrSlug.includes('taille') || 
+            attrSlug === 'color' || 
+            attrSlug === 'size' ||
+            attrName.toLowerCase() === 'couleur' ||
+            attrName.toLowerCase() === 'taille'
+          ) {
+            return;
+          }
+          
+          if (!groups.has(attrName)) groups.set(attrName, []);
+          // On évite les doublons
+          if (!groups.get(attrName)?.includes(termValue)) {
+            groups.get(attrName)?.push(termValue);
+          }
+        }
+      });
+
+      const result = Array.from(groups.entries()).map(([name, values]) => ({ name, values }));
+      console.log("InfoAttributes CHARGÉS :", result); // Pour debugging si besoin
+      setInformativeAttributes(result);
+      
+    } catch (err) {
+      console.error("Erreur loadInformativeAttributes:", err);
+    }
+  }
+
   async function checkAdminStatus() {
     if (!user) return;
     try {
@@ -129,39 +193,6 @@ export default function ProductPage() {
         router.push("/");
         return;
       }
-
-      // --- 1. SAUVETAGE DES ATTRIBUTS GLOBAUX (Confort, Coupe...) ---
-      // On récupère ces infos AVANT que la logique "Variable" ne les écrase.
-      const globalAttributesMap = new Map<string, Set<string>>();
-      
-      if (productData.attributes && typeof productData.attributes === 'object') {
-        const termIds: string[] = [];
-        // Le format est souvent { "attr_id": ["term_id", ...] }
-        Object.values(productData.attributes).forEach((ids: any) => {
-           if (Array.isArray(ids)) termIds.push(...ids);
-        });
-
-        if (termIds.length > 0) {
-           const { data: terms } = await supabase
-             .from('product_attribute_terms')
-             .select('name, product_attributes(name, slug)')
-             .in('id', termIds);
-             
-           if (terms) {
-             terms.forEach((term: any) => {
-                const attrName = term.product_attributes?.name;
-                const attrSlug = term.product_attributes?.slug?.toLowerCase() || '';
-                
-                // On garde tout ce qui n'est PAS une variation (Couleur/Taille)
-                if (attrSlug && !attrSlug.includes('couleur') && !attrSlug.includes('taille') && attrSlug !== 'color' && attrSlug !== 'size') {
-                   if (!globalAttributesMap.has(attrName)) globalAttributesMap.set(attrName, new Set());
-                   globalAttributesMap.get(attrName)?.add(term.name);
-                }
-             });
-           }
-        }
-      }
-      // -------------------------------------------------------------
 
       if (productData.is_variable_product) {
         const { data: variations } = await supabase
@@ -202,7 +233,7 @@ export default function ProductPage() {
             options: Array.from(options),
           }));
 
-          // Récupération des codes couleurs
+          // Récupération des codes couleurs pour les variations
           const allOptionNames = attributes.flatMap(a => a.options);
           
           if (allOptionNames.length > 0) {
@@ -286,32 +317,6 @@ export default function ProductPage() {
       }
 
       setProduct(productData);
-      
-      // --- 2. MERGE ET AFFICHAGE DES ATTRIBUTS GLOBAUX ---
-      // On ajoute aussi ceux trouvés dans la table relationnelle (double sécurité)
-      const { data: attributeValues } = await supabase
-        .from("product_attribute_values")
-        .select(`product_attributes!inner(id, name, slug, type), product_attribute_terms(id, name)`)
-        .eq("product_id", productData.id);
-
-      if (attributeValues && attributeValues.length > 0) {
-        attributeValues.forEach((av: any) => {
-          if (av.product_attributes && av.product_attribute_terms) {
-            const attrName = av.product_attributes.name;
-            const attrSlug = av.product_attributes.slug?.toLowerCase() || '';
-            const termValue = av.product_attribute_terms.name;
-            if (attrSlug === 'couleurs-principales' || attrSlug === 'tailles' || attrSlug.includes('couleur') || attrSlug.includes('taille')) return;
-            if (!globalAttributesMap.has(attrName)) globalAttributesMap.set(attrName, new Set());
-            globalAttributesMap.get(attrName)?.add(termValue);
-          }
-        });
-      }
-
-      setInformativeAttributes(Array.from(globalAttributesMap.entries()).map(([name, valuesSet]) => ({
-        name,
-        values: Array.from(valuesSet),
-      })));
-
     } catch (error) {
       console.error("Error loading product:", error);
     } finally {
