@@ -336,7 +336,8 @@ export default function OrdersPage() {
         throw new Error(data.error || "Erreur lors de la génération");
       }
 
-      const pdfBlob = new Blob([Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0))], {
+      // CORRECTION ICI : data.pdfBase64 au lieu de data.pdf
+      const pdfBlob = new Blob([Uint8Array.from(atob(data.pdfBase64), (c) => c.charCodeAt(0))], {
         type: "application/pdf",
       });
 
@@ -379,7 +380,8 @@ export default function OrdersPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orderId,
-          pdfBase64: pdfData.pdf,
+          // CORRECTION ICI AUSSI : pdfData.pdfBase64 au lieu de pdfData.pdf
+          pdfBase64: pdfData.pdfBase64,
           filename: pdfData.filename,
         }),
       });
