@@ -110,35 +110,33 @@ export default function ProductPage() {
     }
   }, [product]);
 
-  // --- CORRECTION : Lecture depuis le JSON du produit + product_attribute_terms ---
+  // --- CORRECTION MAJEURE ICI : Recherche par 'name' et non par 'id' ---
   async function loadInformativeAttributes(productData: Product) {
     try {
-      // 1. Récupérer les IDs stockés dans la colonne JSON "attributes" du produit
-      // Format attendu du JSON : { "id_attribut": ["id_term1", "id_term2"], ... }
       const rawAttributes = productData.attributes;
       
       if (!rawAttributes || typeof rawAttributes !== 'object') return;
 
-      const termIds: string[] = [];
+      const termNames: string[] = [];
       
-      // On extrait tous les IDs de termes présents dans le JSON
-      Object.values(rawAttributes).forEach((ids) => {
-        if (Array.isArray(ids)) {
-          // On s'assure que ce sont bien des chaînes ou des nombres
-          ids.forEach(id => termIds.push(String(id)));
+      // On extrait tous les Noms de termes présents dans le JSON
+      Object.values(rawAttributes).forEach((names) => {
+        if (Array.isArray(names)) {
+          // On s'assure que ce sont bien des chaînes
+          names.forEach(name => termNames.push(String(name)));
         }
       });
 
-      if (termIds.length === 0) return;
+      if (termNames.length === 0) return;
 
-      // 2. On va chercher les infos de ces termes dans la table `product_attribute_terms`
+      // RECHERCHE DANS LA COLONNE 'name' (C'est ici que ça bloquait avec 'id')
       const { data, error } = await supabase
         .from('product_attribute_terms')
         .select(`
           name, 
           product_attributes (name, slug)
         `)
-        .in('id', termIds);
+        .in('name', termNames);
 
       if (error) {
         console.error("Erreur fetch termes:", error);
@@ -158,7 +156,7 @@ export default function ProductPage() {
         const termValue = item.name;
 
         if (attrName && termValue) {
-          // 3. On ignore Couleurs et Tailles (déjà gérés par le sélecteur)
+          // On ignore Couleurs et Tailles (déjà gérés par le sélecteur)
           if (
             attrSlug.includes('couleur') || 
             attrSlug.includes('taille') || 
@@ -248,22 +246,6 @@ export default function ProductPage() {
             }
           });
 
-          // ATTENTION : Ici, on écrase productData.attributes avec les attributs de VARIATION seulement
-          // C'est pour le sélecteur (Couleur/Taille).
-          // Mais notre fonction loadInformativeAttributes utilisera le JSON original "rawAttributes" 
-          // qu'on va passer via l'état ou relire depuis productData avant écrasement, 
-          // MAIS comme on a déjà passé productData au state "setProduct", 
-          // l'effet useEffect(loadInformativeAttributes) utilisera la version mise à jour.
-          
-          // SOLUTION : On ne touche pas aux attributs bruts dans l'objet productData pour le state, 
-          // on crée une propriété séparée pour le sélecteur si possible, OU on fait confiance à notre
-          // useEffect qui se déclenche sur "product".
-          
-          // Pour être sûr, on va stocker les attributs de variation dans une nouvelle propriété temporaire
-          // ou juste s'assurer que loadInformativeAttributes a accès aux données brutes.
-          // Le plus simple : on laisse le code tel quel car loadInformativeAttributes est appelé 
-          // avec le résultat du state. Si on écrase "attributes" ici, on perd les infos JSON.
-          
           // FIX CRITIQUE : On sauvegarde le JSON original des attributs globaux
           const originalAttributesJSON = JSON.parse(JSON.stringify(productData.attributes || {}));
 
@@ -327,8 +309,7 @@ export default function ProductPage() {
           productData.type = "VARIABLE";
         }
       } else if (productData.attributes && typeof productData.attributes === 'object') {
-         // Produit simple - logique existante (ici productData.attributes est déjà le JSON, donc c'est bon)
-         // Mais on veut aussi afficher les pastilles si c'est un produit simple avec couleur (rare mais possible)
+         // Produit simple
         const simpleAttributes = productData.attributes;
         (productData as any).original_attributes_json = simpleAttributes; // Pour uniformiser
 
@@ -365,7 +346,6 @@ export default function ProductPage() {
       setProduct(productData);
       
       // Appel immédiat avec les données brutes sécurisées
-      // On utilise la propriété cachée qu'on vient de créer pour être sûr d'avoir le JSON
       const dataForInfo = { ...productData, attributes: (productData as any).original_attributes_json || productData.attributes };
       loadInformativeAttributes(dataForInfo);
 
