@@ -26,62 +26,82 @@ export async function POST(req: NextRequest) {
     let order = body.order;
     const orderId = body.orderId;
 
-    // 1. RÉCUPÉRATION ROBUSTE DES DONNÉES
+    // 1. RÉCUPÉRATION ROBUSTE DES DONNÉES (SANS JOINTURE COMPLEXE)
     if (!order && orderId) {
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
       
+      // Etape A : On récupère la commande BRUTE (Ça ne peut pas échouer)
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
-        .select(`
-          *,
-          shipping_method:shipping_methods(name),
-          payment_method:payment_methods(name)
-        `)
+        .select("*")
         .eq("id", orderId)
         .single();
         
-      if (orderError || !orderData) throw new Error("Commande introuvable");
+      if (orderError || !orderData) {
+        console.error("Erreur Fetch Commande:", orderError);
+        throw new Error("Commande introuvable dans la base");
+      }
 
+      order = orderData;
+
+      // Etape B : On récupère les articles
       const { data: itemsData } = await supabase
         .from("order_items")
         .select("*")
         .eq("order_id", orderId);
+      
+      order.order_items = itemsData || [];
 
-      order = { ...orderData, order_items: itemsData || [] };
+      // Etape C : On récupère manuellement le nom du mode de livraison (Si dispo)
+      if (order.shipping_method_id) {
+        const { data: shipData } = await supabase
+          .from("shipping_methods")
+          .select("name")
+          .eq("id", order.shipping_method_id)
+          .single();
+        if (shipData) order.shipping_method = shipData;
+      }
+
+      // Etape D : On récupère manuellement le nom du mode de paiement (Si dispo)
+      if (order.payment_method_id) {
+        const { data: payData } = await supabase
+          .from("payment_methods")
+          .select("name")
+          .eq("id", order.payment_method_id)
+          .single();
+        if (payData) order.payment_method = payData;
+      }
     }
 
     if (!order) {
-      return NextResponse.json({ error: "Order data missing" }, { status: 400 });
+      return NextResponse.json({ error: "Données de commande manquantes" }, { status: 400 });
     }
 
-    // --- 2. CRÉATION DU PDF ---
+    // --- 2. CRÉATION DU PDF (Design Pro) ---
     const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.width;
     const goldColor = "#b8933d"; // Couleur Or de la charte
 
     // --- EN-TÊTE ---
-    // Logo / Titre Principal
     doc.setFont("helvetica", "bold");
     doc.setFontSize(24);
     doc.setTextColor(goldColor);
     doc.text("BOUTIQUE", 15, 20);
     
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(0, 0, 0); // Noir
+    doc.setTextColor(0, 0, 0);
     doc.text("De Morgane", 60, 20);
 
-    // Sous-titres
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.text("SHOPPING EN LIVE DEPUIS 2020", 15, 26);
     
     doc.setFont("helvetica", "italic");
     doc.setFontSize(9);
-    doc.setTextColor(100, 100, 100); // Gris
+    doc.setTextColor(100, 100, 100);
     doc.text("Votre dose de style et de joie", 15, 31);
 
-    // Titre "BON DE COMMANDE"
-    doc.setFillColor(245, 245, 245); // Fond gris très clair
+    // Bloc "BON DE COMMANDE"
+    doc.setFillColor(245, 245, 245);
     doc.roundedRect(120, 10, 75, 25, 2, 2, "F");
     
     doc.setFont("helvetica", "bold");
@@ -98,10 +118,10 @@ export async function POST(req: NextRequest) {
     doc.setFont("helvetica", "normal");
     doc.text(`Date : ${orderDate}`, 157.5, 32, { align: "center" });
 
-    // --- COLONNES INFO (Vendeur / Acheteur) ---
+    // --- COLONNES INFO ---
     const startY = 50;
     
-    // Colonne Gauche : VENDEUR
+    // Vendeur
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(goldColor);
@@ -116,7 +136,7 @@ export async function POST(req: NextRequest) {
       sellerY += 4.5;
     });
 
-    // Colonne Droite : LIVRAISON
+    // Acheteur
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(goldColor);
@@ -126,15 +146,14 @@ export async function POST(req: NextRequest) {
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
     
-    // Construction de l'adresse
     const ship = order.shipping_address || {};
-    const name = `${ship.first_name || ''} ${ship.last_name || ''}`.trim() || "Client Inconnu";
+    const name = `${ship.first_name || ''} ${ship.last_name || ''}`.trim() || "Client";
     const address1 = ship.address_line1 || ship.street || "";
     const address2 = ship.address_line2 || "";
     const city = `${ship.postal_code || ''} ${ship.city || ''}`.trim();
     const country = ship.country || "France";
     const phone = ship.phone || "";
-    const email = order.user_email || ""; // Si dispo dans l'objet order
+    const email = order.user_email || "";
 
     let buyerY = startY + 6;
     doc.text(name, 110, buyerY); buyerY += 5;
@@ -149,19 +168,22 @@ export async function POST(req: NextRequest) {
     if (phone) { doc.text(`Tél: ${phone}`, 110, buyerY); buyerY += 4.5; }
     if (email) { doc.text(email, 110, buyerY); }
 
-    // --- TABLEAU DES PRODUITS ---
+    // --- TABLEAU ---
     const tableRows = (order.order_items || []).map((item: any) => {
-      // Préparation de la description
       let details = item.product_name;
-      const variations = [];
+      const variations: string[] = [];
+      
+      // Gestion sécurisée des variations
       if (item.variation_data) {
-         // Gestion des variations (texte simple pour éviter surcharge)
          const attrs = item.variation_data.attributes || item.variation_data;
          if (Array.isArray(attrs)) {
             attrs.forEach((a: any) => variations.push(`${a.name}: ${a.option}`));
          } else if (typeof attrs === 'object') {
             Object.entries(attrs).forEach(([k, v]) => {
-                if(!k.includes('_') && k !== 'price') variations.push(`${k}: ${v}`);
+                if(!k.includes('_') && k !== 'price' && k !== 'id') {
+                    const valStr = typeof v === 'object' ? (v as any).name || (v as any).option : String(v);
+                    variations.push(`${k}: ${valStr}`);
+                }
             });
          }
       }
@@ -179,7 +201,7 @@ export async function POST(req: NextRequest) {
       startY: 115,
       head: [["Produit", "Qté", "Prix Unit.", "Total"]],
       body: tableRows,
-      theme: 'plain', // Style épuré comme le modèle
+      theme: 'plain',
       headStyles: { 
         fillColor: [255, 255, 255], 
         textColor: [0, 0, 0], 
@@ -187,26 +209,18 @@ export async function POST(req: NextRequest) {
         lineWidth: { bottom: 0.5 },
         lineColor: [200, 200, 200]
       },
-      styles: { 
-        fontSize: 9,
-        cellPadding: 4,
-      },
+      styles: { fontSize: 9, cellPadding: 4 },
       columnStyles: { 
         0: { cellWidth: 'auto' }, 
         1: { cellWidth: 20, halign: 'center' }, 
         2: { halign: 'right' }, 
         3: { halign: 'right', fontStyle: 'bold' } 
-      },
-      didDrawPage: (data) => {
-          // Ajout des lignes horizontales manuelles si besoin, 
-          // mais 'theme: plain' + headStyles suffit souvent pour le look "Facture moderne"
       }
     });
 
     // --- TOTAUX ---
     const finalY = (doc as any).lastAutoTable.finalY + 10;
-    const rightColX = 140; // Alignement des chiffres
-    const labelX = 130;    // Alignement des libellés
+    const labelX = 130;
     
     const subtotal = Number(order.subtotal || order.total_amount || 0);
     const shipping = Number(order.shipping_cost || 0);
@@ -216,52 +230,45 @@ export async function POST(req: NextRequest) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     
-    // Sous-total
     doc.text("Sous-total :", labelX, finalY, { align: "right" });
     doc.text(`${subtotal.toFixed(2)} €`, 195, finalY, { align: "right" });
 
-    // Livraison
     doc.text("Frais de port :", labelX, finalY + 6, { align: "right" });
     doc.text(`${shipping.toFixed(2)} €`, 195, finalY + 6, { align: "right" });
 
-    // Remise (si existe)
     if (discount > 0) {
-        doc.setTextColor(200, 0, 0); // Rouge pour la remise
+        doc.setTextColor(200, 0, 0);
         doc.text("Remise :", labelX, finalY + 12, { align: "right" });
         doc.text(`- ${discount.toFixed(2)} €`, 195, finalY + 12, { align: "right" });
         doc.setTextColor(0, 0, 0);
     }
 
-    // Ligne de séparation
     const totalLineY = discount > 0 ? finalY + 16 : finalY + 10;
     doc.setDrawColor(200, 200, 200);
     doc.line(110, totalLineY, 195, totalLineY);
 
-    // TOTAL TTC
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(goldColor);
     doc.text("TOTAL TTC :", labelX, totalLineY + 8, { align: "right" });
     doc.text(`${total.toFixed(2)} €`, 195, totalLineY + 8, { align: "right" });
 
-    // Info paiement
+    // Paiement
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(0, 0, 0);
     const payMethod = order.payment_method?.name || order.payment_status || "Non spécifié";
     doc.text(`Mode de paiement : ${payMethod}`, 15, totalLineY + 8);
 
-    // --- PIED DE PAGE (MENTIONS LÉGALES) ---
+    // --- PIED DE PAGE ---
     const pageHeight = doc.internal.pageSize.height;
     doc.setFontSize(7);
     doc.setTextColor(100, 100, 100);
     
     const footerY = pageHeight - 20;
-    doc.text("Conformément à la loi n°78-17 du 6 janvier 1978, vous disposez d'un droit d'accès, de modification, de rectification et de suppression des données vous concernant.", 105, footerY, { align: "center" });
-    doc.text("En cas de litige, seuls les tribunaux français seront compétents. Garantie légale de conformité et des vices cachés applicable.", 105, footerY + 4, { align: "center" });
-    doc.text("MORGANE DEWANIN - SAS au capital variable - SIREN 907 889 802 - TVA FR16907889802", 105, footerY + 8, { align: "center" });
+    doc.text("Conformément à la loi n°78-17 du 6 janvier 1978...", 105, footerY, { align: "center" });
+    doc.text("MORGANE DEWANIN - SAS au capital variable - SIREN 907 889 802", 105, footerY + 8, { align: "center" });
 
-    // --- ENVOI DE LA RÉPONSE ---
     const pdfDataUri = doc.output('datauristring');
     const pdfBase64 = pdfDataUri.split(',')[1];
 
