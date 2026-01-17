@@ -24,7 +24,7 @@ interface ProductVariationSelectorProps {
   initialSelectedAttributes?: Record<string, string>;
 }
 
-// NOTEZ BIEN : "export function" (pas default) pour correspondre à l'import dans page.tsx
+// CORRECTION ICI : "export function" (pas "export default")
 export function ProductVariationSelector({
   attributes,
   variations,
@@ -45,7 +45,6 @@ export function ProductVariationSelector({
     const newAttributes = { ...selectedAttributes, [attributeName]: option };
     setSelectedAttributes(newAttributes);
 
-    // Trouver la variation correspondante
     const matchingVariation = variations.find((variation) =>
       variation.attributes.every(
         (attr) => newAttributes[attr.name] === attr.option
@@ -55,14 +54,11 @@ export function ProductVariationSelector({
     if (matchingVariation) {
       onVariationChange(matchingVariation);
     } else {
-      // Si la combinaison n'existe pas, on informe le parent (null)
       onVariationChange(null);
     }
   };
 
   const isOptionAvailable = (attributeName: string, option: string) => {
-    // Logique simplifiée : on vérifie si cette option existe dans au moins une variation
-    // (On pourrait affiner pour vérifier la compatibilité avec les autres sélections)
     return variations.some((v) =>
       v.attributes.some((a) => a.name === attributeName && a.option === option)
     );
@@ -72,18 +68,15 @@ export function ProductVariationSelector({
     <div className="space-y-4">
       {attributes.map((attr) => (
         <div key={attr.name} className="space-y-3">
-          <div className="flex justify-between items-center">
-            <Label className="text-sm font-semibold text-gray-700">
-              {attr.name}: <span className="text-gray-900 font-normal">{selectedAttributes[attr.name]}</span>
-            </Label>
-          </div>
+          <Label className="text-sm font-semibold text-gray-700">
+            {attr.name}: <span className="text-gray-900 font-normal">{selectedAttributes[attr.name]}</span>
+          </Label>
           <div className="flex flex-wrap gap-2">
             {attr.options.map((option, index) => {
               const isSelected = selectedAttributes[attr.name] === option;
               const isAvailable = isOptionAvailable(attr.name, option);
               const colorCode = attr.colorCodes?.[index];
 
-              // Style spécial pour les couleurs
               if (attr.name.toLowerCase().includes("couleur") && colorCode) {
                 return (
                   <button
@@ -95,30 +88,23 @@ export function ProductVariationSelector({
                       !isAvailable && "opacity-50 cursor-not-allowed"
                     )}
                     style={{ backgroundColor: colorCode }}
-                    title={option}
                     disabled={!isAvailable}
-                  >
-                    {isSelected && (
-                      <span className="absolute inset-0 flex items-center justify-center">
-                        <span className="block w-2 h-2 bg-white rounded-full shadow-sm" />
-                      </span>
-                    )}
-                  </button>
+                    title={option}
+                  />
                 );
               }
 
-              // Style standard (boutons texte) pour Taille, etc.
               return (
                 <button
                   key={option}
                   onClick={() => handleSelect(attr.name, option)}
                   disabled={!isAvailable}
                   className={cn(
-                    "px-4 py-2 text-sm border rounded-lg transition-all duration-200",
+                    "px-4 py-2 text-sm border rounded-lg transition-all",
                     isSelected
                       ? "border-[#b8933d] bg-[#b8933d] text-white shadow-md"
                       : "border-gray-200 bg-white text-gray-700 hover:border-[#b8933d] hover:text-[#b8933d]",
-                    !isAvailable && "opacity-50 cursor-not-allowed bg-gray-50 text-gray-400 decoration-slate-400"
+                    !isAvailable && "opacity-50 cursor-not-allowed bg-gray-50 text-gray-400"
                   )}
                 >
                   {option}
