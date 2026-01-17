@@ -11,15 +11,19 @@ import {
   LogOut, 
   Loader2, 
   Heart,
-  ShieldCheck // Icône pour l'admin
+  ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AddressBook } from '@/components/account/address-book';
-import { OrderHistory } from '@/components/account/order-history';
-import { PersonalInfo } from '@/components/account/personal-info';
-import { WishlistGrid } from '@/components/account/WishlistGrid';
-import { AdminInvoiceGenerator } from '@/components/account/AdminInvoiceGenerator'; // Import du nouveau composant
+
+// --- CORRECTION DES IMPORTS ICI ---
+// On cherche directement dans @/components/ au lieu de @/components/account/
+import { AddressBook } from '@/components/address-book';
+import { OrderHistory } from '@/components/order-history';
+import { PersonalInfo } from '@/components/personal-info';
+import { WishlistGrid } from '@/components/WishlistGrid';
+import { AdminInvoiceGenerator } from '@/components/AdminInvoiceGenerator';
+// ----------------------------------
 
 export default function AccountPage() {
   const { user, signOut } = useAuth();
