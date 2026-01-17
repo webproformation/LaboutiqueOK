@@ -52,6 +52,7 @@ const navSections: NavSection[] = [
       { href: "/admin/coupons", label: "Coupons" },
       { href: "/admin/gift-cards", label: "Cartes Cadeaux" },
       { href: "/admin/reviews", label: "Avis clients" },
+      { href: "/admin/looks-management", label: "Les Looks" },
       { href: "/admin/payment-methods", label: "Méthodes de paiement" },
     ],
   },
@@ -62,6 +63,7 @@ const navSections: NavSection[] = [
       { href: "/admin/shipping-methods", label: "Méthodes de livraison" },
       { href: "/admin/expeditions", label: "Expéditions" },
       { href: "/admin/open-packages", label: "Colis Ouverts" },
+      { href: "/admin/returns-management", label: "Retours" },
     ],
   },
   {
@@ -97,7 +99,6 @@ const navSections: NavSection[] = [
     items: [
       { href: "/admin/loyalty", label: "Gestion des points" },
       { href: "/admin/wheel", label: "Roue de la fortune" },
-      { href: "/admin/scratch-cards", label: "Jeux à gratter" },
       { href: "/admin/card-flip", label: "Jeux de cartes" },
     ],
   },
@@ -109,9 +110,7 @@ const navSections: NavSection[] = [
       { href: "/admin/clients", label: "Clients" },
       { href: "/admin/guestbook", label: "Livre d'Or" },
       { href: "/admin/ambassador", label: "Ambassadrice" },
-      { href: "/admin/returns-management", label: "Retours" },
-      { href: "/admin/looks-management", label: "Les Looks" },
-      { href: "/admin/diagnostic", label: "Diagnostic" },
+
       { href: "/admin/media", label: "Médiathèque" },
       { href: "/admin/sauvegarde", label: "Sauvegardes" },
     ],
