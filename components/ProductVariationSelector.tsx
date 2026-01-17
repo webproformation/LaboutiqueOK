@@ -1,330 +1,131 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/context/AuthContext";
-import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Attribute {
   name: string;
-  option: string;
+  options: string[];
+  colorCodes?: string[];
 }
 
 interface Variation {
-  id: number;
-  attributes: Attribute[];
-  price: string;
-  regular_price: string;
-  sale_price: string | null;
+  id: string;
+  attributes: { name: string; option: string }[];
   stock_status: string;
-  stock_quantity: number | null;
-  image?: {
-    src: string;
-    alt: string;
-  };
-}
-
-interface AttributeTerm {
-  name: string;
-  color_code: string | null;
+  stock_quantity?: number;
 }
 
 interface ProductVariationSelectorProps {
-  attributes: Array<{
-    name: string;
-    options: string[];
-  }>;
+  attributes: Attribute[];
   variations: Variation[];
-  onVariationChange: (variation: Variation | null) => void;
+  onVariationChange: (variation: any) => void;
   initialSelectedAttributes?: Record<string, string>;
 }
 
-const sizeOrder = ["xs", "s", "m", "l", "xl", "xxl", "xxxl"];
-
+// NOTEZ BIEN : "export function" (pas default) pour correspondre à l'import dans page.tsx
 export function ProductVariationSelector({
   attributes,
   variations,
   onVariationChange,
   initialSelectedAttributes,
 }: ProductVariationSelectorProps) {
-  const { profile } = useAuth();
-  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>(initialSelectedAttributes || {});
-  const [colorCodes, setColorCodes] = useState<Record<string, string>>({});
+  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>(
+    initialSelectedAttributes || {}
+  );
 
   useEffect(() => {
-    const fetchColorCodes = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('product_attribute_terms')
-          .select('name, color_code')
-          .not('color_code', 'is', null);
-
-        if (error) {
-          console.error('Error fetching color codes:', error);
-          return;
-        }
-
-        if (data) {
-          const colorMap: Record<string, string> = {};
-          data.forEach((term: AttributeTerm) => {
-            const normalizedName = term.name.toLowerCase().trim();
-            if (term.color_code) {
-              colorMap[normalizedName] = term.color_code;
-            }
-          });
-          setColorCodes(colorMap);
-        }
-      } catch (error) {
-        console.error('Error fetching color codes:', error);
-      }
-    };
-
-    fetchColorCodes();
-  }, []);
-
-  useEffect(() => {
-    if (initialSelectedAttributes && Object.keys(initialSelectedAttributes).length > 0) {
+    if (initialSelectedAttributes) {
       setSelectedAttributes(initialSelectedAttributes);
     }
   }, [initialSelectedAttributes]);
 
-  const safeString = (value: any): string => {
-    if (typeof value === 'object' && value !== null) {
-      return value.name || JSON.stringify(value);
-    }
-    return String(value || '');
-  };
+  const handleSelect = (attributeName: string, option: string) => {
+    const newAttributes = { ...selectedAttributes, [attributeName]: option };
+    setSelectedAttributes(newAttributes);
 
-  const sortOptions = (options: string[], attributeName: string) => {
-    if (attributeName.toLowerCase().includes("taille") || attributeName.toLowerCase().includes("size")) {
-      return [...options].sort((a, b) => {
-        const aStr = safeString(a).toLowerCase();
-        const bStr = safeString(b).toLowerCase();
-        const aIndex = sizeOrder.indexOf(aStr);
-        const bIndex = sizeOrder.indexOf(bStr);
-        if (aIndex === -1 && bIndex === -1) return 0;
-        if (aIndex === -1) return 1;
-        if (bIndex === -1) return -1;
-        return aIndex - bIndex;
-      });
-    }
-    return options;
-  };
-
-  const handleAttributeSelect = (attributeName: string, option: string) => {
-    setSelectedAttributes((prev) => ({
-      ...prev,
-      [attributeName]: option,
-    }));
-  };
-
-  const isOptionAvailable = (attributeName: string, option: string): boolean => {
-    const optionStr = safeString(option);
-    const potentialSelection = { ...selectedAttributes, [attributeName]: optionStr };
-    const allAttributesSelected = attributes.every((attr) => potentialSelection[attr?.name]);
-
-    if (!allAttributesSelected) {
-      return variations.some((variation) =>
-        variation.attributes?.some(
-          (attr) =>
-            attr?.name === attributeName &&
-            safeString(attr?.option).toLowerCase() === optionStr.toLowerCase() &&
-            variation.stock_status === "instock"
-        )
-      );
-    }
-
+    // Trouver la variation correspondante
     const matchingVariation = variations.find((variation) =>
-      variation.attributes?.every((attr) =>
-        potentialSelection[attr?.name]?.toLowerCase() === safeString(attr?.option).toLowerCase()
+      variation.attributes.every(
+        (attr) => newAttributes[attr.name] === attr.option
       )
     );
 
-    return matchingVariation ? matchingVariation.stock_status === "instock" : false;
-  };
-
-  useEffect(() => {
-    const allSelected = attributes.every((attr) => selectedAttributes[attr?.name]);
-
-    if (allSelected) {
-      const matchingVariation = variations.find((variation) =>
-        variation.attributes?.every((attr) =>
-          selectedAttributes[attr?.name]?.toLowerCase() === safeString(attr?.option).toLowerCase()
-        )
-      );
-      onVariationChange(matchingVariation || null);
+    if (matchingVariation) {
+      onVariationChange(matchingVariation);
     } else {
-      const partialMatch = variations.find((variation) =>
-        Object.entries(selectedAttributes).every(
-          ([attrName, attrValue]) =>
-            variation.attributes?.some(
-              (attr) =>
-                attr?.name === attrName &&
-                safeString(attr?.option).toLowerCase() === attrValue.toLowerCase()
-            )
-        )
-      );
-      onVariationChange(partialMatch || null);
+      // Si la combinaison n'existe pas, on informe le parent (null)
+      onVariationChange(null);
     }
-  }, [selectedAttributes, variations, attributes, onVariationChange]);
-
-  const isColorAttribute = (name: string) => {
-    const nameLower = name.toLowerCase();
-    return nameLower.includes("couleur") || nameLower.includes("color") || nameLower.includes("teinte");
   };
 
-  const getColorValue = (colorName: any): string => {
-    const colorStr = safeString(colorName);
-    const normalizedName = colorStr.toLowerCase().trim();
-
-    if (colorCodes[normalizedName]) {
-      return colorCodes[normalizedName];
-    }
-
-    const fallbackColorMap: Record<string, string> = {
-      noir: "#000000",
-      blanc: "#FFFFFF",
-      rouge: "#DC2626",
-      bleu: "#2563EB",
-      vert: "#16A34A",
-      jaune: "#EAB308",
-      rose: "#EC4899",
-      violet: "#9333EA",
-      orange: "#F97316",
-      gris: "#6B7280",
-      beige: "#D4B896",
-      marron: "#92400E",
-    };
-
-    for (const [key, value] of Object.entries(fallbackColorMap)) {
-      if (normalizedName.includes(key)) {
-        return value;
-      }
-    }
-
-    return "#9CA3AF";
-  };
-
-  const isSizeAttribute = (name: string) => {
-    const nameLower = name.toLowerCase();
-    return nameLower.includes("taille") || nameLower.includes("size") || nameLower.includes("pointure");
-  };
-
-  const isUserSize = (option: string, attributeName: string): boolean => {
-    if (!profile || !profile.user_size || !isSizeAttribute(attributeName)) return false;
-
-    const optionStr = safeString(option);
-    const numericOption = parseInt(optionStr);
-
-    if (isNaN(numericOption)) return false;
-
-    return numericOption === profile.user_size;
+  const isOptionAvailable = (attributeName: string, option: string) => {
+    // Logique simplifiée : on vérifie si cette option existe dans au moins une variation
+    // (On pourrait affiner pour vérifier la compatibilité avec les autres sélections)
+    return variations.some((v) =>
+      v.attributes.some((a) => a.name === attributeName && a.option === option)
+    );
   };
 
   return (
-    <div className="space-y-6">
-      {attributes.map((attribute) => (
-        <div key={attribute.name} className="space-y-3">
-          <Label className="text-base font-semibold">{attribute.name}</Label>
+    <div className="space-y-4">
+      {attributes.map((attr) => (
+        <div key={attr.name} className="space-y-3">
+          <div className="flex justify-between items-center">
+            <Label className="text-sm font-semibold text-gray-700">
+              {attr.name}: <span className="text-gray-900 font-normal">{selectedAttributes[attr.name]}</span>
+            </Label>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {attr.options.map((option, index) => {
+              const isSelected = selectedAttributes[attr.name] === option;
+              const isAvailable = isOptionAvailable(attr.name, option);
+              const colorCode = attr.colorCodes?.[index];
 
-          {isColorAttribute(attribute.name) ? (
-            <div className="flex flex-wrap gap-4">
-              {sortOptions(attribute.options, attribute.name).map((option) => {
-                const displayValue = typeof option === 'object' && option !== null ? (option as any).name || String(option) : String(option);
-                const optionStr = safeString(option);
-                const isSelected = selectedAttributes[attribute.name] === optionStr;
-                const isAvailable = isOptionAvailable(attribute.name, option);
-
-                const colorValue = getColorValue(option);
-                const normalizedName = safeString(option).toLowerCase().trim();
-                const hasColorCode = colorCodes[normalizedName];
-                const shouldShowLetter = !hasColorCode && colorValue === "#9CA3AF";
-
+              // Style spécial pour les couleurs
+              if (attr.name.toLowerCase().includes("couleur") && colorCode) {
                 return (
-                  <div key={optionStr} className="flex flex-col items-center gap-1.5">
-                    <button
-                      onClick={() => handleAttributeSelect(attribute.name, optionStr)}
-                      disabled={!isAvailable}
-                      className={`relative w-12 h-12 rounded-full border-3 transition-all ${
-                        isSelected
-                          ? "border-[#D4AF37] ring-3 ring-[#D4AF37] ring-offset-2 shadow-lg"
-                          : "border-gray-300 hover:border-[#D4AF37] hover:shadow-md"
-                      } ${!isAvailable ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
-                      title={displayValue}
-                    >
-                      <div
-                        className="w-full h-full rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: colorValue }}
-                      >
-                        {shouldShowLetter && (
-                          <span className="text-xs font-bold text-white uppercase">
-                            {displayValue.charAt(0)}
-                          </span>
-                        )}
-                        {isSelected && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Check className="h-5 w-5 text-white drop-shadow-lg" style={{
-                              filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))'
-                            }} />
-                          </div>
-                        )}
-                      </div>
-                      {!isAvailable && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-full h-0.5 bg-red-500 rotate-45" />
-                        </div>
-                      )}
-                    </button>
-                    <span className={`text-xs text-center max-w-[60px] leading-tight ${
-                      isSelected ? 'font-semibold text-[#D4AF37]' : 'text-gray-600'
-                    }`}>
-                      {displayValue}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {sortOptions(attribute.options, attribute.name).map((option) => {
-                const displayValue = typeof option === 'object' && option !== null ? (option as any).name || String(option) : String(option);
-                const optionStr = safeString(option);
-                const isSelected = selectedAttributes[attribute.name] === optionStr;
-                const isAvailable = isOptionAvailable(attribute.name, option);
-                const matchesUserSize = isUserSize(option, attribute.name);
-
-                return (
-                  <div key={optionStr} className="relative">
-                    <Button
-                      onClick={() => handleAttributeSelect(attribute.name, optionStr)}
-                      disabled={!isAvailable}
-                      variant={isSelected ? "default" : "outline"}
-                      className={`min-w-[60px] ${
-                        isSelected
-                          ? "bg-[#b8933d] hover:bg-[#a07c2f] border-[#b8933d] text-white"
-                          : "border-gray-300 hover:border-[#b8933d]"
-                      } ${!isAvailable ? "opacity-50 line-through" : ""} ${
-                        matchesUserSize ? "border-green-500 border-2" : ""
-                      }`}
-                    >
-                      {displayValue}
-                      {matchesUserSize && (
-                        <Check className="h-3 w-3 ml-1 text-green-600" />
-                      )}
-                    </Button>
-                    {matchesUserSize && (
-                      <Badge className="absolute -top-2 -right-2 text-xs bg-green-500 hover:bg-green-600">
-                        Votre taille
-                      </Badge>
+                  <button
+                    key={option}
+                    onClick={() => handleSelect(attr.name, option)}
+                    className={cn(
+                      "w-8 h-8 rounded-full border-2 transition-all relative focus:outline-none focus:ring-2 focus:ring-[#b8933d] focus:ring-offset-2",
+                      isSelected ? "border-[#b8933d] scale-110" : "border-gray-200 hover:border-gray-300",
+                      !isAvailable && "opacity-50 cursor-not-allowed"
                     )}
-                  </div>
+                    style={{ backgroundColor: colorCode }}
+                    title={option}
+                    disabled={!isAvailable}
+                  >
+                    {isSelected && (
+                      <span className="absolute inset-0 flex items-center justify-center">
+                        <span className="block w-2 h-2 bg-white rounded-full shadow-sm" />
+                      </span>
+                    )}
+                  </button>
                 );
-              })}
-            </div>
-          )}
+              }
+
+              // Style standard (boutons texte) pour Taille, etc.
+              return (
+                <button
+                  key={option}
+                  onClick={() => handleSelect(attr.name, option)}
+                  disabled={!isAvailable}
+                  className={cn(
+                    "px-4 py-2 text-sm border rounded-lg transition-all duration-200",
+                    isSelected
+                      ? "border-[#b8933d] bg-[#b8933d] text-white shadow-md"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-[#b8933d] hover:text-[#b8933d]",
+                    !isAvailable && "opacity-50 cursor-not-allowed bg-gray-50 text-gray-400 decoration-slate-400"
+                  )}
+                >
+                  {option}
+                </button>
+              );
+            })}
+          </div>
         </div>
       ))}
     </div>
