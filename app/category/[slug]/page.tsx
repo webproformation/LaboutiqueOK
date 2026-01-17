@@ -112,7 +112,7 @@ export default function CategoryPage() {
       if (productsError) throw productsError;
 
       if (productsData) {
-        // 3. Charger les variations
+        // 3. Charger les variations séparément (évite erreur 400)
         const productIds = productsData.map(p => p.id);
         const { data: variationsData } = await supabase
           .from('product_variations')
@@ -150,8 +150,25 @@ export default function CategoryPage() {
       return price >= priceRange[0] && price <= priceRange[1];
     });
 
-    // 2. Helper
+    // --- FONCTION DE RECHERCHE EN PROFONDEUR ---
+    // Extrait TOUS les mots-clés et IDs d'un objet (produit ou variation), quelle que soit sa structure.
+    const deepExtractValues = (obj: any): string[] => {
+      let values: string[] = [];
+      if (!obj) return values;
+
+      if (Array.isArray(obj)) {
+        obj.forEach(item => values = values.concat(deepExtractValues(item)));
+      } else if (typeof obj === 'object') {
+        Object.values(obj).forEach(val => values = values.concat(deepExtractValues(val)));
+      } else if (typeof obj === 'string' || typeof obj === 'number') {
+        values.push(String(obj).toLowerCase());
+      }
+      return values;
+    };
+
+    // 2. Helper de comparaison
     const productHasAttribute = (product: any, targetNames: string[]) => {
+      // Liste de cibles : Noms ("vert") ET IDs ("123")
       const targets = new Set<string>();
       targetNames.forEach(name => {
         const lowerName = name.toLowerCase();
@@ -160,36 +177,22 @@ export default function CategoryPage() {
         if (ids) ids.forEach(id => targets.add(id));
       });
 
-      const productValues = new Set<string>();
-
-      // A. Scan Produit Principal (C'est là que "Couleur Principale" est stocké)
-      if (product.attributes && typeof product.attributes === 'object') {
-        Object.values(product.attributes).forEach((values: any) => {
-          if (Array.isArray(values)) {
-            values.forEach(v => productValues.add(String(v).toLowerCase()));
-          } else if (typeof values === 'string' || typeof values === 'number') {
-            productValues.add(String(values).toLowerCase());
-          }
-        });
-      }
-
-      // B. Scan Variations (Pour les Tailles surtout)
+      // On scanne le produit et ses variations
+      // On combine tout ce qu'on trouve : attributs produit + attributs variations
+      const productAttributesContent = deepExtractValues(product.attributes);
+      
+      let variationsAttributesContent: string[] = [];
       if (product.product_variations && Array.isArray(product.product_variations)) {
-        product.product_variations.forEach((v: any) => {
-          if (v.attributes && typeof v.attributes === 'object') {
-            Object.values(v.attributes).forEach((val: any) => {
-              if (typeof val === 'string') productValues.add(val.toLowerCase());
-              else if (typeof val === 'object') {
-                if (val?.name) productValues.add(String(val.name).toLowerCase());
-                if (val?.option) productValues.add(String(val.option).toLowerCase());
-              }
-            });
-          }
-        });
+         product.product_variations.forEach((v: any) => {
+            variationsAttributesContent = variationsAttributesContent.concat(deepExtractValues(v.attributes));
+         });
       }
 
+      const allProductValues = new Set([...productAttributesContent, ...variationsAttributesContent]);
+
+      // Vérification
       for (const target of targets) {
-        if (productValues.has(target)) return true;
+        if (allProductValues.has(target)) return true;
       }
       return false;
     };

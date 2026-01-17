@@ -31,7 +31,7 @@ export interface FilterState {
   nouveautes: boolean;
 }
 
-// Couleurs de secours si la base de données est vide
+// Palette de secours pour l'affichage visuel
 const FALLBACK_COLORS: Record<string, string> = {
   'blanc': '#FFFFFF',
   'noir': '#000000',
@@ -48,6 +48,12 @@ const FALLBACK_COLORS: Record<string, string> = {
   'or': '#FFD700',
   'argent': '#C0C0C0',
   'multicolore': 'linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet)',
+  'kaki': '#556B2F',
+  'marine': '#000080',
+  'ciel': '#87CEEB',
+  'bordeaux': '#800000',
+  'fushia': '#FF00FF',
+  'camel': '#C19A6B',
 };
 
 export function ProductFilters({ categorySlug, onFiltersChange }: ProductFiltersProps) {
@@ -75,24 +81,21 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
 
   const loadFilterOptions = async () => {
     try {
-      // 1. Récupération des attributs
+      // 1. Récupération des attributs pour trouver les bons IDs
       const { data: attributes } = await supabase
         .from('product_attributes')
         .select('id, name, slug');
 
       if (!attributes) return;
 
-      // CIBLAGE PRÉCIS : On cherche "Couleur Principale"
+      // CIBLAGE : On cherche "Couleur Principale" en priorité
       const mainColorAttr = attributes.find(a => 
-        a.slug.includes('principale') || 
-        a.name.toLowerCase().includes('principale')
+        a.name.toLowerCase().includes('principale') || 
+        a.slug.includes('principale')
       );
       
-      // Fallback : si on trouve pas "principale", on prend "couleur" tout court
       const fallbackColorAttr = attributes.find(a => 
-        a.slug === 'couleur' || 
-        a.slug === 'color' ||
-        a.slug === 'pa_color'
+        a.slug === 'couleur' || a.slug === 'color' || a.slug === 'pa_color'
       );
 
       const colorAttrId = mainColorAttr?.id || fallbackColorAttr?.id;
@@ -107,12 +110,13 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
         .order('name');
 
       if (allTerms) {
-        // --- FILTRE COULEURS ---
+        // --- COULEURS ---
         if (colorAttrId) {
           const colors = allTerms.filter(t => t.attribute_id === colorAttrId);
+          // Dédoublonnage
           const uniqueColors = Array.from(new Map(colors.map(item => [item.name, item])).values());
           
-          // On enrichit avec les couleurs de secours si besoin
+          // Enrichissement avec couleurs de secours
           const enrichedColors = uniqueColors.map(c => ({
             ...c,
             color_code: c.color_code || FALLBACK_COLORS[c.slug.toLowerCase()] || FALLBACK_COLORS[c.name.toLowerCase()]
@@ -121,12 +125,12 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
           setColorOptions(enrichedColors);
         }
 
-        // --- FILTRE CONFORT ---
+        // --- CONFORT ---
         if (confortAttr) {
           setConfortOptions(allTerms.filter(t => t.attribute_id === confortAttr.id));
         }
 
-        // --- FILTRE COUPE ---
+        // --- COUPE ---
         if (coupeAttr) {
           setCoupeOptions(allTerms.filter(t => t.attribute_id === coupeAttr.id));
         }
@@ -187,15 +191,15 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
       </CardHeader>
       <CardContent className="space-y-6 px-0 sm:px-6">
         
-        {/* --- TAILLES --- */}
+        {/* TAILLES */}
         {profile?.user_size && (
-          <div className="bg-[#FFF9F0] p-3 rounded-lg border border-[#D4AF37]/20">
+          <div className="bg-[#FFF9F0] p-3 rounded-lg border border-[#D4AF37]/20 mb-4">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="my-size"
                 checked={filters.sizes.includes(String(profile.user_size))}
                 onCheckedChange={() => handleSizeToggle(String(profile.user_size))}
-                className="data-[state=checked]:bg-[#D4AF37] data-[state=checked]:border-[#D4AF37]"
+                className="data-[state=checked]:bg-[#D4AF37] border-[#D4AF37]"
               />
               <Label htmlFor="my-size" className="text-sm font-semibold cursor-pointer text-[#b8933d]">
                 Ma taille ({profile.user_size})
@@ -225,7 +229,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
         
         <Separator />
 
-        {/* --- COULEURS PRINCIPALES --- */}
+        {/* COULEURS */}
         {colorOptions.length > 0 && (
           <>
             <div className="space-y-3">
@@ -259,7 +263,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
           </>
         )}
 
-        {/* --- CONFORT --- */}
+        {/* CONFORT */}
         {confortOptions.length > 0 && (
           <>
             <div className="space-y-3">
@@ -271,7 +275,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
                       id={`comfort-${option.id}`}
                       checked={filters.comfort.includes(option.name)}
                       onCheckedChange={() => handleComfortToggle(option.name)}
-                      className="data-[state=checked]:bg-[#D4AF37] data-[state=checked]:border-[#D4AF37]"
+                      className="data-[state=checked]:bg-[#D4AF37] border-[#D4AF37]"
                     />
                     <Label htmlFor={`comfort-${option.id}`} className="text-sm cursor-pointer">
                       {option.name}
@@ -284,7 +288,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
           </>
         )}
 
-        {/* --- COUPE --- */}
+        {/* COUPE */}
         {coupeOptions.length > 0 && (
           <>
             <div className="space-y-3">
@@ -296,7 +300,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
                       id={`coupe-${option.id}`}
                       checked={filters.coupe.includes(option.name)}
                       onCheckedChange={() => handleCoupeToggle(option.name)}
-                      className="data-[state=checked]:bg-[#D4AF37] data-[state=checked]:border-[#D4AF37]"
+                      className="data-[state=checked]:bg-[#D4AF37] border-[#D4AF37]"
                     />
                     <Label htmlFor={`coupe-${option.id}`} className="text-sm cursor-pointer">
                       {option.name}
@@ -309,7 +313,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
           </>
         )}
 
-        {/* --- AUTRES --- */}
+        {/* AUTRES */}
         <div className="space-y-3">
           <h3 className="font-semibold text-sm text-gray-900">Autres</h3>
           <div className="space-y-2">
@@ -318,7 +322,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
                 id="filter-live"
                 checked={filters.live}
                 onCheckedChange={(checked) => setFilters(prev => ({ ...prev, live: !!checked }))}
-                className="data-[state=checked]:bg-pink-500 data-[state=checked]:border-pink-500"
+                className="data-[state=checked]:bg-pink-500 border-pink-500"
               />
               <Label htmlFor="filter-live" className="text-sm cursor-pointer flex items-center gap-1">
                 🎥 Vu en Live
@@ -329,7 +333,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
                 id="filter-nouveautes"
                 checked={filters.nouveautes}
                 onCheckedChange={(checked) => setFilters(prev => ({ ...prev, nouveautes: !!checked }))}
-                className="data-[state=checked]:bg-[#D4AF37] data-[state=checked]:border-[#D4AF37]"
+                className="data-[state=checked]:bg-[#D4AF37] border-[#D4AF37]"
               />
               <Label htmlFor="filter-nouveautes" className="text-sm cursor-pointer">
                 ✨ Nouveautés
@@ -338,7 +342,7 @@ export function ProductFilters({ categorySlug, onFiltersChange }: ProductFilters
           </div>
         </div>
 
-        {/* --- BADGES --- */}
+        {/* BADGES ACTIFS */}
         {hasActiveFilters && (
           <>
             <Separator />
