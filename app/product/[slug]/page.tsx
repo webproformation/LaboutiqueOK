@@ -63,7 +63,7 @@ export default function ProductPage() {
   const [userSelectedGalleryImage, setUserSelectedGalleryImage] = useState<string | null>(null);
   const [initialAttributes, setInitialAttributes] = useState<Record<string, string>>({});
   
-  // NOUVEAU : On sépare complètement la gestion des attributs informatifs
+  // État séparé pour les attributs informatifs (Confort, Coupe...)
   const [informativeAttributes, setInformativeAttributes] = useState<Array<{ name: string; values: string[] }>>([]);
   
   const [diamondPosition] = useState<"title" | "image" | "description">(() =>
@@ -75,7 +75,7 @@ export default function ProductPage() {
     checkAdminStatus();
   }, [slug, user]);
 
-  // NOUVEAU : Dès qu'on a le produit, on lance la recherche spécifique des attributs informatifs
+  // Chargement des attributs informatifs dès que le produit est connu
   useEffect(() => {
     if (product?.id) {
       loadInformativeAttributes(product.id);
@@ -110,33 +110,40 @@ export default function ProductPage() {
     }
   }, [product]);
 
-  // --- NOUVELLE FONCTION DÉDIÉE : Charge les attributs (Confort, Coupe...) ---
+  // --- CORRECTION MAJEURE ICI : Syntaxe Supabase standard ---
   async function loadInformativeAttributes(productId: string) {
     try {
-      // On requête la table de liaison directement
+      // On retire les alias "attribute:" et "term:" qui posaient problème
       const { data, error } = await supabase
         .from('product_attribute_values')
         .select(`
-          attribute:product_attributes(name, slug),
-          term:product_attribute_terms(name)
+          product_attributes(name, slug),
+          product_attribute_terms(name)
         `)
         .eq('product_id', productId);
 
-      if (error || !data) {
-        console.log("InfoAttributes: Aucune donnée ou erreur", error);
+      if (error) {
+        console.error("Erreur fetch attributs:", error);
         return;
       }
+
+      if (!data) return;
 
       const groups = new Map<string, string[]>();
 
       data.forEach((item: any) => {
-        // Sécurisation des données (parfois c'est un tableau, parfois un objet selon Supabase)
-        const attrName = Array.isArray(item.attribute) ? item.attribute[0]?.name : item.attribute?.name;
-        const attrSlug = (Array.isArray(item.attribute) ? item.attribute[0]?.slug : item.attribute?.slug)?.toLowerCase() || '';
-        const termValue = Array.isArray(item.term) ? item.term[0]?.name : item.term?.name;
+        // On accède aux données via les vrais noms de tables
+        // Supabase peut renvoyer un objet ou un tableau selon la relation (One-to-One vs One-to-Many)
+        // On gère les deux cas pour être blindé.
+        const attrObj = Array.isArray(item.product_attributes) ? item.product_attributes[0] : item.product_attributes;
+        const termObj = Array.isArray(item.product_attribute_terms) ? item.product_attribute_terms[0] : item.product_attribute_terms;
+
+        const attrName = attrObj?.name;
+        const attrSlug = attrObj?.slug?.toLowerCase() || '';
+        const termValue = termObj?.name;
 
         if (attrName && termValue) {
-          // FILTRAGE STRICT : On exclut tout ce qui ressemble à une Couleur ou Taille (déjà géré par le sélecteur)
+          // On ignore Couleurs et Tailles (déjà gérés par le sélecteur)
           if (
             attrSlug.includes('couleur') || 
             attrSlug.includes('taille') || 
@@ -149,7 +156,6 @@ export default function ProductPage() {
           }
           
           if (!groups.has(attrName)) groups.set(attrName, []);
-          // On évite les doublons
           if (!groups.get(attrName)?.includes(termValue)) {
             groups.get(attrName)?.push(termValue);
           }
@@ -157,11 +163,10 @@ export default function ProductPage() {
       });
 
       const result = Array.from(groups.entries()).map(([name, values]) => ({ name, values }));
-      console.log("InfoAttributes CHARGÉS :", result); // Pour debugging si besoin
       setInformativeAttributes(result);
       
     } catch (err) {
-      console.error("Erreur loadInformativeAttributes:", err);
+      console.error("Exception loadInformativeAttributes:", err);
     }
   }
 
