@@ -15,6 +15,7 @@ interface ProductGalleryProps {
   images: ProductImage[];
   productName: string;
   selectedImageUrl?: string;
+  // MODIFICATION CRITIQUE : On attend l'objet {id, src}, pas juste une string
   onImageClick?: (image: { id: string; src: string }) => void;
 }
 
@@ -23,69 +24,44 @@ export function ProductGallery({ images, productName, selectedImageUrl, onImageC
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
 
-  // Filtre plus permissif - accepter toutes les images avec une URL valide
-  // Temporairement, on autorise même les images WordPress pour éviter de vider la galerie
-  const cleanImages = images.filter((img) => {
-    const isValid = img.src && img.src.length > 0;
-
-    // Log des images rejetées pour debug
-    if (!isValid) {
-      console.warn('❌ Image rejetée (URL invalide):', img);
-    }
-
-    return isValid;
-  });
-
-  console.log('🖼️ ProductGallery - Images reçues:', images.length, '| Images valides:', cleanImages.length);
-
+  const cleanImages = images.filter((img) => img.src && img.src.length > 0);
   const validImages = cleanImages.length > 0 ? cleanImages : [{ id: "placeholder", src: "/placeholder.png", alt: productName }];
+
+  const handleImageClick = (image: ProductImage) => {
+    if (onImageClick) {
+      // ON ENVOIE L'ID ET LA SRC (C'est ça que Bolt avait effacé)
+      onImageClick({ id: image.id, src: image.src });
+    }
+  };
 
   const goToPrevious = useCallback(() => {
     setCurrentIndex((prevIndex) => {
       const newIndex = prevIndex === 0 ? validImages.length - 1 : prevIndex - 1;
-      if (onImageClick && validImages[newIndex]) {
-        onImageClick({ id: validImages[newIndex].id, src: validImages[newIndex].src });
-      }
+      handleImageClick(validImages[newIndex]);
       return newIndex;
     });
-  }, [validImages, onImageClick]);
+  }, [validImages, handleImageClick]); // Ajout dépendance
 
   const goToNext = useCallback(() => {
     setCurrentIndex((prevIndex) => {
       const newIndex = prevIndex === validImages.length - 1 ? 0 : prevIndex + 1;
-      if (onImageClick && validImages[newIndex]) {
-        onImageClick({ id: validImages[newIndex].id, src: validImages[newIndex].src });
-      }
+      handleImageClick(validImages[newIndex]);
       return newIndex;
     });
-  }, [validImages, onImageClick]);
+  }, [validImages, handleImageClick]); // Ajout dépendance
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
+  const handleTouchStart = (e: React.TouchEvent) => setTouchStart(e.targetTouches[0].clientX);
+  const handleTouchMove = (e: React.TouchEvent) => setTouchEnd(e.targetTouches[0].clientX);
   const handleTouchEnd = () => {
-    if (touchStart - touchEnd > 50) {
-      goToNext();
-    }
-    if (touchStart - touchEnd < -50) {
-      goToPrevious();
-    }
+    if (touchStart - touchEnd > 50) goToNext();
+    if (touchStart - touchEnd < -50) goToPrevious();
   };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") {
-        goToPrevious();
-      } else if (e.key === "ArrowRight") {
-        goToNext();
-      }
+      if (e.key === "ArrowLeft") goToPrevious();
+      else if (e.key === "ArrowRight") goToNext();
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goToPrevious, goToNext]);
@@ -126,7 +102,6 @@ export function ProductGallery({ images, productName, selectedImageUrl, onImageC
             >
               <ChevronLeft className="h-6 w-6" />
             </Button>
-
             <Button
               variant="ghost"
               size="icon"
@@ -135,24 +110,6 @@ export function ProductGallery({ images, productName, selectedImageUrl, onImageC
             >
               <ChevronRight className="h-6 w-6" />
             </Button>
-
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-              {validImages.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    setCurrentIndex(index);
-                    if (onImageClick) {
-                      onImageClick({ id: image.id, src: image.src });
-                    }
-                  }}
-                  className={`h-2 rounded-full transition-all ${
-                    index === currentIndex ? "w-8 bg-white" : "w-2 bg-white/50"
-                  }`}
-                  aria-label={`Aller à l'image ${index + 1}`}
-                />
-              ))}
-            </div>
           </>
         )}
       </div>
@@ -164,9 +121,7 @@ export function ProductGallery({ images, productName, selectedImageUrl, onImageC
               key={image.id}
               onClick={() => {
                 setCurrentIndex(index);
-                if (onImageClick) {
-                  onImageClick({ id: image.id, src: image.src });
-                }
+                handleImageClick(image);
               }}
               className={`relative aspect-[3/4] overflow-hidden rounded-lg transition-all ${
                 index === currentIndex

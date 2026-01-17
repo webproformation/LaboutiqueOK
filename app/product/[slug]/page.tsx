@@ -363,31 +363,42 @@ export default function ProductPage() {
   };
 
   const handleImageClick = (image: { id: string; src: string }) => {
-    // 1. Si c'est une image de variation (l'ID commence par 'variation-' ou est 'variation-selected')
-    if (image.id.startsWith('variation-') || image.id === 'variation-selected') {
-      // ON DÉVERROUILLE TOUJOURS
+    // 1. On regarde si l'ID indique que c'est une variation (ex: "variation-0")
+    // Bolt avait enlevé ça, on le remet !
+    const isVariation = image.id.startsWith("variation");
+
+    if (isVariation) {
+      // CAS A : C'est une variation
+      // => On libère le verrou manuel pour laisser les pastilles fonctionner
       setUserSelectedGalleryImage(null);
 
-      // Si on peut identifier la variation précise via l'index de l'ID, on la sélectionne
-      if (image.id.startsWith('variation-') && product?.variations) {
-        const idx = parseInt(image.id.split('-')[1]);
-        const targetVariation = product.variations[idx];
+      // Si on a cliqué sur une miniature spécifique
+      if (image.id.startsWith("variation-") && image.id !== "variation-selected") {
+        const parts = image.id.split("-");
+        const idx = parseInt(parts[1]);
 
-        if (targetVariation && targetVariation.id !== selectedVariation?.id) {
-          // Mettre à jour les attributs et la variation sélectionnée
-          const variationAttributes: Record<string, string> = {};
-          targetVariation.attributes?.forEach((attr: any) => {
-            variationAttributes[attr.name] = attr.option;
-          });
+        if (!isNaN(idx) && product?.variations && product.variations[idx]) {
+          const targetVariation = product.variations[idx];
 
-          setInitialAttributes(variationAttributes);
-          setSelectedVariation(targetVariation);
+          if (targetVariation.id !== selectedVariation?.id) {
+            // Mise à jour des attributs
+            const variationAttributes: Record<string, string> = {};
+            targetVariation.attributes?.forEach((attr: any) => {
+              variationAttributes[attr.name] = attr.option;
+            });
+            setInitialAttributes(variationAttributes);
+            setSelectedVariation(targetVariation);
+            
+            // On force visuellement l'image
+            if (targetVariation.image?.src) {
+              setActiveImageUrl(targetVariation.image.src);
+            }
+          }
         }
       }
-    }
-    // 2. Sinon (Image générique de la galerie 'gallery-x', 'main' ou autre)
-    else {
-      // ON VERROUILLE
+    } else {
+      // CAS B : C'est une image générique (Dos, Zoom...)
+      // => On active le VERROU MANUEL
       setUserSelectedGalleryImage(image.src);
     }
   };
