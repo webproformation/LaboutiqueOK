@@ -14,6 +14,7 @@ import {
   Edit,
   Trash2,
   Shield,
+  Info, // Icône ajoutée
 } from "lucide-react";
 import { ProductGallery } from "@/components/ProductGallery";
 import { ProductVariationSelector } from "@/components/ProductVariationSelector";
@@ -168,8 +169,7 @@ export default function ProductPage() {
             options: Array.from(options),
           }));
 
-          // --- NOUVEAU : Récupération des codes couleurs ---
-          // On collecte tous les noms d'options (Marine, Ciel, etc.)
+          // Récupération des codes couleurs
           const allOptionNames = attributes.flatMap(a => a.options);
           
           if (allOptionNames.length > 0) {
@@ -180,8 +180,6 @@ export default function ProductPage() {
                
              if (termsData) {
                const colorMap = new Map(termsData.map(t => [t.name, t.color_code]));
-               
-               // On enrichit les attributs avec les colorCodes
                attributes.forEach((attr: any) => {
                  if (attr.name.toLowerCase().includes('couleur') || attr.name.toLowerCase().includes('color')) {
                    attr.colorCodes = attr.options.map((opt: string) => colorMap.get(opt) || undefined);
@@ -189,7 +187,6 @@ export default function ProductPage() {
                });
              }
           }
-          // --------------------------------------------------
 
           const formattedVariations = variations.map((v) => {
             const variationAttributes: Array<{name: string; option: string}> = [];
@@ -257,6 +254,7 @@ export default function ProductPage() {
 
       setProduct(productData);
       
+      // Chargement attributs informatifs
       const { data: attributeValues } = await supabase
         .from("product_attribute_values")
         .select(`product_attributes!inner(id, name, slug, type), product_attribute_terms(id, name)`)
@@ -269,6 +267,7 @@ export default function ProductPage() {
             const attrName = av.product_attributes.name;
             const attrSlug = av.product_attributes.slug?.toLowerCase() || '';
             const termValue = av.product_attribute_terms.name;
+            // On filtre les variations déjà gérées (Couleurs, Tailles)
             if (attrSlug === 'couleurs-principales' || attrSlug === 'tailles' || attrSlug.includes('couleur') || attrSlug.includes('taille')) return;
             if (!attributesMap.has(attrName)) attributesMap.set(attrName, new Set());
             if (termValue) attributesMap.get(attrName)?.add(termValue);
@@ -530,6 +529,22 @@ export default function ProductPage() {
                   </Badge>
                 )}
               </div>
+
+              {/* --- AFFICHAGE DES ATTRIBUTS INFORMATIFS (Stretch, Coupe, Live...) --- */}
+              {informativeAttributes.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                  {informativeAttributes.map((attr) => (
+                    <div key={attr.name} className="flex flex-col gap-1">
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                         {attr.name}
+                      </span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {attr.values.join(", ")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {isVariable && <p className="text-sm text-gray-600 mb-4">Sélectionnez les options ci-dessous</p>}
 
