@@ -17,7 +17,12 @@ interface FilterOption {
   color_code?: string;
 }
 
-// État des filtres
+interface ProductFiltersProps {
+  categorySlug?: string;
+  activeFilters: FilterState;
+  onFiltersChange: (filters: FilterState) => void;
+}
+
 export interface FilterState {
   sizes: string[];
   colors: string[];
@@ -25,13 +30,6 @@ export interface FilterState {
   coupe: string[];
   live: boolean;
   nouveautes: boolean;
-}
-
-interface ProductFiltersProps {
-  categorySlug?: string;
-  // NOUVEAU : On reçoit l'état depuis le parent
-  activeFilters: FilterState;
-  onFiltersChange: (filters: FilterState) => void;
 }
 
 const FALLBACK_COLORS: Record<string, string> = {
@@ -45,9 +43,6 @@ const FALLBACK_COLORS: Record<string, string> = {
 
 export function ProductFilters({ categorySlug, activeFilters, onFiltersChange }: ProductFiltersProps) {
   const { profile } = useAuth();
-  
-  // Plus de useState local pour 'filters', on utilise 'activeFilters' directement
-
   const [colorOptions, setColorOptions] = useState<FilterOption[]>([]);
   const [confortOptions, setConfortOptions] = useState<FilterOption[]>([]);
   const [coupeOptions, setCoupeOptions] = useState<FilterOption[]>([]);
@@ -61,18 +56,36 @@ export function ProductFilters({ categorySlug, activeFilters, onFiltersChange }:
       const { data: attributes } = await supabase.from('product_attributes').select('id, name, slug');
       if (!attributes) return;
 
-      const mainColorAttr = attributes.find(a => a.name.toLowerCase().includes('principale') || a.slug.includes('principale'));
-      const fallbackColorAttr = attributes.find(a => ['couleur', 'color', 'pa_color'].includes(a.slug));
-      const colorAttrId = mainColorAttr?.id || fallbackColorAttr?.id;
-      
+      // --- LOGIQUE STRICTE POUR LA COULEUR PRINCIPALE ---
+      // 1. On cherche explicitement "principale"
+      let colorAttr = attributes.find(a => 
+        a.name.toLowerCase().includes('principale') || 
+        a.slug.includes('principale')
+      );
+
+      // 2. Si pas trouvé, on cherche "couleur" MAIS on exclut "nuance"
+      if (!colorAttr) {
+        colorAttr = attributes.find(a => 
+          (a.slug.includes('couleur') || a.slug.includes('color')) &&
+          !a.slug.includes('nuance') && 
+          !a.name.toLowerCase().includes('nuance')
+        );
+      }
+
+      // 3. Fallback ultime sur "pa_color" si besoin
+      if (!colorAttr) {
+         colorAttr = attributes.find(a => a.slug === 'pa_color');
+      }
+
       const confortAttr = attributes.find(a => a.slug.includes('confort') || a.name.toLowerCase().includes('confort'));
       const coupeAttr = attributes.find(a => a.slug.includes('coupe') || a.name.toLowerCase().includes('coupe'));
 
       const { data: allTerms } = await supabase.from('product_attribute_terms').select('id, name, slug, color_code, attribute_id').order('name');
 
       if (allTerms) {
-        if (colorAttrId) {
-          const colors = allTerms.filter(t => t.attribute_id === colorAttrId);
+        if (colorAttr) {
+          const colors = allTerms.filter(t => t.attribute_id === colorAttr?.id);
+          // On ne garde que les couleurs uniques
           const uniqueColors = Array.from(new Map(colors.map(item => [item.name, item])).values());
           setColorOptions(uniqueColors.map(c => ({
             ...c,
@@ -87,21 +100,14 @@ export function ProductFilters({ categorySlug, activeFilters, onFiltersChange }:
     }
   };
 
-  // Fonction de mise à jour qui appelle le parent
   const toggleFilter = (type: keyof FilterState, value: any) => {
     const newFilters = { ...activeFilters };
-    
     if (type === 'live' || type === 'nouveautes') {
       newFilters[type] = value;
     } else {
       const list = newFilters[type] as string[];
-      if (list.includes(value)) {
-        newFilters[type] = list.filter(v => v !== value);
-      } else {
-        newFilters[type] = [...list, value];
-      }
+      newFilters[type] = list.includes(value) ? list.filter(v => v !== value) : [...list, value];
     }
-    
     onFiltersChange(newFilters);
   };
 

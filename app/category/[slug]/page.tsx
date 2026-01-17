@@ -13,7 +13,6 @@ import { ProductFilters, FilterState } from '@/components/ProductFilters';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 
-// COMPOSANT SÉPARÉ (C'est ça la clé pour que ça ne bug pas !)
 const FilterSidebarContent = ({ 
   priceRange, 
   setPriceRange, 
@@ -31,7 +30,6 @@ const FilterSidebarContent = ({
       </div>
     </div>
     <Separator />
-    {/* On passe l'état au composant fils */}
     <ProductFilters 
       categorySlug={slug === 'tous' ? undefined : slug} 
       activeFilters={activeFilters}
@@ -173,7 +171,6 @@ export default function CategoryPage() {
           <aside className="hidden lg:block w-64 flex-shrink-0">
             <div className="sticky top-24 bg-white rounded-xl shadow-sm border border-gray-100 p-5 overflow-y-auto max-h-[calc(100vh-8rem)]">
               <div className="flex items-center gap-2 mb-6 text-[#D4AF37] font-bold text-lg"><Filter className="w-5 h-5" /> Filtres</div>
-              {/* Utilisation du composant extrait */}
               <FilterSidebarContent 
                 priceRange={priceRange} setPriceRange={setPriceRange} maxPrice={maxPrice} 
                 slug={slug} activeFilters={activeFilters} setActiveFilters={setActiveFilters} 
@@ -191,7 +188,6 @@ export default function CategoryPage() {
                   <SheetTrigger asChild><Button variant="outline" className="rounded-xl border-gray-300 hover:border-[#D4AF37] hover:text-[#D4AF37]"><SlidersHorizontal className="h-4 w-4 mr-2" /> Filtres</Button></SheetTrigger>
                   <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto">
                     <SheetHeader className="mb-6 text-left"><SheetTitle className="text-2xl font-bold text-[#D4AF37]">Filtres</SheetTitle></SheetHeader>
-                    {/* Réutilisation du même contenu */}
                     <FilterSidebarContent 
                       priceRange={priceRange} setPriceRange={setPriceRange} maxPrice={maxPrice} 
                       slug={slug} activeFilters={activeFilters} setActiveFilters={setActiveFilters} 
@@ -208,7 +204,7 @@ export default function CategoryPage() {
                 <Button variant="outline" onClick={() => { setPriceRange([0, maxPrice]); window.location.reload(); }} className="text-[#D4AF37] border-[#D4AF37] hover:bg-[#FFF9F0]">Réinitialiser les filtres</Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
                 {displayProducts.map((product) => <ProductCard key={product.id} product={product} showAddToCart={true} />)}
               </div>
             )}
