@@ -18,6 +18,7 @@ interface FilterOption {
 }
 
 export interface FilterState {
+  mySize: boolean; // Nouveau champ dédié
   sizes: string[];
   colors: string[];
   comfort: string[];
@@ -29,17 +30,10 @@ export interface FilterState {
 interface ProductFiltersProps {
   categorySlug?: string;
   activeFilters: FilterState;
+  availableTerms: Set<string>; // Nouvelle prop : liste des termes présents dans les produits
   onFiltersChange: (filters: FilterState) => void;
 }
 
-// 1. LISTE BLANCHE : Seules ces couleurs apparaîtront dans le filtre (basé sur votre admin)
-const MAIN_COLORS_WHITELIST = [
-  'jaune', 'noir', 'blanc', 'orange', 'rouge', 'violet', 'gris', 'bleu', 
-  'vert', 'marron', 'beige', 'multicolore', 'métallisé', 'autre',
-  'rose', 'or', 'argent' // Ajoutés par sécurité
-];
-
-// 2. COULEURS D'AFFICHAGE
 const FALLBACK_COLORS: Record<string, string> = {
   'blanc': '#FFFFFF', 'noir': '#000000', 'gris': '#808080', 'beige': '#F5F5DC',
   'marron': '#8B4513', 'rouge': '#FF0000', 'orange': '#FFA500', 'jaune': '#FFFF00',
@@ -50,16 +44,27 @@ const FALLBACK_COLORS: Record<string, string> = {
   'métallisé': 'linear-gradient(to right, #C0C0C0, #808080)',
 };
 
-export function ProductFilters({ categorySlug, activeFilters, onFiltersChange }: ProductFiltersProps) {
+const MAIN_COLORS_WHITELIST = [
+  'jaune', 'noir', 'blanc', 'orange', 'rouge', 'violet', 'gris', 'bleu', 
+  'vert', 'marron', 'beige', 'multicolore', 'métallisé', 'autre', 'rose', 'or', 'argent'
+];
+
+export function ProductFilters({ categorySlug, activeFilters, availableTerms, onFiltersChange }: ProductFiltersProps) {
   const { profile } = useAuth();
   
   const [colorOptions, setColorOptions] = useState<FilterOption[]>([]);
   const [confortOptions, setConfortOptions] = useState<FilterOption[]>([]);
   const [coupeOptions, setCoupeOptions] = useState<FilterOption[]>([]);
   
+  // Tailles standards à afficher
+  const allSizes = ['34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', 'TU'];
+  
+  // On filtre les tailles pour n'afficher que celles disponibles
+  const visibleSizes = allSizes.filter(size => availableTerms.has(size.toLowerCase()));
+
   useEffect(() => {
     loadFilterOptions();
-  }, []);
+  }, [availableTerms]); // Recharger si les termes disponibles changent
 
   const loadFilterOptions = async () => {
     try {
@@ -72,25 +77,37 @@ export function ProductFilters({ categorySlug, activeFilters, onFiltersChange }:
       const { data: allTerms } = await supabase.from('product_attribute_terms').select('id, name, slug, color_code, attribute_id').order('name');
 
       if (allTerms) {
-        // --- FILTRE COULEURS AVEC LISTE BLANCHE ---
-        // On prend TOUS les termes qui ont un code couleur ou qui ressemblent à une couleur
-        // ET on ne garde que ceux qui sont dans notre liste blanche "Couleur Principale"
-        const allPotentialColors = allTerms.filter(t => t.color_code !== null || MAIN_COLORS_WHITELIST.includes(t.name.toLowerCase()));
-        
-        const filteredColors = allPotentialColors.filter(t => 
+        // --- COULEURS ---
+        // 1. Filtrer par whitelist (Couleurs principales)
+        // 2. Filtrer par disponibilité (Est-ce que cette couleur existe dans les produits ?)
+        const potentialColors = allTerms.filter(t => 
+          (t.color_code !== null || MAIN_COLORS_WHITELIST.includes(t.name.toLowerCase())) &&
           MAIN_COLORS_WHITELIST.includes(t.name.toLowerCase())
         );
 
-        const uniqueColors = Array.from(new Map(filteredColors.map(item => [item.name, item])).values());
+        // On ne garde que celles qui sont dans availableTerms (soit par nom, soit par ID)
+        const activeColors = potentialColors.filter(t => 
+          availableTerms.has(t.name.toLowerCase()) || availableTerms.has(String(t.id))
+        );
+
+        const uniqueColors = Array.from(new Map(activeColors.map(item => [item.name, item])).values());
         
         setColorOptions(uniqueColors.map(c => ({
           ...c,
           color_code: c.color_code || FALLBACK_COLORS[c.slug.toLowerCase()] || FALLBACK_COLORS[c.name.toLowerCase()]
         })));
 
-        // --- AUTRES FILTRES ---
-        if (confortAttr) setConfortOptions(allTerms.filter(t => t.attribute_id === confortAttr.id));
-        if (coupeAttr) setCoupeOptions(allTerms.filter(t => t.attribute_id === coupeAttr.id));
+        // --- CONFORT ---
+        if (confortAttr) {
+          const opts = allTerms.filter(t => t.attribute_id === confortAttr.id);
+          setConfortOptions(opts.filter(t => availableTerms.has(t.name.toLowerCase()) || availableTerms.has(String(t.id))));
+        }
+
+        // --- COUPE ---
+        if (coupeAttr) {
+          const opts = allTerms.filter(t => t.attribute_id === coupeAttr.id);
+          setCoupeOptions(opts.filter(t => availableTerms.has(t.name.toLowerCase()) || availableTerms.has(String(t.id))));
+        }
       }
     } catch (error) {
       console.error('Erreur chargement filtres:', error);
@@ -99,7 +116,7 @@ export function ProductFilters({ categorySlug, activeFilters, onFiltersChange }:
 
   const toggleFilter = (type: keyof FilterState, value: any) => {
     const newFilters = { ...activeFilters };
-    if (type === 'live' || type === 'nouveautes') {
+    if (type === 'live' || type === 'nouveautes' || type === 'mySize') {
       newFilters[type] = value;
     } else {
       const list = newFilters[type] as string[];
@@ -109,10 +126,10 @@ export function ProductFilters({ categorySlug, activeFilters, onFiltersChange }:
   };
 
   const clearFilters = () => {
-    onFiltersChange({ sizes: [], colors: [], comfort: [], coupe: [], live: false, nouveautes: false });
+    onFiltersChange({ mySize: false, sizes: [], colors: [], comfort: [], coupe: [], live: false, nouveautes: false });
   };
 
-  const hasActiveFilters = Object.values(activeFilters).some(val => Array.isArray(val) ? val.length > 0 : val);
+  const hasActiveFilters = activeFilters.mySize || Object.values(activeFilters).some(val => Array.isArray(val) ? val.length > 0 : val === true);
 
   return (
     <Card className="border-0 shadow-none sm:border sm:shadow-sm">
@@ -128,34 +145,41 @@ export function ProductFilters({ categorySlug, activeFilters, onFiltersChange }:
       </CardHeader>
       <CardContent className="space-y-6 px-0 sm:px-6">
         
+        {/* FILTRE A MA TAILLE */}
         {profile?.user_size && (
           <div className="bg-[#FFF9F0] p-3 rounded-lg border border-[#D4AF37]/20 mb-4">
             <div className="flex items-center space-x-2">
-              <Checkbox id="my-size" checked={activeFilters.sizes.includes(String(profile.user_size))} onCheckedChange={() => toggleFilter('sizes', String(profile.user_size))} className="data-[state=checked]:bg-[#D4AF37] border-[#D4AF37]" />
-              <Label htmlFor="my-size" className="text-sm font-semibold cursor-pointer text-[#b8933d]">Ma taille ({profile.user_size})</Label>
+              <Checkbox 
+                id="my-size-toggle" 
+                checked={activeFilters.mySize} 
+                onCheckedChange={(c) => toggleFilter('mySize', !!c)} 
+                className="data-[state=checked]:bg-[#D4AF37] border-[#D4AF37]" 
+              />
+              <Label htmlFor="my-size-toggle" className="text-sm font-semibold cursor-pointer text-[#b8933d]">
+                À ma taille ({profile.user_size})
+              </Label>
             </div>
           </div>
         )}
 
-        <div className="space-y-3">
-          <h3 className="font-semibold text-sm text-gray-900">Tailles</h3>
-          <div className="grid grid-cols-4 gap-2">
-            {['34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', 'TU'].map(size => (
-              <button key={size} onClick={() => toggleFilter('sizes', size)} className={`px-1 py-2 text-xs sm:text-sm rounded-md border transition-all ${activeFilters.sizes.includes(size) ? 'bg-[#D4AF37] text-white border-[#D4AF37] font-bold' : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37]'}`}>{size}</button>
-            ))}
-          </div>
-        </div>
-        <Separator />
-
-        {colorOptions.length > 0 && (
+        {/* TAILLES */}
+        {visibleSizes.length > 0 && (
           <>
             <div className="space-y-3">
-              <h3 className="font-semibold text-sm text-gray-900">Couleurs Principales</h3>
-              <div className="flex flex-wrap gap-2">
-                {colorOptions.map(option => (
-                  <div key={option.id} onClick={() => toggleFilter('colors', option.name)} className={`cursor-pointer w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${activeFilters.colors.includes(option.name) ? 'border-[#D4AF37] scale-110 shadow-md ring-2 ring-[#D4AF37] ring-opacity-30' : 'border-transparent hover:scale-105 shadow-sm'}`} style={{ background: option.color_code }} title={option.name}>
-                    {activeFilters.colors.includes(option.name) && !option.slug.includes('multi') && <div className="w-2 h-2 bg-white rounded-full shadow-sm" />}
-                  </div>
+              <h3 className="font-semibold text-sm text-gray-900">Tailles</h3>
+              <div className="grid grid-cols-4 gap-2">
+                {visibleSizes.map(size => (
+                  <button
+                    key={size}
+                    onClick={() => toggleFilter('sizes', size)}
+                    className={`px-1 py-2 text-xs sm:text-sm rounded-md border transition-all ${
+                      activeFilters.sizes.includes(size)
+                        ? 'bg-[#D4AF37] text-white border-[#D4AF37] font-bold shadow-sm'
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                    }`}
+                  >
+                    {size}
+                  </button>
                 ))}
               </div>
             </div>
@@ -163,13 +187,50 @@ export function ProductFilters({ categorySlug, activeFilters, onFiltersChange }:
           </>
         )}
 
+        {/* COULEURS */}
+        {colorOptions.length > 0 && (
+          <>
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm text-gray-900">Couleurs Principales</h3>
+              <div className="flex flex-wrap gap-2">
+                {colorOptions.map(option => {
+                  const isSelected = activeFilters.colors.includes(option.name);
+                  
+                  return (
+                    <div 
+                      key={option.id} 
+                      onClick={() => toggleFilter('colors', option.name)}
+                      className={`cursor-pointer w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
+                        isSelected 
+                          ? 'border-[#D4AF37] scale-110 shadow-md ring-2 ring-[#D4AF37] ring-opacity-30' 
+                          : 'border-transparent hover:scale-105 shadow-sm'
+                      }`}
+                      style={{ background: option.color_code }}
+                      title={option.name}
+                    >
+                      {isSelected && !option.slug.includes('multi') && <div className="w-2 h-2 bg-white rounded-full shadow-sm" />}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <Separator />
+          </>
+        )}
+
+        {/* CONFORT & COUPE */}
         {[ { title: 'Confort', opts: confortOptions, key: 'comfort' }, { title: 'Coupe', opts: coupeOptions, key: 'coupe' } ].map(group => group.opts.length > 0 && (
           <div key={group.key} className="space-y-3">
             <h3 className="font-semibold text-sm text-gray-900">{group.title}</h3>
             <div className="space-y-2">
               {group.opts.map(opt => (
                 <div key={opt.id} className="flex items-center space-x-2">
-                  <Checkbox id={`${group.key}-${opt.id}`} checked={(activeFilters as any)[group.key].includes(opt.name)} onCheckedChange={() => toggleFilter(group.key as any, opt.name)} className="data-[state=checked]:bg-[#D4AF37] border-[#D4AF37]" />
+                  <Checkbox 
+                    id={`${group.key}-${opt.id}`} 
+                    checked={(activeFilters as any)[group.key].includes(opt.name)} 
+                    onCheckedChange={() => toggleFilter(group.key as any, opt.name)} 
+                    className="data-[state=checked]:bg-[#D4AF37] border-[#D4AF37]" 
+                  />
                   <Label htmlFor={`${group.key}-${opt.id}`} className="text-sm cursor-pointer">{opt.name}</Label>
                 </div>
               ))}
@@ -178,6 +239,7 @@ export function ProductFilters({ categorySlug, activeFilters, onFiltersChange }:
           </div>
         ))}
 
+        {/* AUTRES */}
         <div className="space-y-3">
           <h3 className="font-semibold text-sm text-gray-900">Autres</h3>
           <div className="space-y-2">
