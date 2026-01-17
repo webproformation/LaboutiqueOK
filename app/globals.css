@@ -1,0 +1,300 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+@layer base {
+  main h1,
+  main h2,
+  section h1,
+  section h2,
+  article h1,
+  article h2 {
+    @apply text-center;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 351 100% 86%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 43 74% 58%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 43 74% 58%;
+    --radius: 0.75rem;
+
+    --morgane-black: 0 0% 0%;
+    --morgane-gold: 43 74% 58%;
+    --morgane-pink: 351 100% 86%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-white text-black;
+  }
+}
+
+@layer utilities {
+  .shadow-soft {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  }
+
+  .transition-smooth {
+    transition: all 0.3s ease-in-out;
+  }
+
+  .page-title {
+    @apply text-4xl font-bold bg-gradient-to-r from-[#b8933d] to-[#d4af37] bg-clip-text text-transparent;
+  }
+}
+
+@layer components {
+  .page-content h1 {
+    @apply text-4xl font-extrabold text-[#d4af37] mb-4 mt-6 text-center;
+    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    line-height: 1.2;
+  }
+
+  .page-content h2 {
+    @apply text-3xl font-bold text-[#d4af37] mb-3 mt-5;
+    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    line-height: 1.3;
+  }
+
+  .page-content h3 {
+    @apply text-2xl font-semibold text-[#d4af37] mb-3 mt-4;
+    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    line-height: 1.4;
+  }
+
+  .page-content p {
+    @apply text-lg leading-relaxed text-gray-700 my-5;
+  }
+
+  .page-content ul,
+  .page-content ol {
+    @apply my-5 pl-8 text-lg leading-relaxed text-gray-700;
+  }
+
+  .page-content ul {
+    @apply list-disc;
+  }
+
+  .page-content ol {
+    @apply list-decimal;
+  }
+
+  .page-content li {
+    @apply my-2;
+  }
+
+  .page-content blockquote {
+    @apply border-l-4 border-[#d4af37] pl-6 my-6 text-gray-600 italic text-lg leading-relaxed;
+  }
+
+  .page-content pre {
+    @apply bg-gray-50 border border-gray-200 rounded-lg p-5 overflow-x-auto my-6 text-sm text-gray-900;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .page-content a {
+    @apply text-[#d4af37] underline font-medium hover:text-[#b8933d] transition-colors;
+  }
+
+  .page-content img {
+    @apply max-w-full h-auto rounded-lg my-6 shadow-md;
+  }
+
+  .page-content strong,
+  .page-content b {
+    @apply font-bold text-gray-900;
+  }
+
+  .page-content em,
+  .page-content i {
+    @apply italic;
+  }
+
+  .page-content u {
+    @apply underline;
+  }
+
+  .news-content h1 {
+    @apply text-4xl font-extrabold text-[#D4AF37] mb-4 mt-6;
+    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    line-height: 1.2;
+  }
+
+  .news-content h2 {
+    @apply text-3xl font-bold text-[#D4AF37] mb-3 mt-5;
+    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    line-height: 1.3;
+  }
+
+  .news-content h3 {
+    @apply text-2xl font-semibold text-[#D4AF37] mb-3 mt-4;
+    font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    line-height: 1.4;
+  }
+
+  .news-content p {
+    @apply text-lg leading-relaxed text-gray-700 my-5;
+  }
+
+  .news-content ul,
+  .news-content ol {
+    @apply my-5 pl-8 text-lg leading-relaxed text-gray-700;
+  }
+
+  .news-content ul {
+    @apply list-disc;
+  }
+
+  .news-content ol {
+    @apply list-decimal;
+  }
+
+  .news-content li {
+    @apply my-2;
+  }
+
+  .news-content blockquote {
+    @apply border-l-4 border-[#D4AF37] pl-6 my-6 text-gray-600 italic text-lg leading-relaxed;
+  }
+
+  .news-content pre {
+    @apply bg-gray-50 border border-gray-200 rounded-lg p-5 overflow-x-auto my-6 text-sm text-gray-900;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .news-content a {
+    @apply text-[#D4AF37] underline font-medium hover:text-[#b8933d] transition-colors;
+  }
+
+  /* Live Shopping Animations */
+  @keyframes ticker {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  .animate-ticker {
+    animation: ticker 20s linear infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+  }
+
+  /* Emotion Particles */
+  .emotion-particle {
+    position: fixed;
+    font-size: 2rem;
+    pointer-events: none;
+    animation: floatUp 3s ease-out forwards;
+    z-index: 999;
+  }
+
+  @keyframes floatUp {
+    0% {
+      transform: translateY(0) scale(1) rotate(0deg);
+      opacity: 1;
+    }
+    50% {
+      transform: translateY(-200px) scale(1.2) rotate(180deg);
+      opacity: 0.8;
+    }
+    100% {
+      transform: translateY(-400px) scale(0.8) rotate(360deg);
+      opacity: 0;
+    }
+  }
+
+  /* Progress Bar Pulse */
+  @keyframes progress-pulse {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+    }
+    50% {
+      box-shadow: 0 0 40px rgba(212, 175, 55, 0.8);
+    }
+  }
+
+  .news-content img {
+    @apply max-w-full h-auto rounded-lg my-6 shadow-md mx-auto;
+  }
+
+  .news-content strong,
+  .news-content b {
+    @apply font-bold text-gray-900;
+  }
+
+  .news-content em,
+  .news-content i {
+    @apply italic;
+  }
+
+  .news-content u {
+    @apply underline;
+  }
+
+  /* 3D Card Flip Animations */
+  .perspective-container {
+    perspective: 1000px;
+  }
+
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+
+  .backface-hidden {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "locked": true,
+  "project_id": "qcqbtmvbvipsxwjlgjvk",
+  "project_url": "https://qcqbtmvbvipsxwjlgjvk.supabase.co",
+  "forbidden_projects": [
+    "mcstv",
+    "mcstvpdcfvhsgnhdfeee"
+  ],
+  "lock_date": "2026-01-09",
+  "reason": "Protection contre les changements de projet accidentels",
+  "warnings_issued": 8,
+  "rollbacks_count": "centaines",
+  "critical_rules": {
+    "ids_format": "TEXT (WordPress format: '571', '102', etc.)",
+    "no_uuid_conversion": true,
+    "no_foreign_keys_on_text_ids": true,
+    "always_verify_env_before_action": true
+  },
+  "verification_command": ".bolt/verify-qcqbtmv.sh",
+  "emergency_contact": "STOP AND ASK USER IMMEDIATELY IF mcstv DETECTED"
+}
