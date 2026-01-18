@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Erreur récupération facture: ${invoiceError?.message}` }, { status: 404 });
     }
 
-    // 4. RECHERCHE INTELLIGENTE DE L'EMAIL
+    // 4. RECHERCHE INTELLIGENTE EMAIL
     let clientEmail = invoice.orders?.email || invoice.orders?.guest_email || invoice.orders?.contact_email;
 
     if (!clientEmail && invoice.orders?.user_id) {
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
-      secure: false, 
+      secure: false,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
       tls: { rejectUnauthorized: false }
     });
 
-    // 6. DESIGN DU MAIL (NOIR & OR)
+    // 6. DESIGN DU MAIL
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -71,56 +71,93 @@ export async function POST(req: Request) {
         <style>
           body { margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f4f4; }
           .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
-          .header { background-color: #000000; padding: 20px; text-align: center; }
-          .logo { color: #D4AF37; font-size: 24px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; text-decoration: none; }
+          .banner { width: 100%; display: block; background-color: #000; }
           .content { padding: 40px 30px; color: #333333; line-height: 1.6; }
-          .h1 { color: #000000; font-size: 22px; margin-bottom: 20px; text-align: center; }
-          .invoice-box { background-color: #f9f9f9; border: 1px solid #e0e0e0; padding: 20px; margin: 20px 0; border-radius: 5px; }
-          .amount { color: #D4AF37; font-size: 24px; font-weight: bold; }
+          .h1 { color: #000000; font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+          .yellow-box { 
+            background-color: #fffbf0; 
+            border-left: 5px solid #D4AF37; 
+            padding: 20px; 
+            margin: 30px 0; 
+          }
+          .box-title { color: #000; font-weight: bold; text-transform: uppercase; font-size: 14px; margin-bottom: 15px; }
+          .row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+          .label { color: #666; }
+          .value { font-weight: bold; color: #000; }
+          .total-row { border-top: 1px solid #eee; margin-top: 10px; padding-top: 10px; font-size: 18px; color: #D4AF37; font-weight: bold; }
+          
           .btn { display: inline-block; background-color: #D4AF37; color: #ffffff; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 20px; text-align: center; }
-          .footer { background-color: #000000; color: #888888; padding: 20px; text-align: center; font-size: 12px; }
-          .footer a { color: #D4AF37; text-decoration: none; }
+          
+          .contact-section { background-color: #ffffff; padding: 30px; border-top: 1px solid #eee; }
+          .contact-title { font-weight: bold; font-size: 16px; margin-bottom: 20px; }
+          .contact-item { margin-bottom: 10px; font-size: 14px; color: #444; }
+          .contact-icon { color: #D4AF37; margin-right: 10px; }
+          .contact-link { color: #D4AF37; text-decoration: none; font-weight: bold; }
+          
+          .footer { background-color: #222222; color: #999999; padding: 30px 20px; text-align: center; font-size: 12px; line-height: 1.6; }
+          .footer-title { color: #ffffff; font-weight: bold; font-size: 14px; margin-bottom: 10px; text-transform: uppercase; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="header">
-            <div class="logo">La Boutique de Morgane</div>
-          </div>
+          <img src="https://laboutiquedemorgane.com/lbdm-logobdc.png" alt="La Boutique de Morgane" class="banner" style="max-height: 150px; object-fit: contain; background: black;">
           
           <div class="content">
-            <h1 class="h1">Votre facture est disponible</h1>
+            <h1 class="h1">Bonjour ${invoice.customer_name} 👋</h1>
             
-            <p>Bonjour ${invoice.customer_name},</p>
-            <p>Nous vous remercions pour votre confiance ! Voici la facture correspondant à votre commande récente.</p>
+            <p>Nous espérons que vous allez bien !</p>
+            <p>Veuillez trouver ci-joint la facture correspondant à votre commande récente.</p>
             
-            <div class="invoice-box" style="text-align: center;">
-              <p style="margin: 0; color: #666;">Facture N°</p>
-              <p style="margin: 5px 0 15px 0; font-weight: bold;">${invoice.invoice_number}</p>
+            <div class="yellow-box">
+              <div class="box-title">Votre Facture</div>
               
-              <p style="margin: 0; color: #666;">Montant Total</p>
-              <p class="amount">${parseFloat(invoice.amount).toFixed(2)} €</p>
+              <div class="row">
+                <span class="label">Date d'émission :</span>
+                <span class="value">${new Date().toLocaleDateString('fr-FR')}</span>
+              </div>
+              <div class="row">
+                <span class="label">Numéro :</span>
+                <span class="value">${invoice.invoice_number}</span>
+              </div>
+              
+              <div class="row total-row" style="justify-content: space-between; display: flex;">
+                <span>Montant total :</span>
+                <span>${parseFloat(invoice.amount).toFixed(2)} €</span>
+              </div>
             </div>
 
             <p style="text-align: center;">
-              Vous trouverez votre facture en pièce jointe de cet email, ou vous pouvez la télécharger directement :
+              Vous pouvez télécharger votre facture PDF en cliquant sur le bouton ci-dessous :
             </p>
             
             <div style="text-align: center;">
-              <a href="${invoice.pdf_url}" class="btn">Télécharger ma facture PDF</a>
+              <a href="${invoice.pdf_url}" class="btn">Télécharger ma facture</a>
             </div>
-            
-            <p style="margin-top: 30px; text-align: center; font-style: italic; color: #666;">
-              "Votre dose de style et de joie !"<br>
-              À très vite en Live, Morgane.
-            </p>
+          </div>
+
+          <div class="contact-section">
+            <div class="contact-title">Une question ? Nous sommes là pour vous aider !</div>
+            <div class="contact-item">
+              ✉️ Email : <a href="mailto:contact@laboutiquedemorgane.com" class="contact-link">contact@laboutiquedemorgane.com</a>
+            </div>
+            <div class="contact-item">
+              📞 Morgane : +33 6 41 45 66 71
+            </div>
+            <div class="contact-item">
+              📞 André : +33 6 03 48 96 62
+            </div>
           </div>
 
           <div class="footer">
-            <p>MORGANE DEWANIN - SAS au capital variable</p>
-            <p>1062 rue d'Armentières, 59850 Nieppe, France</p>
-            <p>SIREN: 907 889 802 - TVA: FR16907889802</p>
-            <p><a href="https://laboutiquedemorgane.com">www.laboutiquedemorgane.com</a></p>
+            <div class="footer-title">MORGANE DEWANIN - SAS</div>
+            <div>1062 rue d'Armentières, 59850 Nieppe, France</div>
+            <div style="margin-top: 10px;">
+              SIREN : 907 889 802 | SIRET : 907 889 802 00027<br>
+              TVA : FR16907889802 | APE : 4641Z
+            </div>
+            <div style="margin-top: 15px; font-style: italic;">
+              Shopping en live depuis 2020
+            </div>
           </div>
         </div>
       </body>
