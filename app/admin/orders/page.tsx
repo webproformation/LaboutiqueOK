@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { generateInvoicePDF } from '@/lib/invoiceGenerator';
 import { Button } from "@/components/ui/button";
+// CORRECTION ICI : Ajout de CardHeader et CardTitle
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -39,11 +40,7 @@ import {
   RefreshCw,
   Package,
   Truck,
-  CheckCircle,
-  XCircle,
-  Clock,
   Trash2,
-  FileText,
   MapPin,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -114,18 +111,13 @@ export default function OrdersPage() {
   const loadOrders = async () => {
     setLoading(true);
     try {
-      // Récupération des commandes avec order_items
       const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
-        .select(`
-          *,
-          order_items(*)
-        `)
+        .select(`*, order_items(*)`)
         .order("created_at", { ascending: false });
 
       if (ordersError) throw ordersError;
 
-      // Récupération des méthodes de livraison et paiement
       const shippingMethodIds = Array.from(new Set(ordersData?.map(o => o.shipping_method_id).filter(Boolean))) as string[];
       const paymentMethodIds = Array.from(new Set(ordersData?.map(o => o.payment_method_id).filter(Boolean))) as string[];
 
@@ -138,7 +130,6 @@ export default function OrdersPage() {
           : Promise.resolve({ data: [] })
       ]);
 
-      // Récupération des infos de colis ouverts pour les commandes is_open_package
       const openPackageOrders = ordersData?.filter(o => o.is_open_package) || [];
       const openPackageInfoMap = new Map();
 
@@ -159,15 +150,12 @@ export default function OrdersPage() {
             const packagesMap = new Map(packagesData.map(p => [p.id, p]));
             packageOrdersData.forEach(po => {
               const pkg = packagesMap.get(po.open_package_id);
-              if (pkg) {
-                openPackageInfoMap.set(po.order_id, pkg);
-              }
+              if (pkg) openPackageInfoMap.set(po.order_id, pkg);
             });
           }
         }
       }
 
-      // Association des données
       const shippingMethodsMap = new Map(shippingMethodsRes.data?.map(m => [m.id, m]));
       const paymentMethodsMap = new Map(paymentMethodsRes.data?.map(m => [m.id, m]));
 
@@ -266,7 +254,6 @@ export default function OrdersPage() {
       cancelled: "destructive",
       refunded: "destructive",
     };
-
     return (
       <Badge variant={variants[status] || "secondary"}>
         {statusLabels[status] || status}
@@ -282,7 +269,6 @@ export default function OrdersPage() {
       failed: "destructive",
       refunded: "destructive",
     };
-
     return (
       <Badge variant={variants[status] || "secondary"}>
         {paymentStatusLabels[status] || status}
@@ -304,50 +290,34 @@ export default function OrdersPage() {
 
     try {
       const { error } = await supabase.from("orders").delete().eq("id", orderId);
-
       if (error) throw error;
-
       setOrders((prev) => prev.filter((o) => o.id !== orderId));
       toast.success("Commande supprimée avec succès");
-
       if (selectedOrder && selectedOrder.id === orderId) {
         setDialogOpen(false);
         setSelectedOrder(null);
       }
     } catch (error: any) {
       console.error("Error deleting order:", error);
-      toast.error(`Erreur lors de la suppression: ${error.message}`);
+      toast.error(`Erreur: ${error.message}`);
     }
   };
 
+  // --- NOUVELLE VERSION SÉCURISÉE DU PDF ---
   const handleGeneratePDF = async (orderId: string, orderNumber: string) => {
     toast.loading("Génération du PDF en cours...");
-
     try {
-      const response = await fetch("/api/orders/generate-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-      });
+      const order = orders.find(o => o.id === orderId);
+      if (!order) throw new Error("Commande introuvable");
 
-      const data = await response.json();
+      const orderForPdf = {
+        ...order,
+        items: order.order_items || order.items || [],
+        payment_method: order.payment_method?.name || order.payment_method_id || 'CB / Stripe'
+      };
 
-      if (!response.ok) {
-        throw new Error(data.error || "Erreur lors de la génération");
-      }
-
-      const pdfBlob = new Blob([Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0))], {
-        type: "application/pdf",
-      });
-
-      const url = URL.createObjectURL(pdfBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = data.filename || `Commande_${orderNumber}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const doc = await generateInvoicePDF(orderForPdf, orderNumber);
+      doc.save(`Facture_${orderNumber}.pdf`);
 
       toast.dismiss();
       toast.success("PDF téléchargé avec succès");
@@ -358,29 +328,44 @@ export default function OrdersPage() {
     }
   };
 
+  // --- NOUVELLE VERSION SÉCURISÉE DE L'EMAIL ---
   const handleSendEmail = async (orderId: string, orderNumber: string) => {
-    toast.loading("Génération et envoi de l'email...");
+    toast.loading("Envoi de l'email...");
 
     try {
-      const pdfResponse = await fetch("/api/orders/generate-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
+      const order = orders.find(o => o.id === orderId);
+      if (!order) throw new Error("Commande introuvable");
+
+      const orderForPdf = {
+        ...order,
+        items: order.order_items || order.items || [],
+        payment_method: order.payment_method?.name || "CB / Stripe",
+      };
+
+      // 1. Génération du PDF
+      const doc = await generateInvoicePDF(orderForPdf, orderNumber);
+      const pdfBlob = doc.output("blob");
+
+      // 2. Conversion Blob -> Base64 (Linéaire, sans nesting complexe)
+      const base64data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const res = reader.result?.toString().split(",")[1];
+          if (res) resolve(res);
+          else reject(new Error("Echec de la conversion du PDF"));
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(pdfBlob);
       });
 
-      const pdfData = await pdfResponse.json();
-
-      if (!pdfResponse.ok) {
-        throw new Error(pdfData.error || "Erreur lors de la génération du PDF");
-      }
-
+      // 3. Envoi à l'API
       const emailResponse = await fetch("/api/orders/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orderId,
-          pdfBase64: pdfData.pdf,
-          filename: pdfData.filename,
+          pdfBase64: base64data,
+          filename: `Facture_${orderNumber}.pdf`,
         }),
       });
 
@@ -391,7 +376,7 @@ export default function OrdersPage() {
       }
 
       toast.dismiss();
-      toast.success("Email envoyé avec succès au client");
+      toast.success("Email envoyé avec succès !");
     } catch (error: any) {
       toast.dismiss();
       console.error("Error sending email:", error);
@@ -615,7 +600,7 @@ export default function OrdersPage() {
                     </CardHeader>
                     <CardContent>
                       {selectedOrder.is_open_package && selectedOrder.open_package &&
-                       (selectedOrder.open_package.status === 'active' || selectedOrder.open_package.status === 'ready_to_prepare') ? (
+                        (selectedOrder.open_package.status === 'active' || selectedOrder.open_package.status === 'ready_to_prepare') ? (
                         <div className="space-y-2">
                           <Badge className="bg-blue-100 text-blue-800">
                             📦 Commande dans un colis ouvert
@@ -771,10 +756,7 @@ export default function OrdersPage() {
                             {item.variation_data && (
                               <div className="text-sm text-gray-600 mt-1">
                                 {(() => {
-                                  // Gérer les deux formats: array d'objets ou objet direct
                                   const attributes = item.variation_data.attributes || item.variation_data;
-
-                                  // Si c'est un array d'objets avec name/option
                                   if (Array.isArray(attributes)) {
                                     return attributes.map((attr: any, idx: number) => (
                                       <span key={idx} className="mr-3">
@@ -782,19 +764,12 @@ export default function OrdersPage() {
                                       </span>
                                     ));
                                   }
-
-                                  // Si c'est un objet clé-valeur
                                   if (typeof attributes === 'object') {
                                     return Object.entries(attributes).map(([key, value]) => {
-                                      // Ignorer les champs techniques
-                                      if (key === 'price' || key === 'image' || key.includes('_id') || key.includes('color_code')) {
-                                        return null;
-                                      }
-
+                                      if (key === 'price' || key === 'image' || key.includes('_id') || key.includes('color_code')) return null;
                                       const displayValue = typeof value === 'object'
                                         ? (value as any)?.name || (value as any)?.option || String(value)
                                         : String(value);
-
                                       return (
                                         <span key={key} className="mr-3">
                                           {key}: <strong>{displayValue}</strong>
@@ -802,7 +777,6 @@ export default function OrdersPage() {
                                       );
                                     }).filter(Boolean);
                                   }
-
                                   return null;
                                 })()}
                               </div>
