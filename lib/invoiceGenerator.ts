@@ -3,111 +3,168 @@ import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-export const generateInvoicePDF = (order: any, invoiceNumber: string) => {
+// Fonction utilitaire pour charger l'image du dossier public
+const loadImage = (url: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    // Important pour éviter les problèmes de sécurité navigateur
+    img.crossOrigin = 'Anonymous'; 
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = (e) => reject(e);
+    img.src = url;
+  });
+};
+
+// La fonction devient ASYNC (async)
+export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   const doc = new jsPDF();
   const orderDate = new Date(order.created_at);
-  const primaryColor = "#D4AF37";
-  const textColor = "#333333";
   
-  // En-tête
-  doc.setFontSize(22);
-  doc.setTextColor(primaryColor);
+  // --- CHARGEMENT DU LOGO ---
+  try {
+    // Le chemin commence par / pour pointer vers le dossier 'public'
+    const logoUrl = '/lbdm-logobdc.png';
+    const logoData = await loadImage(logoUrl);
+    
+    // Ajout de l'image (données, format, X, Y, Largeur, Hauteur)
+    // Ajustez Largeur (70) et Hauteur (25) si les proportions ne sont pas parfaites
+    doc.addImage(logoData, 'PNG', 14, 10, 70, 25);
+
+  } catch (error) {
+    console.error("Erreur chargement logo:", error);
+    // Fallback texte si l'image ne charge pas (sécurité)
+    doc.setFontSize(18).setTextColor("#D4AF37").text("BOUTIQUE De Morgane", 14, 25);
+  }
+
+  // --- SOUS-TITRE (Sous le logo) ---
+  const ySubtitle = 40;
+  doc.setFontSize(10);
+  doc.setTextColor("#333333");
+  doc.setFont("helvetica", "normal");
+  doc.text("SHOPPING EN LIVE DEPUIS 2020", 14, ySubtitle);
+  doc.text("Votre dose de style et de joie", 14, ySubtitle + 5);
+
+  // --- VENDEUR (Gauche) ---
+  const yVendeur = ySubtitle + 15;
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("LA BOUTIQUE DE MORGANE", 14, 20);
+  doc.text("Informations Vendeur", 14, yVendeur);
   
   doc.setFontSize(10);
-  doc.setTextColor(textColor);
   doc.setFont("helvetica", "normal");
-  doc.text("Shopping en Live", 14, 26);
-  doc.text("contact@laboutiquedemorgane.com", 14, 31);
+  doc.text("MORGANE DEWANIN", 14, yVendeur + 6);
+  doc.text("SAS (Société par Actions Simplifiée)", 14, yVendeur + 11);
+  doc.text("1062 rue d'Armentières", 14, yVendeur + 16);
+  doc.text("59850 Nieppe, France", 14, yVendeur + 21);
+  doc.text("Email: contact@laboutiquedemorgane.com", 14, yVendeur + 26);
+  doc.text("SIREN: 907 889 802", 14, yVendeur + 31);
+  doc.text("TVA: FR16907889802", 14, yVendeur + 36);
 
-  // Cadre Facture
-  doc.setFillColor(250, 250, 250);
-  doc.roundedRect(120, 15, 75, 30, 2, 2, 'F');
+  // --- FACTURE (Encadré à Droite) ---
+  // Alignement vertical avec le haut du logo
+  doc.setDrawColor(212, 175, 55); 
+  doc.setLineWidth(0.5);
+  doc.roundedRect(110, 10, 85, 25, 2, 2);
   
-  doc.setFontSize(14);
-  doc.setTextColor(primaryColor);
+  doc.setFontSize(16);
+  doc.setTextColor("#D4AF37");
   doc.setFont("helvetica", "bold");
-  doc.text("FACTURE", 125, 25);
+  doc.text("FACTURE", 152.5, 20, { align: "center" });
   
   doc.setFontSize(10);
-  doc.setTextColor(textColor);
-  doc.setFont("helvetica", "normal");
-  doc.text(`N° : ${invoiceNumber}`, 125, 32);
-  doc.text(`Date commande : ${format(orderDate, 'dd/MM/yyyy', { locale: fr })}`, 125, 37);
-  doc.text(`Réf. Commande : #${order.id.slice(0, 8).toUpperCase()}`, 125, 42);
-
-  // Adresses
-  const yAddress = 60;
-  doc.setFontSize(9);
-  doc.setTextColor(100);
-  doc.text("Émetteur :", 14, yAddress);
-  doc.setTextColor(textColor);
+  doc.setTextColor("#333333");
   doc.setFont("helvetica", "bold");
-  doc.text("La Boutique de Morgane", 14, yAddress + 5);
+  doc.text(`N° ${invoiceNumber}`, 152.5, 27, { align: "center" });
   doc.setFont("helvetica", "normal");
-  doc.text("123 Rue de la Mode", 14, yAddress + 10);
-  doc.text("75000 Paris, France", 14, yAddress + 15);
+  // Date du jour pour la facture
+  doc.text(`Date : ${format(new Date(), 'dd MMMM yyyy', { locale: fr })}`, 152.5, 32, { align: "center" });
 
-  doc.setTextColor(100);
-  doc.text("Facturé à :", 110, yAddress);
-  doc.setTextColor(textColor);
+  // --- CLIENT (Droite, sous le cadre) ---
+  const yClient = 60;
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text(`${order.shipping_address?.first_name || ''} ${order.shipping_address?.last_name || ''}`, 110, yAddress + 5);
-  doc.setFont("helvetica", "normal");
-  doc.text(`${order.shipping_address?.address_line1 || ''}`, 110, yAddress + 10);
-  if (order.shipping_address?.address_line2) doc.text(`${order.shipping_address.address_line2}`, 110, yAddress + 15);
-  doc.text(`${order.shipping_address?.postal_code || ''} ${order.shipping_address?.city || ''}`, 110, yAddress + (order.shipping_address?.address_line2 ? 20 : 15));
-  doc.text(`${order.shipping_address?.country || ''}`, 110, yAddress + (order.shipping_address?.address_line2 ? 25 : 20));
+  doc.text("Adresse de Facturation", 110, yClient);
 
-  // Tableau
-  const tableColumn = ["Désignation", "Qté", "Prix Unit.", "Total"];
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  const clientName = `${order.shipping_address?.first_name || ''} ${order.shipping_address?.last_name || ''}`;
+  const clientStreet = order.shipping_address?.address_line1 || '';
+  const clientCity = `${order.shipping_address?.postal_code || ''} ${order.shipping_address?.city || ''}`;
+  const clientCountry = order.shipping_address?.country || 'France';
+
+  doc.text(clientName, 110, yClient + 6);
+  doc.text(clientStreet, 110, yClient + 11);
+  if (order.shipping_address?.address_line2) {
+    doc.text(order.shipping_address.address_line2, 110, yClient + 16);
+    doc.text(clientCity, 110, yClient + 21);
+    doc.text(clientCountry, 110, yClient + 26);
+  } else {
+    doc.text(clientCity, 110, yClient + 16);
+    doc.text(clientCountry, 110, yClient + 21);
+  }
+
+  // --- TABLEAU ---
   const tableRows: any[] = [];
-
   order.items?.forEach((item: any) => {
-    const price = parseFloat(item.price) || 0;
-    const qty = item.quantity || 1;
-    const totalLine = price * qty;
+    const variation = item.variation_name ? `\n(${item.variation_name})` : '';
     tableRows.push([
-      item.product_name + (item.variation_name ? ` - ${item.variation_name}` : ''),
-      qty,
-      `${price.toFixed(2)} €`,
-      `${totalLine.toFixed(2)} €`,
+      item.product_name + variation,
+      item.quantity,
+      `${parseFloat(item.price).toFixed(2)} €`,
+      `${(item.price * item.quantity).toFixed(2)} €`
     ]);
   });
 
   // @ts-ignore
   autoTable(doc, {
-    startY: yAddress + 35,
-    head: [tableColumn],
+    startY: 110, // Un peu plus bas pour laisser de la place
+    head: [["Produit", "Qté", "Prix Unit.", "Total"]],
     body: tableRows,
-    theme: 'grid',
-    headStyles: { fillColor: [212, 175, 55], textColor: [255, 255, 255], fontStyle: 'bold' },
-    styles: { fontSize: 10, cellPadding: 3 },
-    columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 20, halign: 'center' }, 2: { cellWidth: 30, halign: 'right' }, 3: { cellWidth: 30, halign: 'right' } },
+    theme: 'plain',
+    styles: { fontSize: 10, cellPadding: 3, textColor: 33 },
+    headStyles: { fillColor: [240, 240, 240], textColor: 33, fontStyle: 'bold', lineColor: 200, lineWidth: 0.1 },
+    bodyStyles: { lineColor: 200, lineWidth: 0.1 },
+    columnStyles: {
+      0: { cellWidth: 'auto' }, 
+      1: { cellWidth: 20, halign: 'center' }, 
+      2: { cellWidth: 30, halign: 'right' }, 
+      3: { cellWidth: 30, halign: 'right' } 
+    }
   });
 
-  // Totaux
+  // --- TOTAUX ---
   // @ts-ignore
   let finalY = doc.lastAutoTable.finalY + 10;
-  const totalAmount = parseFloat(order.total_amount) || 0;
-  
-  doc.setDrawColor(200);
-  doc.line(120, finalY, 195, finalY);
+  const xLabel = 140;
+  const xValue = 195;
+
+  doc.setFontSize(10);
+  doc.text("Sous-total :", xLabel, finalY);
+  doc.text(`${parseFloat(order.total_amount).toFixed(2)} €`, xValue, finalY, { align: 'right' });
   finalY += 8;
 
+  doc.setLineWidth(0.5);
+  doc.line(130, finalY - 4, 195, finalY - 4);
+  
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text("TOTAL NET À PAYER", 120, finalY);
-  doc.text(`${totalAmount.toFixed(2)} €`, 195, finalY, { align: 'right' });
+  doc.text("TOTAL TTC :", xLabel, finalY);
+  doc.text(`${parseFloat(order.total_amount).toFixed(2)} €`, xValue, finalY, { align: 'right' });
 
-  // Pied de page
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(9);
-  doc.setTextColor(100);
-  doc.text(`Règlement : ${order.payment_method || 'Non spécifié'} - Statut : ${order.status === 'completed' ? 'Payé' : 'En attente'}`, 14, finalY + 20);
+  // --- PIED DE PAGE ---
+  const pageHeight = doc.internal.pageSize.height;
   doc.setFontSize(8);
-  doc.text("TVA non applicable, art. 293 B du CGI (Auto-entrepreneur)", 105, 285, { align: 'center' });
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(100);
+  doc.text("Conditions de paiement : " + (order.payment_method || 'CB / Stripe'), 14, finalY + 20);
+  doc.text("MORGANE DEWANIN - SAS au capital variable - SIREN 907 889 802 - TVA FR16907889802", 105, pageHeight - 10, { align: "center" });
 
-  return doc;
+  return doc; // Retourne le document une fois tout chargé
 };

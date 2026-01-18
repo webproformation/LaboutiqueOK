@@ -8,21 +8,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProfilePictureUpload } from '@/components/profile-picture-upload';
 import { PasswordInput } from '@/components/PasswordInput';
-import { User, Mail, Phone, Calendar, Save, Loader2, Lock, Coins, Wallet } from 'lucide-react';
+import { User, Mail, Phone, Calendar, Save, Loader2, Lock } from 'lucide-react';
 import { toast } from 'sonner';
+import Link from 'next/link'; // Import nécessaire pour le lien secret
 
 export default function AccountPage() {
   const { profile, updateProfile, updatePassword, loading } = useAuth();
   
-  // États formulaire profil
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
-
-  // États formulaire mot de passe
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
@@ -74,43 +72,6 @@ export default function AccountPage() {
 
   return (
     <div className="space-y-6">
-      
-      {/* --- BLOC CAGNOTTE & PORTE-MONNAIE --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Cagnotte Fidélité */}
-        <Card className="bg-gradient-to-br from-[#D4AF37]/10 to-white border-[#D4AF37]/20">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-[#D4AF37]">
-              Cagnotte Fidélité
-            </CardTitle>
-            <Coins className="h-4 w-4 text-[#D4AF37]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{profile.loyalty_points || 0} pts</div>
-            <p className="text-xs text-gray-500">
-              {/* Exemple de conversion, ajustez selon votre logique */}
-              Valeur estimée : {((profile.loyalty_points || 0) * 0.1).toFixed(2)} €
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Porte-monnaie */}
-        <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-100">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-600">
-              Porte-monnaie
-            </CardTitle>
-            <Wallet className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{Number(profile.wallet_balance || 0).toFixed(2)} €</div>
-            <p className="text-xs text-gray-500">
-              Disponible pour vos prochains achats
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Mes informations</h2>
         <p className="text-gray-500">Gérez vos informations personnelles et votre sécurité.</p>
@@ -120,7 +81,17 @@ export default function AccountPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <User className="h-5 w-5 text-[#D4AF37]" />
+            
+            {/* --- LIEN SECRET ADMIN --- */}
+            {profile.is_admin ? (
+              <Link href="/account/admin-invoices" title="Accès Facturation Admin" className="cursor-pointer hover:scale-110 transition-transform">
+                <User className="h-5 w-5 text-[#D4AF37] hover:text-red-500" />
+              </Link>
+            ) : (
+              <User className="h-5 w-5 text-[#D4AF37]" />
+            )}
+            {/* ------------------------- */}
+
             <CardTitle>Informations personnelles</CardTitle>
           </div>
         </CardHeader>
