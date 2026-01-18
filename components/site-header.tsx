@@ -299,17 +299,7 @@ export function SiteHeader() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {profile?.is_admin && (
-                <Link href="/admin" className="md:hidden">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-white hover:text-[#D4AF37] hover:bg-transparent"
-                  >
-                    <Settings className="h-5 w-5" />
-                  </Button>
-                </Link>
-              )}
+              {/* J'AI SUPPRIMÉ LE BLOC DU BOUTON SETTINGS ICI */}
 
               <Link href="/cart">
                 <Button

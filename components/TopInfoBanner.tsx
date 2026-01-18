@@ -47,13 +47,14 @@ export function TopInfoBanner() {
       {!user ? (
         <Link href="/auth/register" className="block">
           <div className="bg-gradient-to-r from-[#C6A15B] via-[#D4AF37] to-[#FFD700] hover:from-[#B59149] hover:via-[#C6A15B] hover:to-[#D4AF37] transition-all duration-300">
-            <div className="container mx-auto px-4 py-4">
-              <div className="flex items-center justify-center gap-3 text-white">
-                <Sparkles className="h-6 w-6 animate-pulse" />
-                <span className="font-bold text-lg">
+            <div className="container mx-auto px-4 py-3">
+              {/* Ajout de text-center et ajustement flex pour le mobile */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 text-white text-center">
+                <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 animate-pulse shrink-0" />
+                <span className="font-bold text-sm sm:text-lg leading-tight">
                   Crée ton compte et reçois 5€ de bienvenue !
                 </span>
-                <Euro className="h-6 w-6" />
+                <Euro className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
               </div>
             </div>
           </div>

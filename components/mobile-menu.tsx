@@ -36,9 +36,14 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   }, [isOpen]);
 
   const handleSignOut = async () => {
-    await signOut();
-    onClose();
-    router.push('/');
+    try {
+      await signOut();
+      onClose();
+      router.refresh(); // Force le rafraîchissement pour mettre à jour l'état Auth
+      router.push('/');
+    } catch (error) {
+      console.error('Erreur déconnexion:', error);
+    }
   };
 
   async function loadCategories() {
@@ -57,20 +62,11 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
       const categoriesWithChildren = level1Categories.map(cat1 => {
         const level2 = allCategories.filter(cat => cat.parent_id === cat1.id);
-
         const level2WithChildren = level2.map(cat2 => {
           const level3 = allCategories.filter(cat => cat.parent_id === cat2.id);
-
-          return {
-            ...cat2,
-            children: level3
-          };
+          return { ...cat2, children: level3 };
         });
-
-        return {
-          ...cat1,
-          children: level2WithChildren
-        };
+        return { ...cat1, children: level2WithChildren };
       });
 
       setCategories(categoriesWithChildren);
@@ -110,19 +106,22 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                       </Button>
                     </Link>
                   )}
+                  {/* CORRECTION DU BOUTON MON COMPTE (TEXTE NOIR) */}
                   <Link href="/account" onClick={onClose}>
                     <Button
                       variant="outline"
-                      className="w-full justify-start gap-2 text-white border-gray-600 hover:bg-gray-800"
+                      className="w-full justify-start gap-2 bg-white text-gray-900 border-gray-200 hover:bg-gray-100"
                     >
                       <User className="h-4 w-4" />
                       Mon compte
                     </Button>
                   </Link>
+                  {/* CORRECTION DU BOUTON DÉCONNEXION */}
                   <Button
                     variant="outline"
+                    type="button"
                     onClick={handleSignOut}
-                    className="w-full justify-start gap-2 text-[#b8933d] border-[#b8933d] hover:bg-[#b8933d]/10"
+                    className="w-full justify-start gap-2 text-[#b8933d] bg-white border-[#b8933d] hover:bg-[#b8933d]/10"
                   >
                     <LogOut className="h-4 w-4" />
                     Déconnexion
@@ -134,17 +133,12 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             <div className="mb-6 pb-6 border-b border-gray-700">
               <div className="flex flex-col space-y-2">
                 <Link href="/auth/login" onClick={onClose}>
-                  <Button
-                    className="w-full justify-center bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white border-2 border-[#d4af37] hover:from-[#d4af37] hover:to-[#b8933d] font-semibold shadow-lg"
-                  >
+                  <Button className="w-full justify-center bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white border-2 border-[#d4af37] hover:from-[#d4af37] hover:to-[#b8933d] font-semibold shadow-lg">
                     Se connecter
                   </Button>
                 </Link>
                 <Link href="/auth/register" onClick={onClose}>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-center bg-white text-gray-900 border-2 border-white hover:bg-gray-100 font-semibold shadow-md"
-                  >
+                  <Button variant="outline" className="w-full justify-center bg-white text-gray-900 border-2 border-white hover:bg-gray-100 font-semibold shadow-md">
                     Créer un compte
                   </Button>
                 </Link>
@@ -181,7 +175,6 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   <AccordionContent className="space-y-2 pl-4 pb-4">
                     {category.children?.map((cat2) => {
                       const hasLevel3 = cat2.children && cat2.children.length > 0;
-
                       return (
                         <div key={cat2.id} className="space-y-2">
                           <Link
@@ -192,9 +185,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                             <ChevronRight className={`h-4 w-4 transition-transform group-hover:translate-x-1 ${hasLevel3 ? 'text-[#D4AF37]' : 'text-gray-500'}`} />
                             <span className="flex-1">{decodeHtmlEntities(cat2.name)}</span>
                             {hasLevel3 && (
-                              <span className="text-xs font-bold text-white bg-[#D4AF37] px-2 py-1 rounded-full">
-                                {cat2.children?.length || 0}
-                              </span>
+                              <span className="text-xs font-bold text-white bg-[#D4AF37] px-2 py-1 rounded-full">{cat2.children?.length || 0}</span>
                             )}
                           </Link>
                           {hasLevel3 && (
@@ -219,39 +210,15 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 </AccordionItem>
               );
             })}
-
             <div className="border-t border-gray-700 my-4"></div>
-
             <div className="py-3">
-              <Link
-                href="/live"
-                className="flex items-center gap-2 text-base font-bold text-[#D4AF37] hover:text-[#C5A028] transition-colors"
-                onClick={onClose}
-              >
+              <Link href="/live" className="flex items-center gap-2 text-base font-bold text-[#D4AF37] hover:text-[#C5A028] transition-colors" onClick={onClose}>
                 <Play className="h-4 w-4 fill-current" />
                 Live Shopping et Replay
               </Link>
             </div>
-
-            <div className="py-3">
-              <Link
-                href="/carte-cadeau"
-                className="block text-base font-medium hover:text-[#D4AF37] transition-colors"
-                onClick={onClose}
-              >
-                Carte cadeau
-              </Link>
-            </div>
-
-            <div className="py-3">
-              <Link
-                href="/actualites"
-                className="block text-base font-medium hover:text-[#D4AF37] transition-colors"
-                onClick={onClose}
-              >
-                Le carnet de Morgane
-              </Link>
-            </div>
+            <div className="py-3"><Link href="/carte-cadeau" className="block text-base font-medium hover:text-[#D4AF37] transition-colors" onClick={onClose}>Carte cadeau</Link></div>
+            <div className="py-3"><Link href="/actualites" className="block text-base font-medium hover:text-[#D4AF37] transition-colors" onClick={onClose}>Le carnet de Morgane</Link></div>
           </Accordion>
         </div>
       </SheetContent>
