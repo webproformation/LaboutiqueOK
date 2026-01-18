@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+// On importe la fonction sécurisée du fichier lib (Celle qui gère le logo sans planter)
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,22 +21,23 @@ export function AdminInvoiceGenerator() {
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
   const [activeTab, setActiveTab] = useState<'todo' | 'history'>('todo');
 
-  useEffect(() => { fetchOrders(); }, [selectedMonth]);
+  useEffect(() => {
+    // Petit log pour vérifier que le bon fichier est chargé
+    console.log("✅ AdminInvoiceGenerator: Version Sécurisée Chargée");
+    fetchOrders(); 
+  }, [selectedMonth]);
 
-  // --- UTILITAIRES D'AFFICHAGE ET CORRECTIONS ---
+  // --- UTILITAIRES ---
   const getOrderTotal = (order: any) => {
     const val = order.total_amount || order.total || order.amount || 0;
     return parseFloat(val);
   };
 
-  // Récupère le moyen de paiement avec une valeur par défaut si vide
   const getPaymentMethod = (order: any) => {
     if (order.payment_method) return order.payment_method;
-    // Fallback : Si vide, on suppose CB / Stripe (standard web)
     return "CB / Stripe";
   };
 
-  // Récupère le statut (cherche payment_status ou status)
   const getStatusRaw = (order: any) => {
     return order.payment_status || order.status || 'pending';
   };
@@ -43,34 +45,29 @@ export function AdminInvoiceGenerator() {
   const translateStatus = (status: string) => {
     if (!status) return 'En attente';
     switch (status.toLowerCase()) {
-      case 'paid': 
-      case 'succeeded': return 'Payé';
+      case 'paid': case 'succeeded': return 'Payé';
       case 'pending': return 'En attente';
       case 'failed': return 'Échoué';
       case 'refunded': return 'Remboursé';
-      case 'shipped': return 'Expédié (Payé)'; // Souvent expédié = payé
+      case 'shipped': return 'Expédié (Payé)';
       case 'processing': return 'Traitement';
-      default: return 'Payé'; // Par défaut pour les commandes web validées
+      default: return 'Payé';
     }
   };
 
   const getStatusColor = (status: string) => {
     if (!status) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     switch (status.toLowerCase()) {
-      case 'paid': 
-      case 'succeeded':
-      case 'shipped':
-        return 'bg-green-100 text-green-800 border-green-200'; // Vert
-      case 'pending': 
-      case 'processing':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200'; // Jaune
+      case 'paid': case 'succeeded': case 'shipped':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'pending': case 'processing':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'failed': 
-        return 'bg-red-100 text-red-800 border-red-200'; // Rouge
+        return 'bg-red-100 text-red-800 border-red-200';
       default: 
-        return 'bg-green-100 text-green-800 border-green-200'; // Vert par défaut si validé
+        return 'bg-green-100 text-green-800 border-green-200';
     }
   };
-  // --------------------------------
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -116,7 +113,6 @@ export function AdminInvoiceGenerator() {
   };
 
   const handleSelectCB = () => {
-    // Sélectionne tout ce qui est payé ou via stripe/cb
     const cbOrders = orders.filter(o => {
       const method = getPaymentMethod(o).toLowerCase();
       const status = getStatusRaw(o).toLowerCase();
@@ -146,6 +142,7 @@ export function AdminInvoiceGenerator() {
     return { year: currentYear, sequence: 1 };
   };
 
+  // --- NOUVELLE FONCTION DE GÉNÉRATION (Remplace handleGeneratePDF) ---
   const handleGenerateInvoices = async () => {
     if (selectedOrders.length === 0) return;
     setGenerating(true);
@@ -162,12 +159,12 @@ export function AdminInvoiceGenerator() {
         const invoiceNum = `FA${year}-${String(sequence).padStart(7, '0')}`;
         sequence++;
 
-        // Utiliser le moyen de paiement calculé pour le PDF aussi
         const orderForPdf = {
             ...order,
             payment_method: getPaymentMethod(order)
         };
 
+        // Appel à la fonction externe (lib/invoiceGenerator.ts) qui gère l'erreur de logo
         const doc = await generateInvoicePDF(orderForPdf, invoiceNum);
         const pdfBlob = doc.output('blob');
         const fileName = `${invoiceNum}_${order.id}.pdf`;
@@ -183,11 +180,27 @@ export function AdminInvoiceGenerator() {
           customer_name: `${order.shipping_address?.first_name} ${order.shipping_address?.last_name}`,
           amount: getOrderTotal(order),
           pdf_url: publicUrlData.publicUrl,
-          payment_method: getPaymentMethod(order), // Sauvegarde le "CB / Stripe" si vide
+          payment_method: getPaymentMethod(order),
           created_at: new Date().toISOString()
         });
 
-        if (!dbError) successCount++;
+        // Envoi Email Automatique
+        if (!dbError) {
+            try {
+                // On récupère l'ID pour l'envoi
+                const { data: newInvoice } = await supabase.from('invoices').select('id').eq('invoice_number', invoiceNum).single();
+                if (newInvoice) {
+                    await fetch('/api/invoices/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ invoiceId: newInvoice.id })
+                    });
+                }
+            } catch (e) {
+                console.error("Erreur envoi email (non bloquant):", e);
+            }
+            successCount++;
+        }
       }
       toast.success(`${successCount} factures générées !`);
       fetchOrders();
@@ -222,6 +235,7 @@ export function AdminInvoiceGenerator() {
                   <Button variant="outline" onClick={handleSelectAll} className="rounded-xl">Tout cocher</Button>
                   <Button variant="outline" onClick={handleSelectCB} className="rounded-xl border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100"><CreditCard className="w-4 h-4 mr-2" /> Cocher Payées / CB</Button>
                   <div className="flex-1" />
+                  {/* BOUTON DÉCLENCHEUR : Notez qu'il appelle handleGenerateInvoices */}
                   <Button onClick={handleGenerateInvoices} disabled={selectedOrders.length === 0 || generating} className="bg-[#D4AF37] hover:bg-[#b8933d] text-white rounded-xl shadow-md transition-all hover:scale-105">{generating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileText className="w-4 h-4 mr-2" />}Générer ({selectedOrders.length})</Button>
                 </div>
                 {orders.length === 0 ? <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed"><CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" /><p className="text-gray-600 font-medium">Tout est à jour !</p></div> : (
@@ -233,7 +247,6 @@ export function AdminInvoiceGenerator() {
                             <th className="p-4">Date</th>
                             <th className="p-4">Client</th>
                             <th className="p-4">Montant</th>
-                            {/* NOUVELLES COLONNES SÉPARÉES */}
                             <th className="p-4">État</th>
                             <th className="p-4">Moyen</th>
                         </tr>
@@ -245,19 +258,8 @@ export function AdminInvoiceGenerator() {
                             <td className="p-4 font-medium text-gray-900">{format(new Date(order.created_at), 'dd/MM/yyyy')}</td>
                             <td className="p-4">{order.shipping_address?.first_name} {order.shipping_address?.last_name}</td>
                             <td className="p-4 font-bold text-[#D4AF37]">{getOrderTotal(order).toFixed(2)} €</td>
-                            
-                            {/* COLONNE ÉTAT */}
-                            <td className="p-4">
-                                <Badge variant="outline" className={getStatusColor(getStatusRaw(order))}>
-                                  {translateStatus(getStatusRaw(order))}
-                                </Badge>
-                            </td>
-
-                            {/* COLONNE MOYEN (AVEC FALLBACK) */}
-                            <td className="p-4 text-gray-600 font-medium">
-                                {getPaymentMethod(order)}
-                            </td>
-                            
+                            <td className="p-4"><Badge variant="outline" className={getStatusColor(getStatusRaw(order))}>{translateStatus(getStatusRaw(order))}</Badge></td>
+                            <td className="p-4 text-gray-600 font-medium">{getPaymentMethod(order)}</td>
                           </tr>
                         ))}
                       </tbody>

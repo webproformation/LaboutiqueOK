@@ -22,7 +22,6 @@ const loadImage = (url: string): Promise<string> => {
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
-        // On fixe la taille du canvas à celle de l'image
         canvas.width = img.width;
         canvas.height = img.height;
         const ctx = canvas.getContext('2d');
@@ -31,7 +30,6 @@ const loadImage = (url: string): Promise<string> => {
             return;
         }
         ctx.drawImage(img, 0, 0);
-        // On récupère le Data URL complet
         const dataURL = canvas.toDataURL('image/png');
         resolve(dataURL);
       } catch (e) {
@@ -44,8 +42,7 @@ const loadImage = (url: string): Promise<string> => {
 };
 
 export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
-  // Création d'une nouvelle instance jsPDF
-  // @ts-ignore - Pour éviter les erreurs de typage strict sur new jsPDF() selon les versions
+  // @ts-ignore - Ignore l'erreur de type sur new jsPDF()
   const doc = new jsPDF();
   
   const primaryColor = "#D4AF37"; // OR
@@ -57,7 +54,7 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     const logoUrl = '/lbdm-logobdc.png';
     const logoData = await loadImage(logoUrl);
     
-    // Vérification basique que c'est bien du base64 image
+    // Vérification que c'est bien une image base64 valide
     if (logoData && logoData.startsWith('data:image')) {
         doc.addImage(logoData, 'PNG', 15, 10, 180, 40); 
         logoLoaded = true;
@@ -67,7 +64,7 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     logoLoaded = false;
   }
 
-  // Si le logo n'a pas chargé, on met le texte
+  // Fallback si le logo n'est pas chargé
   if (!logoLoaded) {
     doc.setFontSize(22);
     doc.setTextColor(primaryColor);
@@ -107,12 +104,10 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.text(`N° ${invoiceNumber}`, 110, currentY + 6);
   doc.setFont("helvetica", "normal");
   
-  // Date du jour
   const today = new Date();
   const dateStr = format(today, 'dd MMMM yyyy', { locale: fr });
   doc.text(`Date : ${dateStr}`, 110, currentY + 11);
 
-  // Adresse Facturation
   const yAddress = currentY + 20;
   doc.setFontSize(11);
   doc.setTextColor(primaryColor);
@@ -123,7 +118,6 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.setTextColor(blackColor);
   doc.setFont("helvetica", "bold");
   
-  // Sécurisation des données clients
   const shipAddr = order.shipping_address || {};
   const clientName = `${shipAddr.first_name || ''} ${shipAddr.last_name || ''}`.trim() || "Client";
   doc.text(clientName, 110, yAddress + 6);
@@ -173,7 +167,7 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
         lineWidth: 0.1
     },
     headStyles: { 
-        fillColor: [212, 175, 55], // DORÉ (#D4AF37)
+        fillColor: [212, 175, 55], // DORÉ
         textColor: [255, 255, 255],
         fontStyle: 'bold',
         halign: 'center'
@@ -193,19 +187,16 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   const xValue = 195;
   const totalAmount = getTotal(order); 
 
-  // Sous-total
   doc.setFontSize(10);
   doc.setTextColor(blackColor);
   doc.text("Sous-total :", xLabel, finalY);
   doc.text(`${totalAmount.toFixed(2)} €`, xValue, finalY, { align: 'right' });
   finalY += 8;
 
-  // Ligne de séparation
   doc.setDrawColor(200);
   doc.setLineWidth(0.5);
   doc.line(130, finalY - 4, 195, finalY - 4);
   
-  // TOTAL TTC
   doc.setFontSize(12);
   doc.setTextColor(primaryColor);
   doc.setFont("helvetica", "bold");
@@ -218,10 +209,7 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100);
   
-  // Mode de paiement
   doc.text("Conditions de paiement : " + (order.payment_method || 'CB / Stripe'), 14, finalY + 20);
-  
-  // Mentions légales
   doc.text("MORGANE DEWANIN - SAS au capital variable - SIREN 907 889 802 - TVA FR16907889802", 105, pageHeight - 10, { align: "center" });
 
   return doc;
