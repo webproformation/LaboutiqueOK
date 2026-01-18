@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
 import { Button } from "@/components/ui/button";
-// CORRECTION ICI : Ajout de CardHeader et CardTitle
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -80,8 +79,9 @@ interface Order {
 
 const statusLabels: Record<string, string> = {
   pending: "En attente",
+  open_package: "Colis ouvert",
   processing: "En cours",
-  shipped: "Expédiée",
+  shipped: "En livraison",
   delivered: "Livrée",
   cancelled: "Annulée",
   refunded: "Remboursée",
@@ -89,9 +89,13 @@ const statusLabels: Record<string, string> = {
 
 const paymentStatusLabels: Record<string, string> = {
   pending: "En attente",
+  pending_transfer: "En attente de virement",
   processing: "En cours",
   completed: "Payée",
+  paid: "Payée",
+  succeeded: "Payée", // Ajout de variantes possibles pour Stripe
   failed: "Échouée",
+  cancelled: "Annulée",
   refunded: "Remboursée",
 };
 
@@ -191,9 +195,10 @@ export default function OrdersPage() {
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     const order = orders.find(o => o.id === orderId);
 
+    // SÉCURITÉ COLIS OUVERT (Réactivée mais flexible si besoin)
     if (order?.open_package && (order.open_package.status === 'active' || order.open_package.status === 'ready_to_prepare')) {
       if (newStatus === 'shipped') {
-        toast.error("❌ Cette commande fait partie d'un colis ouvert actif. Expédiez le colis depuis la gestion des colis ouverts.");
+        toast.error("❌ Impossible : Cette commande appartient à un Colis Ouvert non clôturé.");
         return;
       }
     }
@@ -214,7 +219,8 @@ export default function OrdersPage() {
         setSelectedOrder({ ...selectedOrder, status: newStatus });
       }
 
-      toast.success("Statut mis à jour");
+      const label = statusLabels[newStatus] || newStatus;
+      toast.success(`Statut mis à jour : ${label}`);
     } catch (error) {
       console.error("Error updating status:", error);
       toast.error("Erreur lors de la mise à jour");
@@ -238,7 +244,8 @@ export default function OrdersPage() {
         setSelectedOrder({ ...selectedOrder, payment_status: newStatus });
       }
 
-      toast.success("Statut de paiement mis à jour");
+      const label = paymentStatusLabels[newStatus] || newStatus;
+      toast.success(`Paiement mis à jour : ${label}`);
     } catch (error) {
       console.error("Error updating payment status:", error);
       toast.error("Erreur lors de la mise à jour");
@@ -248,6 +255,7 @@ export default function OrdersPage() {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, any> = {
       pending: "secondary",
+      open_package: "secondary",
       processing: "default",
       shipped: "default",
       delivered: "default",
@@ -264,9 +272,13 @@ export default function OrdersPage() {
   const getPaymentBadge = (status: string) => {
     const variants: Record<string, any> = {
       pending: "secondary",
+      pending_transfer: "secondary",
       processing: "default",
       completed: "default",
+      paid: "default",
+      succeeded: "default",
       failed: "destructive",
+      cancelled: "destructive",
       refunded: "destructive",
     };
     return (
@@ -303,7 +315,6 @@ export default function OrdersPage() {
     }
   };
 
-  // --- NOUVELLE VERSION SÉCURISÉE DU PDF ---
   const handleGeneratePDF = async (orderId: string, orderNumber: string) => {
     toast.loading("Génération du PDF en cours...");
     try {
@@ -328,7 +339,6 @@ export default function OrdersPage() {
     }
   };
 
-  // --- NOUVELLE VERSION SÉCURISÉE DE L'EMAIL ---
   const handleSendEmail = async (orderId: string, orderNumber: string) => {
     toast.loading("Envoi de l'email...");
 
@@ -342,11 +352,9 @@ export default function OrdersPage() {
         payment_method: order.payment_method?.name || "CB / Stripe",
       };
 
-      // 1. Génération du PDF
       const doc = await generateInvoicePDF(orderForPdf, orderNumber);
       const pdfBlob = doc.output("blob");
 
-      // 2. Conversion Blob -> Base64 (Linéaire, sans nesting complexe)
       const base64data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -358,7 +366,6 @@ export default function OrdersPage() {
         reader.readAsDataURL(pdfBlob);
       });
 
-      // 3. Envoi à l'API
       const emailResponse = await fetch("/api/orders/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -433,11 +440,11 @@ export default function OrdersPage() {
               <SelectTrigger>
                 <SelectValue placeholder="Statut commande" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[9999] bg-white">
                 <SelectItem value="all">Tous les statuts</SelectItem>
                 <SelectItem value="pending">En attente</SelectItem>
                 <SelectItem value="processing">En cours</SelectItem>
-                <SelectItem value="shipped">Expédiée</SelectItem>
+                <SelectItem value="shipped">En livraison</SelectItem>
                 <SelectItem value="delivered">Livrée</SelectItem>
                 <SelectItem value="cancelled">Annulée</SelectItem>
                 <SelectItem value="refunded">Remboursée</SelectItem>
@@ -448,7 +455,7 @@ export default function OrdersPage() {
               <SelectTrigger>
                 <SelectValue placeholder="Statut paiement" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[9999] bg-white">
                 <SelectItem value="all">Tous les paiements</SelectItem>
                 <SelectItem value="pending">En attente</SelectItem>
                 <SelectItem value="processing">En cours</SelectItem>
@@ -599,57 +606,23 @@ export default function OrdersPage() {
                       <CardTitle className="text-sm">Statut commande</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {selectedOrder.is_open_package && selectedOrder.open_package &&
-                        (selectedOrder.open_package.status === 'active' || selectedOrder.open_package.status === 'ready_to_prepare') ? (
-                        <div className="space-y-2">
-                          <Badge className="bg-blue-100 text-blue-800">
-                            📦 Commande dans un colis ouvert
-                          </Badge>
-                          <p className="text-sm text-gray-600">
-                            Cette commande ne peut pas être expédiée individuellement.
-                            Gérez l'expédition depuis la page des colis ouverts.
-                          </p>
-                          <Select
-                            value={selectedOrder.status}
-                            onValueChange={(value) => {
-                              if (value === 'shipped') {
-                                toast.error("Impossible d'expédier individuellement une commande dans un colis ouvert");
-                                return;
-                              }
-                              handleUpdateStatus(selectedOrder.id, value);
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">En attente</SelectItem>
-                              <SelectItem value="processing">En cours</SelectItem>
-                              <SelectItem value="shipped" disabled>Expédiée (Désactivé - Colis ouvert)</SelectItem>
-                              <SelectItem value="delivered">Livrée</SelectItem>
-                              <SelectItem value="cancelled">Annulée</SelectItem>
-                              <SelectItem value="refunded">Remboursée</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ) : (
-                        <Select
-                          value={selectedOrder.status}
-                          onValueChange={(value) => handleUpdateStatus(selectedOrder.id, value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">En attente</SelectItem>
-                            <SelectItem value="processing">En cours</SelectItem>
-                            <SelectItem value="shipped">Expédiée</SelectItem>
-                            <SelectItem value="delivered">Livrée</SelectItem>
-                            <SelectItem value="cancelled">Annulée</SelectItem>
-                            <SelectItem value="refunded">Remboursée</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
+                      {/* AJOUT DE Z-INDEX POUR FORCER L'AFFICHAGE AU DESSUS DU DIALOG */}
+                      <Select
+                        value={selectedOrder.status}
+                        onValueChange={(value) => handleUpdateStatus(selectedOrder.id, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="z-[9999] bg-white">
+                          <SelectItem value="pending">En attente</SelectItem>
+                          <SelectItem value="open_package">Colis ouvert</SelectItem>
+                          <SelectItem value="processing">En cours</SelectItem>
+                          <SelectItem value="shipped">En livraison</SelectItem>
+                          <SelectItem value="delivered">Livrée</SelectItem>
+                          <SelectItem value="cancelled">Annulée</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </CardContent>
                   </Card>
 
@@ -658,6 +631,7 @@ export default function OrdersPage() {
                       <CardTitle className="text-sm">Statut paiement</CardTitle>
                     </CardHeader>
                     <CardContent>
+                      {/* AJOUT DE Z-INDEX POUR FORCER L'AFFICHAGE AU DESSUS DU DIALOG */}
                       <Select
                         value={selectedOrder.payment_status}
                         onValueChange={(value) =>
@@ -667,12 +641,12 @@ export default function OrdersPage() {
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-[9999] bg-white">
                           <SelectItem value="pending">En attente</SelectItem>
-                          <SelectItem value="processing">En cours</SelectItem>
+                          <SelectItem value="pending_transfer">En attente de virement</SelectItem>
                           <SelectItem value="completed">Payée</SelectItem>
-                          <SelectItem value="failed">Échouée</SelectItem>
-                          <SelectItem value="refunded">Remboursée</SelectItem>
+                          <SelectItem value="cancelled">Annulée</SelectItem>
+                          <SelectItem value="failed">Échouée (Système)</SelectItem>
                         </SelectContent>
                       </Select>
                     </CardContent>

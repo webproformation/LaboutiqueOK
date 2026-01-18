@@ -5,11 +5,13 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Store, MapPin, Phone, Mail, Calendar, AlertCircle, Package } from 'lucide-react';
+import { CheckCircle, Clock, Store, MapPin, Phone, Mail, Calendar, AlertCircle, Package, Download, Home, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import PageHeader from '@/components/PageHeader';
+import { toast } from 'sonner';
+import JSConfetti from 'js-confetti'; 
+import { generateInvoicePDF } from '@/lib/invoiceGenerator';
 
 interface Order {
   id: string;
@@ -27,6 +29,8 @@ interface Order {
   relay_point_data: any;
   is_open_package: boolean;
   payment_method_id: string;
+  payment_method_name?: string;
+  order_items?: OrderItem[];
 }
 
 interface OrderItem {
@@ -54,21 +58,43 @@ export default function OrderConfirmationPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Récupération des paramètres URL (Supporte Stripe, Paypal et lien direct)
+  const orderId = searchParams.get('order_id') || searchParams.get('order') || searchParams.get('paypal');
+  const redirectStatus = searchParams.get('redirect_status');
+
+  // --- 1. SCROLL AUTOMATIQUE EN HAUT ---
   useEffect(() => {
-    const orderId = searchParams.get('order_id') || searchParams.get('order');
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
     if (orderId) {
       loadOrderDetails(orderId);
     } else {
-      router.push('/');
+      const timeout = setTimeout(() => router.push('/'), 3000);
+      return () => clearTimeout(timeout);
     }
-  }, [searchParams, router]);
+  }, [orderId, router]);
 
-  async function loadOrderDetails(orderId: string) {
+  // Effet Confetti au succès
+  useEffect(() => {
+    if (!loading && order) {
+        if (redirectStatus === 'succeeded' || order.payment_status === 'paid' || paymentMethod?.code === 'bank_transfer' || paymentMethod?.code === 'store_pickup_payment' || paymentMethod?.code === 'paypal') {
+            const jsConfetti = new JSConfetti();
+            jsConfetti.addConfetti({
+                emojis: ['🛍️', '✨', '💳', '🎉'],
+                confettiNumber: 60,
+            });
+        }
+    }
+  }, [loading, order, paymentMethod, redirectStatus]);
+
+  async function loadOrderDetails(id: string) {
     try {
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .select('*')
-        .eq('id', orderId)
+        .eq('id', id)
         .single();
 
       if (orderError) throw orderError;
@@ -77,7 +103,7 @@ export default function OrderConfirmationPage() {
       const { data: itemsData } = await supabase
         .from('order_items')
         .select('*')
-        .eq('order_id', orderId);
+        .eq('order_id', id);
 
       if (itemsData) {
         setOrderItems(itemsData);
@@ -96,18 +122,39 @@ export default function OrderConfirmationPage() {
       }
     } catch (error) {
       console.error('Error loading order:', error);
-      router.push('/');
+      toast.error("Impossible de charger la commande");
     } finally {
       setLoading(false);
     }
   }
+
+  const handleDownloadInvoice = async () => {
+    if (!order) return;
+    toast.loading("Génération de la facture...");
+    try {
+      const orderForPdf = {
+        ...order,
+        items: orderItems,
+        payment_method: paymentMethod?.name || 'Carte Bancaire'
+      };
+      
+      const doc = await generateInvoicePDF(orderForPdf, order.order_number);
+      doc.save(`Facture_${order.order_number}.pdf`);
+      toast.dismiss();
+      toast.success("Facture téléchargée !");
+    } catch (error) {
+      console.error(error);
+      toast.dismiss();
+      toast.error("Erreur lors du téléchargement");
+    }
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white via-[#F2F2E8] to-[#F2F2E8] flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#D4AF37] mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement de votre commande...</p>
+          <p className="text-gray-600">Finalisation de votre commande...</p>
         </div>
       </div>
     );
@@ -287,6 +334,7 @@ export default function OrderConfirmationPage() {
       );
     }
 
+    // DEFAULT SUCCESS (Stripe, Paypal...)
     return (
       <Card className="border-2 border-green-300 bg-gradient-to-br from-green-50 to-white shadow-lg mb-6">
         <CardHeader className="bg-gradient-to-r from-green-100 to-green-50 border-b border-green-200">
@@ -297,7 +345,7 @@ export default function OrderConfirmationPage() {
             <div>
               <CardTitle className="text-2xl text-green-900">Commande Validée !</CardTitle>
               <p className="text-green-700 text-sm mt-1">
-                Paiement par Carte Bancaire accepté
+                Paiement accepté via {paymentMethod.name}
               </p>
             </div>
           </div>
@@ -345,11 +393,25 @@ export default function OrderConfirmationPage() {
 
         {renderPaymentSpecificInfo()}
 
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-8 justify-center">
+            <Button onClick={handleDownloadInvoice} variant="outline" className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white">
+                <Download className="h-4 w-4 mr-2" />
+                Télécharger la facture
+            </Button>
+            <Button asChild className="bg-[#D4AF37] hover:bg-[#b8933d] text-white">
+                <Link href="/account/orders">
+                    <Package className="h-4 w-4 mr-2" />
+                    Suivre ma commande
+                </Link>
+            </Button>
+        </div>
+
         <div className="grid md:grid-cols-2 gap-6 mb-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-[#D4AF37]" />
+                <ShoppingBag className="h-5 w-5 text-[#D4AF37]" />
                 Articles commandés
               </CardTitle>
             </CardHeader>
@@ -449,7 +511,7 @@ export default function OrderConfirmationPage() {
 
               {walletValue > 0 && (
                 <div className="flex justify-between text-sm text-purple-600">
-                  <span>Porte-monnaie utilisé</span>
+                  <span>Cagnotte fidélité utilisée</span>
                   <span className="font-medium">-{walletValue.toFixed(2)} €</span>
                 </div>
               )}
@@ -469,12 +531,12 @@ export default function OrderConfirmationPage() {
           </CardContent>
         </Card>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button asChild variant="outline" size="lg" className="flex-1 sm:flex-none">
-            <Link href="/">Retour à la boutique</Link>
-          </Button>
-          <Button asChild size="lg" className="flex-1 sm:flex-none bg-[#D4AF37] hover:bg-[#C5A028]">
-            <Link href="/account/orders">Voir mes commandes</Link>
+        <div className="flex justify-center">
+          <Button asChild variant="ghost" size="lg">
+            <Link href="/">
+                <Home className="h-4 w-4 mr-2" />
+                Retour à la boutique
+            </Link>
           </Button>
         </div>
       </div>

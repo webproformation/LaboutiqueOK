@@ -63,13 +63,33 @@ export async function POST(request: NextRequest) {
     }
 
     if (dbOrderId) {
+      // --- AJOUT : Récupération de l'ID du moyen de paiement "PayPal" ---
+      let paymentMethodId = null;
+      const { data: pmData } = await supabase
+        .from('payment_methods')
+        .select('id')
+        .ilike('name', '%paypal%') // Cherche un nom contenant "paypal" (insensible à la casse)
+        .limit(1)
+        .single();
+
+      if (pmData) {
+        paymentMethodId = pmData.id;
+      }
+      // ------------------------------------------------------------------
+
       await supabase
         .from('orders')
         .update({
           paypal_order_id: orderID,
           paypal_capture_id: captureData.purchase_units?.[0]?.payments?.captures?.[0]?.id,
-          payment_status: 'completed',
-          order_status: 'processing',
+          payment_status: 'paid', // Harmonisé avec Stripe (était 'completed')
+          status: 'confirmed',    // Harmonisé avec Stripe (était order_status: 'processing') - Vérifiez si votre colonne s'appelle 'status' ou 'order_status'
+          // J'ai laissé les deux cas ci-dessous pour être sûr que ça marche selon votre base :
+          order_status: 'processing', 
+          
+          // --- AJOUTS IMPORTANTS POUR LA FACTURE ---
+          payment_method_id: paymentMethodId,
+          payment_method: 'PayPal' 
         })
         .eq('id', dbOrderId);
 
@@ -140,20 +160,3 @@ export async function POST(request: NextRequest) {
           } catch (emailError) {
             console.error('Error sending PayPal confirmation email:', emailError);
           }
-        }
-      }
-    }
-
-    return NextResponse.json({
-      id: captureData.id,
-      status: captureData.status,
-      captureId: captureData.purchase_units?.[0]?.payments?.captures?.[0]?.id,
-    });
-  } catch (error) {
-    console.error('Error capturing PayPal order:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}

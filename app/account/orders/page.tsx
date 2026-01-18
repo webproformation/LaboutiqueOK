@@ -7,12 +7,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Package, Eye, Calendar, CreditCard, Truck, MapPin, Store } from 'lucide-react';
+import { Loader2, Package, Eye, Calendar, CreditCard, Truck, MapPin, Store, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+// Import de la fonction sécurisée pour le PDF
+import { generateInvoicePDF } from '@/lib/invoiceGenerator';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import Link from 'next/link';
 import Image from 'next/image';
+import { toast } from 'sonner';
 
 interface OrderItem {
   id: string;
@@ -42,8 +45,8 @@ interface Order {
 
 const statusLabels: Record<string, { label: string; color: string }> = {
   pending: { label: 'En attente', color: 'bg-yellow-100 text-yellow-800' },
-  paid: { label: 'Payée', color: 'bg-blue-100 text-blue-800' },
-  processing: { label: 'En préparation', color: 'bg-purple-100 text-purple-800' },
+  paid: { label: 'Payée', color: 'bg-green-100 text-green-800' },
+  processing: { label: 'En préparation', color: 'bg-blue-100 text-blue-800' },
   shipped: { label: 'Expédiée', color: 'bg-indigo-100 text-indigo-800' },
   delivered: { label: 'Livrée', color: 'bg-green-100 text-green-800' },
   cancelled: { label: 'Annulée', color: 'bg-red-100 text-red-800' },
@@ -116,32 +119,30 @@ export default function OrdersPage() {
     }
   };
 
+  // --- NOUVELLE FONCTION DE TÉLÉCHARGEMENT PDF (Locale et Sécurisée) ---
   const handleDownloadPDF = async (order: Order) => {
     setDownloadingPdf(true);
+    toast.loading("Génération de la facture...");
+
     try {
-      const response = await fetch('/api/orders/generate-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ orderId: order.id }),
-      });
+      // On prépare l'objet pour le générateur PDF
+      const orderForPdf = {
+        ...order,
+        items: order.order_items || [],
+        // On récupère le NOM du moyen de paiement s'il existe, sinon fallback
+        payment_method: order.payment_method?.name || 'CB / Stripe'
+      };
 
-      if (!response.ok) {
-        throw new Error('Erreur lors de la génération du PDF');
-      }
+      // Appel au générateur local (plus rapide et fiable)
+      const doc = await generateInvoicePDF(orderForPdf, order.order_number);
+      doc.save(`Facture_${order.order_number}.pdf`);
 
-      const data = await response.json();
-
-      const link = document.createElement('a');
-      link.href = `data:application/pdf;base64,${data.pdf}`;
-      link.download = data.filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      toast.dismiss();
+      toast.success("Facture téléchargée !");
     } catch (error) {
+      toast.dismiss();
       console.error('Error downloading PDF:', error);
-      alert('Erreur lors du téléchargement du PDF');
+      toast.error('Erreur lors de la génération du PDF');
     } finally {
       setDownloadingPdf(false);
     }
@@ -190,31 +191,50 @@ export default function OrdersPage() {
                       {formatDate(order.created_at)}
                     </CardDescription>
                   </div>
-                  <Badge className={statusLabels[order.status]?.color}>
+                  <Badge className={statusLabels[order.status]?.color || 'bg-gray-100 text-gray-800'}>
                     {statusLabels[order.status]?.label || order.status}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5 text-gray-400" />
-                    <span className="text-lg font-semibold">
-                      {(Number(order.total) || 0).toFixed(2)}€
-                    </span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                        <CreditCard className="h-5 w-5 text-gray-400" />
+                        <span className="text-lg font-semibold">
+                        {(Number(order.total) || 0).toFixed(2)}€
+                        </span>
+                    </div>
+                    {/* Affichage du moyen de paiement */}
+                    <div className="text-sm text-gray-500 ml-7">
+                        Via {order.payment_method?.name || 'CB / Stripe'}
+                    </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => {
-                      setSelectedOrder(order);
-                      setDialogOpen(true);
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                    Voir les détails
-                  </Button>
+                  
+                  <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => handleDownloadPDF(order)}
+                        disabled={downloadingPdf}
+                    >
+                        {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                        <span className="hidden sm:inline">Facture</span>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 bg-[#D4AF37]/10 text-[#D4AF37] border-[#D4AF37]/20 hover:bg-[#D4AF37]/20"
+                        onClick={() => {
+                        setSelectedOrder(order);
+                        setDialogOpen(true);
+                        }}
+                    >
+                        <Eye className="h-4 w-4" />
+                        Détails
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -376,6 +396,9 @@ export default function OrdersPage() {
                   <div className="flex justify-between font-semibold text-lg">
                     <span>Total</span>
                     <span>{(Number(selectedOrder.total) || 0).toFixed(2)}€</span>
+                  </div>
+                  <div className="text-right text-sm text-gray-500">
+                    Payé via {selectedOrder.payment_method?.name || 'CB / Stripe'}
                   </div>
                 </div>
               </div>

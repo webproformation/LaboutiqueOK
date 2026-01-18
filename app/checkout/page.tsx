@@ -73,6 +73,7 @@ export default function CheckoutPage() {
   const { openPackage, loading: packageLoading } = useOpenPackage();
   const { coupons: userCoupons, loading: couponsLoading, markCouponAsUsed } = useUserCoupons(user?.id);
   const [loading, setLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false); // NOUVEAU : Pour bloquer la redirection panier vide
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
@@ -82,13 +83,11 @@ export default function CheckoutPage() {
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('');
   const [relayPointData, setRelayPointData] = useState<any>(null);
 
-  const [useWallet, setUseWallet] = useState(false);
-  const [walletAmountToUse, setWalletAmountToUse] = useState(0);
   const [useLoyalty, setUseLoyalty] = useState(false);
   const [loyaltyAmountToUse, setLoyaltyAmountToUse] = useState(0);
+  
   const [couponCode, setCouponCode] = useState('');
   const [selectedUserCouponId, setSelectedUserCouponId] = useState<string>('');
-  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [referralCode, setReferralCode] = useState('');
   const [appliedReferral, setAppliedReferral] = useState<any>(null);
@@ -113,11 +112,12 @@ export default function CheckoutPage() {
     }
   }, [user]);
 
+  // CORRECTION ICI : On ne redirige pas si c'est un succès (isSuccess)
   useEffect(() => {
-    if (cart.length === 0 && !loading) {
+    if (cart.length === 0 && !loading && !isSuccess) {
       router.push('/cart');
     }
-  }, [cart, loading, router]);
+  }, [cart, loading, router, isSuccess]);
 
   useEffect(() => {
     if (addToOpenPackage) {
@@ -188,7 +188,7 @@ export default function CheckoutPage() {
 
   const totalBeforeDiscount = subtotal + shippingCost + insuranceCost + paymentFee;
   const totalAfterDiscount = Math.max(0, totalBeforeDiscount - discountAmount - referralDiscount);
-  const totalAfterWallet = Math.max(0, totalAfterDiscount - walletAmountToUse - loyaltyAmountToUse);
+  const totalAfterWallet = Math.max(0, totalAfterDiscount - loyaltyAmountToUse);
   const tvaAmount = totalAfterWallet * TVA_RATE / (1 + TVA_RATE);
   const totalHT = totalAfterWallet - tvaAmount;
 
@@ -240,7 +240,7 @@ export default function CheckoutPage() {
         shipping_cost: shippingCost.toFixed(2),
         tax_amount: tvaAmount.toFixed(2),
         discount_amount: discountAmount.toFixed(2),
-        wallet_amount_used: (walletAmountToUse + loyaltyAmountToUse).toFixed(2),
+        wallet_amount_used: loyaltyAmountToUse.toFixed(2),
         total: totalAfterWallet.toFixed(2),
         shipping_address: selectedAddress,
         shipping_street: selectedAddress?.address_line1 || '',
@@ -265,7 +265,6 @@ export default function CheckoutPage() {
 
       if (orderError) throw orderError;
 
-      // Insérer les items de la commande
       const orderItems = cart.map(item => ({
         order_id: newOrder.id,
         product_name: item.name || 'Produit',
@@ -338,14 +337,6 @@ export default function CheckoutPage() {
         }
       }
 
-      if (useWallet && walletAmountToUse > 0) {
-        const newBalance = (profile?.wallet_balance || 0) - walletAmountToUse;
-        await supabase
-          .from('profiles')
-          .update({ wallet_balance: newBalance })
-          .eq('id', user.id);
-      }
-
       if (useLoyalty && loyaltyAmountToUse > 0) {
         const newLoyaltyBalance = (profile?.loyalty_euros || 0) - loyaltyAmountToUse;
         await supabase
@@ -366,19 +357,27 @@ export default function CheckoutPage() {
         return;
       }
 
+      // 1. On signale que c'est un succès pour empêcher la redirection "panier vide"
+      setIsSuccess(true);
+      
+      // 2. On vide le panier
       clearCart();
 
+      // 3. On notifie et on redirige
       toast.success(`Commande ${orderNumber} validée avec succès !`, {
         position: 'bottom-right'
       });
       router.push(`/checkout/confirmation?order_id=${newOrder.id}`);
+      
     } catch (error) {
       console.error('Error processing order:', error);
       toast.error('Erreur lors du traitement de la commande');
-    } finally {
-      setLoading(false);
+      setLoading(false); // Important de reset le loading en cas d'erreur
     }
   };
+
+  // ... (Le reste du rendu : if (!user), if (showStripePayment), return (...) reste identique)
+  // ... Je remets la fin du fichier pour être complet
 
   if (!user) {
     return (
@@ -435,6 +434,7 @@ export default function CheckoutPage() {
               userId={user.id}
               total={totalAfterWallet}
               onSuccess={() => {
+                setIsSuccess(true); // AUSSI POUR STRIPE SI CALLBACK
                 clearCart();
               }}
               customerEmail={profile?.email}
@@ -465,6 +465,9 @@ export default function CheckoutPage() {
           description="Complétez les informations ci-dessous pour valider votre commande"
         />
 
+        {/* ... (Tout le reste du JSX est identique à la version précédente, sans le porte-monnaie) ... */}
+        {/* Pour ne pas couper le code, je le remets complet ci-dessous */}
+        
         <div className="max-w-4xl mx-auto mb-6">
           <Card className="border-4 border-[#D4AF37] bg-gradient-to-br from-[#D4AF37]/20 via-[#F2F2E8] to-white shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-[#D4AF37]/30 to-transparent rounded-full -mr-20 -mt-20" />
@@ -888,98 +891,8 @@ export default function CheckoutPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 pt-6">
-                {/* Porte-monnaie */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Wallet className="h-5 w-5 text-[#D4AF37]" />
-                      <Label className="text-base font-semibold">Mon porte-monnaie</Label>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className="bg-[#D4AF37]/10 text-[#D4AF37] border-[#D4AF37]/30 font-semibold px-3 py-1"
-                    >
-                      {(profile?.wallet_balance || 0).toFixed(2)} € disponible
-                    </Badge>
-                  </div>
-
-                  {(profile?.wallet_balance || 0) > 0 ? (
-                    <div className="border border-[#D4AF37]/20 rounded-lg p-4 bg-gradient-to-br from-[#F2F2E8] to-white hover:border-[#D4AF37]/40 transition-all">
-                      <div className="flex items-start space-x-3">
-                        <Checkbox
-                          id="useWallet"
-                          checked={useWallet}
-                          onCheckedChange={(checked) => {
-                            setUseWallet(checked as boolean);
-                            if (!checked) {
-                              setWalletAmountToUse(0);
-                            }
-                          }}
-                          className="mt-1"
-                        />
-                        <div className="flex-1">
-                          <label htmlFor="useWallet" className="cursor-pointer">
-                            <p className="font-medium text-gray-900">
-                              Utiliser mon solde de {(profile?.wallet_balance || 0).toFixed(2)} €
-                            </p>
-                            <p className="text-sm text-gray-600 mt-1">
-                              Économisez jusqu'à {Math.min(profile?.wallet_balance || 0, totalAfterDiscount).toFixed(2)} € sur cette commande
-                            </p>
-                          </label>
-
-                          {useWallet && (
-                            <div className="mt-3 space-y-2">
-                              <Label htmlFor="walletAmount" className="text-sm font-medium text-gray-700">
-                                Montant à utiliser
-                              </Label>
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  id="walletAmount"
-                                  type="number"
-                                  min="0"
-                                  max={Math.min(profile?.wallet_balance || 0, totalAfterDiscount)}
-                                  step="0.01"
-                                  value={walletAmountToUse}
-                                  onChange={(e) => {
-                                    const value = parseFloat(e.target.value) || 0;
-                                    const maxAmount = Math.min(profile?.wallet_balance || 0, totalAfterDiscount);
-                                    setWalletAmountToUse(Math.min(Math.max(0, value), maxAmount));
-                                  }}
-                                  className="flex-1 border-purple-300 focus:border-purple-500 focus:ring-purple-500"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    const maxAmount = Math.min(profile?.wallet_balance || 0, totalAfterDiscount);
-                                    setWalletAmountToUse(maxAmount);
-                                  }}
-                                  className="border-purple-500 text-purple-600 hover:bg-purple-500 hover:text-white whitespace-nowrap"
-                                >
-                                  Tout utiliser
-                                </Button>
-                              </div>
-                              <p className="text-xs text-gray-500">
-                                Maximum disponible : {Math.min(profile?.wallet_balance || 0, totalAfterDiscount).toFixed(2)} €
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                      <p className="text-sm text-gray-600 text-center">
-                        Votre porte-monnaie est vide. Gagnez des points lors de vos achats ou en participant à nos jeux !
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <Separator />
-
-                {/* Cagnotte fidélité */}
+                
+                {/* Cagnotte fidélité UNIQUEMENT */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -1014,7 +927,7 @@ export default function CheckoutPage() {
                               Utiliser ma cagnotte de {(profile?.loyalty_euros || 0).toFixed(2)} €
                             </p>
                             <p className="text-sm text-gray-600 mt-1">
-                              Économisez jusqu'à {Math.min(profile?.loyalty_euros || 0, Math.max(0, totalAfterDiscount - walletAmountToUse)).toFixed(2)} € sur cette commande
+                              Économisez jusqu'à {Math.min(profile?.loyalty_euros || 0, totalAfterDiscount).toFixed(2)} € sur cette commande
                             </p>
                           </label>
 
@@ -1028,13 +941,12 @@ export default function CheckoutPage() {
                                   id="loyaltyAmount"
                                   type="number"
                                   min="0"
-                                  max={Math.min(profile?.loyalty_euros || 0, Math.max(0, totalAfterDiscount - walletAmountToUse))}
+                                  max={Math.min(profile?.loyalty_euros || 0, totalAfterDiscount)}
                                   step="0.01"
                                   value={loyaltyAmountToUse}
                                   onChange={(e) => {
                                     const value = parseFloat(e.target.value) || 0;
-                                    const afterWallet = Math.max(0, totalAfterDiscount - walletAmountToUse);
-                                    const maxAmount = Math.min(profile?.loyalty_euros || 0, afterWallet);
+                                    const maxAmount = Math.min(profile?.loyalty_euros || 0, totalAfterDiscount);
                                     setLoyaltyAmountToUse(Math.min(Math.max(0, value), maxAmount));
                                   }}
                                   className="flex-1 border-[#D4AF37]/30 focus:border-[#D4AF37] focus:ring-[#D4AF37]"
@@ -1044,8 +956,7 @@ export default function CheckoutPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
-                                    const afterWallet = Math.max(0, totalAfterDiscount - walletAmountToUse);
-                                    const maxAmount = Math.min(profile?.loyalty_euros || 0, afterWallet);
+                                    const maxAmount = Math.min(profile?.loyalty_euros || 0, totalAfterDiscount);
                                     setLoyaltyAmountToUse(maxAmount);
                                   }}
                                   className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white whitespace-nowrap"
@@ -1054,7 +965,7 @@ export default function CheckoutPage() {
                                 </Button>
                               </div>
                               <p className="text-xs text-gray-500">
-                                Maximum disponible : {Math.min(profile?.loyalty_euros || 0, Math.max(0, totalAfterDiscount - walletAmountToUse)).toFixed(2)} €
+                                Maximum disponible : {Math.min(profile?.loyalty_euros || 0, totalAfterDiscount).toFixed(2)} €
                               </p>
                             </div>
                           )}
@@ -1355,13 +1266,6 @@ export default function CheckoutPage() {
                     <div className="flex justify-between text-sm text-green-600">
                       <span>Parrainage</span>
                       <span className="font-medium">-{referralDiscount.toFixed(2)} €</span>
-                    </div>
-                  )}
-
-                  {walletAmountToUse > 0 && (
-                    <div className="flex justify-between text-sm text-purple-600">
-                      <span>Avoirs utilisés</span>
-                      <span className="font-medium">-{walletAmountToUse.toFixed(2)} €</span>
                     </div>
                   )}
 

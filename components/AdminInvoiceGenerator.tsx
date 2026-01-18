@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-// On importe la fonction sécurisée du fichier lib (Celle qui gère le logo sans planter)
+// On importe la fonction sécurisée du fichier lib
 import { generateInvoicePDF } from '@/lib/invoiceGenerator';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -22,8 +22,6 @@ export function AdminInvoiceGenerator() {
   const [activeTab, setActiveTab] = useState<'todo' | 'history'>('todo');
 
   useEffect(() => {
-    // Petit log pour vérifier que le bon fichier est chargé
-    console.log("✅ AdminInvoiceGenerator: Version Sécurisée Chargée");
     fetchOrders(); 
   }, [selectedMonth]);
 
@@ -33,9 +31,11 @@ export function AdminInvoiceGenerator() {
     return parseFloat(val);
   };
 
+  // NOUVEAU : Récupère le nom enrichi, sinon fallback
   const getPaymentMethod = (order: any) => {
-    if (order.payment_method) return order.payment_method;
-    return "CB / Stripe";
+    if (order.payment_method_name) return order.payment_method_name; // Priorité au nom récupéré via la relation
+    if (order.payment_method) return order.payment_method; // Ancien champ texte éventuel
+    return "CB / Stripe"; // Fallback
   };
 
   const getStatusRaw = (order: any) => {
@@ -45,7 +45,7 @@ export function AdminInvoiceGenerator() {
   const translateStatus = (status: string) => {
     if (!status) return 'En attente';
     switch (status.toLowerCase()) {
-      case 'paid': case 'succeeded': return 'Payé';
+      case 'paid': case 'succeeded': case 'completed': return 'Payé';
       case 'pending': return 'En attente';
       case 'failed': return 'Échoué';
       case 'refunded': return 'Remboursé';
@@ -58,7 +58,7 @@ export function AdminInvoiceGenerator() {
   const getStatusColor = (status: string) => {
     if (!status) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     switch (status.toLowerCase()) {
-      case 'paid': case 'succeeded': case 'shipped':
+      case 'paid': case 'succeeded': case 'shipped': case 'completed':
         return 'bg-green-100 text-green-800 border-green-200';
       case 'pending': case 'processing':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -76,6 +76,7 @@ export function AdminInvoiceGenerator() {
       const date = new Date(selectedMonth);
       const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString();
 
+      // 1. Récupération des commandes
       const { data: ordersData } = await supabase
         .from('orders')
         .select('*, items:order_items(*)')
@@ -85,6 +86,24 @@ export function AdminInvoiceGenerator() {
 
       if (!ordersData) { setOrders([]); setHistory([]); setLoading(false); return; }
 
+      // 2. NOUVEAU : Récupération des noms des méthodes de paiement
+      // On collecte tous les IDs de paiement uniques
+      const paymentMethodIds = Array.from(new Set(ordersData.map(o => o.payment_method_id).filter(Boolean)));
+      let paymentMethodsMap = new Map();
+
+      if (paymentMethodIds.length > 0) {
+        const { data: methodsData } = await supabase
+          .from('payment_methods')
+          .select('id, name')
+          .in('id', paymentMethodIds);
+        
+        if (methodsData) {
+          // On crée une Map pour retrouver le nom facilement : ID => Nom
+          paymentMethodsMap = new Map(methodsData.map(m => [m.id, m.name]));
+        }
+      }
+
+      // 3. Récupération des factures déjà existantes
       const orderIds = ordersData.map(o => o.id);
       const { data: invoicesData } = await supabase.from('invoices').select('*').in('order_id', orderIds);
       const existingInvoiceMap = new Map(invoicesData?.map(inv => [inv.order_id, inv]));
@@ -92,11 +111,18 @@ export function AdminInvoiceGenerator() {
       const toInvoice: any[] = [];
       const doneInvoice: any[] = [];
 
+      // 4. Enrichissement des données
       ordersData.forEach(order => {
+        // On injecte le nom du paiement trouvé dans la Map
+        const enrichedOrder = {
+            ...order,
+            payment_method_name: order.payment_method_id ? paymentMethodsMap.get(order.payment_method_id) : null
+        };
+
         if (existingInvoiceMap.has(order.id)) {
-          doneInvoice.push({ ...order, invoice_info: existingInvoiceMap.get(order.id) });
+          doneInvoice.push({ ...enrichedOrder, invoice_info: existingInvoiceMap.get(order.id) });
         } else {
-          toInvoice.push(order);
+          toInvoice.push(enrichedOrder);
         }
       });
 
@@ -116,7 +142,9 @@ export function AdminInvoiceGenerator() {
     const cbOrders = orders.filter(o => {
       const method = getPaymentMethod(o).toLowerCase();
       const status = getStatusRaw(o).toLowerCase();
-      return method.includes('stripe') || method.includes('card') || method.includes('cb') || status === 'paid';
+      // Sélectionne si payé OU si méthode contient des mots clés classiques
+      return status === 'paid' || status === 'completed' || status === 'succeeded' || 
+             method.includes('stripe') || method.includes('card') || method.includes('cb');
     }).map(o => o.id);
     setSelectedOrders(cbOrders);
   };
@@ -142,7 +170,6 @@ export function AdminInvoiceGenerator() {
     return { year: currentYear, sequence: 1 };
   };
 
-  // --- NOUVELLE FONCTION DE GÉNÉRATION (Remplace handleGeneratePDF) ---
   const handleGenerateInvoices = async () => {
     if (selectedOrders.length === 0) return;
     setGenerating(true);
@@ -159,12 +186,12 @@ export function AdminInvoiceGenerator() {
         const invoiceNum = `FA${year}-${String(sequence).padStart(7, '0')}`;
         sequence++;
 
+        // On s'assure d'utiliser le bon nom de paiement pour le PDF
         const orderForPdf = {
             ...order,
             payment_method: getPaymentMethod(order)
         };
 
-        // Appel à la fonction externe (lib/invoiceGenerator.ts) qui gère l'erreur de logo
         const doc = await generateInvoicePDF(orderForPdf, invoiceNum);
         const pdfBlob = doc.output('blob');
         const fileName = `${invoiceNum}_${order.id}.pdf`;
@@ -180,14 +207,12 @@ export function AdminInvoiceGenerator() {
           customer_name: `${order.shipping_address?.first_name} ${order.shipping_address?.last_name}`,
           amount: getOrderTotal(order),
           pdf_url: publicUrlData.publicUrl,
-          payment_method: getPaymentMethod(order),
+          payment_method: getPaymentMethod(order), // On sauvegarde le bon nom en base
           created_at: new Date().toISOString()
         });
 
-        // Envoi Email Automatique
         if (!dbError) {
             try {
-                // On récupère l'ID pour l'envoi
                 const { data: newInvoice } = await supabase.from('invoices').select('id').eq('invoice_number', invoiceNum).single();
                 if (newInvoice) {
                     await fetch('/api/invoices/send', {
@@ -235,7 +260,6 @@ export function AdminInvoiceGenerator() {
                   <Button variant="outline" onClick={handleSelectAll} className="rounded-xl">Tout cocher</Button>
                   <Button variant="outline" onClick={handleSelectCB} className="rounded-xl border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100"><CreditCard className="w-4 h-4 mr-2" /> Cocher Payées / CB</Button>
                   <div className="flex-1" />
-                  {/* BOUTON DÉCLENCHEUR : Notez qu'il appelle handleGenerateInvoices */}
                   <Button onClick={handleGenerateInvoices} disabled={selectedOrders.length === 0 || generating} className="bg-[#D4AF37] hover:bg-[#b8933d] text-white rounded-xl shadow-md transition-all hover:scale-105">{generating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileText className="w-4 h-4 mr-2" />}Générer ({selectedOrders.length})</Button>
                 </div>
                 {orders.length === 0 ? <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed"><CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" /><p className="text-gray-600 font-medium">Tout est à jour !</p></div> : (
