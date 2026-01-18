@@ -14,38 +14,64 @@ const getTotal = (order: any) => {
   return parseFloat(val);
 };
 
-// Chargeur d'image
+// Chargeur d'image robuste
 const loadImage = (url: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'Anonymous'; 
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL('image/png'));
+      try {
+        const canvas = document.createElement('canvas');
+        // On fixe la taille du canvas à celle de l'image
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            reject(new Error("Impossible de créer le contexte 2D"));
+            return;
+        }
+        ctx.drawImage(img, 0, 0);
+        // On récupère le Data URL complet
+        const dataURL = canvas.toDataURL('image/png');
+        resolve(dataURL);
+      } catch (e) {
+        reject(e);
+      }
     };
-    img.onerror = (e) => reject(e);
+    img.onerror = (e) => reject(new Error(`Erreur chargement image: ${url}`));
     img.src = url;
   });
 };
 
 export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
+  // Création d'une nouvelle instance jsPDF
+  // @ts-ignore - Pour éviter les erreurs de typage strict sur new jsPDF() selon les versions
   const doc = new jsPDF();
+  
   const primaryColor = "#D4AF37"; // OR
   const blackColor = "#000000";
   
   // --- 1. LOGO BANNIÈRE (HAUT DE PAGE) ---
+  let logoLoaded = false;
   try {
     const logoUrl = '/lbdm-logobdc.png';
     const logoData = await loadImage(logoUrl);
-    // Largeur 180 (presque toute la page A4 qui fait 210), hauteur ajustée à 40
-    doc.addImage(logoData, 'PNG', 15, 10, 180, 40); 
+    
+    // Vérification basique que c'est bien du base64 image
+    if (logoData && logoData.startsWith('data:image')) {
+        doc.addImage(logoData, 'PNG', 15, 10, 180, 40); 
+        logoLoaded = true;
+    }
   } catch (error) {
-    // Fallback si pas d'image
-    doc.setFontSize(22).setTextColor(primaryColor).setFont("helvetica", "bold");
+    console.warn("Le logo n'a pas pu être chargé (fallback texte utilisé) :", error);
+    logoLoaded = false;
+  }
+
+  // Si le logo n'a pas chargé, on met le texte
+  if (!logoLoaded) {
+    doc.setFontSize(22);
+    doc.setTextColor(primaryColor);
+    doc.setFont("helvetica", "bold");
     doc.text("BOUTIQUE De Morgane", 105, 30, { align: "center" });
   }
 
@@ -60,10 +86,8 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   
   doc.setTextColor(blackColor);
   doc.setFontSize(10);
-  // MORGANE DEWANIN en GRAS
   doc.setFont("helvetica", "bold");
   doc.text("MORGANE DEWANIN", 14, currentY + 5);
-  // Le reste en normal
   doc.setFont("helvetica", "normal");
   doc.text("SAS (Société par Actions Simplifiée)", 14, currentY + 10);
   doc.text("1062 rue d'Armentières", 14, currentY + 15);
@@ -73,7 +97,6 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.text("TVA: FR16907889802", 14, currentY + 35);
 
   // --- 3. BLOC FACTURE & ADRESSE (Droite) ---
-  // Titre FACTURE (comme Bon de Commande)
   doc.setFontSize(14);
   doc.setTextColor(primaryColor); 
   doc.setFont("helvetica", "bold");
@@ -83,43 +106,53 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.setTextColor(blackColor);
   doc.text(`N° ${invoiceNumber}`, 110, currentY + 6);
   doc.setFont("helvetica", "normal");
-  doc.text(`Date : ${format(new Date(), 'dd MMMM yyyy', { locale: fr })}`, 110, currentY + 11);
+  
+  // Date du jour
+  const today = new Date();
+  const dateStr = format(today, 'dd MMMM yyyy', { locale: fr });
+  doc.text(`Date : ${dateStr}`, 110, currentY + 11);
 
-  // Adresse Facturation (Plus bas à droite)
+  // Adresse Facturation
   const yAddress = currentY + 20;
   doc.setFontSize(11);
   doc.setTextColor(primaryColor);
   doc.setFont("helvetica", "bold");
-  doc.text("Adresse de Facturation", 110, yAddress); // Changé en Facturation (logique pour une facture)
+  doc.text("Adresse de Facturation", 110, yAddress);
 
   doc.setFontSize(10);
   doc.setTextColor(blackColor);
-  doc.setFont("helvetica", "bold"); // Nom client en gras ? (optionnel, mis en gras par sécurité esthétique)
-  const clientName = `${order.shipping_address?.first_name || ''} ${order.shipping_address?.last_name || ''}`;
+  doc.setFont("helvetica", "bold");
+  
+  // Sécurisation des données clients
+  const shipAddr = order.shipping_address || {};
+  const clientName = `${shipAddr.first_name || ''} ${shipAddr.last_name || ''}`.trim() || "Client";
   doc.text(clientName, 110, yAddress + 6);
   
   doc.setFont("helvetica", "normal");
-  const clientCity = `${order.shipping_address?.postal_code || ''} ${order.shipping_address?.city || ''}`;
-  doc.text(order.shipping_address?.address_line1 || '', 110, yAddress + 11);
-  if (order.shipping_address?.address_line2) {
-    doc.text(order.shipping_address.address_line2, 110, yAddress + 16);
-    doc.text(clientCity, 110, yAddress + 21);
-    doc.text(order.shipping_address?.country || 'France', 110, yAddress + 26);
-  } else {
-    doc.text(clientCity, 110, yAddress + 16);
-    doc.text(order.shipping_address?.country || 'France', 110, yAddress + 21);
+  const clientCity = `${shipAddr.postal_code || ''} ${shipAddr.city || ''}`.trim();
+  
+  doc.text(shipAddr.address_line1 || '', 110, yAddress + 11);
+  
+  let addrOffset = 16;
+  if (shipAddr.address_line2) {
+    doc.text(shipAddr.address_line2, 110, yAddress + addrOffset);
+    addrOffset += 5;
   }
+  doc.text(clientCity, 110, yAddress + addrOffset);
+  doc.text(shipAddr.country || 'France', 110, yAddress + addrOffset + 5);
 
   // --- 4. TABLEAU (Fond Doré) ---
   const tableRows: any[] = [];
-  order.items?.forEach((item: any) => {
+  const items = order.items || [];
+  
+  items.forEach((item: any) => {
     const variation = item.variation_name ? `\n(${item.variation_name})` : '';
     const price = getPrice(item); 
     const quantity = item.quantity || 1;
     const totalLine = price * quantity;
     
     tableRows.push([
-      item.product_name + variation,
+      (item.product_name || 'Produit') + variation,
       quantity,
       `${price.toFixed(2)} €`,
       `${totalLine.toFixed(2)} €`
@@ -131,17 +164,17 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     startY: 110,
     head: [["Produit", "Qté", "Prix Unit.", "Total"]],
     body: tableRows,
-    theme: 'grid', // Changé en grid pour avoir les traits
+    theme: 'grid',
     styles: { 
         fontSize: 10, 
         cellPadding: 3, 
-        textColor: [0, 0, 0], // Noir
+        textColor: [0, 0, 0],
         lineColor: [200, 200, 200],
         lineWidth: 0.1
     },
     headStyles: { 
         fillColor: [212, 175, 55], // DORÉ (#D4AF37)
-        textColor: [255, 255, 255], // Blanc
+        textColor: [255, 255, 255],
         fontStyle: 'bold',
         halign: 'center'
     },
@@ -172,9 +205,9 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.setLineWidth(0.5);
   doc.line(130, finalY - 4, 195, finalY - 4);
   
-  // TOTAL TTC EN DORÉ ET GRAS
+  // TOTAL TTC
   doc.setFontSize(12);
-  doc.setTextColor(primaryColor); // OR
+  doc.setTextColor(primaryColor);
   doc.setFont("helvetica", "bold");
   doc.text("TOTAL TTC :", xLabel, finalY);
   doc.text(`${totalAmount.toFixed(2)} €`, xValue, finalY, { align: 'right' });
@@ -188,7 +221,7 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   // Mode de paiement
   doc.text("Conditions de paiement : " + (order.payment_method || 'CB / Stripe'), 14, finalY + 20);
   
-  // Mentions légales centrées en bas
+  // Mentions légales
   doc.text("MORGANE DEWANIN - SAS au capital variable - SIREN 907 889 802 - TVA FR16907889802", 105, pageHeight - 10, { align: "center" });
 
   return doc;
