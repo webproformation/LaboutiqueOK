@@ -77,20 +77,20 @@ export default function AccountPage() {
         <p className="text-gray-500">Gérez vos informations personnelles et votre sécurité.</p>
       </div>
 
-      {/* Formulaire Profil */}
+    {/* Formulaire Profil */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             
-            {/* --- LIEN SECRET ADMIN --- */}
+            {/* --- DÉBUT MODIFICATION : LIEN SECRET --- */}
             {profile.is_admin ? (
-              <Link href="/account/admin-invoices" title="Accès Facturation Admin" className="cursor-pointer hover:scale-110 transition-transform">
+              <a href="/account/admin-invoices" title="Accès Facturation Admin" className="cursor-pointer hover:scale-110 transition-transform">
                 <User className="h-5 w-5 text-[#D4AF37] hover:text-red-500" />
-              </Link>
+              </a>
             ) : (
               <User className="h-5 w-5 text-[#D4AF37]" />
             )}
-            {/* ------------------------- */}
+            {/* --- FIN MODIFICATION --- */}
 
             <CardTitle>Informations personnelles</CardTitle>
           </div>
