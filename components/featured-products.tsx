@@ -4,21 +4,27 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+// CORRECTION : Gem n'est importé qu'une seule fois ici
 import { Sparkles, ChevronLeft, ChevronRight, Gem } from 'lucide-react';
 import { ProductCard } from '@/components/ProductCard';
 import useEmblaCarousel from 'embla-carousel-react';
+import { SectionTitle } from '@/components/ui/SectionTitle';
 
 interface Product {
-  id: string;
+  id: number;
   name: string;
   slug: string;
-  regular_price: number;
-  sale_price: number | null;
-  image_url: string | null;
-  gallery_images?: string[] | null;
-  is_variable_product?: boolean;
-  stock_quantity?: number | null;
-  status: string;
+  price: number;
+  sale_price?: number;
+  image?: {
+    sourceUrl: string;
+  };
+  attributes?: {
+    nodes: Array<{
+      name: string;
+      options: string[];
+    }>;
+  };
 }
 
 export function FeaturedProducts() {
@@ -26,54 +32,13 @@ export function FeaturedProducts() {
   const [loading, setLoading] = useState(true);
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: 'start',
-    loop: false,
-    skipSnaps: false,
-    dragFree: true,
+    loop: true,
+    slidesToScroll: 1,
+    breakpoints: {
+      '(min-width: 768px)': { slidesToScroll: 2 },
+      '(min-width: 1024px)': { slidesToScroll: 3 }
+    }
   });
-  const [canScrollPrev, setCanScrollPrev] = useState(false);
-  const [canScrollNext, setCanScrollNext] = useState(false);
-
-  useEffect(() => {
-    const fetchFeaturedProducts = async () => {
-      try {
-        const { data: productsData, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('is_featured', true)
-          .eq('status', 'publish')
-          .order('created_at', { ascending: false })
-          .limit(12);
-
-        if (error) throw error;
-
-        setProducts(productsData || []);
-      } catch (error) {
-        console.error('Error fetching featured products:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchFeaturedProducts();
-  }, []);
-
-  const onSelect = useCallback(() => {
-    if (!emblaApi) return;
-    setCanScrollPrev(emblaApi.canScrollPrev());
-    setCanScrollNext(emblaApi.canScrollNext());
-  }, [emblaApi]);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-    onSelect();
-    emblaApi.on('select', onSelect);
-    emblaApi.on('reInit', onSelect);
-
-    return () => {
-      emblaApi.off('select', onSelect);
-      emblaApi.off('reInit', onSelect);
-    };
-  }, [emblaApi, onSelect]);
 
   const scrollPrev = useCallback(() => {
     if (emblaApi) emblaApi.scrollPrev();
@@ -83,83 +48,98 @@ export function FeaturedProducts() {
     if (emblaApi) emblaApi.scrollNext();
   }, [emblaApi]);
 
+  useEffect(() => {
+    async function fetchFeaturedProducts() {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('featured', true)
+          .eq('status', 'publish')
+          .order('date_created', { ascending: false })
+          .limit(8);
+
+        if (error) throw error;
+        setProducts(data || []);
+      } catch (error) {
+        console.error('Error fetching featured products:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchFeaturedProducts();
+  }, []);
+
   if (loading) {
     return (
-      <div className="py-16 bg-gray-50">
+      <section className="py-16 bg-[#F2F2E8]/30">
         <div className="container mx-auto px-4">
-          <h2 className="text-4xl font-bold text-center mb-8" style={{ color: '#C6A15B' }}>
-          Les pépites du moment
-        </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {[...Array(8)].map((_, i) => (
-              <Card key={i} className="rounded-xl overflow-hidden">
-                <div className="aspect-square bg-gray-200 animate-pulse" />
-                <CardContent className="p-4">
-                  <div className="h-4 bg-gray-200 rounded animate-pulse mb-2" />
-                  <div className="h-4 bg-gray-200 rounded animate-pulse w-20" />
-                </CardContent>
-              </Card>
+          <SectionTitle 
+            title="Les pépites du moment" 
+            subtitle="Chargement des pépites..." 
+            icon={Gem} 
+          />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-[400px] bg-gray-100 rounded-lg animate-pulse" />
             ))}
           </div>
         </div>
-      </div>
+      </section>
     );
   }
 
-  if (products.length === 0) {
-    return null;
-  }
+  if (products.length === 0) return null;
 
   return (
-    <section className="py-16 bg-gray-50">
+    <section className="py-16 bg-[#F2F2E8]/30">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <Gem className="h-8 w-8 text-[#C6A15B] fill-[#C6A15B]" />
-            <h2 className="text-4xl font-bold" style={{ color: '#C6A15B' }}>
-              Les pépites du moment
-            </h2>
-            <Gem className="h-8 w-8 text-[#C6A15B] fill-[#C6A15B]" />
+        
+        {/* TITRE HARMONISÉ */}
+        <SectionTitle 
+          title="Les pépites du moment" 
+          subtitle="Ces pièces que vous adorez... et que nous aussi !"
+          icon={Gem}
+        />
+
+        <div className="relative group">
+          <div className="overflow-hidden" ref={emblaRef}>
+            <div className="flex -ml-4">
+              {products.map((product) => (
+                <div key={product.id} className="flex-[0_0_85%] min-w-0 pl-4 sm:flex-[0_0_50%] md:flex-[0_0_33.33%] lg:flex-[0_0_25%]">
+                  <ProductCard product={product} />
+                </div>
+              ))}
+            </div>
           </div>
-          <p className="text-gray-600 text-lg">
-            Ces pièces que vous adorez... et que nous aussi !
-          </p>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/80 hover:bg-white border-[#D4AF37] text-[#D4AF37] opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 hidden md:flex"
+            onClick={scrollPrev}
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/80 hover:bg-white border-[#D4AF37] text-[#D4AF37] opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 hidden md:flex"
+            onClick={scrollNext}
+          >
+            <ChevronRight className="h-6 w-6" />
+          </Button>
         </div>
 
-        <div className="flex justify-end mb-4">
-          <div className="hidden md:flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={scrollPrev}
-              disabled={!canScrollPrev}
-              className="rounded-full border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white disabled:opacity-30"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={scrollNext}
-              disabled={!canScrollNext}
-              className="rounded-full border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white disabled:opacity-30"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-
-        <div className="overflow-hidden" ref={emblaRef}>
-          <div className="flex gap-6">
-            {products.map((product) => (
-              <div
-                key={product.id}
-                className="flex-[0_0_85%] sm:flex-[0_0_45%] md:flex-[0_0_32%] lg:flex-[0_0_24%] min-w-0"
-              >
-                <ProductCard product={product} showAddToCart={true} />
-              </div>
-            ))}
-          </div>
+        <div className="mt-12 text-center">
+          <Button 
+            variant="outline" 
+            className="border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-white transition-colors px-8 py-6 text-lg rounded-full"
+          >
+            Voir toute la collection
+          </Button>
         </div>
       </div>
     </section>

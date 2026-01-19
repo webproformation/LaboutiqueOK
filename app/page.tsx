@@ -2,7 +2,8 @@ import { HeroSlider } from '@/components/hero-slider';
 import { FeaturedProducts } from '@/components/featured-products';
 import { HomeCategories } from '@/components/home-categories';
 import { VideoShortsSection } from '@/components/VideoShortsSection';
-import { DashboardStats } from '@/components/DashboardStats';
+// On remplace l'ancien composant statique par le nouveau dynamique
+import KeyFigures from '@/components/sections/KeyFigures'; 
 import { HomeReviewsCarousel } from '@/components/HomeReviewsCarousel';
 import { GamePopupManager } from '@/components/GamePopupManager';
 import { LiveBanner } from '@/components/LiveBanner';
@@ -26,7 +27,8 @@ export default function Home() {
 
         <VideoShortsSection />
 
-        <DashboardStats />
+        {/* Affichage des statistiques animées */}
+        <KeyFigures />
 
         <HomeReviewsCarousel />
       </main>

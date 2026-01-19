@@ -1,170 +1,166 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
+import Link from 'next/link';
+import { ShoppingBag } from 'lucide-react';
+import { SectionTitle } from '@/components/ui/SectionTitle';
 
 interface HomeCategory {
   id: string;
   name: string;
-  category_name: string;
-  slug: string;
   category_slug: string;
-  image_url: string | null;
-  sort_order: number;
-  display_order: number;
-  is_active: boolean;
-  created_at: string;
-  product_count?: number;
-  category_description?: string;
+  image_url: string;
+  count: number;
 }
 
-const decodeHtmlEntities = (text: string): string => {
-  if (typeof window !== 'undefined') {
-    const textarea = document.createElement('textarea');
-    textarea.innerHTML = text;
-    return textarea.value;
-  }
-  return text;
-};
+// Structure simplifiée pour gérer la hiérarchie
+interface CategorySimple {
+  id: string;
+  parent_id: string | null;
+  slug: string;
+}
 
 export function HomeCategories() {
   const [categories, setCategories] = useState<HomeCategory[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadCategories = async () => {
+    async function fetchHomeCategories() {
       try {
-        const { data, error } = await supabase
+        // 1. Récupération de la config Accueil
+        const { data: homeData, error: homeError } = await supabase
           .from('home_categories')
           .select('*')
           .eq('is_active', true)
           .order('display_order', { ascending: true });
 
-        if (error) throw error;
+        if (homeError) throw homeError;
 
-        const categoriesWithCount = await Promise.all(
-          (data || []).map(async (category) => {
-            const { data: realCategory } = await supabase
-              .from('categories')
-              .select('id, description')
-              .eq('slug', category.category_slug)
-              .maybeSingle();
+        if (homeData && homeData.length > 0) {
+          
+          // 2. Récupération de l'arbre des catégories
+          const { data: allCategories } = await supabase
+            .from('categories')
+            .select('id, parent_id, slug');
 
-            if (!realCategory) {
-              return {
-                ...category,
-                product_count: 0,
-                category_description: ''
-              };
+          const categoriesTree = (allCategories || []) as CategorySimple[];
+
+          const getAllDescendantIds = (parentId: string): string[] => {
+            const children = categoriesTree.filter(c => c.parent_id === parentId);
+            let ids = children.map(c => c.id);
+            children.forEach(child => {
+              ids = [...ids, ...getAllDescendantIds(child.id)];
+            });
+            return ids;
+          };
+
+          // 3. Comptage Hybride (Colonne directe + Table de liaison)
+          const mergedCategories = await Promise.all(homeData.map(async (homeCat) => {
+            const rootCat = categoriesTree.find(c => c.slug === homeCat.category_slug);
+            let uniqueProductIds = new Set<string>(); // Utilisation d'un Set pour éviter les doublons
+
+            if (rootCat) {
+                const allRelatedIds = [rootCat.id, ...getAllDescendantIds(rootCat.id)];
+
+                // A. Chercher dans la table 'products' (colonne category_id)
+                const { data: productsDirect } = await supabase
+                    .from('products')
+                    .select('id')
+                    .in('category_id', allRelatedIds)
+                    .eq('status', 'publish');
+                
+                productsDirect?.forEach(p => uniqueProductIds.add(p.id));
+
+                // B. Chercher dans la table de liaison 'product_category_mapping'
+                // CORRECTION ICI : Nom de table mis à jour
+                const { data: productsLinked } = await supabase
+                    .from('product_category_mapping')
+                    .select('product_id')
+                    .in('category_id', allRelatedIds);
+
+                // On doit vérifier que ces produits sont bien publiés
+                if (productsLinked && productsLinked.length > 0) {
+                    const linkedIds = productsLinked.map(p => p.product_id);
+                    const { data: publishedLinked } = await supabase
+                        .from('products')
+                        .select('id')
+                        .in('id', linkedIds)
+                        .eq('status', 'publish');
+                    
+                    publishedLinked?.forEach(p => uniqueProductIds.add(p.id));
+                }
             }
 
-            const { count } = await supabase
-              .from('product_category_mapping')
-              .select('product_id', { count: 'exact', head: true })
-              .eq('category_id', realCategory.id);
-
             return {
-              ...category,
-              product_count: count || 0,
-              category_description: realCategory.description || ''
+              ...homeCat,
+              count: uniqueProductIds.size
             };
-          })
-        );
+          }));
 
-        setCategories(categoriesWithCount);
-
-        if (data && data.length > 0) {
-          toast.success('Affichage optimisé : caractères spéciaux nettoyés', {
-            position: 'bottom-right',
-            duration: 2500,
-          });
+          setCategories(mergedCategories);
         }
       } catch (error) {
-        console.error('Error loading home categories:', error);
-        toast.error('Erreur lors du chargement des catégories', {
-          position: 'bottom-right',
-        });
+        console.error('Erreur chargement catégories accueil:', error);
       } finally {
         setLoading(false);
       }
-    };
+    }
 
-    loadCategories();
+    fetchHomeCategories();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="py-8">
-        <div className="container mx-auto px-4">
-          <Skeleton className="h-12 w-64 mx-auto mb-8" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-80 w-full rounded-lg" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (categories.length === 0) {
-    return null;
-  }
+  if (loading) return null;
+  if (categories.length === 0) return null;
 
   return (
-    <div className="py-8">
+    <section className="py-16 bg-white">
       <div className="container mx-auto px-4">
-        <h2 className="text-4xl font-bold text-center mb-8" style={{ color: '#C6A15B' }}>
-          Nos Catégories
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {categories.map((category, index) => {
-            const isLast = index === categories.length - 1;
-            const isOdd = categories.length % 2 === 1;
-            const shouldBeFullWidth = isLast && isOdd;
+        
+        <SectionTitle 
+          title="Nos Catégories" 
+          subtitle="Explorez nos univers et trouvez votre style"
+          icon={ShoppingBag}
+        />
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {categories.map((category, index) => {
+            const isLastAndOdd = index === categories.length - 1 && categories.length % 2 !== 0;
+            
             return (
-              <Link
-                key={category.id}
+              <Link 
+                key={category.id} 
                 href={`/category/${category.category_slug}`}
-                className={`relative h-64 md:h-80 rounded-lg overflow-hidden group transition-all hover:scale-[1.02] animate-in fade-in duration-500 ${
-                  shouldBeFullWidth ? 'md:col-span-2' : ''
+                className={`group relative h-[300px] overflow-hidden rounded-2xl shadow-md block ${
+                  isLastAndOdd ? 'md:col-span-2' : ''
                 }`}
-                style={{ animationDelay: `${index * 150}ms` }}
               >
                 {category.image_url ? (
-                  <img
-                    src={category.image_url}
-                    alt={category.category_name}
-                    className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                    loading="lazy"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                    }}
+                  <div 
+                      className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                      style={{ backgroundImage: `url(${category.image_url})` }}
                   />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-[#C6A15B] to-[#B7933F]" />
+                  <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
+                      <ShoppingBag className="w-12 h-12 text-gray-400" />
+                  </div>
                 )}
 
-                <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
-                  <div className="text-center px-4 max-w-lg">
-                    <h3 className="text-white text-2xl font-bold mb-2">
-                      {decodeHtmlEntities(category.category_name)}
-                    </h3>
-                    {category.category_description && (
-                      <p className="text-white/80 text-sm mb-2 line-clamp-2">
-                        {decodeHtmlEntities(category.category_description)}
-                      </p>
-                    )}
-                    {category.product_count !== undefined && category.product_count > 0 && (
-                      <p className="text-white/90 text-base font-semibold">
-                        {category.product_count} produit{category.product_count !== 1 ? 's' : ''}
-                      </p>
-                    )}
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors duration-300" />
+
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+                  <h3 className="text-3xl md:text-4xl font-bold text-white font-display drop-shadow-md mb-2">
+                    {category.name}
+                  </h3>
+                  
+                  <p className="text-white/90 text-sm font-medium bg-black/20 px-3 py-1 rounded-full backdrop-blur-sm border border-white/10">
+                    {category.count} produit{category.count > 1 ? 's' : ''}
+                  </p>
+                  
+                  <div className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+                      <span className="bg-white/20 backdrop-blur-sm text-white px-6 py-2 rounded-full text-sm font-medium border border-white/50 hover:bg-white hover:text-[#D4AF37] transition-all">
+                          Découvrir
+                      </span>
                   </div>
                 </div>
               </Link>
@@ -172,6 +168,6 @@ export function HomeCategories() {
           })}
         </div>
       </div>
-    </div>
+    </section>
   );
 }
