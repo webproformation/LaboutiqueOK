@@ -1,90 +1,68 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-export interface UserCoupon {
-  id: string;
-  user_id: string;
-  coupon_id: string;
-  code: string;
-  source: string;
-  is_used: boolean;
-  used_at: string | null;
-  order_id: string | null;
-  obtained_at: string;
-  valid_until: string;
-  coupon?: {
-    name: string;
-    discount_type: string;
-    discount_value: number;
-    description: string;
-  };
-}
-
 export function useUserCoupons(userId: string | undefined) {
-  const [coupons, setCoupons] = useState<UserCoupon[]>([]);
+  const [coupons, setCoupons] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (userId) {
+      loadCoupons();
+    }
+  }, [userId]);
 
   const loadCoupons = async () => {
-    if (!userId) {
-      setCoupons([]);
-      setLoading(false);
-      return;
-    }
-
     try {
-      setLoading(true);
-      setError(null);
-
-      const { data, error: fetchError } = await supabase
+      // On ne charge que les coupons NON utilisés pour le checkout
+      const { data, error } = await supabase
         .from('user_coupons')
         .select('*, coupon:coupons(*)')
         .eq('user_id', userId)
-        .eq('is_used', false)
-        .gte('valid_until', new Date().toISOString())
+        .eq('is_used', false) // Important
         .order('obtained_at', { ascending: false });
 
-      if (fetchError) throw fetchError;
-
+      if (error) throw error;
       setCoupons(data || []);
-    } catch (err: any) {
-      console.error('Error loading user coupons:', err);
-      setError(err.message);
+    } catch (error) {
+      console.error('Erreur chargement coupons:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadCoupons();
-  }, [userId]);
-
-  const markCouponAsUsed = async (couponId: string, orderId: string) => {
+  // C'est cette fonction qui fait le travail de déplacement vers "Utilisés"
+  const markCouponAsUsed = async (userCouponId: string, orderId: string) => {
     try {
-      const { error: updateError } = await supabase
+      console.log('Marquage du coupon comme utilisé:', userCouponId);
+      
+      const { error } = await supabase
         .from('user_coupons')
-        .update({
-          is_used: true,
+        .update({ 
+          is_used: true, 
           used_at: new Date().toISOString(),
-          order_id: orderId,
+          order_id: orderId 
         })
-        .eq('id', couponId);
+        .eq('id', userCouponId)
+        .eq('user_id', userId); // Sécurité supplémentaire
 
-      if (updateError) throw updateError;
-
+      if (error) {
+        console.error('Erreur SQL lors du marquage:', error);
+        throw error;
+      }
+      
+      // On rafraîchit la liste locale pour qu'il disparaisse du sélecteur
       await loadCoupons();
-      return { success: true };
-    } catch (err: any) {
-      console.error('Error marking coupon as used:', err);
-      return { success: false, error: err.message };
+      return true;
+    } catch (error) {
+      console.error('Impossible de marquer le coupon comme utilisé:', error);
+      return false;
     }
   };
 
   return {
     coupons,
     loading,
-    error,
-    reload: loadCoupons,
-    markCouponAsUsed,
+    refreshCoupons: loadCoupons,
+    markCouponAsUsed // On exporte bien la fonction
   };
 }
