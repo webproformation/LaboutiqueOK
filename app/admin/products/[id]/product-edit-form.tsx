@@ -122,6 +122,24 @@ export default function ProductEditForm({
     loadExistingVariations();
   }, []);
 
+  // --- LOGIQUE AUTO-SÉLECTION DES TAILLES (AJOUTÉE) ---
+  useEffect(() => {
+    if (sizeRangeStart && sizeRangeEnd) {
+      const start = Math.min(sizeRangeStart, sizeRangeEnd);
+      const end = Math.max(sizeRangeStart, sizeRangeEnd);
+      
+      const autoSizes: string[] = [];
+      for (let s = start; s <= end; s += 2) {
+        autoSizes.push(s.toString());
+      }
+
+      setSelectedAttributes(prev => ({
+        ...prev,
+        "Tailles": autoSizes
+      }));
+    }
+  }, [sizeRangeStart, sizeRangeEnd]);
+
   useEffect(() => {
     if (selectedSecondaryColors.length > 0) {
       const newVariations: Variation[] = selectedSecondaryColors.map(colorName => {
@@ -155,7 +173,6 @@ export default function ProductEditForm({
 
       if (data && data.length > 0) {
         const colorNames: string[] = [];
-        const colorIds: Record<string, string> = {};
         const varIds: Record<string, string> = {};
         const vars: Variation[] = [];
 
@@ -186,7 +203,6 @@ export default function ProductEditForm({
     }
   };
 
-
   const handleMainColorSelect = (colorName: string, colorId: string) => {
     setMainColor(colorName);
     setMainColorId(colorId);
@@ -204,14 +220,6 @@ export default function ProductEditForm({
         return newIds;
       });
     }
-  };
-
-  const updateVariation = (index: number, field: keyof Variation, value: any) => {
-    setVariations(prev => {
-      const newVars = [...prev];
-      newVars[index] = { ...newVars[index], [field]: value };
-      return newVars;
-    });
   };
 
   const handleVariationUpdate = (colorName: string, field: keyof Variation, value: any) => {

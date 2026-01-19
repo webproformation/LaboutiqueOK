@@ -58,14 +58,15 @@ export default function ProductPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariation, setSelectedVariation] = useState<any>(null);
+  
+  // --- ÉTAT POUR LA TAILLE SÉLECTIONNÉE ---
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  
   const [notifyEmail, setNotifyEmail] = useState("");
   const [showNotifyDialog, setShowNotifyDialog] = useState(false);
   const [userSelectedGalleryImage, setUserSelectedGalleryImage] = useState<string | null>(null);
   const [initialAttributes, setInitialAttributes] = useState<Record<string, string>>({});
-  
-  // État séparé pour les attributs informatifs (Confort, Coupe...)
   const [informativeAttributes, setInformativeAttributes] = useState<Array<{ name: string; values: string[] }>>([]);
-  
   const [diamondPosition] = useState<"title" | "image" | "description">(() =>
     diamondPositions[Math.floor(Math.random() * diamondPositions.length)]
   );
@@ -75,11 +76,27 @@ export default function ProductPage() {
     checkAdminStatus();
   }, [slug, user]);
 
-  // Chargement des attributs informatifs dès que le produit est connu
   useEffect(() => {
     if (product) {
       loadInformativeAttributes(product);
     }
+  }, [product]);
+
+  // --- INITIALISATION TAILLE PAR DÉFAUT ---
+  useEffect(() => {
+    if (product?.size_range_start) {
+      setSelectedSize(product.size_range_start.toString());
+    }
+  }, [product]);
+
+  // --- CALCUL DES TAILLES DISPONIBLES ---
+  const availableSizes = useMemo(() => {
+    if (!product?.size_range_start || !product?.size_range_end) return [];
+    const sizes = [];
+    for (let i = product.size_range_start; i <= product.size_range_end; i += 2) {
+      sizes.push(i.toString());
+    }
+    return sizes;
   }, [product]);
 
   useEffect(() => {
@@ -110,26 +127,20 @@ export default function ProductPage() {
     }
   }, [product]);
 
-  // Lecture depuis le JSON du produit + product_attribute_terms
   async function loadInformativeAttributes(productData: Product) {
     try {
       const rawAttributes = productData.attributes;
-      
       if (!rawAttributes || typeof rawAttributes !== 'object') return;
 
       const termNames: string[] = [];
-      
-      // On extrait tous les Noms de termes présents dans le JSON
       Object.values(rawAttributes).forEach((names) => {
         if (Array.isArray(names)) {
-          // On s'assure que ce sont bien des chaînes
           names.forEach(name => termNames.push(String(name)));
         }
       });
 
       if (termNames.length === 0) return;
 
-      // RECHERCHE DANS LA COLONNE 'name'
       const { data, error } = await supabase
         .from('product_attribute_terms')
         .select(`
@@ -138,25 +149,18 @@ export default function ProductPage() {
         `)
         .in('name', termNames);
 
-      if (error) {
-        console.error("Erreur fetch termes:", error);
-        return;
-      }
-
+      if (error) return;
       if (!data) return;
 
       const groups = new Map<string, string[]>();
 
       data.forEach((item: any) => {
-        // Sécurisation : product_attributes peut être un tableau ou un objet selon la config Supabase
         const attrInfo = Array.isArray(item.product_attributes) ? item.product_attributes[0] : item.product_attributes;
-        
         const attrName = attrInfo?.name;
         const attrSlug = attrInfo?.slug?.toLowerCase() || '';
         const termValue = item.name;
 
         if (attrName && termValue) {
-          // On ignore Couleurs et Tailles (déjà gérés par le sélecteur)
           if (
             attrSlug.includes('couleur') || 
             attrSlug.includes('taille') || 
@@ -219,7 +223,7 @@ export default function ProductPage() {
           .eq("product_id", productData.id);
 
         if (variations) {
-           const attributesMap = new Map<string, Set<string>>();
+          const attributesMap = new Map<string, Set<string>>();
           const extractValue = (value: any): string => {
             if (typeof value === 'object' && value !== null) return value.name || value.value || String(value);
             return String(value);
@@ -246,7 +250,6 @@ export default function ProductPage() {
             }
           });
 
-          // FIX CRITIQUE : On sauvegarde le JSON original des attributs globaux
           const originalAttributesJSON = JSON.parse(JSON.stringify(productData.attributes || {}));
 
           const attributesForSelector = Array.from(attributesMap.entries()).map(([name, options]) => ({
@@ -254,7 +257,6 @@ export default function ProductPage() {
             options: Array.from(options),
           }));
 
-          // Récupération des codes couleurs pour les variations
           const allOptionNames = attributesForSelector.flatMap(a => a.options);
           
           if (allOptionNames.length > 0) {
@@ -300,18 +302,14 @@ export default function ProductPage() {
             };
           });
 
-          // On assigne les attributs pour le sélecteur
           productData.attributes = attributesForSelector;
-          // ET on restaure les attributs JSON originaux dans une prop cachée pour notre fonction de chargement
           (productData as any).original_attributes_json = originalAttributesJSON;
-          
           productData.variations = formattedVariations;
           productData.type = "VARIABLE";
         }
       } else if (productData.attributes && typeof productData.attributes === 'object') {
-         // Produit simple
         const simpleAttributes = productData.attributes;
-        (productData as any).original_attributes_json = simpleAttributes; // Pour uniformiser
+        (productData as any).original_attributes_json = simpleAttributes;
 
         const attributeTermIds: string[] = [];
         Object.values(simpleAttributes).forEach((termIds: any) => {
@@ -344,8 +342,6 @@ export default function ProductPage() {
       }
 
       setProduct(productData);
-      
-      // Appel immédiat avec les données brutes sécurisées
       const dataForInfo = { ...productData, attributes: (productData as any).original_attributes_json || productData.attributes };
       loadInformativeAttributes(dataForInfo);
 
@@ -366,8 +362,6 @@ export default function ProductPage() {
   };
 
   const handleImageClick = (image: { id: string; src: string }) => {
-    console.log("🖱️ CLIC IMAGE:", image);
-
     let isVariation = false;
     let targetVariation = null;
 
@@ -391,11 +385,9 @@ export default function ProductPage() {
     }
 
     if (isVariation) {
-      console.log("🔓 DÉVERROUILLAGE");
       setUserSelectedGalleryImage(null);
 
       if (targetVariation && targetVariation.id !== selectedVariation?.id) {
-        console.log("🔄 Changement variation:", targetVariation.id);
         const variationAttributes: Record<string, string> = {};
         targetVariation.attributes?.forEach((attr: any) => {
           variationAttributes[attr.name] = attr.option;
@@ -404,17 +396,24 @@ export default function ProductPage() {
         setSelectedVariation(targetVariation);
       }
     } else {
-      console.log("🔒 VERROUILLAGE:", image.id);
       setUserSelectedGalleryImage(image.src);
     }
   };
   
   const handleAddToCart = () => {
     if (!product) return;
+
+    // --- VÉRIFICATION TAILLE OBLIGATOIRE ---
+    if (availableSizes.length > 0 && !selectedSize) {
+      toast.error("Veuillez sélectionner une taille");
+      return;
+    }
+
     if (product?.type === "VARIABLE" && !selectedVariation) {
       toast.error("Veuillez sélectionner toutes les options");
       return;
     }
+
     const productToAdd = {
       id: product.id,
       name: product.name,
@@ -426,9 +425,14 @@ export default function ProductPage() {
       variationId: selectedVariation?.id || null,
       variationPrice: selectedVariation?.sale_price || selectedVariation?.price || product.sale_price || product.regular_price || null,
       variationImage: selectedVariation?.image || (product.image_url ? { src: product.image_url, alt: product.name } : null),
-      selectedAttributes: selectedVariation?.attributes || {},
+      // --- TRANSMISSION DE LA TAILLE ---
+      selectedAttributes: {
+        ...selectedVariation?.attributes,
+        ...(selectedSize ? { "Taille": selectedSize } : {})
+      },
     };
     addToCart(productToAdd, quantity);
+    toast.success("Ajouté au panier !");
   };
 
   const handleNotifyMe = async () => {
@@ -461,54 +465,24 @@ export default function ProductPage() {
 
   const galleryImages = useMemo(() => {
     if (!product) return [{ id: "placeholder", src: "/placeholder.png", alt: "Product" }];
-
     const images: Array<{ id: string; src: string; alt: string }> = [];
-
     if (product.variations && Array.isArray(product.variations)) {
       product.variations.forEach((variation: any, idx: number) => {
         if (variation.image?.src && !images.some(i => i.src === variation.image.src)) {
-          images.push({
-            id: `variation-${idx}`,
-            src: variation.image.src,
-            alt: variation.image.alt || product.name,
-          });
+          images.push({ id: `variation-${idx}`, src: variation.image.src, alt: variation.image.alt || product.name });
         }
       });
     }
-
     if (product.image_url && !images.some(i => i.src === product.image_url)) {
-      images.push({
-        id: "main",
-        src: product.image_url,
-        alt: product.name,
-      });
+      images.push({ id: "main", src: product.image_url, alt: product.name });
     }
-
     if (product.gallery_images && Array.isArray(product.gallery_images)) {
       product.gallery_images.forEach((imgUrl: string, idx: number) => {
         if (imgUrl && !images.some(i => i.src === imgUrl)) {
-          images.push({
-            id: `gallery-${idx}`,
-            src: imgUrl,
-            alt: product.name,
-          });
+          images.push({ id: `gallery-${idx}`, src: imgUrl, alt: product.name });
         }
       });
     }
-
-    if (product.images && Array.isArray(product.images)) {
-      product.images.forEach((img: any, idx: number) => {
-        const imgSrc = img.src || img.sourceUrl || img.url;
-        if (imgSrc && !images.some(i => i.src === imgSrc)) {
-          images.push({
-            id: `img-${idx}`,
-            src: imgSrc,
-            alt: img.alt || product.name,
-          });
-        }
-      });
-    }
-
     return images.length > 0 ? images : [{ id: "placeholder", src: "/placeholder.png", alt: product.name }];
   }, [product]);
 
@@ -540,19 +514,11 @@ export default function ProductPage() {
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
                 <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-blue-900">Mode Administrateur</p>
-                </div>
+                <div><p className="text-sm font-medium text-blue-900">Mode Administrateur</p></div>
               </div>
               <div className="flex items-center gap-2">
-                <Link href={`/admin/products/${product.id}`}>
-                  <Button variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-100">
-                    <Edit className="h-4 w-4 mr-2" /> Modifier
-                  </Button>
-                </Link>
-                <Button variant="outline" size="sm" onClick={handleDeleteProduct} className="border-red-300 text-red-700 hover:bg-red-100">
-                  <Trash2 className="h-4 w-4 mr-2" /> Supprimer
-                </Button>
+                <Link href={`/admin/products/${product.id}`}><Button variant="outline" size="sm" className="border-blue-300 text-blue-700 hover:bg-blue-100"><Edit className="h-4 w-4 mr-2" /> Modifier</Button></Link>
+                <Button variant="outline" size="sm" onClick={handleDeleteProduct} className="border-red-300 text-red-700 hover:bg-red-100"><Trash2 className="h-4 w-4 mr-2" /> Supprimer</Button>
               </div>
             </div>
           </div>
@@ -561,113 +527,69 @@ export default function ProductPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 mb-12 sm:mb-16">
           <div className="relative lg:sticky lg:top-4 lg:self-start">
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-              <ProductGallery
-                images={galleryImages}
-                productName={decodeHtmlEntities(product.name)}
-                selectedImageUrl={getCurrentImageUrl()}
-                onImageClick={handleImageClick}
-              />
+              <ProductGallery images={galleryImages} productName={decodeHtmlEntities(product.name)} selectedImageUrl={getCurrentImageUrl()} onImageClick={handleImageClick} />
             </div>
-            {product.is_diamond && (
-              <div className="mt-4">
-                <HiddenDiamond productId={product.id} position="image" selectedPosition={diamondPosition} />
-              </div>
-            )}
+            {product.is_diamond && <div className="mt-4"><HiddenDiamond productId={product.id} position="image" selectedPosition={diamondPosition} /></div>}
           </div>
 
           <div className="space-y-6 bg-white rounded-2xl shadow-lg p-6 sm:p-8 h-fit">
             {product.is_diamond && <HiddenDiamond productId={product.id} position="title" selectedPosition={diamondPosition} />}
 
             <div className="border-b border-gray-100 pb-6">
-              {/* TITRE EN DORE ICI */}
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#b8933d] mb-4 leading-tight">
-                {decodeHtmlEntities(product.name)}
-              </h1>
-
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#b8933d] mb-4 leading-tight">{decodeHtmlEntities(product.name)}</h1>
               <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-4">
                 <div className="flex items-baseline gap-3">
-                  {hasDiscount && regularPrice && (
-                    <span className="text-xl sm:text-2xl text-gray-400 line-through">
-                      {Number(regularPrice).toFixed(2)} €
-                    </span>
-                  )}
-                  <span className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-[#b8933d] to-[#D4AF37] bg-clip-text text-transparent">
-                    {currentPrice ? Number(currentPrice).toFixed(2) : "0.00"} €
-                  </span>
+                  {hasDiscount && regularPrice && <span className="text-xl sm:text-2xl text-gray-400 line-through">{Number(regularPrice).toFixed(2)} €</span>}
+                  <span className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-[#b8933d] to-[#D4AF37] bg-clip-text text-transparent">{currentPrice ? Number(currentPrice).toFixed(2) : "0.00"} €</span>
                 </div>
-                {hasDiscount && (
-                  <Badge className="bg-gradient-to-r from-pink-500 to-pink-600 text-white px-4 py-1.5 text-sm font-bold animate-pulse">
-                    PROMO
-                  </Badge>
-                )}
+                {hasDiscount && <Badge className="bg-gradient-to-r from-pink-500 to-pink-600 text-white px-4 py-1.5 text-sm font-bold animate-pulse">PROMO</Badge>}
               </div>
 
-              {/* --- AFFICHAGE DES ATTRIBUTS INFORMATIFS (CENTRES) --- */}
               {informativeAttributes.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
                   {informativeAttributes.map((attr) => (
                     <div key={attr.name} className="flex flex-col gap-1 items-center text-center">
-                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                         {attr.name}
-                      </span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {attr.values.join(", ")}
-                      </span>
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{attr.name}</span>
+                      <span className="text-sm font-medium text-gray-900">{attr.values.join(", ")}</span>
                     </div>
                   ))}
                 </div>
               )}
-
-              {isVariable && <p className="text-sm text-gray-600 mb-4">Sélectionnez les options ci-dessous</p>}
-
-              {!isVariable && (
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200">
-                  {isInStock ? (
-                    <>
-                      {product.stock_quantity === 1 ? (
-                        <>
-                          <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-300" />
-                          <span className="text-red-700 font-bold text-sm">{CUSTOM_TEXTS.stock.lowStock}</span>
-                        </>
-                      ) : (
-                        <>
-                          <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-lg shadow-green-300" />
-                          <span className="text-green-700 font-semibold text-sm">{CUSTOM_TEXTS.stock.inStock}</span>
-                        </>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-2.5 h-2.5 rounded-full bg-pink-500" />
-                      <span className="text-pink-700 font-semibold text-sm">{CUSTOM_TEXTS.stock.outOfStock}</span>
-                    </>
-                  )}
-                </div>
-              )}
             </div>
 
+            {/* --- SECTION TAILLES PAR BOUTONS --- */}
+            {availableSizes.length > 0 && (
+              <div className="space-y-4 pt-4">
+                <Label className="text-sm font-bold text-gray-700">Choisir ma taille :</Label>
+                <div className="flex flex-wrap gap-2">
+                  {availableSizes.map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      className={`h-11 w-11 sm:h-12 sm:w-12 rounded-xl border-2 font-bold transition-all ${
+                        selectedSize === size
+                          ? "border-[#b8933d] bg-[#b8933d] text-white shadow-md scale-105"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-[#b8933d] hover:text-[#b8933d]"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {isVariable && product.attributes && product.variations && (
-              <ProductVariationSelector
-                attributes={product.attributes}
-                variations={product.variations}
-                onVariationChange={handleVariationChange}
-                initialSelectedAttributes={initialAttributes}
-              />
+              <ProductVariationSelector attributes={product.attributes} variations={product.variations} onVariationChange={handleVariationChange} initialSelectedAttributes={initialAttributes} />
             )}
 
             <div className="space-y-6 bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 border border-gray-100">
               <div>
-                <Label htmlFor="quantity" className="mb-3 block text-sm font-semibold text-gray-700">
-                  {CUSTOM_TEXTS.product.quantity}
-                </Label>
+                <Label htmlFor="quantity" className="mb-3 block text-sm font-semibold text-gray-700">{CUSTOM_TEXTS.product.quantity}</Label>
                 <div className="flex items-center bg-white border-2 border-gray-200 rounded-xl w-36 shadow-sm hover:border-[#b8933d] transition-colors">
-                  <Button variant="ghost" size="icon" onClick={() => handleQuantityChange(-1)} disabled={quantity <= 1} className="hover:bg-[#FFF9F0] rounded-l-xl">
-                    <Minus className="h-4 w-4" />
-                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleQuantityChange(-1)} disabled={quantity <= 1} className="hover:bg-[#FFF9F0] rounded-l-xl"><Minus className="h-4 w-4" /></Button>
                   <Input id="quantity" type="number" min="1" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="border-0 text-center focus-visible:ring-0 font-semibold text-lg" />
-                  <Button variant="ghost" size="icon" onClick={() => handleQuantityChange(1)} className="hover:bg-[#FFF9F0] rounded-r-xl">
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleQuantityChange(1)} className="hover:bg-[#FFF9F0] rounded-r-xl"><Plus className="h-4 w-4" /></Button>
                 </div>
               </div>
 
@@ -710,18 +632,9 @@ export default function ProductPage() {
 
       <Dialog open={showNotifyDialog} onOpenChange={setShowNotifyDialog}>
         <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold flex items-center gap-2"><Bell className="h-6 w-6 text-[#b8933d]" />{CUSTOM_TEXTS.buttons.alertStock}</DialogTitle>
-            <DialogDescription>Entrez votre email pour être notifié quand cette pépite sera de nouveau disponible.</DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="email">Adresse email</Label>
-            <Input id="email" type="email" placeholder="votre@email.com" value={notifyEmail} onChange={(e) => setNotifyEmail(e.target.value)} className="mt-2" />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNotifyDialog(false)}>Annuler</Button>
-            <Button onClick={handleNotifyMe} className="bg-[#b8933d] text-white">Me notifier</Button>
-          </DialogFooter>
+          <DialogHeader><DialogTitle className="text-2xl font-bold flex items-center gap-2"><Bell className="h-6 w-6 text-[#b8933d]" />{CUSTOM_TEXTS.buttons.alertStock}</DialogTitle><DialogDescription>Entrez votre email pour être notifié quand cette pépite sera de nouveau disponible.</DialogDescription></DialogHeader>
+          <div className="py-4"><Label htmlFor="email">Adresse email</Label><Input id="email" type="email" placeholder="votre@email.com" value={notifyEmail} onChange={(e) => setNotifyEmail(e.target.value)} className="mt-2" /></div>
+          <DialogFooter><Button variant="outline" onClick={() => setShowNotifyDialog(false)}>Annuler</Button><Button onClick={handleNotifyMe} className="bg-[#b8933d] text-white">Me notifier</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
