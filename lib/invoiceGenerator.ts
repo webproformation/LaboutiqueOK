@@ -20,36 +20,40 @@ const loadImage = (url: string): Promise<{ data: string; width: number; height: 
   });
 };
 
-// --- NETTOYAGE EXPERT DES VARIATIONS SUPABASE ---
+// --- NETTOYAGE EXPERT DES VARIATIONS (Supporte "couleurs-principales", etc.) ---
 const formatVariationLines = (data: any): string[] => {
     const lines: string[] = [];
     if (!data) return lines;
 
     let obj = data;
     if (typeof data === 'string') {
-        try { obj = JSON.parse(data); } catch (e) { return [data]; }
+        try { 
+            if (data.startsWith('{') || data.startsWith('[')) obj = JSON.parse(data); 
+            else return [data];
+        } catch (e) { return [data]; }
     }
 
     const processEntry = (key: string, val: any) => {
         const k = key.toLowerCase();
-        // Exclusion des champs techniques
+        // On ignore les clés techniques
         if (k.includes('id') || k === 'sku' || !isNaN(Number(key))) return;
 
-        // 1. Label Propre
+        // 1. Traduction des labels techniques
         let label = key;
         if (k.includes('couleur')) label = 'Couleur';
         else if (k.includes('taille')) label = 'Taille';
         else label = key.charAt(0).toUpperCase() + key.slice(1).replace(/-/g, ' ');
 
-        // 2. Valeur (Cherche .name dans l'objet, sinon prend la valeur directe)
+        // 2. Extraction de la valeur (Gère l'objet {"name": "Bleu"})
         let displayVal = "";
         if (val && typeof val === 'object') {
-            displayVal = val.name || val.value || val.option || val.label || "";
+            displayVal = val.name || val.option || val.value || val.label || "";
         } else {
             displayVal = String(val);
         }
 
         if (displayVal && displayVal !== 'undefined' && displayVal.trim() !== "") {
+            // Valeur en Majuscules pour simuler le gras
             lines.push(`${label} : ${displayVal.toUpperCase()}`);
         }
     };
@@ -83,7 +87,7 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
 
   let currentY = 10 + logoH + 15;
 
-  // 2. INFOS VENDEUR & FACTURE
+  // 2. INFOS VENDEUR
   doc.setFontSize(10);
   doc.setTextColor(primaryColor); doc.setFont("helvetica", "bold");
   doc.text("Informations Vendeur", 14, currentY);
@@ -105,25 +109,23 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     : [`${ship.first_name || ''} ${ship.last_name || ''}`, ship.address_line1, `${ship.postal_code || ''} ${ship.city || ''}`, ship.country || 'France'];
   doc.text(addrLines, 110, currentY + 6);
 
-  // 4. TABLEAU DES PRODUITS
+  // 4. TABLEAU
   const items = order.items || order.order_items || [];
   const tableRows = items.map((item: any) => {
     let productName = item.product_name || 'Produit';
     const subLines: string[] = [];
 
-    // --- REF (SKU) ---
+    // REF (SKU)
     const cleanSku = String(item.sku || "").trim();
     if (cleanSku && cleanSku !== 'null' && cleanSku !== 'undefined' && cleanSku !== '') {
         subLines.push(`Ref : ${cleanSku.toUpperCase()}`);
     }
 
-    // --- VARIATIONS (Couleur, Taille) ---
+    // VARIATIONS
     const vars = formatVariationLines(item.variation_data);
     subLines.push(...vars);
 
-    if (subLines.length > 0) {
-        productName += "\n" + subLines.join("\n");
-    }
+    if (subLines.length > 0) productName += "\n" + subLines.join("\n");
 
     const p = parseFloat(item.price || 0);
     const q = item.quantity || 1;

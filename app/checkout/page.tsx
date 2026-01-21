@@ -272,12 +272,13 @@ export default function CheckoutPage() {
       if (orderError) throw orderError;
 
 const orderItems = cart.map(item => {
-        // On cherche le SKU partout : dans la variation, dans l'item en direct, ou dans les attributs
+        // Recherche exhaustive du SKU dans l'objet panier
         const finalSku = 
           item.sku || 
           item.variation_sku || 
           item.variationSku || 
           (item.selectedVariation && item.selectedVariation.sku) || 
+          (item.variation && item.variation.sku) ||
           (item.attributes && item.attributes.sku) ||
           null;
         
@@ -289,7 +290,7 @@ const orderItems = cart.map(item => {
           price: String(item.price || 0),
           quantity: item.quantity || 1,
           variation_data: item.selectedAttributes || item.variation_data || item.attributes || null,
-          sku: finalSku // <-- Crucial pour que le PDF puisse l'afficher
+          sku: finalSku 
         };
       });
       
