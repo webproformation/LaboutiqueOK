@@ -55,25 +55,32 @@ function CheckoutForm({ orderId, total, onSuccess, customerEmail }: { orderId: s
 
     setIsLoading(true);
 
-    // C'EST ICI QUE LA MAGIE OPÈRE
-    // On construit l'URL de retour en incluant l'ID de la commande
     const returnUrl = `${window.location.origin}/checkout/confirmation?order_id=${orderId}`;
 
-    const { error } = await stripe.confirmPayment({
+    const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: returnUrl, // Redirection forcée ici
+        return_url: returnUrl,
         receipt_email: customerEmail,
       },
+      redirect: 'if_required' // <--- LE FIX EST ICI : On empêche la redirection auto forcée
     });
 
-    // Ce code ne s'exécute que si une erreur survient (car sinon Stripe redirige)
-    if (error.type === 'card_error' || error.type === 'validation_error') {
-      setMessage(error.message || 'Une erreur est survenue.');
-      toast.error(error.message || 'Erreur de paiement');
-    } else {
-      setMessage('Une erreur inattendue est survenue.');
-      toast.error('Erreur inattendue');
+    if (error) {
+      if (error.type === 'card_error' || error.type === 'validation_error') {
+        setMessage(error.message || 'Une erreur est survenue.');
+        toast.error(error.message || 'Erreur de paiement');
+      } else {
+        setMessage('Une erreur inattendue est survenue.');
+        toast.error('Erreur inattendue');
+      }
+    } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+        // --- SUCCÈS MANUEL ---
+        // 1. On vide le panier
+        onSuccess();
+        
+        // 2. On redirige manuellement
+        window.location.href = returnUrl + '&redirect_status=succeeded';
     }
 
     setIsLoading(false);
@@ -125,14 +132,13 @@ export function StripePaymentForm({ userId, total, orderId, onSuccess, customerE
   const [clientSecret, setClientSecret] = useState('');
 
   useEffect(() => {
-    // On ne crée l'intention que si on a un ID de commande
     if (orderId) {
         fetch('/api/create-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
             amount: total, 
-            orderId: orderId, // Important pour le webhook
+            orderId: orderId, 
             userId: userId,
             customerEmail: customerEmail 
         }),
