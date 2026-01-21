@@ -14,7 +14,7 @@ const getTotal = (order: any) => {
   return parseFloat(val);
 };
 
-// Chargeur d'image robuste
+// Chargeur d'image robuste qui retourne aussi les dimensions
 const loadImage = (url: string): Promise<{ data: string; width: number; height: number }> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -41,39 +41,30 @@ const loadImage = (url: string): Promise<{ data: string; width: number; height: 
   });
 };
 
-// --- NOUVELLE FONCTION DE NETTOYAGE PUISSANTE ---
+// --- FONCTION DE NETTOYAGE PUISSANTE (Fix "Object Object") ---
 const formatVariations = (data: any): string => {
     if (!data) return '';
 
-    // Fonction récursive pour extraire le texte propre
     const cleanValue = (val: any): string => {
         if (val === null || val === undefined) return '';
-        
-        // Si c'est du texte ou un nombre, on le garde
         if (typeof val !== 'object') return String(val);
         
-        // Si c'est un tableau, on nettoie chaque élément
         if (Array.isArray(val)) {
             return val.map(cleanValue).filter(v => v && v !== '[object Object]').join(', ');
         }
 
-        // Si c'est un objet, on parcourt ses clés
         return Object.entries(val)
             .map(([key, value]) => {
-                // On ignore les clés numériques automatiques (0, 1, 2...)
-                if (!isNaN(Number(key))) return cleanValue(value);
-                
+                if (!isNaN(Number(key))) return cleanValue(value); // Ignore index numérique
                 const cleanV = cleanValue(value);
                 if (!cleanV || cleanV === '[object Object]') return '';
-                
                 return `${key}: ${cleanV}`;
             })
-            .filter(v => v) // Enlève les vides
+            .filter(v => v)
             .join(', ');
     };
 
     try {
-        // Si c'est une string JSON, on la parse d'abord
         if (typeof data === 'string' && (data.startsWith('{') || data.startsWith('['))) {
              try { data = JSON.parse(data); } catch (e) {}
         }
@@ -86,11 +77,10 @@ const formatVariations = (data: any): string => {
 export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   // @ts-ignore
   const doc = new jsPDF();
-  
-  const primaryColor = "#D4AF37"; // OR
+  const primaryColor = "#D4AF37"; 
   const blackColor = "#000000";
   
-  // --- 1. LOGO BANNIÈRE ---
+  // --- 1. LOGO BANNIÈRE (Pleine Largeur) ---
   let logoLoaded = false;
   let logoHeightOnPdf = 40;
 
@@ -99,9 +89,12 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     const imageInfo = await loadImage(logoUrl);
     
     if (imageInfo.data && imageInfo.data.startsWith('data:image')) {
-        const pdfLogoWidth = 180; 
+        const pdfLogoWidth = 180; // Largeur max
         const ratio = imageInfo.height / imageInfo.width;
         logoHeightOnPdf = pdfLogoWidth * ratio;
+        // On limite quand même la hauteur max pour ne pas manger toute la page
+        if(logoHeightOnPdf > 60) logoHeightOnPdf = 60;
+
         doc.addImage(imageInfo.data, 'PNG', 15, 10, pdfLogoWidth, logoHeightOnPdf); 
         logoLoaded = true;
     }
@@ -112,7 +105,6 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   if (!logoLoaded) {
     doc.setFontSize(22);
     doc.setTextColor(primaryColor);
-    doc.setFont("helvetica", "bold");
     doc.text("BOUTIQUE De Morgane", 105, 30, { align: "center" });
     logoHeightOnPdf = 30;
   }
@@ -208,7 +200,6 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
 
     if (item.sku) details.push(`Réf: ${item.sku}`);
 
-    // Utilisation de la nouvelle fonction de nettoyage
     const variations = formatVariations(item.variation_data);
     if (variations) details.push(variations);
 

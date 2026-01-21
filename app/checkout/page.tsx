@@ -73,7 +73,7 @@ export default function CheckoutPage() {
   const { openPackage, loading: packageLoading } = useOpenPackage();
   const { coupons: userCoupons, loading: couponsLoading, markCouponAsUsed } = useUserCoupons(user?.id);
   const [loading, setLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false); // NOUVEAU : Pour bloquer la redirection panier vide
+  const [isSuccess, setIsSuccess] = useState(false); // Bloque la redirection panier vide
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
@@ -112,7 +112,7 @@ export default function CheckoutPage() {
     }
   }, [user]);
 
-  // CORRECTION ICI : On ne redirige pas si c'est un succès (isSuccess)
+  // Redirection si panier vide (sauf si succès paiement)
   useEffect(() => {
     if (cart.length === 0 && !loading && !isSuccess) {
       router.push('/cart');
@@ -265,7 +265,7 @@ export default function CheckoutPage() {
 
       if (orderError) throw orderError;
 
-      // MODIFICATION : Ajout du SKU et variation_data propre pour la facture
+      // --- CORRECTIF 1 : Enregistrement du SKU pour le PDF ---
       const orderItems = cart.map(item => ({
         order_id: newOrder.id,
         product_name: item.name || 'Produit',
@@ -274,7 +274,7 @@ export default function CheckoutPage() {
         price: String(item.price || 0),
         quantity: item.quantity || 1,
         variation_data: item.selectedAttributes || null,
-        sku: item.sku || null // IMPORTANT POUR LA FACTURE
+        sku: item.sku || null // <-- C'est ici que l'info manquait !
       }));
 
       const { error: itemsError } = await supabase
@@ -328,7 +328,7 @@ export default function CheckoutPage() {
         toast.success('Colis ouvert créé avec succès ! Expédition dans 5 jours.');
       }
 
-      // CORRECTION : UPSERT pour éviter l'erreur 409
+      // --- CORRECTIF 2 : Utilisation de UPSERT pour éviter l'erreur 409 ---
       if (newsletterConsent && profile?.email) {
         const { error: newsletterError } = await supabase
           .from('newsletter_subscriptions')
@@ -362,13 +362,9 @@ export default function CheckoutPage() {
         return;
       }
 
-      // 1. On signale que c'est un succès pour empêcher la redirection "panier vide"
       setIsSuccess(true);
-      
-      // 2. On vide le panier
       clearCart();
 
-      // 3. On notifie et on redirige
       toast.success(`Commande ${orderNumber} validée avec succès !`, {
         position: 'bottom-right'
       });
@@ -377,12 +373,9 @@ export default function CheckoutPage() {
     } catch (error) {
       console.error('Error processing order:', error);
       toast.error('Erreur lors du traitement de la commande');
-      setLoading(false); // Important de reset le loading en cas d'erreur
+      setLoading(false);
     }
   };
-
-  // ... (Le reste du rendu : if (!user), if (showStripePayment), return (...) reste identique)
-  // ... Je remets la fin du fichier pour être complet
 
   if (!user) {
     return (
@@ -438,8 +431,8 @@ export default function CheckoutPage() {
               orderId={createdOrderId}
               userId={user.id}
               total={totalAfterWallet}
+              // --- CORRECTIF 3 : Mise à jour du statut "Payé" après succès Stripe ---
               onSuccess={async () => {
-                // MODIFICATION : Mise à jour du statut "Payée" après succès Stripe
                 await supabase
                   .from('orders')
                   .update({ 
@@ -448,9 +441,8 @@ export default function CheckoutPage() {
                   })
                   .eq('id', createdOrderId);
 
-                setIsSuccess(true); 
+                setIsSuccess(true);
                 clearCart();
-                // La redirection est gérée dans le composant Stripe ou ici si besoin
               }}
               customerEmail={profile?.email}
               orderNumber={createdOrderNumber || undefined}
@@ -479,9 +471,6 @@ export default function CheckoutPage() {
           title="Finaliser ma commande"
           description="Complétez les informations ci-dessous pour valider votre commande"
         />
-
-        {/* ... (Tout le reste du JSX est identique à la version précédente, sans le porte-monnaie) ... */}
-        {/* Pour ne pas couper le code, je le remets complet ci-dessous */}
         
         <div className="max-w-4xl mx-auto mb-6">
           <Card className="border-4 border-[#D4AF37] bg-gradient-to-br from-[#D4AF37]/20 via-[#F2F2E8] to-white shadow-2xl relative overflow-hidden">
@@ -1326,7 +1315,6 @@ export default function CheckoutPage() {
                       amount={totalAfterWallet}
                       disabled={!rgpdConsent || loading}
                       onSuccess={(orderId) => {
-                        // Optionnel : Vous pouvez aussi appeler handleSubmit ici si vous voulez créer la commande après paiement
                         clearCart();
                         setIsSuccess(true);
                         toast.success('Paiement PayPal réussi !');

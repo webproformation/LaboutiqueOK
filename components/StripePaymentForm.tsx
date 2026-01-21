@@ -63,7 +63,7 @@ function CheckoutForm({ orderId, total, onSuccess, customerEmail }: { orderId: s
         return_url: returnUrl,
         receipt_email: customerEmail,
       },
-      redirect: 'if_required' // <--- LE FIX EST ICI : On empêche la redirection auto forcée
+      redirect: 'if_required' // EMPÊCHE LA REDIRECTION AUTOMATIQUE
     });
 
     if (error) {
@@ -75,11 +75,8 @@ function CheckoutForm({ orderId, total, onSuccess, customerEmail }: { orderId: s
         toast.error('Erreur inattendue');
       }
     } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-        // --- SUCCÈS MANUEL ---
-        // 1. On vide le panier
-        onSuccess();
-        
-        // 2. On redirige manuellement
+        // SUCCÈS : On vide le panier ET on redirige manuellement
+        await onSuccess();
         window.location.href = returnUrl + '&redirect_status=succeeded';
     }
 
