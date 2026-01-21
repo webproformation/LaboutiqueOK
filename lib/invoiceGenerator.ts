@@ -14,7 +14,7 @@ const getTotal = (order: any) => {
   return parseFloat(val);
 };
 
-// Chargeur d'image robuste qui retourne aussi les dimensions
+// Chargeur d'image robuste
 const loadImage = (url: string): Promise<{ data: string; width: number; height: number }> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -41,37 +41,54 @@ const loadImage = (url: string): Promise<{ data: string; width: number; height: 
   });
 };
 
-// --- FONCTION DE NETTOYAGE PUISSANTE (Fix "Object Object") ---
-const formatVariations = (data: any): string => {
-    if (!data) return '';
+// --- NOUVELLE FONCTION DE NETTOYAGE INTELLIGENTE ---
+const parseVariation = (data: any): string[] => {
+    const lines: string[] = [];
 
-    const cleanValue = (val: any): string => {
-        if (val === null || val === undefined) return '';
-        if (typeof val !== 'object') return String(val);
-        
-        if (Array.isArray(val)) {
-            return val.map(cleanValue).filter(v => v && v !== '[object Object]').join(', ');
+    if (!data) return lines;
+
+    // Si c'est une string JSON, on parse
+    if (typeof data === 'string') {
+        try { 
+            if (data.startsWith('{') || data.startsWith('[')) {
+                data = JSON.parse(data); 
+            } else {
+                return [data]; // Texte simple
+            }
+        } catch (e) { return [data]; }
+    }
+
+    // Fonction interne pour traiter un objet unique
+    const processObject = (obj: any) => {
+        // Cas spécifique WooCommerce/Wordpress : { name: "Couleur", option: "Bleu" }
+        if (obj.name && obj.option) {
+            // On ignore si le nom est générique ou vide, sinon on l'affiche
+            const label = obj.name; 
+            const value = String(obj.option).toUpperCase(); // On met en majuscule pour simuler le gras
+            lines.push(`${label} : ${value}`);
+            return;
         }
 
-        return Object.entries(val)
-            .map(([key, value]) => {
-                if (!isNaN(Number(key))) return cleanValue(value); // Ignore index numérique
-                const cleanV = cleanValue(value);
-                if (!cleanV || cleanV === '[object Object]') return '';
-                return `${key}: ${cleanV}`;
-            })
-            .filter(v => v)
-            .join(', ');
+        // Cas standard : { Taille: "48", Couleur: "Rouge" }
+        Object.entries(obj).forEach(([key, value]) => {
+            // On ignore les clés techniques ou numériques
+            if (key === 'id' || key === 'sku' || !isNaN(Number(key))) return;
+            
+            // Si la valeur est un objet (ex: sous-structure), on l'ignore ou on l'aplatit
+            if (typeof value === 'object') return;
+
+            const valStr = String(value).toUpperCase();
+            lines.push(`${key} : ${valStr}`);
+        });
     };
 
-    try {
-        if (typeof data === 'string' && (data.startsWith('{') || data.startsWith('['))) {
-             try { data = JSON.parse(data); } catch (e) {}
-        }
-        return cleanValue(data);
-    } catch (e) {
-        return '';
+    if (Array.isArray(data)) {
+        data.forEach(item => processObject(item));
+    } else if (typeof data === 'object') {
+        processObject(data);
     }
+
+    return lines;
 };
 
 export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
@@ -80,7 +97,7 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   const primaryColor = "#D4AF37"; 
   const blackColor = "#000000";
   
-  // --- 1. LOGO BANNIÈRE (Pleine Largeur) ---
+  // --- 1. LOGO ---
   let logoLoaded = false;
   let logoHeightOnPdf = 40;
 
@@ -89,11 +106,10 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     const imageInfo = await loadImage(logoUrl);
     
     if (imageInfo.data && imageInfo.data.startsWith('data:image')) {
-        const pdfLogoWidth = 180; // Largeur max
+        const pdfLogoWidth = 180; 
         const ratio = imageInfo.height / imageInfo.width;
         logoHeightOnPdf = pdfLogoWidth * ratio;
-        // On limite quand même la hauteur max pour ne pas manger toute la page
-        if(logoHeightOnPdf > 60) logoHeightOnPdf = 60;
+        if(logoHeightOnPdf > 60) logoHeightOnPdf = 60; // Max hauteur
 
         doc.addImage(imageInfo.data, 'PNG', 15, 10, pdfLogoWidth, logoHeightOnPdf); 
         logoLoaded = true;
@@ -196,14 +212,22 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   
   items.forEach((item: any) => {
     let productName = item.product_name || 'Produit';
-    const details: string[] = [];
+    const linesToAdd: string[] = [];
 
-    if (item.sku) details.push(`Réf: ${item.sku}`);
+    // 1. Gestion du SKU (Ref) en premier
+    // Note : Cela ne s'affichera que si la commande contient bien le SKU en base
+    if (item.sku && item.sku !== 'null' && item.sku !== 'undefined') {
+        linesToAdd.push(`Ref: ${item.sku}`);
+    }
 
-    const variations = formatVariations(item.variation_data);
-    if (variations) details.push(variations);
+    // 2. Gestion des variations avec la nouvelle logique
+    const variationsLines = parseVariation(item.variation_data);
+    linesToAdd.push(...variationsLines);
 
-    if (details.length > 0) productName += `\n${details.join(' - ')}`;
+    // 3. Construction finale du texte
+    if (linesToAdd.length > 0) {
+        productName += `\n${linesToAdd.join('\n')}`;
+    }
 
     const price = getPrice(item); 
     const quantity = item.quantity || 1;
@@ -223,7 +247,14 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     head: [["Produit", "Qté", "Prix Unit.", "Total"]],
     body: tableRows,
     theme: 'grid',
-    styles: { fontSize: 10, cellPadding: 4, textColor: [0, 0, 0], lineColor: [200, 200, 200], lineWidth: 0.1, valign: 'middle' },
+    styles: { 
+        fontSize: 10, 
+        cellPadding: 4, 
+        textColor: [0, 0, 0], 
+        lineColor: [200, 200, 200], 
+        lineWidth: 0.1, 
+        valign: 'top' // Alignement haut pour que la Ref soit bien visible
+    },
     headStyles: { fillColor: [212, 175, 55], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
     columnStyles: { 
         0: { cellWidth: 'auto' }, 
