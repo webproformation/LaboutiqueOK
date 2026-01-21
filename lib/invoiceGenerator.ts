@@ -20,7 +20,7 @@ const loadImage = (url: string): Promise<{ data: string; width: number; height: 
   });
 };
 
-// --- NETTOYAGE EXPERT DES VARIATIONS (Supporte "couleurs-principales", etc.) ---
+// --- NETTOYAGE EXPERT DES VARIATIONS SUPABASE ---
 const formatVariationLines = (data: any): string[] => {
     const lines: string[] = [];
     if (!data) return lines;
@@ -32,24 +32,25 @@ const formatVariationLines = (data: any): string[] => {
 
     const processEntry = (key: string, val: any) => {
         const k = key.toLowerCase();
-        // On ignore les IDs techniques
+        // Exclusion des champs techniques
         if (k.includes('id') || k === 'sku' || !isNaN(Number(key))) return;
 
-        // --- TRADUCTION DES CLÉS COMPLEXES ---
+        // 1. Label Propre
         let label = key;
         if (k.includes('couleur')) label = 'Couleur';
         else if (k.includes('taille')) label = 'Taille';
         else label = key.charAt(0).toUpperCase() + key.slice(1).replace(/-/g, ' ');
 
-        // --- EXTRACTION DE LA VALEUR ---
-        let value = val;
+        // 2. Valeur (Cherche .name dans l'objet, sinon prend la valeur directe)
+        let displayVal = "";
         if (val && typeof val === 'object') {
-            // Si c'est un objet genre {"name": "Bleu Ciel"}
-            value = val.name || val.option || val.value || val.label || "";
+            displayVal = val.name || val.value || val.option || val.label || "";
+        } else {
+            displayVal = String(val);
         }
 
-        if (value && value !== 'undefined' && String(value).trim() !== "") {
-            lines.push(`${label} : ${String(value).toUpperCase()}`);
+        if (displayVal && displayVal !== 'undefined' && displayVal.trim() !== "") {
+            lines.push(`${label} : ${displayVal.toUpperCase()}`);
         }
     };
 
@@ -78,11 +79,11 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     const pdfW = 180;
     logoH = Math.min(pdfW * (imgInfo.height / imgInfo.width), 45);
     doc.addImage(imgInfo.data, 'PNG', 15, 10, pdfW, logoH);
-  } catch (e) { logoH = 20; }
+  } catch (e) { logoH = 15; }
 
   let currentY = 10 + logoH + 15;
 
-  // 2. INFOS VENDEUR
+  // 2. INFOS VENDEUR & FACTURE
   doc.setFontSize(10);
   doc.setTextColor(primaryColor); doc.setFont("helvetica", "bold");
   doc.text("Informations Vendeur", 14, currentY);
@@ -110,14 +111,13 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     let productName = item.product_name || 'Produit';
     const subLines: string[] = [];
 
-    // --- AFFICHAGE DE LA RÉFÉRENCE (SKU) ---
-    // On nettoie les valeurs parasites
+    // --- REF (SKU) ---
     const cleanSku = String(item.sku || "").trim();
     if (cleanSku && cleanSku !== 'null' && cleanSku !== 'undefined' && cleanSku !== '') {
         subLines.push(`Ref : ${cleanSku.toUpperCase()}`);
     }
 
-    // --- AFFICHAGE DES VARIATIONS ---
+    // --- VARIATIONS (Couleur, Taille) ---
     const vars = formatVariationLines(item.variation_data);
     subLines.push(...vars);
 

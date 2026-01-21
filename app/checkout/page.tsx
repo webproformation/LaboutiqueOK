@@ -271,15 +271,14 @@ export default function CheckoutPage() {
 
       if (orderError) throw orderError;
 
-// --- CORRECTIF : CAPTURE DU SKU DE LA VARIATION ---
-      const orderItems = cart.map(item => {
-        // On cherche le SKU partout où il peut être (variation, produit parent, ou champ direct)
+const orderItems = cart.map(item => {
+        // On cherche le SKU partout : dans la variation, dans l'item en direct, ou dans les attributs
         const finalSku = 
           item.sku || 
           item.variation_sku || 
           item.variationSku || 
-          item.product_sku || 
-          (item.variation && item.variation.sku) || 
+          (item.selectedVariation && item.selectedVariation.sku) || 
+          (item.attributes && item.attributes.sku) ||
           null;
         
         return {
@@ -289,11 +288,11 @@ export default function CheckoutPage() {
           product_image: item.image?.sourceUrl || item.variationImage?.sourceUrl || '',
           price: String(item.price || 0),
           quantity: item.quantity || 1,
-          variation_data: item.selectedAttributes || item.variation_data || null,
-          sku: finalSku // <-- C'est cette ligne qui garantit l'affichage sur la facture !
+          variation_data: item.selectedAttributes || item.variation_data || item.attributes || null,
+          sku: finalSku // <-- Crucial pour que le PDF puisse l'afficher
         };
       });
-
+      
       const { error: itemsError } = await supabase
         .from('order_items')
         .insert(orderItems);
