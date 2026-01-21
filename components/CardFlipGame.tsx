@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { X, Gift, Frown, Sparkles } from 'lucide-react';
+import { X, Gift, Frown, Sparkles, Trophy } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import confetti from 'canvas-confetti';
+import Link from 'next/link';
 
 interface CardFlipGameProps {
   gameId: string;
@@ -163,7 +164,7 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
       setFlippedCard(cardIndex);
     }, 300);
 
-    // Appel API pour déterminer le résultat (tirage au sort côté serveur)
+    // Appel API pour déterminer le résultat
     try {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
@@ -234,19 +235,11 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
     }
   };
 
-  const getCouponText = () => {
-    if (!coupon) return '';
-    if (coupon.discount_type === 'percentage') {
-      return `-${coupon.discount_value}%`;
-    }
-    return `-${(Number(coupon.discount_value) || 0).toFixed(2)}€`;
-  };
-
   if (loading) {
     return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
-        <Card className="w-full max-w-lg p-8">
-          <div className="text-center">Chargement...</div>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm">
+        <Card className="w-full max-w-lg p-8 bg-black border-2 border-[#D4AF37]">
+          <div className="text-center text-[#D4AF37] animate-pulse">Chargement du casino...</div>
         </Card>
       </div>
     );
@@ -254,143 +247,149 @@ export function CardFlipGame({ gameId, onClose }: CardFlipGameProps) {
 
   if (!game) return null;
 
+  const maxPlays = game.max_plays_per_user;
+  const remainingPlays = Math.max(0, maxPlays - playsCount);
+
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
-      <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto relative">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm">
+      {/* Conteneur Principal : Fond Noir + Bordure Dorée */}
+      <Card className="w-full max-w-2xl bg-black border-4 border-[#D4AF37] shadow-[0_0_30px_rgba(212,175,55,0.2)] overflow-hidden relative rounded-xl">
+        
+        {/* Bouton Fermer */}
         <Button
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="absolute right-2 top-2 z-10"
+          className="absolute right-2 top-2 z-20 text-[#D4AF37] hover:bg-[#D4AF37]/10 hover:text-white transition-colors"
         >
-          <X className="h-4 w-4" />
+          <X className="h-6 w-6" />
         </Button>
 
-        <CardContent className="pt-6">
-          <div className="text-center mb-6">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Sparkles className="h-6 w-6 text-[#D4AF37]" />
-              <h2 className="text-2xl font-bold text-gray-900">{game.name}</h2>
-              <Sparkles className="h-6 w-6 text-[#D4AF37]" />
-            </div>
-            {game.description && (
-              <p className="text-gray-600 mb-4">{game.description}</p>
-            )}
-            {coupon && (
-              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-[#b8933d] to-[#d4af37] text-white px-6 py-3 rounded-full shadow-lg">
-                <Gift className="h-5 w-5" />
-                <span className="font-bold text-lg">À gagner : {getCouponText()}</span>
-              </div>
-            )}
-            {game.win_probability && (
-              <p className="text-sm text-gray-500 mt-3">
-                Probabilité de gain : {game.win_probability}%
-              </p>
-            )}
-          </div>
+        {/* Effets de lueur d'arrière-plan */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[#D4AF37]/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#D4AF37]/10 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
 
-          {!canPlay ? (
-            <div className="text-center py-8">
-              <Frown className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-              <p className="text-lg font-semibold text-gray-700">
-                Vous avez déjà joué le maximum de fois
-              </p>
-              <p className="text-sm text-gray-500 mt-2">
-                {playsCount} / {game.max_plays_per_user} parties jouées
-              </p>
-              <Button onClick={onClose} className="mt-4 bg-[#D4AF37] hover:bg-[#B8933D]">
-                Fermer
+        {/* En-tête : Textes Dorés imposés */}
+        <div className="text-center pt-10 pb-4 px-4 relative z-10">
+          <h2 className="text-3xl md:text-4xl font-bold text-[#D4AF37] uppercase tracking-wider mb-2 drop-shadow-md">
+            Grand jeu de Janvier !
+          </h2>
+          <p className="text-[#D4AF37]/90 text-lg font-medium">
+            Cliquez sur la carte de votre choix et tentez de gagner <span className="text-white font-bold">90% de réduction</span> !!!
+          </p>
+        </div>
+
+        {/* Bandeau : Gradient Doré */}
+        <div className="bg-gradient-to-r from-[#b8933d] via-[#F2F2E8] to-[#b8933d] py-3 shadow-md relative z-10 mb-6">
+          <p className="text-black font-bold text-center text-lg flex items-center justify-center gap-2 uppercase tracking-wide">
+             🎴 Choisissez une carte pour tenter votre chance !
+          </p>
+        </div>
+
+        <CardContent className="pb-8 px-8 relative z-10">
+          
+          {/* CAS 1 : Utilisateur non connecté -> Affiche le bouton doré */}
+          {!user ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-6 animate-in fade-in duration-500">
+               <div className="relative">
+                <div className="absolute inset-0 bg-[#D4AF37] blur-lg opacity-20 rounded-full"></div>
+                <Trophy className="h-16 w-16 text-[#D4AF37] relative z-10 animate-pulse" />
+              </div>
+              
+              <Button 
+                asChild 
+                className="bg-gradient-to-r from-[#b8933d] to-[#D4AF37] hover:from-[#9a7a2f] hover:to-[#b8933d] text-white text-xl font-bold py-8 px-10 rounded-full shadow-[0_0_20px_rgba(212,175,55,0.4)] border-2 border-[#F2F2E8]/30 transition-all hover:scale-105 duration-300 cursor-pointer"
+              >
+                <Link href="/auth/login" onClick={onClose}>
+                  🔒 Connectez-vous pour jouer !
+                </Link>
               </Button>
+              <p className="text-gray-400 text-sm">Créez un compte gratuitement pour participer</p>
             </div>
           ) : (
+            /* CAS 2 : Utilisateur connecté */
             <>
-              <div className="text-center mb-6">
-                {selectedCard === null ? (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-blue-800 font-medium">
-                      🎴 Choisissez une carte pour tenter votre chance !
-                    </p>
-                  </div>
-                ) : (
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                    <p className="text-purple-800 font-medium">
-                      ✨ Découvrez votre résultat...
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-3 gap-6 mb-6 perspective-container">
-                {cards.map((cardIndex) => (
-                  <button
-                    key={cardIndex}
-                    onClick={() => handleCardClick(cardIndex)}
-                    disabled={isPlaying || selectedCard !== null || !user}
-                    className={`relative aspect-[2/3] rounded-2xl transition-all duration-300 ${
-                      selectedCard === cardIndex
-                        ? 'scale-110 shadow-2xl'
-                        : 'hover:scale-105 hover:shadow-xl'
-                    } ${isPlaying || selectedCard !== null ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                  >
-                    <div
-                      className={`relative w-full h-full preserve-3d transition-transform duration-700 ${
-                        flippedCard === cardIndex ? '[transform:rotateY(180deg)]' : ''
-                      }`}
+              {!canPlay ? (
+                /* Limite atteinte */
+                <div className="text-center py-8">
+                  <Frown className="h-16 w-16 mx-auto text-[#D4AF37] mb-4 opacity-80" />
+                  <p className="text-xl font-bold text-white mb-2">
+                    Limite de parties atteinte
+                  </p>
+                  <p className="text-[#D4AF37]/80">
+                     Vous avez joué vos {game.max_plays_per_user} parties.
+                  </p>
+                  <Button onClick={onClose} variant="outline" className="mt-6 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black">
+                    Fermer le jeu
+                  </Button>
+                </div>
+              ) : (
+                /* Jeu actif : Grille de cartes */
+                <div className="grid grid-cols-3 gap-4 md:gap-6 mb-8 perspective-container max-w-md mx-auto">
+                  {cards.map((cardIndex) => (
+                    <button
+                      key={cardIndex}
+                      onClick={() => handleCardClick(cardIndex)}
+                      disabled={isPlaying || selectedCard !== null}
+                      className={`relative aspect-[2/3] rounded-xl transition-all duration-300 ${
+                        selectedCard === cardIndex
+                          ? 'scale-110 z-20 shadow-[0_0_30px_#D4AF37]'
+                          : 'hover:scale-105 hover:shadow-[0_0_15px_#D4AF37]'
+                      } ${isPlaying || selectedCard !== null ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                      {/* Face avant */}
-                      <div className="absolute w-full h-full bg-gradient-to-br from-[#b8933d] via-[#d4af37] to-[#b8933d] rounded-2xl flex items-center justify-center shadow-xl backface-hidden border-4 border-white">
-                        <div className="text-center">
-                          <div className="text-white text-6xl font-bold mb-2">?</div>
-                          <div className="text-white text-xs font-semibold opacity-80">
-                            Carte {cardIndex + 1}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Face arrière */}
                       <div
-                        className={`absolute w-full h-full rounded-2xl flex items-center justify-center shadow-xl backface-hidden border-4 border-white [transform:rotateY(180deg)] ${
-                          hasWon && selectedCard === cardIndex
-                            ? 'bg-gradient-to-br from-green-400 via-green-500 to-green-600'
-                            : selectedCard === cardIndex
-                            ? 'bg-gradient-to-br from-red-400 via-red-500 to-red-600'
-                            : 'bg-gradient-to-br from-gray-300 to-gray-400'
+                        className={`relative w-full h-full preserve-3d transition-transform duration-700 ${
+                          flippedCard === cardIndex ? '[transform:rotateY(180deg)]' : ''
                         }`}
                       >
-                        {hasWon && selectedCard === cardIndex ? (
-                          <div className="text-center animate-bounce">
-                            <Gift className="h-16 w-16 text-white mx-auto mb-2" />
-                            <div className="text-white text-2xl font-bold">GAGNÉ !</div>
-                          </div>
-                        ) : selectedCard === cardIndex ? (
+                        {/* Face avant (Dos de la carte) - Gradient Or */}
+                        <div className="absolute w-full h-full bg-gradient-to-br from-[#b8933d] via-[#d4af37] to-[#b8933d] rounded-xl flex items-center justify-center shadow-xl backface-hidden border-2 border-[#F2F2E8]/40">
                           <div className="text-center">
-                            <Frown className="h-16 w-16 text-white mx-auto mb-2" />
-                            <div className="text-white text-xl font-bold">PERDU</div>
+                            <div className="text-white text-5xl font-bold opacity-90 drop-shadow-lg">?</div>
                           </div>
-                        ) : (
-                          <div className="text-white text-5xl">?</div>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
+                        </div>
 
-              {!user && (
-                <div className="text-center mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                  <p className="text-orange-800 font-medium">
-                    🔒 Connectez-vous pour jouer !
-                  </p>
+                        {/* Face arrière (Résultat) */}
+                        <div
+                          className={`absolute w-full h-full rounded-xl flex items-center justify-center shadow-xl backface-hidden border-2 border-white [transform:rotateY(180deg)] ${
+                            hasWon && selectedCard === cardIndex
+                              ? 'bg-gradient-to-br from-green-600 to-green-800'
+                              : selectedCard === cardIndex
+                              ? 'bg-gradient-to-br from-red-600 to-red-800'
+                              : 'bg-gray-800'
+                          }`}
+                        >
+                          {hasWon && selectedCard === cardIndex ? (
+                            <div className="text-center animate-bounce">
+                              <Gift className="h-10 w-10 text-white mx-auto mb-1" />
+                              <div className="text-white text-lg font-bold">GAGNÉ !</div>
+                            </div>
+                          ) : selectedCard === cardIndex ? (
+                            <div className="text-center">
+                              <Frown className="h-10 w-10 text-white mx-auto mb-1" />
+                              <div className="text-white text-base font-bold">PERDU</div>
+                            </div>
+                          ) : (
+                            <div className="text-white text-4xl">?</div>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
 
-              <div className="text-center p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-700 font-medium">
-                  Parties restantes : <span className="text-[#D4AF37] font-bold">{game.max_plays_per_user - playsCount}</span> / {game.max_plays_per_user}
-                </p>
+              {/* Compteur de parties - Style demandé */}
+              <div className="text-center mt-2">
+                <div className="inline-block bg-neutral-900/80 border border-[#D4AF37]/30 px-6 py-2 rounded-full backdrop-blur-sm">
+                  <p className="text-white font-mono text-lg">
+                    Parties restantes : <span className="text-[#D4AF37] font-bold text-xl">{remainingPlays}</span> <span className="text-gray-500">/</span> {maxPlays}
+                  </p>
+                </div>
               </div>
             </>
           )}
+
         </CardContent>
       </Card>
     </div>
