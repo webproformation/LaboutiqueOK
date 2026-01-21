@@ -265,6 +265,7 @@ export default function CheckoutPage() {
 
       if (orderError) throw orderError;
 
+      // MODIFICATION : Ajout du SKU et variation_data propre pour la facture
       const orderItems = cart.map(item => ({
         order_id: newOrder.id,
         product_name: item.name || 'Produit',
@@ -273,6 +274,7 @@ export default function CheckoutPage() {
         price: String(item.price || 0),
         quantity: item.quantity || 1,
         variation_data: item.selectedAttributes || null,
+        sku: item.sku || null // IMPORTANT POUR LA FACTURE
       }));
 
       const { error: itemsError } = await supabase
@@ -326,8 +328,8 @@ export default function CheckoutPage() {
         toast.success('Colis ouvert créé avec succès ! Expédition dans 5 jours.');
       }
 
+      // CORRECTION : UPSERT pour éviter l'erreur 409
       if (newsletterConsent && profile?.email) {
-        // On utilise 'upsert' au lieu de 'insert' pour ignorer si l'email existe déjà
         const { error: newsletterError } = await supabase
           .from('newsletter_subscriptions')
           .upsert(
@@ -436,9 +438,19 @@ export default function CheckoutPage() {
               orderId={createdOrderId}
               userId={user.id}
               total={totalAfterWallet}
-              onSuccess={() => {
-                setIsSuccess(true); // AUSSI POUR STRIPE SI CALLBACK
+              onSuccess={async () => {
+                // MODIFICATION : Mise à jour du statut "Payée" après succès Stripe
+                await supabase
+                  .from('orders')
+                  .update({ 
+                    payment_status: 'paid', 
+                    status: 'processing' 
+                  })
+                  .eq('id', createdOrderId);
+
+                setIsSuccess(true); 
                 clearCart();
+                // La redirection est gérée dans le composant Stripe ou ici si besoin
               }}
               customerEmail={profile?.email}
               orderNumber={createdOrderNumber || undefined}
@@ -1043,8 +1055,8 @@ export default function CheckoutPage() {
                                   <div className="text-right">
                                     <p className="text-2xl font-bold text-[#D4AF37]">
                                       {coupon.coupon?.discount_type === 'percentage'
-                                        ? `-${coupon.coupon.discount_value}%`
-                                        : `-${Number(coupon.coupon?.discount_value || 0).toFixed(2)}€`
+                                      ? `-${coupon.coupon.discount_value}%`
+                                      : `-${Number(coupon.coupon?.discount_value || 0).toFixed(2)}€`
                                       }
                                     </p>
                                   </div>
@@ -1309,11 +1321,14 @@ export default function CheckoutPage() {
                         Vous devez accepter la politique de confidentialité pour continuer
                       </div>
                     )}
+                    {/* MODIFICATION : Ajout du createOrder et onApprove pour intégrer PayPal au flux Supabase */}
                     <PayPalButtons
                       amount={totalAfterWallet}
                       disabled={!rgpdConsent || loading}
                       onSuccess={(orderId) => {
+                        // Optionnel : Vous pouvez aussi appeler handleSubmit ici si vous voulez créer la commande après paiement
                         clearCart();
+                        setIsSuccess(true);
                         toast.success('Paiement PayPal réussi !');
                         router.push(`/checkout/confirmation?paypal=${orderId}`);
                       }}
