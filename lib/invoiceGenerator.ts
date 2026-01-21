@@ -14,8 +14,8 @@ const getTotal = (order: any) => {
   return parseFloat(val);
 };
 
-// Chargeur d'image robuste
-const loadImage = (url: string): Promise<string> => {
+// Chargeur d'image robuste qui retourne aussi les dimensions
+const loadImage = (url: string): Promise<{ data: string; width: number; height: number }> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'Anonymous'; 
@@ -31,7 +31,8 @@ const loadImage = (url: string): Promise<string> => {
         }
         ctx.drawImage(img, 0, 0);
         const dataURL = canvas.toDataURL('image/png');
-        resolve(dataURL);
+        // On renvoie l'image ET ses dimensions originales
+        resolve({ data: dataURL, width: img.width, height: img.height });
       } catch (e) {
         reject(e);
       }
@@ -73,12 +74,19 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   
   // --- 1. LOGO BANNIÈRE (HAUT DE PAGE) ---
   let logoLoaded = false;
+  let logoHeightOnPdf = 40; // Valeur par défaut si pas d'image
+
   try {
-    const logoUrl = '/lbdm-logobdc.png'; // Assurez-vous que cette image existe dans public/
-    const logoData = await loadImage(logoUrl);
+    const logoUrl = '/lbdm-logobdc.png'; 
+    const imageInfo = await loadImage(logoUrl);
     
-    if (logoData && logoData.startsWith('data:image')) {
-        doc.addImage(logoData, 'PNG', 15, 10, 60, 25); // Logo un peu plus petit et mieux placé
+    if (imageInfo.data && imageInfo.data.startsWith('data:image')) {
+        // Calcul pour garder les proportions sur 180mm de large
+        const pdfLogoWidth = 180; 
+        const ratio = imageInfo.height / imageInfo.width;
+        logoHeightOnPdf = pdfLogoWidth * ratio;
+
+        doc.addImage(imageInfo.data, 'PNG', 15, 10, pdfLogoWidth, logoHeightOnPdf); 
         logoLoaded = true;
     }
   } catch (error) {
@@ -92,10 +100,11 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     doc.setTextColor(primaryColor);
     doc.setFont("helvetica", "bold");
     doc.text("BOUTIQUE De Morgane", 105, 30, { align: "center" });
+    logoHeightOnPdf = 30; // On ajuste l'espace pris
   }
 
-  // Position Y de départ
-  let currentY = 50;
+  // Position Y de départ dynamique (dépend de la hauteur du logo)
+  let currentY = 10 + logoHeightOnPdf + 15; 
 
   // --- 2. INFORMATIONS VENDEUR (Gauche) ---
   doc.setFontSize(11);
@@ -142,7 +151,7 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.setTextColor(blackColor);
   doc.setFont("helvetica", "bold");
   
-  // Gestion intelligente de l'adresse (Point Relais ou Domicile)
+  // Gestion intelligente de l'adresse
   let shipName = "Client";
   let shipAddr1 = "";
   let shipAddr2 = "";
@@ -152,7 +161,6 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   if (order.relay_point_data) {
       shipName = order.relay_point_data.name || "Point Relais";
       shipAddr1 = order.relay_point_data.address || "";
-      // On essaie de parser la ville si elle est dans l'adresse
       shipCity = "(Point Relais)";
   } else if (order.shipping_address) {
       shipName = `${order.shipping_address.first_name || ''} ${order.shipping_address.last_name || ''}`.trim() || "Client";
@@ -179,8 +187,11 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.text(shipCountry, rightColumnX, yAddress + addrOffset);
 
   // --- 4. TABLEAU (Fond Doré) ---
+  // Calcul de la position de départ du tableau pour qu'il ne chevauche pas
+  const tableStartY = Math.max(currentY + 50, yAddress + addrOffset + 15);
+
   const tableRows: any[] = [];
-  const items = order.items || order.order_items || []; // Supporte les deux noms
+  const items = order.items || order.order_items || []; 
   
   items.forEach((item: any) => {
     // Construction du nom du produit avec ses détails
@@ -198,7 +209,6 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
         details.push(variations);
     }
 
-    // Si on a des détails, on les ajoute à la ligne suivante en plus petit
     if (details.length > 0) {
         productName += `\n${details.join(' - ')}`;
     }
@@ -217,7 +227,7 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
 
   // @ts-ignore
   autoTable(doc, {
-    startY: 110,
+    startY: tableStartY,
     head: [["Produit", "Qté", "Prix Unit.", "Total"]],
     body: tableRows,
     theme: 'grid',
@@ -241,22 +251,21 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
         2: { cellWidth: 30, halign: 'right' }, 
         3: { cellWidth: 30, halign: 'right' } 
     },
-    didParseCell: function(data: any) {
-        // Met en gris et petit les détails (Réf, Taille...)
-        if (data.section === 'body' && data.column.index === 0 && data.cell.raw.includes('\n')) {
-             // Malheureusement jsPDF-autotable ne supporte pas le style riche dans une cellule facilement
-             // On garde le texte simple avec retour à la ligne pour l'instant
-        }
-    }
   });
 
   // --- 5. TOTAUX ---
   // @ts-ignore
   let finalY = doc.lastAutoTable.finalY + 10;
+  
+  // Vérification saut de page pour les totaux
+  if (finalY > 250) {
+      doc.addPage();
+      finalY = 20;
+  }
+
   const xLabel = 140;
   const xValue = 195;
   
-  // Calculs financiers
   const subTotal = typeof order.subtotal === 'number' ? order.subtotal : parseFloat(order.subtotal || 0);
   const shipping = typeof order.shipping_cost === 'number' ? order.shipping_cost : parseFloat(order.shipping_cost || 0);
   const discount = typeof order.discount_amount === 'number' ? order.discount_amount : parseFloat(order.discount_amount || 0);
@@ -300,10 +309,8 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100);
   
-  // Affichage propre du mode de paiement
   let paymentText = order.payment_method_name || 'Carte Bancaire';
   if (order.payment_method_id) {
-      // Si on a l'objet complet passé en paramètre
       if (order.payment_method && typeof order.payment_method === 'string') {
           paymentText = order.payment_method;
       }

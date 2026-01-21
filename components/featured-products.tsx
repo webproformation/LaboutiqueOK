@@ -56,7 +56,7 @@ export function FeaturedProducts() {
           .select('*')
           .eq('featured', true)
           .eq('status', 'publish')
-          .order('date_created', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(8);
 
         if (error) throw error;
