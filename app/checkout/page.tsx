@@ -271,19 +271,21 @@ export default function CheckoutPage() {
 
       if (orderError) throw orderError;
 
-const orderItems = cart.map(item => {
-        // On explore toutes les sources possibles du SKU dans l'objet panier
+// NOUVEAU CODE À COLLER À LA PLACE :
+      const orderItems = cart.map(item => {
+        // On cherche le SKU dans l'objet item, ou dans sa variation, ou ses attributs
         const finalSku = 
           item.sku || 
           item.variationSku || 
           (item.selectedVariation && item.selectedVariation.sku) || 
           (item.variation && item.variation.sku) ||
-          (item.attributes && item.attributes.sku) ||
+          (item.attributes && item.attributes.sku) || 
+          item.product_sku || 
           null;
-
-        // On enregistre les données brutes des attributs pour que le PDF puisse les décoder
-        const finalVariationData = item.selectedAttributes || item.variation_data || item.attributes || null;
         
+        // On s'assure d'avoir les données de variation complètes (l'objet JSON)
+        const finalVariationData = item.selectedAttributes || item.variation_data || item.attributes || null;
+
         return {
           order_id: newOrder.id,
           product_name: item.name || 'Produit',
@@ -291,8 +293,8 @@ const orderItems = cart.map(item => {
           product_image: item.image?.sourceUrl || item.variationImage?.sourceUrl || '',
           price: String(item.price || 0),
           quantity: item.quantity || 1,
-          variation_data: finalVariationData,
-          sku: finalSku 
+          variation_data: finalVariationData, // C'est ça que le PDF va décoder
+          sku: finalSku // C'est ça qui affichera la Ref
         };
       });
       

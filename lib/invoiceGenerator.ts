@@ -20,7 +20,7 @@ const loadImage = (url: string): Promise<{ data: string; width: number; height: 
   });
 };
 
-// --- LE DÉCODEUR MAGIQUE (Pour Couleur, Taille et Ref) ---
+// --- DÉCODEUR MAGIQUE (Compatible avec vos objets SQL imbriqués) ---
 const formatVariationLines = (data: any): string[] => {
     const lines: string[] = [];
     if (!data) return lines;
@@ -30,39 +30,32 @@ const formatVariationLines = (data: any): string[] => {
         try { obj = JSON.parse(data); } catch (e) { return [data]; }
     }
 
-    const processPair = (key: string, val: any) => {
+    // On parcourt chaque clé (ex: "tailles", "couleurs-principales")
+    Object.entries(obj).forEach(([key, val]: [string, any]) => {
         const k = key.toLowerCase();
-        if (k === 'id' || k === 'sku' || !isNaN(Number(key))) return;
+        // On ignore les clés techniques
+        if (k.includes('id') || k === 'sku' || !isNaN(Number(key))) return;
 
+        // 1. Traduction du Label
         let label = key;
         if (k.includes('couleur')) label = 'Couleur';
         else if (k.includes('taille')) label = 'Taille';
         else label = key.charAt(0).toUpperCase() + key.slice(1).replace(/-/g, ' ');
 
-        let value = val;
-        // Si c'est un objet (ex: {"name": "Bleu"}), on prend le .name
+        // 2. Extraction de la Valeur (C'est là que ça bloquait avant)
+        let displayVal = "";
+        // Si c'est un objet (ex: {"name": "Bleu", "id": "..."}), on prend le .name
         if (val && typeof val === 'object') {
-            value = val.name || val.value || val.option || val.label || "";
+            displayVal = val.name || val.value || val.option || val.label || "";
+        } else {
+            displayVal = String(val);
         }
-        
-        if (value && value !== 'undefined' && String(value).trim() !== "") {
-            lines.push(`${label} : ${String(value).toUpperCase()}`);
-        }
-    };
 
-    if (Array.isArray(obj)) {
-        obj.forEach(item => {
-            if (typeof item === 'object') {
-                if (item.name && (item.option || item.value)) {
-                    processPair(item.name, item.option || item.value);
-                } else {
-                    Object.entries(item).forEach(([k, v]) => processPair(k, v));
-                }
-            }
-        });
-    } else if (typeof obj === 'object') {
-        Object.entries(obj).forEach(([k, v]) => processPair(k, v));
-    }
+        if (displayVal && displayVal !== 'undefined' && displayVal.trim() !== "") {
+            lines.push(`${label} : ${displayVal.toUpperCase()}`);
+        }
+    });
+
     return lines;
 };
 
@@ -83,29 +76,18 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
 
   let currentY = 10 + logoH + 15;
 
-  // 2. INFOS VENDEUR & FACTURE (CÔTE À CÔTE)
+  // 2. EN-TÊTE
   doc.setFontSize(10);
   doc.setTextColor(primaryColor); doc.setFont("helvetica", "bold");
   doc.text("Informations Vendeur", 14, currentY);
   doc.text("FACTURE", 110, currentY);
 
   doc.setTextColor(blackColor); doc.setFont("helvetica", "normal");
-  doc.text([
-    "MORGANE DEWANIN",
-    "1062 rue d'Armentières",
-    "59850 Nieppe, France",
-    "Email: contact@laboutiquedemorgane.com",
-    "SIREN: 907 889 802",
-    "TVA: FR16907889802"
-  ], 14, currentY + 6);
+  doc.text(["MORGANE DEWANIN", "1062 rue d'Armentières", "59850 Nieppe, France", "TVA: FR16907889802"], 14, currentY + 6);
+  doc.text([`N° ${invoiceNumber}`, `Date : ${format(new Date(order.created_at || new Date()), 'dd MMMM yyyy', { locale: fr })}`], 110, currentY + 6);
 
-  doc.text([
-    `N° ${invoiceNumber}`,
-    `Date : ${format(new Date(order.created_at || new Date()), 'dd MMMM yyyy', { locale: fr })}`
-  ], 110, currentY + 6);
-
-  // 3. ADRESSE DE LIVRAISON
-  currentY += 40;
+  // 3. ADRESSE
+  currentY += 30;
   doc.setTextColor(primaryColor); doc.setFont("helvetica", "bold");
   doc.text("Adresse de Livraison", 110, currentY);
   doc.setTextColor(blackColor); doc.setFont("helvetica", "normal");
@@ -125,32 +107,32 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   }
   doc.text(addrLines, 110, currentY + 6);
 
-  // 4. TABLEAU DES PRODUITS
+  // 4. TABLEAU
   const items = order.items || order.order_items || [];
   const tableRows = items.map((item: any) => {
-    let nameAndDetails = item.product_name || 'Produit';
+    let productName = item.product_name || 'Produit';
     const subLines: string[] = [];
 
-    // SKU (Ref)
+    // REF (SKU)
     const cleanSku = String(item.sku || "").trim();
-    if (cleanSku && cleanSku !== 'null' && cleanSku !== 'undefined') {
+    if (cleanSku && cleanSku !== 'null' && cleanSku !== 'undefined' && cleanSku !== '') {
         subLines.push(`Ref : ${cleanSku.toUpperCase()}`);
     }
 
-    // Variations (Couleur, Taille)
+    // VARIATIONS
     const vars = formatVariationLines(item.variation_data);
     subLines.push(...vars);
 
-    if (subLines.length > 0) nameAndDetails += "\n" + subLines.join("\n");
+    if (subLines.length > 0) productName += "\n" + subLines.join("\n");
 
     const p = parseFloat(item.price || 0);
     const q = item.quantity || 1;
-    return [nameAndDetails, q, `${p.toFixed(2)} €`, `${(p * q).toFixed(2)} €`];
+    return [productName, q, `${p.toFixed(2)} €`, `${(p * q).toFixed(2)} €`];
   });
 
   // @ts-ignore
   autoTable(doc, {
-    startY: currentY + 45,
+    startY: currentY + 40,
     head: [["Produit", "Qté", "Prix Unit.", "Total"]],
     body: tableRows,
     theme: 'grid',
@@ -182,8 +164,6 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   const total = parseFloat(order.total || 0);
 
   drawTotal("Sous-total :", `${subTotal.toFixed(2)} €`, finalY);
-  
-  // On affiche la livraison même si elle est à 0€ (pour la clarté boutique)
   drawTotal("Livraison :", `${shipCost.toFixed(2)} €`, finalY += 6);
   
   if (insurance > 0) drawTotal("Assurance :", `${insurance.toFixed(2)} €`, finalY += 6);
