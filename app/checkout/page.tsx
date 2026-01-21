@@ -274,17 +274,44 @@ export default function CheckoutPage() {
 // --- CORRECTIF : CAPTURE DU SKU DEPUIS LE PANIER ---
       const orderItems = cart.map(item => {
         // On cherche le SKU partout : dans la variation, dans l'item parent, ou dans les attributs
-        const finalSku = 
-          item.sku || 
-          item.variationSku || 
-          (item.selectedVariation && item.selectedVariation.sku) || 
+        const finalSku =
+          item.sku ||
+          item.variationSku ||
+          (item.selectedVariation && item.selectedVariation.sku) ||
           (item.variation && item.variation.sku) ||
           (item.attributes && item.attributes.sku) ||
           null;
 
-        // On sauvegarde les attributs complets (nécessaire pour le PDF)
-        const finalVariationData = item.selectedAttributes || item.variation_data || item.attributes || null;
-        
+        // Construction des données de variation enrichies pour la facture
+        let finalVariationData: any = {};
+
+        // 1. On récupère les attributs sélectionnés
+        if (item.selectedAttributes) {
+          // Si selectedAttributes est un tableau d'objets {name, option}
+          if (Array.isArray(item.selectedAttributes)) {
+            item.selectedAttributes.forEach((attr: any) => {
+              if (attr.name && attr.option) {
+                finalVariationData[attr.name] = { name: attr.option, value: attr.option };
+              }
+            });
+          }
+          // Si c'est un objet simple {Couleur: "Bleu", Taille: "38"}
+          else if (typeof item.selectedAttributes === 'object') {
+            Object.entries(item.selectedAttributes).forEach(([key, value]) => {
+              if (typeof value === 'object' && value !== null) {
+                finalVariationData[key] = value;
+              } else {
+                finalVariationData[key] = { name: value, value: value };
+              }
+            });
+          }
+        }
+
+        // 2. Fallback sur variation_data ou attributes existants
+        if (Object.keys(finalVariationData).length === 0) {
+          finalVariationData = item.variation_data || item.attributes || null;
+        }
+
         return {
           order_id: newOrder.id,
           product_name: item.name || 'Produit',
@@ -426,11 +453,11 @@ export default function CheckoutPage() {
               orderId={createdOrderId}
               userId={user.id}
               total={totalAfterWallet}
-              // FIX STRIPE : Statut et Panier
               onSuccess={async () => {
                 await supabase.from('orders').update({ payment_status: 'paid', status: 'processing' }).eq('id', createdOrderId);
                 setIsSuccess(true);
                 clearCart();
+                router.push(`/checkout/confirmation?order_id=${createdOrderId}`);
               }}
               customerEmail={profile?.email}
               orderNumber={createdOrderNumber || undefined}

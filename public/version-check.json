@@ -1,0 +1,12 @@
+{
+  "version": "2026-01-21-v2",
+  "timestamp": "2026-01-21T15:00:00Z",
+  "invoiceGenerator": "UPDATED",
+  "features": [
+    "SAS (Société par Actions Simplifiée)",
+    "Adresse de Facturation",
+    "Conditions de paiement après totaux",
+    "SKU et couleurs dans PDF",
+    "Scroll automatique en haut"
+  ]
+}

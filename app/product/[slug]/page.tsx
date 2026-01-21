@@ -290,6 +290,7 @@ export default function ProductPage() {
             }
             return {
               id: v.id,
+              sku: v.sku || null,
               attributes: variationAttributes,
               price: v.sale_price || v.regular_price || productData.sale_price || productData.regular_price || "0",
               regular_price: v.regular_price || productData.regular_price || "0",
@@ -418,11 +419,13 @@ export default function ProductPage() {
       id: product.id,
       name: product.name,
       slug: product.slug,
+      sku: selectedVariation?.sku || product.sku || null,
       price: selectedVariation?.sale_price || selectedVariation?.price || product.sale_price || product.regular_price || 0,
       image: selectedVariation?.image?.src
         ? { sourceUrl: selectedVariation.image.src }
         : (product.image_url ? { sourceUrl: product.image_url } : undefined),
       variationId: selectedVariation?.id || null,
+      variationSku: selectedVariation?.sku || null,
       variationPrice: selectedVariation?.sale_price || selectedVariation?.price || product.sale_price || product.regular_price || null,
       variationImage: selectedVariation?.image || (product.image_url ? { src: product.image_url, alt: product.name } : null),
       // --- TRANSMISSION DE LA TAILLE ---

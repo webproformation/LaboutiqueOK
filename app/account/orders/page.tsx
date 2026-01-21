@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,7 @@ interface OrderItem {
   price: string;
   quantity: number;
   variation_data: any;
+  sku?: string;
 }
 
 interface Order {
@@ -60,14 +61,11 @@ export default function OrdersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      loadOrders();
-    }
-  }, [user]);
+  const loadOrders = useCallback(async () => {
+    if (!user?.id) return;
 
-  const loadOrders = async () => {
     try {
+      setLoading(true);
       // Récupération des commandes avec order_items
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
@@ -75,7 +73,7 @@ export default function OrdersPage() {
           *,
           order_items(*)
         `)
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
@@ -109,7 +107,11 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
   const formatDate = (dateString: string) => {
     try {
@@ -275,15 +277,46 @@ export default function OrdersPage() {
                         )}
                         <div className="flex-1">
                           <h4 className="font-semibold">{item.product_name}</h4>
-                          {item.variation_data && Object.keys(item.variation_data).length > 0 && (
-                            <div className="text-sm text-gray-600 mt-1">
-                              {Object.entries(item.variation_data).map(([key, value]) => (
-                                <span key={key} className="mr-3">
-                                  {key}: <strong>{typeof value === 'object' ? (value as any)?.name || (value as any)?.option || String(value) : String(value)}</strong>
-                                </span>
-                              ))}
+
+                          {item.sku && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Ref: <strong>{item.sku.toUpperCase()}</strong>
                             </div>
                           )}
+
+                          {item.variation_data && Object.keys(item.variation_data).length > 0 && (
+                            <div className="text-sm text-gray-600 mt-1 space-y-0.5">
+                              {Object.entries(item.variation_data)
+                                .filter(([key]) => {
+                                  const k = key.toLowerCase();
+                                  return !k.includes('id') && k !== 'sku' && !(!isNaN(Number(key)));
+                                })
+                                .map(([key, value]) => {
+                                  let label = key;
+                                  const k = key.toLowerCase();
+                                  if (k.includes('couleur')) label = 'Couleur';
+                                  else if (k.includes('taille')) label = 'Taille';
+                                  else label = key.charAt(0).toUpperCase() + key.slice(1).replace(/-/g, ' ');
+
+                                  let displayVal = '';
+                                  if (value && typeof value === 'object') {
+                                    displayVal = (value as any).name || (value as any).value || (value as any).option || (value as any).label || '';
+                                  } else {
+                                    displayVal = String(value);
+                                  }
+
+                                  if (!displayVal || displayVal === 'undefined') return null;
+
+                                  return (
+                                    <div key={key}>
+                                      {label}: <strong>{displayVal.toUpperCase()}</strong>
+                                    </div>
+                                  );
+                                })
+                              }
+                            </div>
+                          )}
+
                           <div className="flex items-center justify-between mt-2">
                             <span className="text-sm text-gray-600">Quantité: {item.quantity}</span>
                             <span className="font-semibold">{(Number(item.price) || 0).toFixed(2)}€</span>

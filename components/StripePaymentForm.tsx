@@ -75,9 +75,8 @@ function CheckoutForm({ orderId, total, onSuccess, customerEmail }: { orderId: s
         toast.error('Erreur inattendue');
       }
     } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-        // SUCCÈS : On vide le panier ET on redirige manuellement
+        toast.success('Paiement réussi !');
         await onSuccess();
-        window.location.href = returnUrl + '&redirect_status=succeeded';
     }
 
     setIsLoading(false);

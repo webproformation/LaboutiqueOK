@@ -83,30 +83,41 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.text("Informations Vendeur", 14, currentY);
   doc.text("FACTURE", 110, currentY);
 
-  doc.setTextColor(blackColor); doc.setFont("helvetica", "normal");
+  doc.setTextColor(blackColor); doc.setFont("helvetica", "bold");
+  doc.text("MORGANE DEWANIN", 14, currentY + 6);
+
+  doc.setFont("helvetica", "normal");
   doc.text([
-    "MORGANE DEWANIN",
+    "SAS (Société par Actions Simplifiée)",
     "1062 rue d'Armentières",
     "59850 Nieppe, France",
     "Email: contact@laboutiquedemorgane.com",
     "SIREN: 907 889 802",
     "TVA: FR16907889802"
-  ], 14, currentY + 6);
+  ], 14, currentY + 11);
 
   doc.text([
     `N° ${invoiceNumber}`,
     `Date : ${format(new Date(order.created_at || new Date()), 'dd MMMM yyyy', { locale: fr })}`
   ], 110, currentY + 6);
 
-  // 3. ADRESSE DE LIVRAISON
+  // 3. ADRESSE DE FACTURATION
   currentY += 40;
-  doc.setTextColor(primaryColor); doc.setFont("helvetica", "bold");
-  doc.text("Adresse de Livraison", 110, currentY);
-  doc.setTextColor(blackColor); doc.setFont("helvetica", "normal");
-  
+
   const ship = order.relay_point_data || order.shipping_address || {};
   let addrLines = [];
-  
+
+  const isInStorePurchase = order.payment_method_name?.toLowerCase().includes('boutique') ||
+                             order.payment_method?.toLowerCase().includes('boutique') ||
+                             order.shipping_method?.toLowerCase().includes('boutique');
+
+  if (!isInStorePurchase) {
+    doc.setTextColor(primaryColor); doc.setFont("helvetica", "bold");
+    doc.text("Adresse de Facturation", 110, currentY);
+  }
+
+  doc.setTextColor(blackColor); doc.setFont("helvetica", "normal");
+
   if (order.relay_point_data) {
       addrLines = [
           ship.name || "Point Relais",
@@ -158,19 +169,17 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 15, halign: 'center' }, 2: { cellWidth: 25, halign: 'right' }, 3: { cellWidth: 25, halign: 'right' } }
   });
 
-  // 5. TOTAUX & PAIEMENT (Partie Riche restaurée)
+  // 5. TOTAUX & PAIEMENT
   // @ts-ignore
   let finalY = doc.lastAutoTable.finalY + 10;
-  
-  // Affichage du mode de paiement
-  doc.setFontSize(9); doc.setTextColor(blackColor);
-  let payMethod = order.payment_method_name || order.payment_method || 'Carte Bancaire';
-  // Nettoyage si c'est un ID brut
-  if (payMethod.includes('_')) payMethod = payMethod.replace(/_/g, ' ').toUpperCase();
-  doc.text(`Mode de paiement : ${payMethod}`, 14, finalY);
 
-  const drawTotal = (label: string, val: string, y: number, color = blackColor, bold = false) => {
-    doc.setFontSize(10); doc.setTextColor(color);
+  const drawTotal = (label: string, val: string, y: number, color: string | number[] = blackColor, bold = false) => {
+    doc.setFontSize(10);
+    if (Array.isArray(color)) {
+      doc.setTextColor(color[0], color[1], color[2]);
+    } else {
+      doc.setTextColor(color);
+    }
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.text(label, 140, y);
     doc.text(val, 195, y, { align: 'right' });
@@ -184,16 +193,23 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   const total = parseFloat(order.total || 0);
 
   drawTotal("Sous-total :", `${subTotal.toFixed(2)} €`, finalY);
-  
+
   // On affiche toujours la livraison pour clarté
   drawTotal("Livraison :", `${shipCost.toFixed(2)} €`, finalY += 6);
-  
+
   if (insurance > 0) drawTotal("Assurance :", `${insurance.toFixed(2)} €`, finalY += 6);
   if (discount > 0) drawTotal("Réduction :", `-${discount.toFixed(2)} €`, finalY += 6, [0, 150, 0]);
   if (wallet > 0) drawTotal("Cagnotte :", `-${wallet.toFixed(2)} €`, finalY += 6, primaryColor);
-  
+
   doc.setDrawColor(200); doc.line(130, finalY + 2, 195, finalY + 2);
   drawTotal("TOTAL TTC :", `${total.toFixed(2)} €`, finalY += 8, primaryColor, true);
+
+  // Affichage des conditions de paiement (après les totaux)
+  finalY += 15;
+  doc.setFontSize(9); doc.setTextColor(blackColor); doc.setFont("helvetica", "normal");
+  let payMethod = order.payment_method_name || order.payment_method || 'Carte Bancaire';
+  if (payMethod.includes('_')) payMethod = payMethod.replace(/_/g, ' ').toUpperCase();
+  doc.text(`Conditions de paiement : ${payMethod}`, 14, finalY);
 
   // 6. PIED DE PAGE
   doc.setFontSize(8); doc.setTextColor(150); doc.setFont("helvetica", "normal");
