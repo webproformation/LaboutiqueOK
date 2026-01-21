@@ -21,8 +21,11 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import RichTextEditor from '@/components/RichTextEditor';
 import MediaLibrary from '@/components/MediaLibrary';
-import { ArrowLeft, Save, Eye } from 'lucide-react';
+import { ArrowLeft, Save, Eye, RefreshCw } from 'lucide-react'; // Ajout de RefreshCw
 import { toast } from 'sonner';
+
+// --- IMPORT DU HOOK DE SAUVEGARDE ---
+import { useAutoSave } from "@/hooks/useAutoSave";
 
 interface NewsCategory {
   id: string;
@@ -56,6 +59,20 @@ export default function NewsEditorPage() {
     meta_social_description: '',
     meta_social_image: '',
   });
+
+  // --- INTÉGRATION AUTO-SAVE ---
+  // On génère une clé unique. Si c'est une création, ce sera "draft_news_new"
+  const autoSaveKey = `draft_news_${postId || 'new'}`;
+
+  const { clearSavedData } = useAutoSave(
+    autoSaveKey,
+    formData,
+    (savedData) => {
+        // Restauration des données
+        setFormData(prev => ({ ...prev, ...savedData }));
+    }
+  );
+  // -----------------------------
 
   useEffect(() => {
     loadCategories();
@@ -103,6 +120,10 @@ export default function NewsEditorPage() {
         return;
       }
 
+      // Note : On ne met à jour le state que si le AutoSave n'a pas déjà restauré un travail plus récent
+      // (La logique précise dépend de votre préférence, ici on charge la DB, 
+      // mais le hook useAutoSave écrasera si un brouillon local existe et est détecté)
+      
       setFormData({
         title: postData.title,
         slug: postData.slug,
@@ -217,6 +238,10 @@ export default function NewsEditorPage() {
         .from('news_post_categories')
         .insert(categoryMappings);
 
+      // --- NETTOYAGE DU BROUILLON APRÈS SUCCÈS ---
+      clearSavedData();
+      // -------------------------------------------
+
       toast.success(postId ? 'Article modifié' : 'Article créé');
 
       if (!postId) {
@@ -245,10 +270,17 @@ export default function NewsEditorPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <Link href="/admin/actualites" className="inline-flex items-center text-gray-400 hover:text-[#d4af37]">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Retour aux actualités
-        </Link>
+        <div className="flex flex-col">
+            <Link href="/admin/actualites" className="inline-flex items-center text-gray-400 hover:text-[#d4af37] mb-2">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Retour aux actualités
+            </Link>
+            {/* Indicateur visuel Auto-save */}
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1 w-fit">
+                <RefreshCw className="w-3 h-3" /> Auto-save actif
+            </span>
+        </div>
+        
         <div className="flex items-center gap-3">
           {postId && formData.status === 'publish' && (
             <Link href={`/actualites/${formData.slug}`} target="_blank">

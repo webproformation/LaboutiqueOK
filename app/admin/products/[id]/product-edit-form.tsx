@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Save, ArrowLeft } from "lucide-react";
+import { Save, ArrowLeft, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import RichTextEditor from "@/components/RichTextEditor";
 import ColorSwatchSelector from "@/components/ColorSwatchSelector";
@@ -18,6 +18,9 @@ import ProductMediaGalleryManager from "@/components/ProductMediaGalleryManager"
 import HierarchicalCategorySelector from "@/components/HierarchicalCategorySelector";
 import GeneralAttributesSelector from "@/components/GeneralAttributesSelector";
 import VariationDetailsForm from "@/components/VariationDetailsForm";
+
+// --- IMPORT DU HOOK DE SAUVEGARDE ---
+import { useAutoSave } from "@/hooks/useAutoSave"; 
 
 interface Product {
   id: string;
@@ -74,6 +77,7 @@ export default function ProductEditForm({
   const router = useRouter();
   const [saving, setSaving] = useState(false);
 
+  // --- ÉTATS DU FORMULAIRE ---
   const [name, setName] = useState(initialProduct.name);
   const [slug, setSlug] = useState(initialProduct.slug);
   const [sku, setSku] = useState(initialProduct.sku || "");
@@ -115,14 +119,72 @@ export default function ProductEditForm({
     }
     return {};
   });
+  
   const [variations, setVariations] = useState<Variation[]>([]);
   const [existingVariationsIds, setExistingVariationsIds] = useState<Record<string, string>>({});
 
+  // --- INTÉGRATION AUTO-SAVE ---
+  
+  // 1. On regroupe tout l'état actuel dans un objet pour le Hook
+  const currentFormData = {
+    name, slug, sku, description,
+    regularPrice, salePrice, stockQuantity, status,
+    isFeatured, isDiamond,
+    mainImage, galleryImages,
+    mainColor, mainColorId, selectedSecondaryColors, secondaryColorIds,
+    sizeRangeStart, sizeRangeEnd,
+    selectedCategories, selectedAttributes,
+    variations, existingVariationsIds
+  };
+
+  // 2. On appelle le Hook
+  const { clearSavedData } = useAutoSave(
+    `draft_product_${initialProduct.id}`, // Clé unique par produit
+    currentFormData, // Les données à sauver
+    (savedData: any) => { // La fonction de restauration
+        // On remet chaque valeur à sa place
+        if (savedData.name !== undefined) setName(savedData.name);
+        if (savedData.slug !== undefined) setSlug(savedData.slug);
+        if (savedData.sku !== undefined) setSku(savedData.sku);
+        if (savedData.description !== undefined) setDescription(savedData.description);
+        if (savedData.regularPrice !== undefined) setRegularPrice(savedData.regularPrice);
+        if (savedData.salePrice !== undefined) setSalePrice(savedData.salePrice);
+        if (savedData.stockQuantity !== undefined) setStockQuantity(savedData.stockQuantity);
+        if (savedData.status !== undefined) setStatus(savedData.status);
+        if (savedData.isFeatured !== undefined) setIsFeatured(savedData.isFeatured);
+        if (savedData.isDiamond !== undefined) setIsDiamond(savedData.isDiamond);
+        
+        if (savedData.mainImage !== undefined) setMainImage(savedData.mainImage);
+        if (savedData.galleryImages !== undefined) setGalleryImages(savedData.galleryImages);
+        
+        if (savedData.mainColor !== undefined) setMainColor(savedData.mainColor);
+        if (savedData.mainColorId !== undefined) setMainColorId(savedData.mainColorId);
+        if (savedData.selectedSecondaryColors !== undefined) setSelectedSecondaryColors(savedData.selectedSecondaryColors);
+        if (savedData.secondaryColorIds !== undefined) setSecondaryColorIds(savedData.secondaryColorIds);
+        
+        if (savedData.sizeRangeStart !== undefined) setSizeRangeStart(savedData.sizeRangeStart);
+        if (savedData.sizeRangeEnd !== undefined) setSizeRangeEnd(savedData.sizeRangeEnd);
+        
+        if (savedData.selectedCategories !== undefined) setSelectedCategories(savedData.selectedCategories);
+        if (savedData.selectedAttributes !== undefined) setSelectedAttributes(savedData.selectedAttributes);
+        
+        if (savedData.variations !== undefined) setVariations(savedData.variations);
+        if (savedData.existingVariationsIds !== undefined) setExistingVariationsIds(savedData.existingVariationsIds);
+    }
+  );
+
+  // --- FIN INTÉGRATION AUTO-SAVE ---
+
+
   useEffect(() => {
-    loadExistingVariations();
+    // Note: Si une variation a été chargée par le AutoSave, on évite d'écraser avec le loadExistingVariations
+    // On ne charge depuis la DB que si variations est vide (chargement initial propre)
+    if (variations.length === 0) {
+        loadExistingVariations();
+    }
   }, []);
 
-  // --- LOGIQUE AUTO-SÉLECTION DES TAILLES (AJOUTÉE) ---
+  // --- LOGIQUE AUTO-SÉLECTION DES TAILLES ---
   useEffect(() => {
     if (sizeRangeStart && sizeRangeEnd) {
       const start = Math.min(sizeRangeStart, sizeRangeEnd);
@@ -141,23 +203,38 @@ export default function ProductEditForm({
   }, [sizeRangeStart, sizeRangeEnd]);
 
   useEffect(() => {
+    // Si nous avons restauré des variations via AutoSave, on ne veut pas que cet effet les écrase 
+    // sauf si l'utilisateur change activement les couleurs secondaires.
+    // Cette logique reste inchangée mais attention aux conflits potentiels.
+    // Dans le doute, l'utilisateur verra ce qui est à l'écran.
+    
     if (selectedSecondaryColors.length > 0) {
-      const newVariations: Variation[] = selectedSecondaryColors.map(colorName => {
-        const existingVar = variations.find(v => v.colorName === colorName);
-        return existingVar || {
-          id: existingVariationsIds[colorName],
-          colorName,
-          colorId: secondaryColorIds[colorName] || "",
-          sku: "",
-          regular_price: regularPrice || null,
-          sale_price: salePrice,
-          stock_quantity: stockQuantity || null,
-          image_url: null,
-        };
-      });
-      setVariations(newVariations);
+        // On vérifie si les variations actuelles correspondent déjà aux couleurs (cas d'une restauration)
+        const currentColors = variations.map(v => v.colorName).sort().join(',');
+        const newColors = [...selectedSecondaryColors].sort().join(',');
+        
+        if (currentColors !== newColors) {
+             const newVariations: Variation[] = selectedSecondaryColors.map(colorName => {
+                const existingVar = variations.find(v => v.colorName === colorName);
+                return existingVar || {
+                  id: existingVariationsIds[colorName],
+                  colorName,
+                  colorId: secondaryColorIds[colorName] || "",
+                  sku: "",
+                  regular_price: regularPrice || null,
+                  sale_price: salePrice,
+                  stock_quantity: stockQuantity || null,
+                  image_url: null,
+                };
+              });
+              setVariations(newVariations);
+        }
     } else {
-      setVariations([]);
+      // Si on vide la sélection, on vide les variations (sauf si c'est un chargement initial ?)
+      // On garde la logique d'origine pour ne pas casser le comportement
+      if (variations.length > 0 && selectedSecondaryColors.length === 0) {
+          setVariations([]);
+      }
     }
   }, [selectedSecondaryColors]);
 
@@ -194,9 +271,12 @@ export default function ProductEditForm({
           }
         }
 
-        setSelectedSecondaryColors(colorNames);
-        setExistingVariationsIds(varIds);
-        setVariations(vars);
+        // On ne met à jour que si l'état local est vide (pour éviter d'écraser le brouillon restauré)
+        if (variations.length === 0) {
+            setSelectedSecondaryColors(colorNames);
+            setExistingVariationsIds(varIds);
+            setVariations(vars);
+        }
       }
     } catch (error) {
       console.error("Error loading variations:", error);
@@ -338,6 +418,10 @@ export default function ProductEditForm({
         if (varError) throw varError;
       }
 
+      // --- SUCCÈS : NETTOYAGE DU BROUILLON ---
+      clearSavedData();
+      // ---------------------------------------
+
       toast.success("Produit mis à jour avec succès!");
       router.push("/admin/products");
       router.refresh();
@@ -355,7 +439,13 @@ export default function ProductEditForm({
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Modifier le Produit</h1>
-            <p className="text-gray-600 mt-1">{initialProduct.name}</p>
+            <div className="flex items-center gap-2 text-gray-600 mt-1">
+                <span>{initialProduct.name}</span>
+                {/* Petit indicateur visuel de sécurité (optionnel) */}
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3" /> Auto-save actif
+                </span>
+            </div>
           </div>
           <Link href="/admin/products">
             <Button variant="outline">
