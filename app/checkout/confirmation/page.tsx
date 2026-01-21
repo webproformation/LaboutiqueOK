@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Store, MapPin, Phone, Mail, Calendar, AlertCircle, Package, Download, Home, ShoppingBag, Landmark, Copy, CreditCard } from 'lucide-react';
+import { CheckCircle, Clock, Store, MapPin, Phone, Mail, Calendar, AlertCircle, Package, Download, Home, ShoppingBag, Landmark, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -50,7 +50,8 @@ interface PaymentMethod {
   icon: string;
 }
 
-export default function OrderConfirmationPage() {
+// 1. On déplace toute la logique dans un sous-composant "Content"
+function OrderConfirmationContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
@@ -58,9 +59,11 @@ export default function OrderConfirmationPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Récupération des paramètres URL
   const orderId = searchParams.get('order_id') || searchParams.get('order') || searchParams.get('paypal');
   const redirectStatus = searchParams.get('redirect_status');
 
+  // --- 1. SCROLL AUTOMATIQUE EN HAUT ---
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -69,15 +72,17 @@ export default function OrderConfirmationPage() {
     if (orderId) {
       loadOrderDetails(orderId);
     } else {
+      // Pas de redirection immédiate pour éviter les flashs, on attend un peu ou on affiche un état vide
       const timeout = setTimeout(() => router.push('/'), 3000);
       return () => clearTimeout(timeout);
     }
   }, [orderId, router]);
 
-  // Confettis uniquement si c'est payé ou confirmé (pas en attente de virement)
+  // Effet Confetti au succès
   useEffect(() => {
     if (!loading && order && paymentMethod) {
         const isBankTransfer = paymentMethod.code === 'bank_transfer' || paymentMethod.code === 'virement';
+        // On ne lance les confettis que si c'est payé (pas en attente de virement)
         if (!isBankTransfer && (redirectStatus === 'succeeded' || order.payment_status === 'paid' || paymentMethod.code === 'paypal')) {
             const jsConfetti = new JSConfetti();
             jsConfetti.addConfetti({
@@ -163,7 +168,6 @@ export default function OrderConfirmationPage() {
 
   const renderPaymentSpecificInfo = () => {
     // --- BLOC VIREMENT BANCAIRE (Design Gold & Black) ---
-    // On vérifie plusieurs codes possibles pour être sûr de l'afficher
     if (paymentMethod.code === 'bank_transfer' || paymentMethod.code === 'virement') {
       return (
         <div className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -228,7 +232,6 @@ export default function OrderConfirmationPage() {
                                 </div>
                             </div>
 
-                            {/* Détails techniques discrets en bas */}
                             <div className="border-t border-white/10 pt-4 mt-2 grid grid-cols-4 gap-2 text-center">
                                 <div>
                                     <p className="text-[10px] text-gray-400 uppercase">Code Bq</p>
@@ -310,7 +313,6 @@ export default function OrderConfirmationPage() {
                 La commande doit être réglée en boutique sous 5 jours
               </p>
             </div>
-            {/* ... Reste du code boutique identique ... */}
              <div className="bg-blue-100 border border-blue-300 rounded-lg p-4 text-center">
               <p className="text-sm text-blue-900 font-medium">1062 rue d'Armentières, 59850 Nieppe</p>
             </div>
@@ -319,7 +321,7 @@ export default function OrderConfirmationPage() {
       );
     }
 
-    // --- BLOC SUCCÈS STANDARD (CB, PAYPAL) ---
+    // --- BLOC SUCCÈS STANDARD ---
     return (
       <Card className="border-2 border-green-300 bg-gradient-to-br from-green-50 to-white shadow-lg mb-6">
         <CardHeader className="bg-gradient-to-r from-green-100 to-green-50 border-b border-green-200">
@@ -486,5 +488,21 @@ export default function OrderConfirmationPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// 2. Le composant principal "Page" qui enveloppe le contenu dans Suspense
+export default function OrderConfirmationPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-b from-white via-[#F2F2E8] to-[#F2F2E8] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#D4AF37] mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement de la confirmation...</p>
+        </div>
+      </div>
+    }>
+      <OrderConfirmationContent />
+    </Suspense>
   );
 }
