@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, Store, MapPin, Phone, Mail, Calendar, AlertCircle, Package, Download, Home, ShoppingBag } from 'lucide-react';
+import { CheckCircle, Clock, Store, MapPin, Phone, Mail, Calendar, AlertCircle, Package, Download, Home, ShoppingBag, Landmark, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -58,7 +58,7 @@ export default function OrderConfirmationPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Récupération des paramètres URL (Supporte Stripe, Paypal et lien direct)
+  // Récupération des paramètres URL
   const orderId = searchParams.get('order_id') || searchParams.get('order') || searchParams.get('paypal');
   const redirectStatus = searchParams.get('redirect_status');
 
@@ -149,6 +149,11 @@ export default function OrderConfirmationPage() {
     }
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copié dans le presse-papier");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white via-[#F2F2E8] to-[#F2F2E8] flex items-center justify-center">
@@ -165,89 +170,107 @@ export default function OrderConfirmationPage() {
   }
 
   const renderPaymentSpecificInfo = () => {
+    // --- BLOC VIREMENT BANCAIRE ---
     if (paymentMethod.code === 'bank_transfer') {
       return (
-        <Card className="border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-white shadow-lg mb-6">
-          <CardHeader className="bg-gradient-to-r from-orange-100 to-orange-50 border-b border-orange-200">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-orange-500 rounded-full">
-                <Clock className="h-8 w-8 text-white" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl text-orange-900">Commande enregistrée - En attente de virement</CardTitle>
-                <p className="text-orange-700 text-sm mt-1">
-                  Votre commande sera préparée dès réception de la confirmation de votre paiement
+        <Card className="border-2 border-[#D4AF37] shadow-xl mb-8 overflow-hidden bg-white">
+          <div className="bg-[#D4AF37] p-4 text-white flex items-center justify-center gap-3">
+            <Clock className="h-8 w-8" />
+            <div className="text-center md:text-left">
+                <h3 className="text-xl font-bold uppercase tracking-wide">Commande en attente de virement</h3>
+            </div>
+          </div>
+          
+          <CardContent className="pt-8 px-6 pb-8 space-y-8">
+            <div className="text-center max-w-2xl mx-auto">
+                <p className="text-gray-600 text-lg">
+                    Merci pour votre commande ! Elle a bien été enregistrée et sera validée <strong>dès réception de votre virement</strong>.
                 </p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6 space-y-6">
-            <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
-                <Mail className="h-5 w-5" />
-                Coordonnées bancaires
-              </h3>
-              <div className="space-y-3 text-sm">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-medium text-blue-700 uppercase mb-1">Bénéficiaire</p>
-                    <p className="font-semibold text-blue-900">SAS A U MORGANE DEWANIN</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-blue-700 uppercase mb-1">Banque</p>
-                    <p className="font-semibold text-blue-900">BANQUE POPULAIRE DU NORD</p>
-                  </div>
-                </div>
-
-                <Separator className="bg-blue-200" />
-
-                <div>
-                  <p className="text-xs font-medium text-blue-700 uppercase mb-1">IBAN</p>
-                  <p className="text-blue-900 font-mono text-base break-all font-semibold">
-                    FR76 1350 7000 4331 8229 5212 127
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs font-medium text-blue-700 uppercase mb-1">BIC</p>
-                  <p className="text-blue-900 font-mono text-base font-semibold">CCBPFRPPLIL</p>
-                </div>
-
-                <Separator className="bg-blue-200" />
-
-                <div className="bg-white rounded-lg p-4 border-2 border-blue-400">
-                  <p className="text-xs font-medium text-blue-700 uppercase mb-2">Montant à virer</p>
-                  <p className="text-3xl font-bold text-blue-900">
-                    {(typeof order.total === 'number' ? order.total : parseFloat(order.total)).toFixed(2)} €
-                  </p>
-                </div>
-
-                <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4">
-                  <p className="text-xs font-medium text-amber-800 uppercase mb-2 flex items-center gap-1">
-                    <AlertCircle className="h-4 w-4" />
-                    Référence obligatoire
-                  </p>
-                  <p className="text-xl font-mono font-bold text-amber-900 bg-white px-4 py-2 rounded border-2 border-amber-400">
-                    {order.order_number}
-                  </p>
-                  <p className="text-xs text-amber-800 mt-2">
-                    Merci d'indiquer cette référence dans le libellé de votre virement pour un traitement rapide
-                  </p>
-                </div>
-              </div>
             </div>
 
-            <div className="bg-orange-100 border border-orange-300 rounded-lg p-4">
-              <p className="text-sm text-orange-900 font-medium flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 flex-shrink-0" />
-                Merci d'effectuer le virement rapidement pour que votre commande soit traitée dans les meilleurs délais
-              </p>
+            <div className="grid md:grid-cols-2 gap-8">
+                {/* COLONNE GAUCHE : RIB */}
+                <div className="bg-neutral-50 rounded-xl border border-gray-200 p-6 relative overflow-hidden group hover:border-[#D4AF37]/50 transition-colors">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                        <Landmark className="h-32 w-32 text-[#D4AF37]" />
+                    </div>
+
+                    <div className="flex items-center gap-2 mb-6 border-b border-gray-200 pb-3">
+                        <Landmark className="h-5 w-5 text-[#D4AF37]" />
+                        <h4 className="font-bold text-gray-900 uppercase tracking-wider text-sm">Coordonnées Bancaires (RIB)</h4>
+                    </div>
+
+                    <div className="space-y-5 relative z-10">
+                        <div>
+                            <span className="text-xs text-gray-500 uppercase font-semibold">Titulaire du compte</span>
+                            <p className="text-gray-900 font-bold text-lg">SAS A U MORGANE DEWANIN</p>
+                        </div>
+
+                        <div>
+                            <span className="text-xs text-gray-500 uppercase font-semibold">Banque</span>
+                            <p className="text-gray-900 font-medium">BANQUE POPULAIRE DU NORD</p>
+                            <p className="text-sm text-gray-500">Agence : AG CENTRALE</p>
+                        </div>
+
+                        <div className="bg-white border border-gray-200 rounded-lg p-3 group-hover:border-[#D4AF37]/30 transition-colors">
+                            <div className="flex justify-between items-start mb-1">
+                                <span className="text-xs text-[#D4AF37] uppercase font-bold">IBAN</span>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-[#D4AF37]" onClick={() => copyToClipboard("FR76 1350 7000 4331 8229 5212 127")}>
+                                    <Copy className="h-3 w-3" />
+                                </Button>
+                            </div>
+                            <p className="font-mono text-lg font-bold text-gray-800 break-all tracking-wider">
+                                FR76 1350 7000 4331 8229 5212 127
+                            </p>
+                        </div>
+
+                        <div className="flex gap-4">
+                             <div>
+                                <span className="text-xs text-gray-500 uppercase font-semibold">BIC</span>
+                                <p className="font-mono font-medium text-gray-800">CCBPFRPPLIL</p>
+                             </div>
+                             <div>
+                                <span className="text-xs text-gray-500 uppercase font-semibold">Montant</span>
+                                <p className="font-bold text-[#D4AF37]">{(typeof order.total === 'number' ? order.total : parseFloat(order.total)).toFixed(2)} €</p>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* COLONNE DROITE : INSTRUCTIONS */}
+                <div className="flex flex-col justify-center space-y-6">
+                    <div className="bg-[#D4AF37]/10 border-2 border-[#D4AF37] rounded-xl p-6">
+                        <div className="flex items-start gap-4">
+                            <AlertCircle className="h-8 w-8 text-[#D4AF37] flex-shrink-0" />
+                            <div>
+                                <h4 className="font-bold text-[#D4AF37] text-lg mb-2">Communication Importante</h4>
+                                <p className="text-gray-700 text-sm mb-3">
+                                    Pour que nous puissions identifier votre paiement rapidement, merci d'indiquer <strong>uniquement</strong> votre numéro de commande en référence du virement.
+                                </p>
+                                <div className="bg-white inline-flex items-center gap-3 px-4 py-2 rounded-lg border border-[#D4AF37]/30 shadow-sm">
+                                    <span className="text-gray-500 text-xs uppercase font-bold">Référence :</span>
+                                    <span className="font-mono text-xl font-bold text-gray-900">{order.order_number}</span>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-[#D4AF37]" onClick={() => copyToClipboard(order.order_number)}>
+                                        <Copy className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                        <p className="text-sm text-gray-600">
+                            Un email récapitulatif contenant ces informations vous a été envoyé à <span className="font-medium text-gray-900">{supabase.auth.getUser().then(u => u.data.user?.email)}</span>
+                        </p>
+                    </div>
+                </div>
             </div>
           </CardContent>
         </Card>
       );
     }
 
+    // --- BLOC RETRAIT BOUTIQUE ---
     if (paymentMethod.code === 'store_pickup_payment' || paymentMethod.type === 'store') {
       return (
         <Card className="border-2 border-blue-300 bg-gradient-to-br from-blue-50 to-white shadow-lg mb-6">
@@ -334,7 +357,7 @@ export default function OrderConfirmationPage() {
       );
     }
 
-    // DEFAULT SUCCESS (Stripe, Paypal...)
+    // --- BLOC SUCCÈS STANDARD (CB, PAYPAL) ---
     return (
       <Card className="border-2 border-green-300 bg-gradient-to-br from-green-50 to-white shadow-lg mb-6">
         <CardHeader className="bg-gradient-to-r from-green-100 to-green-50 border-b border-green-200">
@@ -377,8 +400,8 @@ export default function OrderConfirmationPage() {
     <div className="min-h-screen bg-gradient-to-b from-white via-[#F2F2E8] to-[#F2F2E8] py-12">
       <div className="container mx-auto px-4 max-w-5xl">
         <div className="text-center mb-8">
-          <Badge variant="outline" className="mb-4 text-base px-4 py-2 bg-white">
-            Numéro de commande : <span className="font-mono font-bold ml-2">{order.order_number}</span>
+          <Badge variant="outline" className="mb-4 text-base px-4 py-2 bg-white border-[#D4AF37] text-[#D4AF37]">
+            Numéro de commande : <span className="font-mono font-bold ml-2 text-black">{order.order_number}</span>
           </Badge>
           <p className="text-gray-600 text-sm">
             Commandé le {new Date(order.created_at).toLocaleDateString('fr-FR', {
