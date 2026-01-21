@@ -9,18 +9,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Save, Video } from 'lucide-react';
+import { ArrowLeft, Save, Youtube } from 'lucide-react'; // J'ai ajouté l'icône Youtube
 import { toast } from 'sonner';
 import Link from 'next/link';
 
 export default function NewLivePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  
+  // J'ai ajouté youtube_url dans le formulaire
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     scheduled_start: '',
     thumbnail_url: '',
+    youtube_url: '', // <-- Nouveau champ
     chat_enabled: true,
     products_enabled: true,
     is_recorded: true,
@@ -31,27 +34,42 @@ export default function NewLivePage() {
     setLoading(true);
 
     try {
-      const streamKey = `live_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // On garde une clé aléatoire pour l'ID unique, mais on ne s'en sert plus pour OBS
+      const uniqueId = `live_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+      // On nettoie le lien YouTube pour être sûr (au cas où vous collez le lien entier)
+      // Cela permet d'accepter "https://youtu.be/xyz" ou juste "xyz"
+      let finalUrl = formData.youtube_url;
+      
       const { data, error } = await supabase
         .from('live_streams')
         .insert([{
-          ...formData,
-          id: streamKey,
-          stream_key: streamKey,
+          id: uniqueId,
+          title: formData.title,
+          description: formData.description,
+          scheduled_start: formData.scheduled_start,
+          thumbnail_url: formData.thumbnail_url,
+          
+          // C'est ICI que la magie opère pour YouTube :
+          playback_url: finalUrl, 
+          stream_key: uniqueId, // On met une valeur bidon car géré par YouTube
+          
           status: 'scheduled',
           current_viewers: 0,
           total_views: 0,
           max_viewers: 0,
           likes_count: 0,
+          chat_enabled: formData.chat_enabled,
+          products_enabled: formData.products_enabled,
+          is_recorded: formData.is_recorded,
         }])
         .select()
         .single();
 
       if (error) throw error;
 
-      toast.success('Live créé avec succès');
-      router.push(`/admin/lives/${data.id}`);
+      toast.success('Live YouTube programmé avec succès !');
+      router.push('/admin/lives');
     } catch (error) {
       console.error('Error creating live:', error);
       toast.error('Erreur lors de la création du live');
@@ -65,35 +83,49 @@ export default function NewLivePage() {
       <div className="flex items-center gap-4">
         <Link href="/admin/lives">
           <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Nouveau Live</h1>
-          <p className="text-gray-600 mt-1">
-            Créez et programmez un nouveau live stream
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">Nouveau Live YouTube</h1>
+          <p className="text-gray-500">Programmez votre prochaine session de shopping</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit}>
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Video className="h-5 w-5 text-[#D4AF37]" />
-              Informations du live
-            </CardTitle>
+            <CardTitle>Informations générales</CardTitle>
             <CardDescription>
-              Remplissez les informations de votre live stream
+              Configurez les détails de votre diffusion YouTube
             </CardDescription>
           </CardHeader>
-
           <CardContent className="space-y-6">
+            
+            {/* --- NOUVEAU BLOC YOUTUBE --- */}
             <div className="space-y-2">
-              <Label htmlFor="title">Titre du live *</Label>
+              <Label htmlFor="youtube_url" className="flex items-center gap-2 text-[#FF0000] font-bold">
+                <Youtube className="h-4 w-4" /> Lien du Live YouTube
+              </Label>
+              <Input
+                id="youtube_url"
+                placeholder="Ex: https://www.youtube.com/watch?v=..."
+                value={formData.youtube_url}
+                onChange={(e) => setFormData({ ...formData, youtube_url: e.target.value })}
+                required
+                className="border-red-200 focus:ring-red-500"
+              />
+              <p className="text-xs text-gray-500">
+                Créez votre live sur YouTube Studio, puis copiez le lien de partage ici.
+              </p>
+            </div>
+            {/* --------------------------- */}
+
+            <div className="space-y-2">
+              <Label htmlFor="title">Titre du live</Label>
               <Input
                 id="title"
-                placeholder="Ex: Live shopping spécial nouveautés"
+                placeholder="Ex: Grande vente d'hiver ❄️"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
@@ -104,51 +136,43 @@ export default function NewLivePage() {
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                placeholder="Décrivez ce que vous allez présenter pendant ce live..."
+                placeholder="Description de l'événement..."
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={4}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="scheduled_start">Date et heure de début *</Label>
-              <Input
-                id="scheduled_start"
-                type="datetime-local"
-                value={formData.scheduled_start}
-                onChange={(e) => setFormData({ ...formData, scheduled_start: e.target.value })}
-                required
-              />
-              <p className="text-sm text-gray-500">
-                Choisissez quand vous souhaitez démarrer ce live
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="scheduled_start">Date et heure de début</Label>
+                <Input
+                  id="scheduled_start"
+                  type="datetime-local"
+                  value={formData.scheduled_start}
+                  onChange={(e) => setFormData({ ...formData, scheduled_start: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="thumbnail_url">Image de couverture (URL)</Label>
+                <Input
+                  id="thumbnail_url"
+                  placeholder="https://..."
+                  value={formData.thumbnail_url}
+                  onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="thumbnail_url">URL de la miniature</Label>
-              <Input
-                id="thumbnail_url"
-                type="url"
-                placeholder="https://..."
-                value={formData.thumbnail_url}
-                onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
-              />
-              <p className="text-sm text-gray-500">
-                Image qui sera affichée avant le début du live
-              </p>
-            </div>
-
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4">Options du live</h3>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
+            <div className="space-y-4 pt-4 border-t">
+              <h3 className="font-medium text-gray-900">Options d'interaction</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="flex items-center justify-between border p-3 rounded-lg">
                   <div className="space-y-0.5">
-                    <Label htmlFor="chat_enabled">Activer le chat</Label>
-                    <p className="text-sm text-gray-500">
-                      Permettre aux spectateurs de discuter pendant le live
-                    </p>
+                    <Label htmlFor="chat_enabled">Chat en direct</Label>
                   </div>
                   <Switch
                     id="chat_enabled"
@@ -157,12 +181,9 @@ export default function NewLivePage() {
                   />
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border p-3 rounded-lg">
                   <div className="space-y-0.5">
-                    <Label htmlFor="products_enabled">Partage de produits</Label>
-                    <p className="text-sm text-gray-500">
-                      Afficher et partager des produits pendant le live
-                    </p>
+                    <Label htmlFor="products_enabled">Produits</Label>
                   </div>
                   <Switch
                     id="products_enabled"
@@ -171,12 +192,9 @@ export default function NewLivePage() {
                   />
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border p-3 rounded-lg">
                   <div className="space-y-0.5">
-                    <Label htmlFor="is_recorded">Enregistrer le live</Label>
-                    <p className="text-sm text-gray-500">
-                      Sauvegarder automatiquement le live pour le replay
-                    </p>
+                    <Label htmlFor="is_recorded">Replay auto</Label>
                   </div>
                   <Switch
                     id="is_recorded"
