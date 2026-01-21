@@ -271,16 +271,22 @@ export default function CheckoutPage() {
 
       if (orderError) throw orderError;
 
-      const orderItems = cart.map(item => ({
-        order_id: newOrder.id,
-        product_name: item.name || 'Produit',
-        product_slug: item.slug || '',
-        product_image: item.image?.sourceUrl || item.variationImage?.sourceUrl || '',
-        price: String(item.price || 0),
-        quantity: item.quantity || 1,
-        variation_data: item.selectedAttributes || null,
-        sku: item.sku || null // IMPORTANT POUR LA FACTURE
-      }));
+      // --- CORRECTIF : CAPTURE AGRESSIVE DU SKU ---
+      const orderItems = cart.map(item => {
+        // On cherche le SKU partout où il peut se cacher dans l'objet panier
+        const finalSku = item.sku || item.variationSku || item.product_sku || (item.variation && item.variation.sku) || null;
+        
+        return {
+          order_id: newOrder.id,
+          product_name: item.name || 'Produit',
+          product_slug: item.slug || '',
+          product_image: item.image?.sourceUrl || item.variationImage?.sourceUrl || '',
+          price: String(item.price || 0),
+          quantity: item.quantity || 1,
+          variation_data: item.selectedAttributes || item.variation_data || null,
+          sku: finalSku // <-- C'est cette ligne qui sauve l'info en base de données !
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from('order_items')
