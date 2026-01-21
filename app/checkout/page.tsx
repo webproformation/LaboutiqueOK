@@ -327,13 +327,16 @@ export default function CheckoutPage() {
       }
 
       if (newsletterConsent && profile?.email) {
+        // On utilise 'upsert' au lieu de 'insert' pour ignorer si l'email existe déjà
         const { error: newsletterError } = await supabase
           .from('newsletter_subscriptions')
-          .insert([{ email: profile.email }])
-          .select();
+          .upsert(
+            [{ email: profile.email }],
+            { onConflict: 'email', ignoreDuplicates: true }
+          );
 
-        if (newsletterError && newsletterError.code !== '23505') {
-          console.error('Newsletter error:', newsletterError);
+        if (newsletterError) {
+          console.error('Newsletter error (non bloquant):', newsletterError);
         }
       }
 
