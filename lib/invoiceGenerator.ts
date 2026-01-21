@@ -3,9 +3,6 @@ import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-const getPrice = (item: any) => parseFloat(item.price || item.unit_price || 0);
-const getTotal = (order: any) => parseFloat(order.total_amount || order.total || order.amount || 0);
-
 const loadImage = (url: string): Promise<{ data: string; width: number; height: number }> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -23,36 +20,35 @@ const loadImage = (url: string): Promise<{ data: string; width: number; height: 
   });
 };
 
-// --- NETTOYAGE DES VARIATIONS (Logique Supabase Pure) ---
+// --- NETTOYAGE EXPERT DES VARIATIONS (Supporte "couleurs-principales", etc.) ---
 const formatVariationLines = (data: any): string[] => {
     const lines: string[] = [];
     if (!data) return lines;
 
     let obj = data;
     if (typeof data === 'string') {
-        try { 
-            if (data.startsWith('{') || data.startsWith('[')) obj = JSON.parse(data); 
-            else return [data];
-        } catch (e) { return [data]; }
+        try { obj = JSON.parse(data); } catch (e) { return [data]; }
     }
 
     const processEntry = (key: string, val: any) => {
-        // On ignore les clés techniques
         const k = key.toLowerCase();
+        // On ignore les IDs techniques
         if (k.includes('id') || k === 'sku' || !isNaN(Number(key))) return;
 
-        // Label propre
+        // --- TRADUCTION DES CLÉS COMPLEXES ---
         let label = key;
         if (k.includes('couleur')) label = 'Couleur';
-        if (k.includes('taille')) label = 'Taille';
+        else if (k.includes('taille')) label = 'Taille';
+        else label = key.charAt(0).toUpperCase() + key.slice(1).replace(/-/g, ' ');
 
-        // Valeur propre (si c'est un objet, on prend le .name ou .value)
+        // --- EXTRACTION DE LA VALEUR ---
         let value = val;
         if (val && typeof val === 'object') {
+            // Si c'est un objet genre {"name": "Bleu Ciel"}
             value = val.name || val.option || val.value || val.label || "";
         }
 
-        if (value && value !== 'undefined') {
+        if (value && value !== 'undefined' && String(value).trim() !== "") {
             lines.push(`${label} : ${String(value).toUpperCase()}`);
         }
     };
@@ -60,12 +56,7 @@ const formatVariationLines = (data: any): string[] => {
     if (Array.isArray(obj)) {
         obj.forEach(item => {
             if (typeof item === 'object') {
-                // Gestion du cas {name: "Couleur", option: "Bleu"}
-                if (item.name && (item.option || item.value)) {
-                    processEntry(item.name, item.option || item.value);
-                } else {
-                    Object.entries(item).forEach(([k, v]) => processEntry(k, v));
-                }
+                Object.entries(item).forEach(([k, v]) => processEntry(k, v));
             }
         });
     } else if (typeof obj === 'object') {
@@ -80,8 +71,8 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   const primaryColor = "#D4AF37"; 
   const blackColor = "#000000";
   
-  // 1. LOGO PLEINE LARGEUR
-  let logoH = 40;
+  // 1. LOGO
+  let logoH = 35;
   try {
     const imgInfo = await loadImage('/lbdm-logobdc.png');
     const pdfW = 180;
@@ -91,7 +82,7 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
 
   let currentY = 10 + logoH + 15;
 
-  // 2. INFOS VENDEUR & FACTURE
+  // 2. INFOS VENDEUR
   doc.setFontSize(10);
   doc.setTextColor(primaryColor); doc.setFont("helvetica", "bold");
   doc.text("Informations Vendeur", 14, currentY);
@@ -113,26 +104,30 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     : [`${ship.first_name || ''} ${ship.last_name || ''}`, ship.address_line1, `${ship.postal_code || ''} ${ship.city || ''}`, ship.country || 'France'];
   doc.text(addrLines, 110, currentY + 6);
 
-  // 4. TABLEAU
+  // 4. TABLEAU DES PRODUITS
   const items = order.items || order.order_items || [];
   const tableRows = items.map((item: any) => {
-    let nameAndDetails = item.product_name || 'Produit';
+    let productName = item.product_name || 'Produit';
     const subLines: string[] = [];
 
-    // Affichage de la Ref (SKU)
-    if (item.sku && item.sku !== 'null' && item.sku !== 'undefined') {
-        subLines.push(`Ref : ${String(item.sku).toUpperCase()}`);
+    // --- AFFICHAGE DE LA RÉFÉRENCE (SKU) ---
+    // On nettoie les valeurs parasites
+    const cleanSku = String(item.sku || "").trim();
+    if (cleanSku && cleanSku !== 'null' && cleanSku !== 'undefined' && cleanSku !== '') {
+        subLines.push(`Ref : ${cleanSku.toUpperCase()}`);
     }
 
-    // Affichage des Variations nettoyées
+    // --- AFFICHAGE DES VARIATIONS ---
     const vars = formatVariationLines(item.variation_data);
     subLines.push(...vars);
 
-    if (subLines.length > 0) nameAndDetails += "\n" + subLines.join("\n");
+    if (subLines.length > 0) {
+        productName += "\n" + subLines.join("\n");
+    }
 
     const p = parseFloat(item.price || 0);
     const q = item.quantity || 1;
-    return [nameAndDetails, q, `${p.toFixed(2)} €`, `${(p * q).toFixed(2)} €`];
+    return [productName, q, `${p.toFixed(2)} €`, `${(p * q).toFixed(2)} €`];
   });
 
   // @ts-ignore

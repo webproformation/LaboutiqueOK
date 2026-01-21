@@ -271,10 +271,16 @@ export default function CheckoutPage() {
 
       if (orderError) throw orderError;
 
-      // --- CORRECTIF : CAPTURE AGRESSIVE DU SKU ---
+// --- CORRECTIF : CAPTURE DU SKU DE LA VARIATION ---
       const orderItems = cart.map(item => {
-        // On cherche le SKU partout où il peut se cacher dans l'objet panier
-        const finalSku = item.sku || item.variationSku || item.product_sku || (item.variation && item.variation.sku) || null;
+        // On cherche le SKU partout où il peut être (variation, produit parent, ou champ direct)
+        const finalSku = 
+          item.sku || 
+          item.variation_sku || 
+          item.variationSku || 
+          item.product_sku || 
+          (item.variation && item.variation.sku) || 
+          null;
         
         return {
           order_id: newOrder.id,
@@ -284,7 +290,7 @@ export default function CheckoutPage() {
           price: String(item.price || 0),
           quantity: item.quantity || 1,
           variation_data: item.selectedAttributes || item.variation_data || null,
-          sku: finalSku // <-- C'est cette ligne qui sauve l'info en base de données !
+          sku: finalSku // <-- C'est cette ligne qui garantit l'affichage sur la facture !
         };
       });
 
