@@ -271,21 +271,20 @@ export default function CheckoutPage() {
 
       if (orderError) throw orderError;
 
-// NOUVEAU CODE À COLLER À LA PLACE :
+// --- CORRECTIF : CAPTURE DU SKU DEPUIS LE PANIER ---
       const orderItems = cart.map(item => {
-        // On cherche le SKU dans l'objet item, ou dans sa variation, ou ses attributs
+        // On cherche le SKU partout : dans la variation, dans l'item parent, ou dans les attributs
         const finalSku = 
           item.sku || 
           item.variationSku || 
           (item.selectedVariation && item.selectedVariation.sku) || 
           (item.variation && item.variation.sku) ||
-          (item.attributes && item.attributes.sku) || 
-          item.product_sku || 
+          (item.attributes && item.attributes.sku) ||
           null;
-        
-        // On s'assure d'avoir les données de variation complètes (l'objet JSON)
-        const finalVariationData = item.selectedAttributes || item.variation_data || item.attributes || null;
 
+        // On sauvegarde les attributs complets (nécessaire pour le PDF)
+        const finalVariationData = item.selectedAttributes || item.variation_data || item.attributes || null;
+        
         return {
           order_id: newOrder.id,
           product_name: item.name || 'Produit',
@@ -293,8 +292,8 @@ export default function CheckoutPage() {
           product_image: item.image?.sourceUrl || item.variationImage?.sourceUrl || '',
           price: String(item.price || 0),
           quantity: item.quantity || 1,
-          variation_data: finalVariationData, // C'est ça que le PDF va décoder
-          sku: finalSku // C'est ça qui affichera la Ref
+          variation_data: finalVariationData,
+          sku: finalSku // <-- C'est cette ligne qui permet l'affichage "Ref" sur la facture
         };
       });
       
