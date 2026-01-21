@@ -20,7 +20,7 @@ const loadImage = (url: string): Promise<{ data: string; width: number; height: 
   });
 };
 
-// --- LA FONCTION MAGIQUE POUR VOS ATTRIBUTS ---
+// --- LE DÉCODEUR MAGIQUE (Pour Couleur, Taille et Ref) ---
 const formatVariationLines = (data: any): string[] => {
     const lines: string[] = [];
     if (!data) return lines;
@@ -30,30 +30,39 @@ const formatVariationLines = (data: any): string[] => {
         try { obj = JSON.parse(data); } catch (e) { return [data]; }
     }
 
-    // On parcourt chaque clé (ex: "tailles", "couleurs-principales")
-    Object.entries(obj).forEach(([key, val]: [string, any]) => {
+    const processPair = (key: string, val: any) => {
         const k = key.toLowerCase();
-        if (k.includes('id') || k === 'sku' || !isNaN(Number(key))) return;
+        if (k === 'id' || k === 'sku' || !isNaN(Number(key))) return;
 
-        // 1. On nettoie le nom de l'étiquette
         let label = key;
         if (k.includes('couleur')) label = 'Couleur';
         else if (k.includes('taille')) label = 'Taille';
         else label = key.charAt(0).toUpperCase() + key.slice(1).replace(/-/g, ' ');
 
-        // 2. On cherche la valeur (.name est crucial pour votre SQL !)
-        let displayVal = "";
+        let value = val;
+        // Si c'est un objet (ex: {"name": "Bleu"}), on prend le .name
         if (val && typeof val === 'object') {
-            displayVal = val.name || val.value || val.option || val.label || "";
-        } else {
-            displayVal = String(val);
+            value = val.name || val.value || val.option || val.label || "";
         }
-
-        if (displayVal && displayVal !== 'undefined' && displayVal.trim() !== "") {
-            lines.push(`${label} : ${displayVal.toUpperCase()}`);
+        
+        if (value && value !== 'undefined' && String(value).trim() !== "") {
+            lines.push(`${label} : ${String(value).toUpperCase()}`);
         }
-    });
+    };
 
+    if (Array.isArray(obj)) {
+        obj.forEach(item => {
+            if (typeof item === 'object') {
+                if (item.name && (item.option || item.value)) {
+                    processPair(item.name, item.option || item.value);
+                } else {
+                    Object.entries(item).forEach(([k, v]) => processPair(k, v));
+                }
+            }
+        });
+    } else if (typeof obj === 'object') {
+        Object.entries(obj).forEach(([k, v]) => processPair(k, v));
+    }
     return lines;
 };
 
@@ -74,80 +83,119 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
 
   let currentY = 10 + logoH + 15;
 
-  // 2. EN-TÊTE
+  // 2. INFOS VENDEUR & FACTURE (CÔTE À CÔTE)
   doc.setFontSize(10);
   doc.setTextColor(primaryColor); doc.setFont("helvetica", "bold");
   doc.text("Informations Vendeur", 14, currentY);
   doc.text("FACTURE", 110, currentY);
 
   doc.setTextColor(blackColor); doc.setFont("helvetica", "normal");
-  doc.text(["MORGANE DEWANIN", "1062 rue d'Armentières", "59850 Nieppe", "TVA: FR16907889802"], 14, currentY + 6);
-  doc.text([`N° ${invoiceNumber}`, `Date : ${format(new Date(order.created_at || new Date()), 'dd MMMM yyyy', { locale: fr })}`], 110, currentY + 6);
+  doc.text([
+    "MORGANE DEWANIN",
+    "1062 rue d'Armentières",
+    "59850 Nieppe, France",
+    "Email: contact@laboutiquedemorgane.com",
+    "SIREN: 907 889 802",
+    "TVA: FR16907889802"
+  ], 14, currentY + 6);
 
-  // 3. ADRESSE
-  currentY += 30;
+  doc.text([
+    `N° ${invoiceNumber}`,
+    `Date : ${format(new Date(order.created_at || new Date()), 'dd MMMM yyyy', { locale: fr })}`
+  ], 110, currentY + 6);
+
+  // 3. ADRESSE DE LIVRAISON
+  currentY += 40;
   doc.setTextColor(primaryColor); doc.setFont("helvetica", "bold");
   doc.text("Adresse de Livraison", 110, currentY);
   doc.setTextColor(blackColor); doc.setFont("helvetica", "normal");
   
   const ship = order.relay_point_data || order.shipping_address || {};
-  const addrLines = order.relay_point_data 
-    ? [ship.name, ship.address, "France (POINT RELAIS)"]
-    : [`${ship.first_name || ''} ${ship.last_name || ''}`, ship.address_line1, `${ship.postal_code || ''} ${ship.city || ''}`, ship.country || 'France'];
+  let addrLines = [];
+  if (order.relay_point_data) {
+      addrLines = [ship.name, ship.address, "France (POINT RELAIS)"];
+  } else {
+      addrLines = [
+        `${ship.first_name || ''} ${ship.last_name || ''}`,
+        ship.address_line1,
+        ship.address_line2 || '',
+        `${ship.postal_code || ''} ${ship.city || ''}`,
+        ship.country || 'France'
+      ].filter(l => l !== '');
+  }
   doc.text(addrLines, 110, currentY + 6);
 
-  // 4. TABLEAU
+  // 4. TABLEAU DES PRODUITS
   const items = order.items || order.order_items || [];
   const tableRows = items.map((item: any) => {
-    let productName = item.product_name || 'Produit';
+    let nameAndDetails = item.product_name || 'Produit';
     const subLines: string[] = [];
 
-    // --- REF (SKU) ---
+    // SKU (Ref)
     const cleanSku = String(item.sku || "").trim();
-    if (cleanSku && cleanSku !== 'null' && cleanSku !== 'undefined' && cleanSku !== '') {
+    if (cleanSku && cleanSku !== 'null' && cleanSku !== 'undefined') {
         subLines.push(`Ref : ${cleanSku.toUpperCase()}`);
     }
 
-    // --- VARIATIONS ---
+    // Variations (Couleur, Taille)
     const vars = formatVariationLines(item.variation_data);
     subLines.push(...vars);
 
-    if (subLines.length > 0) productName += "\n" + subLines.join("\n");
+    if (subLines.length > 0) nameAndDetails += "\n" + subLines.join("\n");
 
     const p = parseFloat(item.price || 0);
     const q = item.quantity || 1;
-    return [productName, q, `${p.toFixed(2)} €`, `${(p * q).toFixed(2)} €`];
+    return [nameAndDetails, q, `${p.toFixed(2)} €`, `${(p * q).toFixed(2)} €`];
   });
 
   // @ts-ignore
   autoTable(doc, {
-    startY: currentY + 35,
+    startY: currentY + 45,
     head: [["Produit", "Qté", "Prix Unit.", "Total"]],
     body: tableRows,
     theme: 'grid',
     styles: { fontSize: 9, cellPadding: 4, valign: 'top' },
-    headStyles: { fillColor: [212, 175, 55], textColor: 255 },
+    headStyles: { fillColor: [212, 175, 55], textColor: 255, fontStyle: 'bold' },
     columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 15, halign: 'center' }, 2: { cellWidth: 25, halign: 'right' }, 3: { cellWidth: 25, halign: 'right' } }
   });
 
-  // 5. TOTAUX
+  // 5. MODE DE PAIEMENT & TOTAUX
   // @ts-ignore
   let finalY = doc.lastAutoTable.finalY + 10;
-  const drawTotal = (label: string, val: string, y: number, color = blackColor, size = 10) => {
+  
+  doc.setFontSize(9); doc.setTextColor(blackColor);
+  let payMethod = order.payment_method_name || order.payment_method || 'Carte Bancaire';
+  doc.text(`Mode de paiement : ${payMethod}`, 14, finalY);
+
+  const drawTotal = (label: string, val: string, y: number, color = blackColor, size = 10, bold = false) => {
     doc.setFontSize(size); doc.setTextColor(color);
+    doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.text(label, 140, y);
     doc.text(val, 195, y, { align: 'right' });
   };
 
-  drawTotal("Sous-total :", `${parseFloat(order.subtotal || 0).toFixed(2)} €`, finalY);
-  if (parseFloat(order.shipping_cost || 0) > 0) drawTotal("Livraison :", `${parseFloat(order.shipping_cost || 0).toFixed(2)} €`, finalY += 6);
-  if (parseFloat(order.discount_amount || 0) > 0) drawTotal("Réduction :", `-${parseFloat(order.discount_amount || 0).toFixed(2)} €`, finalY += 6, [0, 150, 0]);
+  const subTotal = parseFloat(order.subtotal || 0);
+  const shipCost = parseFloat(order.shipping_cost || 0);
+  const insurance = parseFloat(order.insurance_cost || 0);
+  const discount = parseFloat(order.discount_amount || 0);
+  const wallet = parseFloat(order.wallet_amount_used || 0);
+  const total = parseFloat(order.total || 0);
+
+  drawTotal("Sous-total :", `${subTotal.toFixed(2)} €`, finalY);
+  
+  // On affiche la livraison même si elle est à 0€ (pour la clarté boutique)
+  drawTotal("Livraison :", `${shipCost.toFixed(2)} €`, finalY += 6);
+  
+  if (insurance > 0) drawTotal("Assurance :", `${insurance.toFixed(2)} €`, finalY += 6);
+  if (discount > 0) drawTotal("Réduction :", `-${discount.toFixed(2)} €`, finalY += 6, [0, 150, 0]);
+  if (wallet > 0) drawTotal("Cagnotte :", `-${wallet.toFixed(2)} €`, finalY += 6, primaryColor);
   
   doc.setDrawColor(200); doc.line(130, finalY + 2, 195, finalY + 2);
-  drawTotal("TOTAL TTC :", `${parseFloat(order.total || 0).toFixed(2)} €`, finalY += 8, primaryColor, 12);
+  drawTotal("TOTAL TTC :", `${total.toFixed(2)} €`, finalY += 8, primaryColor, 12, true);
 
-  doc.setFontSize(8); doc.setTextColor(150);
-  doc.text("MORGANE DEWANIN - SIREN 907 889 802 - TVA FR16907889802", 105, 285, { align: "center" });
+  // 6. PIED DE PAGE
+  doc.setFontSize(8); doc.setTextColor(150); doc.setFont("helvetica", "normal");
+  doc.text("MORGANE DEWANIN - SAS au capital variable - SIREN 907 889 802 - TVA FR16907889802", 105, 285, { align: "center" });
 
   return doc;
 };

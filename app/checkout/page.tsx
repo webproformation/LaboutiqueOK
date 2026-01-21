@@ -271,17 +271,17 @@ export default function CheckoutPage() {
 
       if (orderError) throw orderError;
 
-// --- CORRECTIF DE CAPTURE DU SKU ET DES ATTRIBUTS ---
-      const orderItems = cart.map(item => {
-        // On essaie de récupérer le SKU de la variation sélectionnée
+const orderItems = cart.map(item => {
+        // On explore toutes les sources possibles du SKU dans l'objet panier
         const finalSku = 
           item.sku || 
           item.variationSku || 
-          item.variation_sku ||
-          (item.selectedVariation && item.selectedVariation.sku) ||
+          (item.selectedVariation && item.selectedVariation.sku) || 
+          (item.variation && item.variation.sku) ||
+          (item.attributes && item.attributes.sku) ||
           null;
 
-        // On s'assure d'enregistrer les attributs complets (JSON) pour le PDF
+        // On enregistre les données brutes des attributs pour que le PDF puisse les décoder
         const finalVariationData = item.selectedAttributes || item.variation_data || item.attributes || null;
         
         return {
