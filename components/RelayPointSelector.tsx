@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MapPin, Search, Loader2, Clock, Navigation } from 'lucide-react';
+import { MapPin, Search, Loader2, Clock } from 'lucide-react';
 
 // --- TYPES ---
 interface RelayPoint {
@@ -53,31 +53,25 @@ export function RelayPointSelector({ provider, onSelect, selectedPoint, customer
     'gls': 'GLS Relais'
   };
 
-  // --- 1. INITIALISATION À L'OUVERTURE (CORRECTION DU BUG DE SAISIE) ---
+  // --- 1. INITIALISATION À L'OUVERTURE ---
   useEffect(() => {
     if (open) {
-      // On initialise les champs UNIQUEMENT quand on ouvre le popup.
-      // Cela évite d'écraser ce que l'utilisateur tape si le parent se re-rend.
       const initialZip = customerAddress?.postalCode || '';
       const initialCity = customerAddress?.city || '';
       
       setSearchPostalCode(initialZip);
       setSearchCity(initialCity);
 
-      // Si on a un code postal et qu'on n'a pas encore cherché, on lance la recherche auto
       if (initialZip && relayPoints.length === 0) {
-        // Petite pause pour s'assurer que l'état est mis à jour avant de chercher
         setTimeout(() => handleAutoSearch(initialZip, initialCity), 100);
       }
 
-      // Chargement de la carte
       if (!mapLoaded) {
         loadGoogleMaps();
       }
     }
-  }, [open]); // Dépendance uniquement sur 'open' pour éviter les conflits de frappe
+  }, [open]); 
 
-  // Fonction séparée pour la recherche auto à l'ouverture
   const handleAutoSearch = (zip: string, city: string) => {
       searchRelayPoints(zip, city);
   };
@@ -124,7 +118,6 @@ export function RelayPointSelector({ provider, onSelect, selectedPoint, customer
 
     const defaultCenter = { lat: 48.8566, lng: 2.3522 };
     
-    // Centre sur le premier point ou sur Paris par défaut
     const center = relayPoints.length > 0 && relayPoints[0].latitude && relayPoints[0].longitude
         ? { lat: relayPoints[0].latitude, lng: relayPoints[0].longitude }
         : defaultCenter;
@@ -139,15 +132,12 @@ export function RelayPointSelector({ provider, onSelect, selectedPoint, customer
     } else {
         mapRef.current.setCenter(center);
         mapRef.current.setZoom(relayPoints.length > 0 ? 13 : 11);
-        // Important: redimensionner la carte car elle était cachée (display: none ou dialog)
         (window as any).google.maps.event.trigger(mapRef.current, 'resize');
     }
 
-    // Nettoyage des anciens marqueurs
     markersRef.current.forEach((marker) => marker.setMap(null));
     markersRef.current = [];
 
-    // Ajout des nouveaux marqueurs
     relayPoints.forEach((point) => {
         if (point.latitude && point.longitude) {
             const marker = new (window as any).google.maps.Marker({
@@ -167,13 +157,11 @@ export function RelayPointSelector({ provider, onSelect, selectedPoint, customer
   };
 
   // --- 3. RECHERCHE ---
-  // Accepte des paramètres optionnels pour la recherche auto
   const searchRelayPoints = async (overrideZip?: string, overrideCity?: string) => {
     const zipToUse = overrideZip !== undefined ? overrideZip : searchPostalCode;
     const cityToUse = overrideCity !== undefined ? overrideCity : searchCity;
 
     if (!zipToUse) {
-      // On ne notifie pas l'erreur en mode auto pour ne pas spammer
       if (overrideZip === undefined) toast.error('Veuillez saisir un code postal');
       return;
     }
@@ -222,10 +210,15 @@ export function RelayPointSelector({ provider, onSelect, selectedPoint, customer
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" className="w-full bg-white border-2 hover:bg-gray-50 transition-colors">
-          <MapPin className="h-4 w-4 mr-2 text-[#D4AF37]" />
+        {/* --- MODIFICATION ICI : BOUTON DORÉ ET PLUS GROS --- */}
+        <Button 
+          type="button" 
+          variant="default" 
+          className="w-full h-12 bg-[#D4AF37] hover:bg-[#b8933d] text-white text-lg font-semibold shadow-md transition-all hover:scale-[1.01] rounded-xl flex items-center justify-center gap-3 border-0"
+        >
+          <MapPin className="h-5 w-5 text-white" />
           {selectedPoint ? (
-            <span className="truncate">Modifier : {selectedPoint.name} ({selectedPoint.city})</span>
+            <span className="truncate">Modifier : {selectedPoint.name}</span>
           ) : (
             <span>Choisir un point {providerNames[provider]}</span>
           )}
@@ -329,7 +322,6 @@ export function RelayPointSelector({ provider, onSelect, selectedPoint, customer
                       className="group border border-gray-100 p-3 rounded-lg hover:border-[#D4AF37] hover:bg-[#FFF9F0] transition-all cursor-pointer shadow-sm hover:shadow-md"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        {/* Icône et Info */}
                         <div className="flex items-start gap-3 flex-1 min-w-0">
                             <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 group-hover:bg-[#D4AF37] group-hover:text-white transition-colors">
                                 <MapPin className="h-4 w-4" />
@@ -355,7 +347,6 @@ export function RelayPointSelector({ provider, onSelect, selectedPoint, customer
                             </div>
                         </div>
 
-                        {/* Bouton Sélection */}
                         <div className="flex flex-col justify-center">
                              <Button
                                 size="sm"
