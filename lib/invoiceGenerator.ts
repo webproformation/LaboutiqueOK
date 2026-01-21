@@ -14,7 +14,7 @@ const getTotal = (order: any) => {
   return parseFloat(val);
 };
 
-// Chargeur d'image robuste qui retourne aussi les dimensions
+// Chargeur d'image robuste
 const loadImage = (url: string): Promise<{ data: string; width: number; height: number }> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -31,7 +31,6 @@ const loadImage = (url: string): Promise<{ data: string; width: number; height: 
         }
         ctx.drawImage(img, 0, 0);
         const dataURL = canvas.toDataURL('image/png');
-        // On renvoie l'image ET ses dimensions originales
         resolve({ data: dataURL, width: img.width, height: img.height });
       } catch (e) {
         reject(e);
@@ -42,71 +41,85 @@ const loadImage = (url: string): Promise<{ data: string; width: number; height: 
   });
 };
 
-// Fonction pour formater les variations en texte lisible
-const formatVariations = (variationData: any): string => {
-    if (!variationData) return '';
+// --- NOUVELLE FONCTION DE NETTOYAGE PUISSANTE ---
+const formatVariations = (data: any): string => {
+    if (!data) return '';
+
+    // Fonction récursive pour extraire le texte propre
+    const cleanValue = (val: any): string => {
+        if (val === null || val === undefined) return '';
+        
+        // Si c'est du texte ou un nombre, on le garde
+        if (typeof val !== 'object') return String(val);
+        
+        // Si c'est un tableau, on nettoie chaque élément
+        if (Array.isArray(val)) {
+            return val.map(cleanValue).filter(v => v && v !== '[object Object]').join(', ');
+        }
+
+        // Si c'est un objet, on parcourt ses clés
+        return Object.entries(val)
+            .map(([key, value]) => {
+                // On ignore les clés numériques automatiques (0, 1, 2...)
+                if (!isNaN(Number(key))) return cleanValue(value);
+                
+                const cleanV = cleanValue(value);
+                if (!cleanV || cleanV === '[object Object]') return '';
+                
+                return `${key}: ${cleanV}`;
+            })
+            .filter(v => v) // Enlève les vides
+            .join(', ');
+    };
+
     try {
-        // Si c'est déjà un objet
-        if (typeof variationData === 'object' && !Array.isArray(variationData)) {
-            return Object.entries(variationData)
-                .map(([key, value]) => `${key}: ${value}`)
-                .join(', ');
+        // Si c'est une string JSON, on la parse d'abord
+        if (typeof data === 'string' && (data.startsWith('{') || data.startsWith('['))) {
+             try { data = JSON.parse(data); } catch (e) {}
         }
-        // Si c'est une string JSON
-        if (typeof variationData === 'string') {
-             const parsed = JSON.parse(variationData);
-             return Object.entries(parsed)
-                .map(([key, value]) => `${key}: ${value}`)
-                .join(', ');
-        }
+        return cleanValue(data);
     } catch (e) {
         return '';
     }
-    return '';
 };
 
 export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
-  // @ts-ignore - Ignore l'erreur de type sur new jsPDF()
+  // @ts-ignore
   const doc = new jsPDF();
   
   const primaryColor = "#D4AF37"; // OR
   const blackColor = "#000000";
   
-  // --- 1. LOGO BANNIÈRE (HAUT DE PAGE) ---
+  // --- 1. LOGO BANNIÈRE ---
   let logoLoaded = false;
-  let logoHeightOnPdf = 40; // Valeur par défaut si pas d'image
+  let logoHeightOnPdf = 40;
 
   try {
     const logoUrl = '/lbdm-logobdc.png'; 
     const imageInfo = await loadImage(logoUrl);
     
     if (imageInfo.data && imageInfo.data.startsWith('data:image')) {
-        // Calcul pour garder les proportions sur 180mm de large
         const pdfLogoWidth = 180; 
         const ratio = imageInfo.height / imageInfo.width;
         logoHeightOnPdf = pdfLogoWidth * ratio;
-
         doc.addImage(imageInfo.data, 'PNG', 15, 10, pdfLogoWidth, logoHeightOnPdf); 
         logoLoaded = true;
     }
   } catch (error) {
-    console.warn("Le logo n'a pas pu être chargé (fallback texte utilisé) :", error);
-    logoLoaded = false;
+    console.warn("Logo non chargé:", error);
   }
 
-  // Fallback si le logo n'est pas chargé
   if (!logoLoaded) {
     doc.setFontSize(22);
     doc.setTextColor(primaryColor);
     doc.setFont("helvetica", "bold");
     doc.text("BOUTIQUE De Morgane", 105, 30, { align: "center" });
-    logoHeightOnPdf = 30; // On ajuste l'espace pris
+    logoHeightOnPdf = 30;
   }
 
-  // Position Y de départ dynamique (dépend de la hauteur du logo)
   let currentY = 10 + logoHeightOnPdf + 15; 
 
-  // --- 2. INFORMATIONS VENDEUR (Gauche) ---
+  // --- 2. INFOS VENDEUR ---
   doc.setFontSize(11);
   doc.setTextColor(primaryColor); 
   doc.setFont("helvetica", "bold");
@@ -124,7 +137,7 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.text("SIREN: 907 889 802", 14, currentY + 31);
   doc.text("TVA: FR16907889802", 14, currentY + 36);
 
-  // --- 3. BLOC FACTURE & ADRESSE (Droite) ---
+  // --- 3. BLOC FACTURE & ADRESSE ---
   const rightColumnX = 110;
   
   doc.setFontSize(16);
@@ -136,9 +149,9 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.setTextColor(blackColor);
   doc.text(`N° ${invoiceNumber}`, rightColumnX, currentY + 6);
   
-  doc.setFont("helvetica", "normal");
   const today = new Date();
   const dateStr = format(today, 'dd MMMM yyyy', { locale: fr });
+  doc.setFont("helvetica", "normal");
   doc.text(`Date : ${dateStr}`, rightColumnX, currentY + 11);
 
   const yAddress = currentY + 25;
@@ -151,7 +164,6 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.setTextColor(blackColor);
   doc.setFont("helvetica", "bold");
   
-  // Gestion intelligente de l'adresse
   let shipName = "Client";
   let shipAddr1 = "";
   let shipAddr2 = "";
@@ -172,7 +184,6 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
 
   doc.text(shipName, rightColumnX, yAddress + 6);
   doc.setFont("helvetica", "normal");
-  
   doc.text(shipAddr1, rightColumnX, yAddress + 11);
   
   let addrOffset = 16;
@@ -186,32 +197,22 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   }
   doc.text(shipCountry, rightColumnX, yAddress + addrOffset);
 
-  // --- 4. TABLEAU (Fond Doré) ---
-  // Calcul de la position de départ du tableau pour qu'il ne chevauche pas
+  // --- 4. TABLEAU ---
   const tableStartY = Math.max(currentY + 50, yAddress + addrOffset + 15);
-
   const tableRows: any[] = [];
   const items = order.items || order.order_items || []; 
   
   items.forEach((item: any) => {
-    // Construction du nom du produit avec ses détails
     let productName = item.product_name || 'Produit';
     const details: string[] = [];
 
-    // Ajout du SKU
-    if (item.sku) {
-        details.push(`Réf: ${item.sku}`);
-    }
+    if (item.sku) details.push(`Réf: ${item.sku}`);
 
-    // Ajout des variations (Taille, Couleur...)
+    // Utilisation de la nouvelle fonction de nettoyage
     const variations = formatVariations(item.variation_data);
-    if (variations) {
-        details.push(variations);
-    }
+    if (variations) details.push(variations);
 
-    if (details.length > 0) {
-        productName += `\n${details.join(' - ')}`;
-    }
+    if (details.length > 0) productName += `\n${details.join(' - ')}`;
 
     const price = getPrice(item); 
     const quantity = item.quantity || 1;
@@ -231,20 +232,8 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     head: [["Produit", "Qté", "Prix Unit.", "Total"]],
     body: tableRows,
     theme: 'grid',
-    styles: { 
-        fontSize: 10, 
-        cellPadding: 4, 
-        textColor: [0, 0, 0],
-        lineColor: [200, 200, 200],
-        lineWidth: 0.1,
-        valign: 'middle'
-    },
-    headStyles: { 
-        fillColor: [212, 175, 55], // DORÉ
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        halign: 'center'
-    },
+    styles: { fontSize: 10, cellPadding: 4, textColor: [0, 0, 0], lineColor: [200, 200, 200], lineWidth: 0.1, valign: 'middle' },
+    headStyles: { fillColor: [212, 175, 55], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
     columnStyles: { 
         0: { cellWidth: 'auto' }, 
         1: { cellWidth: 20, halign: 'center' }, 
@@ -256,16 +245,10 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   // --- 5. TOTAUX ---
   // @ts-ignore
   let finalY = doc.lastAutoTable.finalY + 10;
-  
-  // Vérification saut de page pour les totaux
-  if (finalY > 250) {
-      doc.addPage();
-      finalY = 20;
-  }
+  if (finalY > 250) { doc.addPage(); finalY = 20; }
 
   const xLabel = 140;
   const xValue = 195;
-  
   const subTotal = typeof order.subtotal === 'number' ? order.subtotal : parseFloat(order.subtotal || 0);
   const shipping = typeof order.shipping_cost === 'number' ? order.shipping_cost : parseFloat(order.shipping_cost || 0);
   const discount = typeof order.discount_amount === 'number' ? order.discount_amount : parseFloat(order.discount_amount || 0);
@@ -273,7 +256,6 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
 
   doc.setFontSize(10);
   doc.setTextColor(blackColor);
-  
   doc.text("Sous-total :", xLabel, finalY);
   doc.text(`${subTotal.toFixed(2)} €`, xValue, finalY, { align: 'right' });
   finalY += 6;
@@ -285,7 +267,7 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   }
 
   if (discount > 0) {
-      doc.setTextColor(0, 150, 0); // Vert
+      doc.setTextColor(0, 150, 0); 
       doc.text("Réduction :", xLabel, finalY);
       doc.text(`-${discount.toFixed(2)} €`, xValue, finalY, { align: 'right' });
       finalY += 6;
@@ -310,14 +292,9 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
   doc.setTextColor(100);
   
   let paymentText = order.payment_method_name || 'Carte Bancaire';
-  if (order.payment_method_id) {
-      if (order.payment_method && typeof order.payment_method === 'string') {
-          paymentText = order.payment_method;
-      }
-  }
+  if (order.payment_method && typeof order.payment_method === 'string') paymentText = order.payment_method;
   
   doc.text(`Mode de paiement : ${paymentText}`, 14, finalY + 15);
-  
   doc.text("MORGANE DEWANIN - SAS au capital variable - SIREN 907 889 802 - TVA FR16907889802", 105, pageHeight - 10, { align: "center" });
 
   return doc;

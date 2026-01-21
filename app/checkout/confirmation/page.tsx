@@ -62,8 +62,17 @@ function OrderConfirmationContent() {
   const orderId = searchParams.get('order_id') || searchParams.get('order') || searchParams.get('paypal');
   const redirectStatus = searchParams.get('redirect_status');
 
+// --- 1. SCROLL AUTOMATIQUE AGRESSIF ---
   useEffect(() => {
+    // Scroll immédiat
     window.scrollTo(0, 0);
+    
+    // Scroll forcé après un court délai pour contourner la mémoire du navigateur
+    const timer = setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
