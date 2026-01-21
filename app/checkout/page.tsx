@@ -271,16 +271,18 @@ export default function CheckoutPage() {
 
       if (orderError) throw orderError;
 
-const orderItems = cart.map(item => {
-        // Recherche exhaustive du SKU dans l'objet panier
+// --- CORRECTIF DE CAPTURE DU SKU ET DES ATTRIBUTS ---
+      const orderItems = cart.map(item => {
+        // On essaie de récupérer le SKU de la variation sélectionnée
         const finalSku = 
           item.sku || 
-          item.variation_sku || 
           item.variationSku || 
-          (item.selectedVariation && item.selectedVariation.sku) || 
-          (item.variation && item.variation.sku) ||
-          (item.attributes && item.attributes.sku) ||
+          item.variation_sku ||
+          (item.selectedVariation && item.selectedVariation.sku) ||
           null;
+
+        // On s'assure d'enregistrer les attributs complets (JSON) pour le PDF
+        const finalVariationData = item.selectedAttributes || item.variation_data || item.attributes || null;
         
         return {
           order_id: newOrder.id,
@@ -289,7 +291,7 @@ const orderItems = cart.map(item => {
           product_image: item.image?.sourceUrl || item.variationImage?.sourceUrl || '',
           price: String(item.price || 0),
           quantity: item.quantity || 1,
-          variation_data: item.selectedAttributes || item.variation_data || item.attributes || null,
+          variation_data: finalVariationData,
           sku: finalSku 
         };
       });

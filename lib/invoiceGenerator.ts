@@ -20,53 +20,40 @@ const loadImage = (url: string): Promise<{ data: string; width: number; height: 
   });
 };
 
-// --- NETTOYAGE EXPERT DES VARIATIONS (Supporte "couleurs-principales", etc.) ---
+// --- LA FONCTION MAGIQUE POUR VOS ATTRIBUTS ---
 const formatVariationLines = (data: any): string[] => {
     const lines: string[] = [];
     if (!data) return lines;
 
     let obj = data;
     if (typeof data === 'string') {
-        try { 
-            if (data.startsWith('{') || data.startsWith('[')) obj = JSON.parse(data); 
-            else return [data];
-        } catch (e) { return [data]; }
+        try { obj = JSON.parse(data); } catch (e) { return [data]; }
     }
 
-    const processEntry = (key: string, val: any) => {
+    // On parcourt chaque clé (ex: "tailles", "couleurs-principales")
+    Object.entries(obj).forEach(([key, val]: [string, any]) => {
         const k = key.toLowerCase();
-        // On ignore les clés techniques
         if (k.includes('id') || k === 'sku' || !isNaN(Number(key))) return;
 
-        // 1. Traduction des labels techniques
+        // 1. On nettoie le nom de l'étiquette
         let label = key;
         if (k.includes('couleur')) label = 'Couleur';
         else if (k.includes('taille')) label = 'Taille';
         else label = key.charAt(0).toUpperCase() + key.slice(1).replace(/-/g, ' ');
 
-        // 2. Extraction de la valeur (Gère l'objet {"name": "Bleu"})
+        // 2. On cherche la valeur (.name est crucial pour votre SQL !)
         let displayVal = "";
         if (val && typeof val === 'object') {
-            displayVal = val.name || val.option || val.value || val.label || "";
+            displayVal = val.name || val.value || val.option || val.label || "";
         } else {
             displayVal = String(val);
         }
 
         if (displayVal && displayVal !== 'undefined' && displayVal.trim() !== "") {
-            // Valeur en Majuscules pour simuler le gras
             lines.push(`${label} : ${displayVal.toUpperCase()}`);
         }
-    };
+    });
 
-    if (Array.isArray(obj)) {
-        obj.forEach(item => {
-            if (typeof item === 'object') {
-                Object.entries(item).forEach(([k, v]) => processEntry(k, v));
-            }
-        });
-    } else if (typeof obj === 'object') {
-        Object.entries(obj).forEach(([k, v]) => processEntry(k, v));
-    }
     return lines;
 };
 
@@ -87,7 +74,7 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
 
   let currentY = 10 + logoH + 15;
 
-  // 2. INFOS VENDEUR
+  // 2. EN-TÊTE
   doc.setFontSize(10);
   doc.setTextColor(primaryColor); doc.setFont("helvetica", "bold");
   doc.text("Informations Vendeur", 14, currentY);
@@ -115,13 +102,13 @@ export const generateInvoicePDF = async (order: any, invoiceNumber: string) => {
     let productName = item.product_name || 'Produit';
     const subLines: string[] = [];
 
-    // REF (SKU)
+    // --- REF (SKU) ---
     const cleanSku = String(item.sku || "").trim();
     if (cleanSku && cleanSku !== 'null' && cleanSku !== 'undefined' && cleanSku !== '') {
         subLines.push(`Ref : ${cleanSku.toUpperCase()}`);
     }
 
-    // VARIATIONS
+    // --- VARIATIONS ---
     const vars = formatVariationLines(item.variation_data);
     subLines.push(...vars);
 
