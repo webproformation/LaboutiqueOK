@@ -39,16 +39,28 @@ export function LiveProductOverlay() {
           filter: `live_stream_id=eq.${activeLiveId}`, 
         },
         async (payload) => {
-          // On a reçu un produit ! On charge ses infos
-          const { data } = await supabase
-            .from('products')
-            .select('*')
-            .eq('id', payload.new.product_id)
+          // --- CHANGEMENT MAJEUR ICI ---
+          // On ne lit plus juste la table 'products', mais la table 'live_shared_products'
+          // pour récupérer le PRIX PROMO défini par l'admin
+          const { data: sharedData } = await supabase
+            .from('live_shared_products')
+            .select('*, products(*)') // On récupère le partage + les infos produit
+            .eq('id', payload.new.id)
             .single();
 
-          if (data) {
-            setCurrentProduct(data);
+          if (sharedData && sharedData.products) {
+            // On construit un objet "Intelligent" qui priorise le prix du live
+            const productToDisplay = {
+               ...sharedData.products,
+               // Le prix affiché est le prix promo du live, sinon le prix normal
+               price: sharedData.promo_price || sharedData.products.sale_price || sharedData.products.regular_price,
+               // On garde le prix d'origine pour l'afficher barré
+               original_price: sharedData.original_price || sharedData.products.regular_price
+            };
+
+            setCurrentProduct(productToDisplay);
             setIsVisible(true);
+            
             // Auto-hide après 15s
             setTimeout(() => setIsVisible(false), 15000);
           }
@@ -63,7 +75,7 @@ export function LiveProductOverlay() {
     const { data } = await supabase
       .from('live_streams')
       .select('id')
-      .eq('status', 'live') // On ne cherche que les lives ACTIFS
+      .eq('status', 'live')
       .maybeSingle();
     
     setActiveLiveId(data?.id || null);
@@ -71,7 +83,12 @@ export function LiveProductOverlay() {
 
   const handleAddToCart = () => {
     if (currentProduct) {
-      addToCart(currentProduct);
+      // On ajoute au panier avec le PRIX SPÉCIAL LIVE
+      // (Assurez-vous que votre CartContext gère la surcharge de prix, sinon il prendra le prix catalogue)
+      addToCart({
+          ...currentProduct,
+          price: currentProduct.price // On force le prix promo
+      });
       toast.success('Ajouté au panier !');
       setIsVisible(false);
     }
@@ -97,22 +114,4 @@ export function LiveProductOverlay() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded animate-pulse">
-                EN DIRECT
-              </span>
-            </div>
-            <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-2 mb-1">
-              {currentProduct.name}
-            </h3>
-            <p className="text-[#D4AF37] font-bold text-lg">{currentProduct.price}€</p>
-          </div>
-        </div>
-
-        <Button onClick={handleAddToCart} className="w-full mt-3 bg-[#D4AF37] hover:bg-[#b8933d] text-white font-bold">
-          <ShoppingBag className="w-4 h-4 mr-2" />
-          Acheter maintenant
-        </Button>
-      </div>
-    </div>
-  );
-}
+              <span className="bg-red-600 text-white text-[10px] font-bold px-1.
