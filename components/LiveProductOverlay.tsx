@@ -1,119 +1,114 @@
 'use client';
 
-import { X } from 'lucide-react';
-import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { X, ShoppingBag } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useCart } from '@/context/CartContext';
+import { toast } from 'sonner';
 
 interface LiveProductOverlayProps {
-  product: {
-    id: string;
-    product_name: string;
-    product_image: string;
-    original_price: number;
-    promo_price: number;
-    live_sku: string;
-  };
-  onClose?: () => void;
-  showCloseButton?: boolean;
-  position?: 'bottom-left' | 'bottom-right';
+  liveStreamId: string;
 }
 
-export function LiveProductOverlay({
-  product,
-  onClose,
-  showCloseButton = false,
-  position = 'bottom-left',
-}: LiveProductOverlayProps) {
-  const [isHidden, setIsHidden] = useState(false);
+export function LiveProductOverlay({ liveStreamId }: LiveProductOverlayProps) {
+  const [currentProduct, setCurrentProduct] = useState<any>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const { addToCart } = useCart();
 
-  if (!product) return null;
-  if (isHidden) return null;
+  useEffect(() => {
+    // 1. On écoute les nouveaux produits partagés en temps réel
+    const channel = supabase
+      .channel('public:live_shared_products')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'live_shared_products',
+          filter: `live_stream_id=eq.${liveStreamId}`,
+        },
+        async (payload) => {
+          // Quand un produit est partagé, on récupère ses infos complètes
+          const { data: productData } = await supabase
+            .from('products')
+            .select('*')
+            .eq('id', payload.new.product_id)
+            .single();
 
-  const positionClasses = {
-    'bottom-left': 'bottom-6 left-6',
-    'bottom-right': 'bottom-6 right-6',
+          if (productData) {
+            setCurrentProduct(productData);
+            setIsVisible(true);
+
+            // Le popup disparaît tout seul après 15 secondes (optionnel)
+            setTimeout(() => setIsVisible(false), 15000);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [liveStreamId]);
+
+  const handleAddToCart = () => {
+    if (currentProduct) {
+      addToCart(currentProduct);
+      toast.success('Produit ajouté au panier !');
+    }
   };
 
-  const handleClose = () => {
-    setIsHidden(true);
-    onClose?.();
-  };
+  if (!currentProduct || !isVisible) return null;
 
   return (
-    <div
-      className={`absolute ${positionClasses[position]} animate-in fade-in slide-in-from-bottom-8 duration-500`}
-      style={{ zIndex: 100 }}
-    >
-      <div className="bg-white rounded-2xl shadow-2xl border-2 border-red-500 overflow-hidden max-w-sm w-80">
-        {showCloseButton && (
-          <button
-            onClick={handleClose}
-            className="absolute top-2 right-2 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors"
-            aria-label="Masquer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
+    <div className="fixed bottom-24 left-4 z-50 animate-in slide-in-from-bottom-10 fade-in duration-500">
+      <div className="relative bg-white rounded-xl shadow-2xl border-2 border-[#D4AF37] p-4 w-72 md:w-80">
+        
+        {/* Bouton Fermer */}
+        <button 
+          onClick={() => setIsVisible(false)}
+          className="absolute -top-2 -right-2 bg-gray-900 text-white rounded-full p-1 hover:bg-gray-700 shadow-md"
+        >
+          <X className="w-4 h-4" />
+        </button>
 
-        <div className="flex gap-4 p-4">
-          <div className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
-            {product.product_image ? (
-              <Image
-                src={product.product_image}
-                alt={product.product_name}
-                fill
-                className="object-cover"
-                unoptimized
-              />
+        <div className="flex gap-4">
+          {/* Image */}
+          <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200">
+            {currentProduct.image_url ? (
+              <img src={currentProduct.image_url} alt={currentProduct.name} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-gray-400">
-                <svg
-                  className="w-12 h-12"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
+                <ShoppingBag className="w-8 h-8" />
               </div>
             )}
-            <div className="absolute top-1 left-1 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded">
-              LIVE
-            </div>
           </div>
 
-          <div className="flex-1 flex flex-col justify-center min-w-0">
-            <h3 className="font-semibold text-gray-900 text-sm line-clamp-2 leading-tight mb-2">
-              {product.product_name}
-            </h3>
-
-            <div className="flex items-baseline gap-2 mb-3">
-              {product.original_price > product.promo_price && (
-                <span className="text-gray-400 line-through text-sm">
-                  {product.original_price.toFixed(2)}€
-                </span>
-              )}
-              <span className="text-red-600 font-bold text-2xl">
-                {product.promo_price.toFixed(2)}€
+          {/* Infos */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded animate-pulse">
+                À L'ÉCRAN
               </span>
             </div>
-
-            <button className="bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105">
-              Acheter
-            </button>
+            <h3 className="font-bold text-gray-900 text-sm leading-tight line-clamp-2 mb-1">
+              {currentProduct.name}
+            </h3>
+            <p className="text-[#D4AF37] font-bold text-lg">
+              {currentProduct.price}€
+            </p>
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-red-50 to-pink-50 px-4 py-2 border-t border-red-100">
-          <p className="text-xs text-gray-600 text-center">
-            ⚡ Offre limitée • Expire bientôt
-          </p>
-        </div>
+        {/* Bouton Action */}
+        <Button 
+          onClick={handleAddToCart}
+          className="w-full mt-3 bg-[#D4AF37] hover:bg-[#b8933d] text-white font-bold"
+        >
+          <ShoppingBag className="w-4 h-4 mr-2" />
+          Ajouter au panier
+        </Button>
       </div>
     </div>
   );
