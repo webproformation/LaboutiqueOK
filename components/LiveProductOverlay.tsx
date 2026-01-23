@@ -140,7 +140,7 @@ export function LiveProductOverlay() {
             </div>
           </div>
         </div>
-
+// Force update
         <Button onClick={handleAddToCart} className="w-full mt-3 bg-[#D4AF37] hover:bg-[#b8933d] text-white font-bold">
           <ShoppingBag className="w-4 h-4 mr-2" />
           Acheter maintenant
