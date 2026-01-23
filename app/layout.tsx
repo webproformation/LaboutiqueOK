@@ -3,12 +3,11 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Toaster } from 'sonner';
 
-// --- VOICI LES LIGNES QUI MANQUAIENT ---
+// --- CES LIGNES SONT INDISPENSABLES ---
 import { AuthProvider } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
-// ---------------------------------------
-
 import { LiveProductOverlay } from '@/components/LiveProductOverlay';
+// --------------------------------------
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -27,13 +26,8 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <CartProvider>
-            {/* Header, Contenu, Footer */}
             {children}
-            
-            {/* Popup Live */}
             <LiveProductOverlay />
-            
-            {/* Notifications */}
             <Toaster />
           </CartProvider>
         </AuthProvider>
