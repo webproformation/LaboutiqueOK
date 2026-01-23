@@ -74,7 +74,6 @@ export default function LiveConsolePage() {
   }
 
   async function loadSharedProducts() {
-    // On récupère les produits partagés ET leurs infos catalogue
     const { data } = await supabase
       .from('live_shared_products')
       .select(`
@@ -92,8 +91,6 @@ export default function LiveConsolePage() {
     if (data) setSharedProducts(data);
   }
 
-  // --- ACTIONS ---
-
   async function toggleLiveStatus() {
     if (!live) return;
     const newStatus = live.status === 'live' ? 'completed' : 'live';
@@ -106,12 +103,11 @@ export default function LiveConsolePage() {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
-    // On utilise l'utilisateur connecté (Admin)
     const { data: { user } } = await supabase.auth.getUser();
     
     await supabase.from('live_chat_messages').insert({
       live_stream_id: liveId,
-      user_id: user?.id, // Peut être null si on a désactivé RLS, mais mieux vaut l'avoir
+      user_id: user?.id,
       message: newMessage,
       is_pinned: true 
     });
@@ -126,8 +122,6 @@ export default function LiveConsolePage() {
     });
     toast.success(`Effet ${type} envoyé !`);
   }
-
-  // --- GESTION PRODUITS AVANCEE ---
 
   async function searchProducts(term: string) {
     setSearchTerm(term);
@@ -144,11 +138,10 @@ export default function LiveConsolePage() {
 
   function openProductConfig(product: any) {
     setSelectedProduct(product);
-    // On préremplit avec le prix de vente ou le prix régulier
     const currentPrice = product.sale_price || product.regular_price || 0;
     setPromoPrice(currentPrice.toString());
     setIsConfigOpen(true);
-    setSearchResults([]); // On ferme la recherche
+    setSearchResults([]);
   }
 
   async function addProductToLive() {
@@ -157,12 +150,11 @@ export default function LiveConsolePage() {
     const originalPrice = selectedProduct.sale_price || selectedProduct.regular_price || 0;
     const finalPromoPrice = parseFloat(promoPrice) || originalPrice;
 
-    // On insère dans la table de liaison avec le PRIX SPÉCIAL
     const { error } = await supabase.from('live_shared_products').insert({
       live_stream_id: liveId,
       product_id: selectedProduct.id,
       is_featured: true,
-      is_published: true, // Visible directement (ou mettre false pour "Préparer")
+      is_published: true,
       promo_price: finalPromoPrice,
       original_price: originalPrice
     });
@@ -230,12 +222,12 @@ export default function LiveConsolePage() {
         
         {/* COL GAUCHE (8/12) : VIDEO & AMBIANCE */}
         <div className="col-span-8 bg-black flex flex-col border-r border-gray-800">
-           {/* VIDEO */}
            <div className="flex-1 relative bg-gray-900 flex items-center justify-center">
              {live.playback_url ? (
                <iframe 
                  src={live.playback_url.replace('watch?v=', 'embed/').split('&')[0] + '?autoplay=1&mute=1&controls=0'}
                  className="w-full h-full pointer-events-none opacity-90"
+                 title="Retour vidéo"
                />
              ) : (
                <div className="text-gray-600 flex flex-col items-center">
@@ -245,7 +237,6 @@ export default function LiveConsolePage() {
              )}
            </div>
 
-           {/* BOUTONS AMBIANCE */}
            <div className="h-20 bg-gray-900 border-t border-gray-800 flex items-center justify-center gap-4">
               <span className="text-gray-500 text-xs uppercase font-bold tracking-wider mr-2">Ambiance :</span>
               <Button onClick={() => triggerEffect('heart')} className="bg-pink-600 rounded-full hover:scale-110 transition"><Heart className="w-5 h-5"/></Button>
@@ -264,9 +255,7 @@ export default function LiveConsolePage() {
               </TabsList>
             </div>
 
-            {/* TAB PRODUITS */}
             <TabsContent value="products" className="flex-1 flex flex-col overflow-hidden m-0 p-0">
-               {/* Recherche */}
                <div className="p-4 border-b border-gray-800 space-y-3">
                   <h3 className="text-sm font-semibold text-gray-400">Ajouter un produit</h3>
                   <div className="relative">
@@ -277,7 +266,6 @@ export default function LiveConsolePage() {
                         value={searchTerm}
                         onChange={(e) => searchProducts(e.target.value)}
                      />
-                     {/* Resultats Dropdown */}
                      {searchResults.length > 0 && (
                         <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-xl max-h-60 overflow-y-auto">
                            {searchResults.map(p => (
@@ -286,7 +274,7 @@ export default function LiveConsolePage() {
                                className="p-3 hover:bg-gray-700 cursor-pointer flex items-center gap-3 border-b border-gray-700/50"
                                onClick={() => openProductConfig(p)}
                              >
-                                <img src={p.image_url} className="w-10 h-10 object-cover rounded bg-white" />
+                                <img src={p.image_url} alt={p.name} className="w-10 h-10 object-cover rounded bg-white" />
                                 <div className="flex-1 min-w-0">
                                    <div className="font-bold text-sm truncate">{p.name}</div>
                                    <div className="text-xs text-gray-400">
@@ -301,14 +289,13 @@ export default function LiveConsolePage() {
                   </div>
                </div>
 
-               {/* Liste Produits Actifs */}
                <ScrollArea className="flex-1 p-4">
                   <h3 className="text-xs font-semibold text-gray-500 uppercase mb-3">En ligne ({sharedProducts.length})</h3>
                   <div className="space-y-3">
                      {sharedProducts.map(item => (
                        <div key={item.id} className={`bg-gray-800 rounded-lg p-3 border-l-4 ${item.is_published ? 'border-green-500' : 'border-gray-600 opacity-75'}`}>
                           <div className="flex gap-3">
-                             <img src={item.products?.image_url} className="w-12 h-12 rounded object-cover bg-white" />
+                             <img src={item.products?.image_url} alt={item.products?.name} className="w-12 h-12 rounded object-cover bg-white" />
                              <div className="flex-1 min-w-0">
                                 <div className="font-bold text-sm truncate">{item.products?.name}</div>
                                 <div className="flex items-center gap-2">
@@ -334,7 +321,6 @@ export default function LiveConsolePage() {
                </ScrollArea>
             </TabsContent>
 
-            {/* TAB CHAT */}
             <TabsContent value="chat" className="flex-1 flex flex-col overflow-hidden m-0">
                <div className="flex-1 overflow-y-auto p-4 space-y-3" ref={scrollRef}>
                   {messages.map(msg => (
@@ -362,7 +348,6 @@ export default function LiveConsolePage() {
         </div>
       </div>
 
-      {/* MODALE DE CONFIGURATION PRIX */}
       <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
         <DialogContent className="bg-gray-900 border-gray-800 text-white">
           <DialogHeader>
@@ -370,7 +355,7 @@ export default function LiveConsolePage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
              <div className="flex justify-center">
-                <img src={selectedProduct?.image_url} className="w-32 h-32 object-cover rounded-lg border border-gray-700" />
+                <img src={selectedProduct?.image_url} alt={selectedProduct?.name} className="w-32 h-32 object-cover rounded-lg border border-gray-700" />
              </div>
              <div>
                 <Label>Prix Spécial Live (€)</Label>
