@@ -150,15 +150,23 @@ export default function LiveConsolePage() {
   }
 
   async function shareProduct(product: any) {
-    await supabase.from('live_shared_products').insert({
+    // On insère avec is_published à TRUE explicitement
+    const { error } = await supabase.from('live_shared_products').insert({
       live_stream_id: liveId,
       product_id: product.id,
-      is_featured: true
+      is_featured: true,
+      is_published: true // <-- C'EST LA LIGNE CLÉ QUI MANQUAIT
     });
-    toast.success(`${product.name} affiché aux clients !`);
-    loadSharedProducts();
-    setSearchResults([]);
-    setSearchTerm('');
+
+    if (error) {
+      toast.error("Erreur partage");
+      console.error(error);
+    } else {
+      toast.success(`${product.name} envoyé à l'écran !`);
+      loadSharedProducts();
+      setSearchResults([]);
+      setSearchTerm('');
+    }
   }
 
   async function unshareProduct(sharedId: string) {

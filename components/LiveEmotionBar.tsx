@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Heart, Flame, Star } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Heart, Flame, Star, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
@@ -9,39 +9,49 @@ import { toast } from 'sonner';
 
 interface LiveEmotionBarProps {
   liveStreamId: string;
-  onEmotionSent?: (type: string) => void;
 }
 
-export function LiveEmotionBar({ liveStreamId, onEmotionSent }: LiveEmotionBarProps) {
+export function LiveEmotionBar({ liveStreamId }: LiveEmotionBarProps) {
   const { user } = useAuth();
   const [cooldown, setCooldown] = useState(false);
 
+  // Écouter les émotions des autres en temps réel
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:live_emotions')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'live_emotions',
+          filter: `live_stream_id=eq.${liveStreamId}`,
+        },
+        (payload) => {
+          // Quand une émotion arrive (de moi ou d'un autre), on lance l'animation
+          createParticle(payload.new.emotion_type);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [liveStreamId]);
+
   async function sendEmotion(type: 'heart' | 'fire' | 'star') {
-    if (!user) {
-      toast.error('Connectez-vous pour envoyer des émotions');
-      return;
-    }
-
     if (cooldown) return;
-
+    
+    // Animation locale immédiate (pour que ça soit réactif)
     setCooldown(true);
-    setTimeout(() => setCooldown(false), 1000);
+    setTimeout(() => setCooldown(false), 800);
 
-    const { error } = await supabase
-      .from('live_emotions')
-      .insert({
-        live_stream_id: liveStreamId,
-        user_id: user.id,
-        emotion_type: type
-      });
-
-    if (error) {
-      console.error('Error sending emotion:', error);
-      return;
-    }
-
-    onEmotionSent?.(type);
-    createParticle(type);
+    // On envoie à la base de données (si connecté ou non)
+    await supabase.from('live_emotions').insert({
+      live_stream_id: liveStreamId,
+      user_id: user?.id || null, // Autorise les anonymes si la base le permet
+      emotion_type: type
+    });
   }
 
   function createParticle(type: string) {
@@ -49,53 +59,42 @@ export function LiveEmotionBar({ liveStreamId, onEmotionSent }: LiveEmotionBarPr
     if (!container) return;
 
     const particle = document.createElement('div');
-    particle.className = 'emotion-particle';
-
-    const icons = {
-      heart: '❤️',
-      fire: '🔥',
-      star: '⭐'
-    };
-
-    particle.textContent = icons[type as keyof typeof icons];
-    particle.style.left = `${Math.random() * 100}%`;
-    particle.style.animationDuration = `${2 + Math.random() * 2}s`;
-
+    particle.className = 'emotion-particle fixed pointer-events-none z-[100] text-4xl animate-float-up';
+    
+    const icons: any = { heart: '❤️', fire: '🔥', star: '⭐', confetti: '🎉' };
+    particle.textContent = icons[type] || '✨';
+    
+    // Position aléatoire en bas de l'écran
+    particle.style.left = `${10 + Math.random() * 80}%`;
+    particle.style.bottom = '0px';
+    
     container.appendChild(particle);
 
-    setTimeout(() => particle.remove(), 4000);
+    // Nettoyage après l'animation
+    setTimeout(() => particle.remove(), 3000);
   }
 
   return (
     <>
-      <div id="emotion-particles" className="fixed inset-0 pointer-events-none z-50" />
+      <div id="emotion-particles" className="fixed inset-0 pointer-events-none overflow-hidden" />
+      <style jsx global>{`
+        @keyframes float-up {
+          0% { transform: translateY(0) scale(0.5); opacity: 0; }
+          10% { opacity: 1; transform: translateY(-20px) scale(1.2); }
+          100% { transform: translateY(-80vh) scale(1); opacity: 0; }
+        }
+        .animate-float-up { animation: float-up 3s ease-out forwards; }
+      `}</style>
 
-      <div className="flex items-center gap-3 bg-gradient-to-r from-pink-500/20 to-purple-500/20 backdrop-blur-sm rounded-full p-2 border-2 border-pink-400/30">
-        <Button
-          size="icon"
-          onClick={() => sendEmotion('heart')}
-          disabled={cooldown}
-          className="rounded-full bg-gradient-to-br from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 transition-all duration-300 transform hover:scale-110 disabled:opacity-50"
-        >
-          <Heart className="w-5 h-5 fill-white" />
+      <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md rounded-full p-1.5 border border-white/10 shadow-lg">
+        <Button size="icon" onClick={() => sendEmotion('heart')} disabled={cooldown} className="rounded-full bg-pink-500/80 hover:bg-pink-600 w-8 h-8">
+          <Heart className="w-4 h-4 text-white fill-white" />
         </Button>
-
-        <Button
-          size="icon"
-          onClick={() => sendEmotion('fire')}
-          disabled={cooldown}
-          className="rounded-full bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 transition-all duration-300 transform hover:scale-110 disabled:opacity-50"
-        >
-          <Flame className="w-5 h-5 fill-white" />
+        <Button size="icon" onClick={() => sendEmotion('fire')} disabled={cooldown} className="rounded-full bg-orange-500/80 hover:bg-orange-600 w-8 h-8">
+          <Flame className="w-4 h-4 text-white fill-white" />
         </Button>
-
-        <Button
-          size="icon"
-          onClick={() => sendEmotion('star')}
-          disabled={cooldown}
-          className="rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 transition-all duration-300 transform hover:scale-110 disabled:opacity-50"
-        >
-          <Star className="w-5 h-5 fill-white" />
+        <Button size="icon" onClick={() => sendEmotion('star')} disabled={cooldown} className="rounded-full bg-yellow-500/80 hover:bg-yellow-600 w-8 h-8">
+          <Star className="w-4 h-4 text-white fill-white" />
         </Button>
       </div>
     </>
