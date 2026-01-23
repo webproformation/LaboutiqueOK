@@ -1,11 +1,12 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter } from 'next/font/google'; // On garde Inter (plus moderne) ou remettez Pangolin si vous préférez
 import { Toaster } from 'sonner';
 
-// --- CES LIGNES SONT INDISPENSABLES ---
+// --- TOUS LES PROVIDERS NÉCESSAIRES ---
 import { AuthProvider } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
+import { WishlistProvider } from '@/context/WishlistContext'; // <--- C'EST LUI QUI MANQUAIT !
 import { LiveProductOverlay } from '@/components/LiveProductOverlay';
 // --------------------------------------
 
@@ -24,11 +25,18 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className={inter.className}>
+        {/* On empile les Providers pour que tout soit accessible partout */}
         <AuthProvider>
           <CartProvider>
-            {children}
-            <LiveProductOverlay />
-            <Toaster />
+            <WishlistProvider> {/* Le nouveau Provider ajouté */}
+              
+              {children}
+              
+              {/* Les composants globaux */}
+              <LiveProductOverlay />
+              <Toaster />
+
+            </WishlistProvider>
           </CartProvider>
         </AuthProvider>
       </body>
