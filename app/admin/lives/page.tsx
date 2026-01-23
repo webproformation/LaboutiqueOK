@@ -419,12 +419,19 @@ export default function AdminLivesPage() {
                   </div>
 
                   <div className="flex gap-2 pt-4 border-t">
-                    <Link href={`/admin/lives/${live.id}`} className="flex-1">
-                      <Button variant="outline" className="w-full" size="sm">
-                        <Edit className="h-4 w-4 mr-2" />
-                        Gérer
-                      </Button>
-                    </Link>
+                    <Link href={`/admin/lives/${live.id}/console`} className="flex-1"> {/* Nouveau lien vers la Console */}
+  <Button variant="outline" className="w-full bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200" size="sm">
+    <Video className="h-4 w-4 mr-2" />
+    Animer le Live
+  </Button>
+</Link>
+
+{/* On garde un petit bouton pour éditer les infos techniques si besoin */}
+<Link href={`/admin/lives/${live.id}`}>
+  <Button variant="ghost" size="icon">
+    <Edit className="h-4 w-4 text-gray-500" />
+  </Button>
+</Link>
 
                     {live.status === 'scheduled' && (
                       <Button
